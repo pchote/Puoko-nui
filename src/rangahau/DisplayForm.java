@@ -1,9 +1,9 @@
 /*
-* Copyright 2007-2010 The Authors (see AUTHORS)
-* This file is part of Rangahau, which is free software. It is made available
-* to you under the terms of version 3 of the GNU General Public License, as
-* published by the Free Software Foundation. For more information, see LICENSE.
-*/
+ * Copyright 2007-2010 The Authors (see AUTHORS)
+ * This file is part of Rangahau, which is free software. It is made available
+ * to you under the terms of version 3 of the GNU General Public License, as
+ * published by the Free Software Foundation. For more information, see LICENSE.
+ */
 
 /*
  * DisplayForm.java
@@ -140,19 +140,19 @@ public class DisplayForm extends javax.swing.JFrame {
 //            // handle exception
 //            throw new RuntimeException("Illegal Access occured when trying to load Nimbus Look & Feel.", e);
 //        }
- 
+
         initComponents();
-                
+
         utcTimeZone = TimeZone.getTimeZone("UTC");
-        
+
         model = new Model();
 //        model.setSimulatingHardware(true);
-        
+
         // Load any properties from the rangahau.properties file in the user's
         // home directory. This overwrites any settings in the application's
         // model for any properties that are found.
         model.loadPropertiesFromFile();
-        
+
         imageFactory = new EqualisedImageFactory();
         imageFactory.loadColourmapB();
 
@@ -165,7 +165,7 @@ public class DisplayForm extends javax.swing.JFrame {
         desiredExposureTime = model.getExposureTime();
         desiredExposureTimeSpinner.setValue(desiredExposureTime);
         setExposureTime(desiredExposureTime);
-        
+
         // Set the default destination path for saving files to the user's home 
         // directory if the model doesn't have a destination path set already.
         JFileChooser fileChooser = new JFileChooser();
@@ -174,15 +174,15 @@ public class DisplayForm extends javax.swing.JFrame {
             model.setDestinationPath(defaultDestinationPath);
         }
         destinationDirectoryField.setText(model.getDestinationPath());
-        
+
         // Set the default frame sequence number.
         frameNumberField.setValue(new Integer(1));
-        
+
         // If the image type being acquired is a Focus image then disable the
         // save images checkbox (since we shouldn't save focus images).
         String imageType = (String) imageTypeComboBox.getSelectedItem();
-        if ( (imageType != null) && imageType.equalsIgnoreCase("FOCUS")) {
-          saveImagesCheckbox.setEnabled(false);
+        if ((imageType != null) && imageType.equalsIgnoreCase("FOCUS")) {
+            saveImagesCheckbox.setEnabled(false);
         }
 
         // Indicate whether hardware is being simulated or not.
@@ -221,7 +221,7 @@ public class DisplayForm extends javax.swing.JFrame {
 
         lastImagePixels = pixels;
         BufferedImage image = (BufferedImage) imageFactory.generateImage(pixels);
-        
+
         if (imageCanvas == null) {
             imageCanvas = new ImageCanvas(image);
             imageScrollPane.getViewport().add(imageCanvas, BorderLayout.CENTER);
@@ -230,32 +230,32 @@ public class DisplayForm extends javax.swing.JFrame {
 
         // Flip the image so that pixel row 0 is at the bottom of the image, 
         // not at the top.
-        final int scaledWidth = (int) imageScale*image.getWidth();
-        final int scaledHeight = (int) imageScale*image.getHeight();
+        final int scaledWidth = (int) imageScale * image.getWidth();
+        final int scaledHeight = (int) imageScale * image.getHeight();
         BufferedImage flippedImage = new BufferedImage(scaledWidth, scaledHeight, image.getType());
 
         flippedImage.getGraphics().drawImage(image,
-                                       scaledWidth, scaledHeight, // first-point of destination
-                                       0, 0,                      // second-point of destination
-                                       0, 0,                                // first-point of source
-                                       image.getWidth(), image.getHeight(), // second-point of source
-                                       null);
+                scaledWidth, scaledHeight, // first-point of destination
+                0, 0, // second-point of destination
+                0, 0, // first-point of source
+                image.getWidth(), image.getHeight(), // second-point of source
+                null);
 
         image.getGraphics().dispose();
-        
+
         // If we are simulation mode then also indicate the time that the image
         // is scheduled for display.
         if (model.isSimulatingHardware()) {
             Graphics2D graphics = (Graphics2D) flippedImage.getGraphics();
-            Font font = new Font("System", Font.BOLD, 24);        
+            Font font = new Font("System", Font.BOLD, 24);
             graphics.setFont(font);
-        
+
             String imageStart = "Drawn at: " + formatter.format(new Date());
-        
+
             Rectangle2D bounds = graphics.getFontMetrics().getStringBounds(imageStart, graphics);
- 
+
             int offset = 100;
-            graphics.translate(flippedImage.getWidth()/2 - bounds.getWidth()/2, flippedImage.getHeight()/2 - bounds.getHeight()/2 + offset);
+            graphics.translate(flippedImage.getWidth() / 2 - bounds.getWidth() / 2, flippedImage.getHeight() / 2 - bounds.getHeight() / 2 + offset);
             //graphics.scale(1.0, -1.0);
 
             graphics.drawString(imageStart, 0, 0);
@@ -263,14 +263,14 @@ public class DisplayForm extends javax.swing.JFrame {
 
         imageCanvas.setFixedAspectRatio(fixedAspectRatioCheckbox.isSelected());
         imageCanvas.setImage(flippedImage);
-        
+
         // Since the image has changed we need to update the information in
         // the position and pixel intensity fields.
         showCurrentPosition();
 
         repaint(); // Indicate this component should be repainted.
         imageCanvas.repaint();
-        
+
         // Save the image to disk, but only of the user has chosen to save
         // images.
         if (saveImagesCheckbox.isSelected()) {
@@ -278,12 +278,13 @@ public class DisplayForm extends javax.swing.JFrame {
 
             final long start = startTime;
             final long gpsTime = gpsStartTime;
-            
-            final String imageType =  (String) imageTypeComboBox.getSelectedItem();
+
+            final String imageType = (String) imageTypeComboBox.getSelectedItem();
             final String comment = commentField.getText();
 
             final int[][] pixelValues = pixels;
             SwingUtilities.invokeLater(new Runnable() {
+
                 public void run() {
                     System.out.println("Saving image called " + filename);
                     model.saveImage(filename, pixelValues, start, gpsTime, imageType, comment);
@@ -297,35 +298,35 @@ public class DisplayForm extends javax.swing.JFrame {
         Measurement comparisonMeasurement = null;
 
         if (model.getTargetLocation() != null) {
-          Integer imageSeriesNumber = (Integer) frameNumberField.getValue();        
-          String seriesNumber = String.format("%04d", imageSeriesNumber.intValue());
-          String filename = model.getDestinationPath() + File.separator + seriesNumber;
+            Integer imageSeriesNumber = (Integer) frameNumberField.getValue();
+            String seriesNumber = String.format("%04d", imageSeriesNumber.intValue());
+            String filename = model.getDestinationPath() + File.separator + seriesNumber;
 
-          targetMeasurement = model.measure(filename, pixels, (int) model.getTargetLocation().getX(),
-                         (int) model.getTargetLocation().getX(), startTime, startTime + 1000*model.getExposureTime());
-          model.addTargetMeasurement(targetMeasurement);
-          System.out.println("Target total flux = " + targetMeasurement.getFlux()
-                             + ", central flux = " + targetMeasurement.getCentralFlux()
-                             + ", background = " + targetMeasurement.getBackground());
+            targetMeasurement = model.measure(filename, pixels, (int) model.getTargetLocation().getX(),
+                    (int) model.getTargetLocation().getX(), startTime, startTime + 1000 * model.getExposureTime());
+            model.addTargetMeasurement(targetMeasurement);
+            System.out.println("Target total flux = " + targetMeasurement.getFlux()
+                    + ", central flux = " + targetMeasurement.getCentralFlux()
+                    + ", background = " + targetMeasurement.getBackground());
         }
 
         if (model.getComparisonLocation() != null) {
-          Integer imageSeriesNumber = (Integer) frameNumberField.getValue();
-          String seriesNumber = String.format("%04d", imageSeriesNumber.intValue());
-          String filename = model.getDestinationPath() + File.separator + seriesNumber;
+            Integer imageSeriesNumber = (Integer) frameNumberField.getValue();
+            String seriesNumber = String.format("%04d", imageSeriesNumber.intValue());
+            String filename = model.getDestinationPath() + File.separator + seriesNumber;
 
-          comparisonMeasurement = model.measure(filename, pixels, (int) model.getComparisonLocation().getX(),
-                  (int) model.getComparisonLocation().getX(), startTime, startTime + 1000*model.getExposureTime());
-          model.addComparisonMeasurement(comparisonMeasurement);
-          System.out.println("Comparison total flux = " + comparisonMeasurement.getFlux()
-                             + ", central flux = " + comparisonMeasurement.getCentralFlux()
-                             + ", background = " + comparisonMeasurement.getBackground());
+            comparisonMeasurement = model.measure(filename, pixels, (int) model.getComparisonLocation().getX(),
+                    (int) model.getComparisonLocation().getX(), startTime, startTime + 1000 * model.getExposureTime());
+            model.addComparisonMeasurement(comparisonMeasurement);
+            System.out.println("Comparison total flux = " + comparisonMeasurement.getFlux()
+                    + ", central flux = " + comparisonMeasurement.getCentralFlux()
+                    + ", background = " + comparisonMeasurement.getBackground());
         }
 
         // Update the display of target and comparison measurements.
         // TODO - 
     }
-    
+
     /**
      * Generates a filename that is describes the image to be saved to disk as
      * part of a series of images.
@@ -336,10 +337,10 @@ public class DisplayForm extends javax.swing.JFrame {
 
         // Get the image number within the series. This number should be 
         // 4 digits in length (zeroes are prepended if necessary).
-        Integer imageSeriesNumber = (Integer) frameNumberField.getValue();        
+        Integer imageSeriesNumber = (Integer) frameNumberField.getValue();
         String seriesNumber = String.format("%04d", imageSeriesNumber.intValue());
         String filename = null;
-        
+
         String imageType = (String) imageTypeComboBox.getSelectedItem();
         if (imageType.equalsIgnoreCase("FOCUS")) {
             filename = "focus" + seriesNumber + ".fit.gz";
@@ -349,13 +350,13 @@ public class DisplayForm extends javax.swing.JFrame {
         }
         if (imageType.equalsIgnoreCase("FLAT")) {
             filename = "flat" + seriesNumber + ".fit.gz";
-        }  
+        }
         if (imageType.equalsIgnoreCase("TARGET")) {
             filename = model.getTarget() + "_" + seriesNumber + ".fit.gz";
-        } 
+        }
         // Increment the image series number in preparation for the next observation.
         frameNumberField.setValue(new Integer(imageSeriesNumber.intValue() + 1));
-        
+
         return filename;
     }
 
@@ -839,10 +840,10 @@ public class DisplayForm extends javax.swing.JFrame {
     private void exitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exitButtonActionPerformed
 
         try {
-          model.releaseResources();
-        } catch(Throwable th) {
-          th.printStackTrace(System.err);
-          // Ignore shutdown problems.
+            model.releaseResources();
+        } catch (Throwable th) {
+            th.printStackTrace(System.err);
+            // Ignore shutdown problems.
         }
 
         setVisible(false);
@@ -874,12 +875,12 @@ public class DisplayForm extends javax.swing.JFrame {
     }//GEN-LAST:event_imageScrollPaneMouseMoved
 
     private void currentExposureTimeFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_currentExposureTimeFieldActionPerformed
-    // TODO add your handling code here:
+        // TODO add your handling code here:
 }//GEN-LAST:event_currentExposureTimeFieldActionPerformed
 
     private void setExposureTimeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_setExposureTimeButtonActionPerformed
         desiredExposureTime = ((Integer) desiredExposureTimeSpinner.getValue());
-        setExposureTime(desiredExposureTime);        
+        setExposureTime(desiredExposureTime);
     }//GEN-LAST:event_setExposureTimeButtonActionPerformed
 
 private void destinationDirectoryFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_destinationDirectoryFieldActionPerformed
@@ -890,7 +891,7 @@ private void browseDestinationButtonActionPerformed(java.awt.event.ActionEvent e
     // Display a file selection dialog, point it at the current selected destination
     // directory (if any).
     JFileChooser destinationPathChooser = null;
-    if ( (model != null) && (model.getDestinationPath() != null) && (model.getDestinationPath().trim().length() > 0) ) {
+    if ((model != null) && (model.getDestinationPath() != null) && (model.getDestinationPath().trim().length() > 0)) {
         // There is an existing destination directory.
         destinationPathChooser = new JFileChooser(model.getDestinationPath());
     } else {
@@ -898,14 +899,14 @@ private void browseDestinationButtonActionPerformed(java.awt.event.ActionEvent e
         // default destination directory.
         destinationPathChooser = new JFileChooser();
     }
-    
+
     destinationPathChooser.setDialogType(JFileChooser.CUSTOM_DIALOG);
     destinationPathChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
     destinationPathChooser.setDialogTitle("Select a destination directory");
     destinationPathChooser.setApproveButtonText("Select");
     destinationPathChooser.setApproveButtonToolTipText("Selects the current directory as the destination to save images to");
     int userChoice = destinationPathChooser.showDialog(this, "Select");
-    
+
     // If the user chose a directory then put the selected directory in the
     // destination directory field and remember this directory.
     if (userChoice == JFileChooser.APPROVE_OPTION) {
@@ -913,7 +914,7 @@ private void browseDestinationButtonActionPerformed(java.awt.event.ActionEvent e
         destinationDirectoryField.setText(path);
         if (model != null) {
             model.setDestinationPath(path);
-            
+
             // Save the application properties so this change is permanent.
             model.savePropertiesToFile();
         }
@@ -931,38 +932,38 @@ private void settingsButtonActionPerformed(java.awt.event.ActionEvent evt) {//GE
 
     // Once the dialog has been hidden we no longer want it so it should be
     // disposed of.
-    dialog.addComponentListener(new ComponentAdapter() {     
+    dialog.addComponentListener(new ComponentAdapter() {
+
         public void componentHidden(ComponentEvent event) {
             JDialog thisDialog = (JDialog) event.getComponent();
             thisDialog.dispose();
         }
     });
-        
-    dialog.setVisible(true);  
+
+    dialog.setVisible(true);
 }//GEN-LAST:event_settingsButtonActionPerformed
 
 private void imageTypeComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_imageTypeComboBoxActionPerformed
-    // Disable certain controls when the image type is changed.
-    String selection = (String) imageTypeComboBox.getSelectedItem();
-    
-    // We cannot save images in focus mode.
-    if ( (selection != null) && selection.equalsIgnoreCase("FOCUS")) {
-        saveImagesCheckbox.setEnabled(false);
-    } else {
-        saveImagesCheckbox.setEnabled(true);
-    }
-}
-//GEN-LAST:event_imageTypeComboBoxActionPerformed
+        // Disable certain controls when the image type is changed.
+        String selection = (String) imageTypeComboBox.getSelectedItem();
 
+        // We cannot save images in focus mode.
+        if ((selection != null) && selection.equalsIgnoreCase("FOCUS")) {
+            saveImagesCheckbox.setEnabled(false);
+        } else {
+            saveImagesCheckbox.setEnabled(true);
+        }
+    }
+//GEN-LAST:event_imageTypeComboBoxActionPerformed
 private void markTargetButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_markTargetButtonActionPerformed
     inMarkTargetMode = markTargetButton.isSelected();
-    
+
     markComparisonButton.setEnabled(!inMarkTargetMode);
 }//GEN-LAST:event_markTargetButtonActionPerformed
 
 private void markComparisonButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_markComparisonButtonActionPerformed
     inMarkComparisonMode = markComparisonButton.isSelected();
-    
+
     markTargetButton.setEnabled(!inMarkComparisonMode);
 }//GEN-LAST:event_markComparisonButtonActionPerformed
 
@@ -1004,11 +1005,11 @@ private void imageScrollPaneMouseClicked(java.awt.event.MouseEvent evt) {//GEN-F
     // If we are in a mode where we mark the target star then record the 
     // selected coordinates.
     if (inMarkTargetMode) {
-        if ( !validLocation || (evt.getButton() != evt.BUTTON1) ) {
+        if (!validLocation || (evt.getButton() != evt.BUTTON1)) {
             // The user either clicked out side the image or clicked with
             // a button other than the left button. This means they want to
             // clear the target location.
-             model.setTargetLocation(null);
+            model.setTargetLocation(null);
         } else {
             // The mouse was clicked on an object, so record the location of
             // this object.
@@ -1020,11 +1021,11 @@ private void imageScrollPaneMouseClicked(java.awt.event.MouseEvent evt) {//GEN-F
     // If we are in a mode where we are marking the comparison star then record 
     // the selected coordinates.
     if (inMarkComparisonMode) {
-        if ( !validLocation || (evt.getButton() != evt.BUTTON1) ) {
+        if (!validLocation || (evt.getButton() != evt.BUTTON1)) {
             // The user either clicked out side the image or clicked with
             // a button other than the left button. This means they want to
             // clear the comparison location.
-             model.setComparisonLocation(null);
+            model.setComparisonLocation(null);
         } else {
             // The mouse was clicked on an object, so record the location of
             // this object.
@@ -1032,7 +1033,7 @@ private void imageScrollPaneMouseClicked(java.awt.event.MouseEvent evt) {//GEN-F
             model.setComparisonLocation(comparisonLocation);
         }
     }
-    
+
     // Show the updated position as soon as we can.
     if (imageCanvas != null) {
         imageCanvas.repaint();
@@ -1040,93 +1041,93 @@ private void imageScrollPaneMouseClicked(java.awt.event.MouseEvent evt) {//GEN-F
 }//GEN-LAST:event_imageScrollPaneMouseClicked
 
 private void commentFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_commentFieldActionPerformed
-  // TODO add your handling code here:
+    // TODO add your handling code here:
 }//GEN-LAST:event_commentFieldActionPerformed
 
 private void simulateHardwareButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_simulateHardwareButtonActionPerformed
-  boolean simulating = simulateHardwareButton.isSelected();
-  model.setSimulatingHardware(simulating);
+    boolean simulating = simulateHardwareButton.isSelected();
+    model.setSimulatingHardware(simulating);
 
-  // Close and re-initialise the hardware (or simulated hardware) to reflect
-  // whether simulation mode was selected or not.
-  model.releaseResources();
+    // Close and re-initialise the hardware (or simulated hardware) to reflect
+    // whether simulation mode was selected or not.
+    model.releaseResources();
 
-  final long sleepEndTime = System.currentTimeMillis() + 1000;
-  while (System.currentTimeMillis() < sleepEndTime) {
-    try {
-      Thread.sleep(10);
-    } catch(Throwable th) {
-      // Ignore interruptions.
+    final long sleepEndTime = System.currentTimeMillis() + 1000;
+    while (System.currentTimeMillis() < sleepEndTime) {
+        try {
+            Thread.sleep(10);
+        } catch (Throwable th) {
+            // Ignore interruptions.
+        }
     }
-  }
 
-  model.initialiseImageSource();
+    model.initialiseImageSource();
 }//GEN-LAST:event_simulateHardwareButtonActionPerformed
 
 private void resetButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_resetButtonActionPerformed
-  // Close and re-initialise the hardware.
-  model.releaseResources();
+    // Close and re-initialise the hardware.
+    model.releaseResources();
 
-  final long sleepEndTime = System.currentTimeMillis() + 1000;
-  while (System.currentTimeMillis() < sleepEndTime) {
-    try {
-      Thread.sleep(10);
-    } catch(Throwable th) {
-      // Ignore interruptions.
+    final long sleepEndTime = System.currentTimeMillis() + 1000;
+    while (System.currentTimeMillis() < sleepEndTime) {
+        try {
+            Thread.sleep(10);
+        } catch (Throwable th) {
+            // Ignore interruptions.
+        }
     }
-  }
 
-  model.initialiseImageSource();
+    model.initialiseImageSource();
 
 }//GEN-LAST:event_resetButtonActionPerformed
 
 private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) {//GEN-FIRST:event_imageScrollPaneMouseWheelMoved
-  int numClicks = evt.getWheelRotation();
+    int numClicks = evt.getWheelRotation();
 
-  // Positive numbers are when the mouse wheel was rotated toward the user and
-  // are used for zoom out (increasing scale).
-  imageScale += 0.5 * numClicks;
+    // Positive numbers are when the mouse wheel was rotated toward the user and
+    // are used for zoom out (increasing scale).
+    imageScale += 0.5 * numClicks;
 
-  final double minImageScale = 1.0;
-  final double maxImageScale = 20.0;
+    final double minImageScale = 1.0;
+    final double maxImageScale = 20.0;
 
-  if (imageScale < minImageScale) {
-    imageScale = minImageScale;
-  }
+    if (imageScale < minImageScale) {
+        imageScale = minImageScale;
+    }
 
-  if (imageScale > maxImageScale) {
-    imageScale = maxImageScale;
-  }
+    if (imageScale > maxImageScale) {
+        imageScale = maxImageScale;
+    }
 
-  // Redraw the image with the new scale.
-  if (lastImagePixels == null) {
-    return; // Nothing to do.
-  }
-  BufferedImage image = (BufferedImage) imageFactory.generateImage(lastImagePixels);
+    // Redraw the image with the new scale.
+    if (lastImagePixels == null) {
+        return; // Nothing to do.
+    }
+    BufferedImage image = (BufferedImage) imageFactory.generateImage(lastImagePixels);
 
-  if (imageCanvas == null) {
-    imageCanvas = new ImageCanvas(image);
-    imageScrollPane.getViewport().add(imageCanvas, BorderLayout.CENTER);
-    imageCanvas.setModel(model);
-  }
+    if (imageCanvas == null) {
+        imageCanvas = new ImageCanvas(image);
+        imageScrollPane.getViewport().add(imageCanvas, BorderLayout.CENTER);
+        imageCanvas.setModel(model);
+    }
 
-  // Flip the image so that pixel row 0 is at the bottom of the image,
-  // not at the top.
-  final int scaledWidth = (int) imageScale*image.getWidth();
-  final int scaledHeight = (int) imageScale*image.getHeight();
-  BufferedImage flippedImage = new BufferedImage(scaledWidth, scaledHeight, image.getType());
-  
-  flippedImage.getGraphics().drawImage(image,
-          0, scaledHeight,                     // first-point of destination
-          scaledWidth, 0,                      // second-point of destination
-          0, 0,                                // first-point of source
-          image.getWidth(), image.getHeight(), // second-point of source
-          null);
+    // Flip the image so that pixel row 0 is at the bottom of the image,
+    // not at the top.
+    final int scaledWidth = (int) imageScale * image.getWidth();
+    final int scaledHeight = (int) imageScale * image.getHeight();
+    BufferedImage flippedImage = new BufferedImage(scaledWidth, scaledHeight, image.getType());
 
-  image.getGraphics().dispose();
-  
-  // If we are simulation mode then also indicate the time that the image
-  // is scheduled for display.
+    flippedImage.getGraphics().drawImage(image,
+            0, scaledHeight, // first-point of destination
+            scaledWidth, 0, // second-point of destination
+            0, 0, // first-point of source
+            image.getWidth(), image.getHeight(), // second-point of source
+            null);
+
+    image.getGraphics().dispose();
+
+    // If we are simulation mode then also indicate the time that the image
+    // is scheduled for display.
 //  if (model.isSimulatingHardware()) {
 //    Graphics2D graphics = (Graphics2D) flippedImage.getGraphics();
 //    Font font = new Font("System", Font.BOLD, 24);
@@ -1143,15 +1144,15 @@ private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) 
 //    graphics.drawString(imageStart, 0, 0);
 //  }
 
-  imageCanvas.setFixedAspectRatio(fixedAspectRatioCheckbox.isSelected());
-  imageCanvas.setImage(flippedImage);
+    imageCanvas.setFixedAspectRatio(fixedAspectRatioCheckbox.isSelected());
+    imageCanvas.setImage(flippedImage);
 
-  // Since the image has changed we need to update the information in
-  // the position and pixel intensity fields.
-  //showCurrentPosition();
+    // Since the image has changed we need to update the information in
+    // the position and pixel intensity fields.
+    //showCurrentPosition();
 
-  repaint(); // Indicate this component should be repainted.
-  imageCanvas.repaint();
+    repaint(); // Indicate this component should be repainted.
+    imageCanvas.repaint();
 }//GEN-LAST:event_imageScrollPaneMouseWheelMoved
 
     /**
@@ -1179,7 +1180,7 @@ private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) 
         }
 
         model.setExposureTime(exposure);
-        
+
         // Indicate that the exposure time has been changed.
         currentExposureTimeField.setText(Integer.toString(exposure));
 
@@ -1199,7 +1200,7 @@ private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) 
         simulateHardwareButton.setEnabled(false);
         resetButton.setEnabled(false);
         exitButton.setEnabled(false);
-        
+
         // Ensure the hardware is set up for acquisitions.
         if (!model.isImageSourceInitialised()) {
             model.initialiseImageSource();
@@ -1207,13 +1208,13 @@ private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) 
 
         // If an acquisition thread is already running we don't need to do anything.
         if (acquisitionThread == null) {
-          String imageType = (String) imageTypeComboBox.getSelectedItem();
-          if ( (imageType == null) || (imageType.equalsIgnoreCase("Focus")) ) {
-            acquisitionThread = new FocusThread(this, model);
-          } else {
-            //acquisitionThread = new AcquisitionThread(this, model);
-            acquisitionThread = new FastAcquisitionThread(this, model);
-          }
+            String imageType = (String) imageTypeComboBox.getSelectedItem();
+            if ((imageType == null) || (imageType.equalsIgnoreCase("Focus"))) {
+                acquisitionThread = new FocusThread(this, model);
+            } else {
+                //acquisitionThread = new AcquisitionThread(this, model);
+                acquisitionThread = new FastAcquisitionThread(this, model);
+            }
 
             acquisitionThread.start();
         }
@@ -1231,28 +1232,28 @@ private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) 
         simulateHardwareButton.setEnabled(true);
         resetButton.setEnabled(true);
         exitButton.setEnabled(true);
-        
+
         if (acquisitionThread != null) {
             acquisitionThread.shouldStop();
 
             // Wait until the thread has actually stopped.
             System.out.println("Waiting for acquisition thread to finish ... : main thread Id = " + Thread.currentThread().getId());
             long endTime = System.currentTimeMillis() + 3000;
-            while (!acquisitionThread.finished() && (System.currentTimeMillis() < endTime) ) {
+            while (!acquisitionThread.finished() && (System.currentTimeMillis() < endTime)) {
                 Thread.yield();
-            //try {
-            //     Thread.sleep(10);
-            //} catch (InterruptedException ex) {
-            //    // Ignore interruptions.
-            //}
+                //try {
+                //     Thread.sleep(10);
+                //} catch (InterruptedException ex) {
+                //    // Ignore interruptions.
+                //}
             }
 
             System.out.println("Acquisition thread has finished.");
         }
 
         // Stop acquisitions.
-        if ( (model != null) && (model.getCamera() != null) ) {
-          model.getCamera().stopAcquisition();
+        if ((model != null) && (model.getCamera() != null)) {
+            model.getCamera().stopAcquisition();
         }
 
         acquisitionThread = null; // We no longer own the acquisition thread.
@@ -1374,8 +1375,6 @@ private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) 
   private javax.swing.JTextField yField;
   private javax.swing.JLabel yLabel;
   // End of variables declaration//GEN-END:variables
-    
-    
 
     /**
      * The desired exposure time (in seconds). This desired exposure time will
@@ -1396,11 +1395,11 @@ private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) 
      * @param syncTime the time of the last sync pulse from the timing unit.
      */
     public void showSyncTime(Date syncTime) {
-      SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-      formatter.setTimeZone(utcTimeZone);
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        formatter.setTimeZone(utcTimeZone);
 
-      String time = formatter.format(syncTime);
-      syncTimeField.setText(time);
+        String time = formatter.format(syncTime);
+        syncTimeField.setText(time);
     }
 
     /**
@@ -1409,10 +1408,10 @@ private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) 
      * @param gpsTime the time of the last gps pulse from the timing unit.
      */
     public void showGpsTime(Date gpsTime) {
-      SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-      formatter.setTimeZone(utcTimeZone);
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        formatter.setTimeZone(utcTimeZone);
 
-      String time = formatter.format(gpsTime);
-      gpsTimeField.setText(time);
+        String time = formatter.format(gpsTime);
+        gpsTimeField.setText(time);
     }
 }

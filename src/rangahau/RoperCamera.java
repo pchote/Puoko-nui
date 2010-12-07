@@ -1,10 +1,9 @@
 /*
-* Copyright 2007-2010 The Authors (see AUTHORS)
-* This file is part of Rangahau, which is free software. It is made available
-* to you under the terms of version 3 of the GNU General Public License, as
-* published by the Free Software Foundation. For more information, see LICENSE.
-*/
-
+ * Copyright 2007-2010 The Authors (see AUTHORS)
+ * This file is part of Rangahau, which is free software. It is made available
+ * to you under the terms of version 3 of the GNU General Public License, as
+ * published by the Free Software Foundation. For more information, see LICENSE.
+ */
 package rangahau;
 
 /**
@@ -19,34 +18,34 @@ package rangahau;
  * @author Mike Reid
  */
 public class RoperCamera implements Camera {
-    
+
     // Load the attached JNI library.
     static {
         System.loadLibrary("ropercamera");
     }
-    
+
     /**
      * Indicates whether the camera has been opened for use.
      */
     private boolean isOpen = false;
-    
+
     /**
      * The camera 'handle' used by the underling native library.
      */
     private int handle = -1;
-    
+
     /**
      * The width (number of columns) of the images produced by this camera 
      * (measured in pixels)
      */
     private int imageWidth = -1;
-    
+
     /**
      * The height (number of rows) of the images produced by this camera 
      * (measured in pixels).
      */
     private int imageHeight = -1;
-            
+
     /**
      * Opens the camera and prepares it for use.
      * 
@@ -56,7 +55,7 @@ public class RoperCamera implements Camera {
         handle = nativeOpen(identifier);
         isOpen = true;
     }
-    
+
     /**
      * Closes the camera and releases any resources it was using. It is safe to
      * call close() multiple times and even if the camera has not yet been opened
@@ -67,11 +66,11 @@ public class RoperCamera implements Camera {
             // The camera is not open, so we don't need to do anything.
             return;
         }
-        
+
         nativeClose(handle);
         isOpen = false;
-    };
-    
+    }
+
     /**
      * Gets the width (number of columns) of the images produced by the camera 
      * (in pixels). 
@@ -84,7 +83,7 @@ public class RoperCamera implements Camera {
         if (!isOpen) {
             throw new IllegalStateException("Cannot get the camera image width as the camera has not yet been opened.");
         }
-        
+
         /**
          * If we already know the camera image width we can return it without
          * having to query the underlying library value.
@@ -92,12 +91,12 @@ public class RoperCamera implements Camera {
         if (imageWidth > 0) {
             return imageWidth;
         }
-        
+
         imageWidth = nativeGetWidth(handle);
-            
+
         return imageWidth;
-    };
-    
+    }
+
     /**
      * Gets the height (number of rows) of the images produced by the camera 
      * (in pixels).
@@ -110,7 +109,7 @@ public class RoperCamera implements Camera {
         if (!isOpen) {
             throw new IllegalStateException("Cannot get the camera image height as the camera has not yet been opened.");
         }
-        
+
         /**
          * If we already know the camera image height we can return it without
          * having to query the underlying library value.
@@ -118,12 +117,12 @@ public class RoperCamera implements Camera {
         if (imageHeight > 0) {
             return imageHeight;
         }
-        
+
         imageHeight = nativeGetHeight(handle);
-            
+
         return imageHeight;
     }
-    
+
     /**
      * Starts the acquisition of an image with the camera. 
      * 
@@ -133,7 +132,7 @@ public class RoperCamera implements Camera {
         if (!isOpen) {
             throw new IllegalStateException("Cannot start an image acqusition as the camera has not yet been opened.");
         }
-        
+
         nativeStartAcquisition(handle);
     }
 
@@ -159,11 +158,11 @@ public class RoperCamera implements Camera {
     public boolean isImageReady() {
         if (!isOpen) {
             throw new IllegalStateException("Cannot determine whether an image has been acquired as the camera has not yet been opened.");
-        }     
-        
+        }
+
         return nativeIsImageReady(handle);
     }
-    
+
     /**
      * Obtains the image pixels obtained from the last acquisition and 
      * places them in the array pointed to by pixels. Each element of the
@@ -186,36 +185,35 @@ public class RoperCamera implements Camera {
         if (pixels == null) {
             throw new IllegalArgumentException("Cannot get the image as the destination pixels array was null.");
         }
-        int pixelsRequired = getWidth()*getHeight();
+        int pixelsRequired = getWidth() * getHeight();
         if (pixels.length < pixelsRequired) {
-            throw new IllegalArgumentException("Cannot get the image as the destination pixels array is too small (it has " 
-                                               + pixels.length + " elements when this camera has images with " + pixelsRequired + " pixels).");
+            throw new IllegalArgumentException("Cannot get the image as the destination pixels array is too small (it has "
+                    + pixels.length + " elements when this camera has images with " + pixelsRequired + " pixels).");
         }
         if (!isOpen) {
             throw new IllegalStateException("Cannot determine whether an image has been acquired as the camera has not yet been opened.");
-        }     
-        
-        nativeGetImage(handle, pixels);        
+        }
+
+        nativeGetImage(handle, pixels);
     }
-    
+
     /**
      * Removes all images that may be buffered on the camera. The next call to
      * isImageReady() should return false, although this not strictly true if
      * a camera is acquiring images in the background.
      */
     public void purgeImages() {
-        final int numPixels = getWidth()*getHeight();
+        final int numPixels = getWidth() * getHeight();
         int[] pixels = new int[numPixels];
-        
+
         // Grab all images but don't do anything with them (just dump them).
         while (isImageReady()) {
             getImage(pixels);
         }
-        
+
         // There should be no images left in the camera's buffers.
     }
 
-    
     /**
      * Implements the open() method by calling a function in the underlying 
      * native library.
@@ -226,7 +224,7 @@ public class RoperCamera implements Camera {
      *         the camera that was opened.
      */
     native int nativeOpen(String identifier);
-    
+
     /**
      * Implements the close() method by calling a function in the underlying
      * native library.
@@ -235,7 +233,7 @@ public class RoperCamera implements Camera {
      *        underlying native library.
      */
     native void nativeClose(int cameraHandle);
-    
+
     /**
      * Implements the getWidth() method by calling a function in the underlying
      * native library.
@@ -247,7 +245,7 @@ public class RoperCamera implements Camera {
      *         (measured in pixels).
      */
     native int nativeGetWidth(int cameraHandle);
-    
+
     /**
      * Implements the getHeight() method by calling a function in the underlying
      * native library.
@@ -289,12 +287,12 @@ public class RoperCamera implements Camera {
      *        underlying native library.
      */
     native boolean nativeIsImageReady(int cameraHandle);
-    
+
     /**
      * Implements the getImage() method by calling a function in the underlying
      * native library.
      * 
-       @param cameraHandle the handle that identifies the camera to the 
+    @param cameraHandle the handle that identifies the camera to the
      *        underlying native library. 
      * 
      * @param pixels the destination to place the image pixels in.

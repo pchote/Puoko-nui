@@ -1,20 +1,14 @@
 /*
-* Copyright 2007-2010 The Authors (see AUTHORS)
-* This file is part of Rangahau, which is free software. It is made available
-* to you under the terms of version 3 of the GNU General Public License, as
-* published by the Free Software Foundation. For more information, see LICENSE.
-*/
-
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright 2007-2010 The Authors (see AUTHORS)
+ * This file is part of Rangahau, which is free software. It is made available
+ * to you under the terms of version 3 of the GNU General Public License, as
+ * published by the Free Software Foundation. For more information, see LICENSE.
  */
-
 package rangahau;
 
 /**
  *
- * @author reid
+ * @author Mike Reid
  */
 public class Main {
 
@@ -24,12 +18,13 @@ public class Main {
     public static void main(String[] args) {
         Main application = new Main();
     }
-    
+
     /**
      * Constructs and new Main application object.
      */
     public Main() {
         java.awt.EventQueue.invokeLater(new Runnable() {
+
             public void run() {
                 new DisplayForm().setVisible(true);
             }

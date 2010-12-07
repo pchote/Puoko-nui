@@ -1,10 +1,9 @@
 /*
-* Copyright 2007-2010 The Authors (see AUTHORS)
-* This file is part of Rangahau, which is free software. It is made available
-* to you under the terms of version 3 of the GNU General Public License, as
-* published by the Free Software Foundation. For more information, see LICENSE.
-*/
-
+ * Copyright 2007-2010 The Authors (see AUTHORS)
+ * This file is part of Rangahau, which is free software. It is made available
+ * to you under the terms of version 3 of the GNU General Public License, as
+ * published by the Free Software Foundation. For more information, see LICENSE.
+ */
 package rangahau;
 
 import javax.swing.JDialog;
@@ -16,17 +15,16 @@ import javax.swing.JDialog;
  * @author  Mike Reid
  */
 public class SettingsPanel extends javax.swing.JPanel {
-    
+
     /**
      * The application model.
      */
     private Model model = null;
-        
     /**
      * The dialog window that hosts this panel.
      */
     private JDialog dialog = null;
-     
+
     /** Creates new form SettingsPanel */
     public SettingsPanel(Model model, JDialog dialog) {
         if (model == null) {
@@ -36,15 +34,15 @@ public class SettingsPanel extends javax.swing.JPanel {
             throw new IllegalArgumentException("Cannot create a SettingsPanel as the dialog given was null.");
         }
         initComponents();
-        
+
         this.model = model;
         this.dialog = dialog;
-        
+
         // Load any properties from the rangahau.properties file in the user's
         // home directory. This overwrites any settings in the application's
         // model for any properties that are found.
         model.loadPropertiesFromFile();
-        
+
         showSettings();
     }
 
@@ -52,18 +50,18 @@ public class SettingsPanel extends javax.swing.JPanel {
      * Shows the application model's current settings in this panel.
      */
     public void showSettings() {
-        
+
         targetField.setText(model.getTarget());
         runField.setText(model.getRun());
         observersField.setText(model.getObservers());
         observatoryField.setText(model.getObservatory());
         telescopeField.setText(model.getTelescope());
         instrumentField.setText(model.getInstrument());
-        
+
         // Show this panel.
         setVisible(true);
     }
-    
+
     /**
      * Update the application model's settings using the value shown in this
      * panel. 
@@ -76,7 +74,7 @@ public class SettingsPanel extends javax.swing.JPanel {
         model.setTelescope(telescopeField.getText());
         model.setInstrument(instrumentField.getText());
     }
-    
+
     /** This method is called from within the constructor to
      * initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is
@@ -214,13 +212,13 @@ public class SettingsPanel extends javax.swing.JPanel {
 
 private void acceptButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_acceptButtonActionPerformed
     // The user wishes to close the settings panel and use the edits they have//GEN-LAST:event_acceptButtonActionPerformed
-    // make.
-    dialog.setVisible(false);
-    setSettings();
-    
-    // Save the current settings permanently to disk.
-    model.savePropertiesToFile();
-}
+        // make.
+        dialog.setVisible(false);
+        setSettings();
+
+        // Save the current settings permanently to disk.
+        model.savePropertiesToFile();
+    }
 
 private void closeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_closeButtonActionPerformed
 
@@ -229,8 +227,6 @@ private void closeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-F
     dialog.setVisible(false);
     showSettings(); // Discard the settings by reloading the settings from the model.
 }//GEN-LAST:event_closeButtonActionPerformed
-
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton acceptButton;
     private javax.swing.JButton closeButton;
@@ -248,5 +244,4 @@ private void closeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-F
     private javax.swing.JLabel telescopeLabel;
     private javax.swing.JLabel titleLabel;
     // End of variables declaration//GEN-END:variables
-
 }

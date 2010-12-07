@@ -1,10 +1,9 @@
 /*
-* Copyright 2007-2010 The Authors (see AUTHORS)
-* This file is part of Rangahau, which is free software. It is made available
-* to you under the terms of version 3 of the GNU General Public License, as
-* published by the Free Software Foundation. For more information, see LICENSE.
-*/
-
+ * Copyright 2007-2010 The Authors (see AUTHORS)
+ * This file is part of Rangahau, which is free software. It is made available
+ * to you under the terms of version 3 of the GNU General Public License, as
+ * published by the Free Software Foundation. For more information, see LICENSE.
+ */
 package rangahau;
 
 import java.awt.geom.Point2D;
@@ -36,17 +35,17 @@ import nom.tam.fits.Fits;
  * @author Mike Reid
  */
 public class Model {
-    
+
     /**
      * Represents the UTC (Universal Coordinated Time) timezone.
      */
     private TimeZone utcTimeZone = null;
-    
+
     /**
      * True if the source of images has been initialised.
      */
     private boolean sourceInitialised = false;
-                
+
     /**
      * Indicates whether hardware devices should be simulated or not.
      */
@@ -56,7 +55,7 @@ public class Model {
      * The camera used to acquire images.
      */
     private Camera camera = null;
-    
+
     /**
      * The exposure time currently being used (in seconds).
      */
@@ -66,43 +65,43 @@ public class Model {
      * The command to use to synchronize the host's system clock with a
      * network time server.
      */
-    //private String synchronizeCommand = "ntpdate cantva.canterbury.ac.nz";
     private String synchronizeCommand = "ntpdate time.nist.gov";
+
     /**
      * A description of the run. For example, "xcov26".
      */
     private String run = "xcov27";
-    
+
     /**
      * A description of the participating observers who acquired the data.
      */
     private String observers = "DJS";
-    
+
     /**
      * The target object of the observation.
      */
     private String target = "ec20058";
-    
+
     /**
      * The name of the observatory where the observations were performed.
      */
     private String observatory = "MJUO";
-    
+
     /**
      * The telescope used to acquire the images.
      */
     private String telescope = "MJUO 1-meter";
-            
+
     /**
      * The CCD instrument name.
      */
     private String instrument = "puoko-nui";
-    
+
     /**
      * The destination path where image files will be saved.
      */
     private String destinationPath = null;
-    
+
     /**
      * The location of the target object. This may be null if the target object
      * has not yet been designated.
@@ -114,29 +113,29 @@ public class Model {
      * object has not yet been designated.
      */
     private Point2D comparisonLocation = null;
- 
+    
     /**
      * File name of the properties file  (excluding the file path) holding 
      * the rangahau settings.
      */
     final static String PROPERTY_FILE_NAME = "rangahau.properties";
-    
+
     /**
      * Name of the property naming the target object of the observation.
      */
-    final static String TARGET_PROPERTY_NAME  = "target";
-    
+    final static String TARGET_PROPERTY_NAME = "target";
+
     /**
      * Name of the property giving a description of the run. For example, "xcov26".
      */
     final static String RUN_PROPERTY_NAME = "run";
-    
+
     /**
      * Name of the property describing the participating observers who acquired
      * the data. 
      */
     final static String OBSERVERS_PROPERTY_NAME = "observers";
-    
+
     /**
      * Name of the property naming observatory where the observations were performed. 
      */
@@ -146,7 +145,7 @@ public class Model {
      * Name of the property naming the telescope used to acquire the images.
      */
     final static String TELESCOPE_PROPERTY_NAME = "telescope";
-    
+
     /**
      * Name of the property with the CCD instrument name that produced the images.
      */
@@ -156,7 +155,7 @@ public class Model {
      * Name of the property with the destination path where images should be saved.
      */
     final static String DESTINATION_PATH_PROPERTY_NAME = "destinationpath";
-    
+
     /**
      * Measurements made of the target object.
      */
@@ -168,21 +167,21 @@ public class Model {
     List<Measurement> comparisonMeasurements;
 
     /**
-     * The Clock device (if we have one);
+     * The Clock device.
      */
     private Clock clock;
-    
+
     /**
      * If the camera is a simulator it supports extra operations.
      */
     CameraSimulator cameraSimulator;
 
     public Model() {
-      utcTimeZone = TimeZone.getTimeZone("UTC"); 
-      targetMeasurements = new ArrayList<Measurement>();
-      comparisonMeasurements = new ArrayList<Measurement>();
+        utcTimeZone = TimeZone.getTimeZone("UTC");
+        targetMeasurements = new ArrayList<Measurement>();
+        comparisonMeasurements = new ArrayList<Measurement>();
     }
-    
+
     /**
      * Returns the clock being used to control frame start times and
      * exposure control. This clock is also opened for use.
@@ -234,18 +233,18 @@ public class Model {
         if (exposureTime < 0) {
             throw new IllegalArgumentException("Cannot set the exposure time to a negative value, the value given was " + exposureTime);
         }
-        
+
         // Change the exposure time on the external timer card.        
         System.out.println("Setting the exposure time to " + exposureTime + " s");
 
         if (clock == null) {
-          clock = getClock();
+            clock = getClock();
         }
         clock.setExposureTime(exposureTime);
 
         if (cameraSimulator != null) {
-          System.out.println("Model Setting camera simulator exposure time to " + exposureTime);
-          cameraSimulator.setExposureTime(exposureTime);
+            System.out.println("Model Setting camera simulator exposure time to " + exposureTime);
+            cameraSimulator.setExposureTime(exposureTime);
         }
 
         this.exposureTime = exposureTime;
@@ -279,14 +278,14 @@ public class Model {
             camera.close();
             camera = null;
         }
-        
+
         if (clock != null) {
             System.out.println("Releasing GPS clock ...");
             clock.close();
             clock = null;
         }
     }
-    
+
     /**
      * 
      * 
@@ -316,10 +315,10 @@ public class Model {
         } catch (Throwable ex) {
             ex.printStackTrace();
         }
-        
+
         sourceInitialised = true;
     }
-    
+
     /**
      * Saves pixels to disk as an image in the Fits format. 
      * 
@@ -348,7 +347,7 @@ public class Model {
         if (imageType.trim().length() < 1) {
             throw new IllegalArgumentException("Cannot save the image as the image type given was a blank string.");
         }
-        
+
         Calendar now = Calendar.getInstance();
         SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
 
@@ -375,22 +374,22 @@ public class Model {
             // The OBJECT property depends on the type of image being acquired,
             // but may be the target object being observed.
             header.addValue("RUN", getRun(), "name of this run");
-            
+
             String object = null;
-            if ( (imageType != null) && imageType.equalsIgnoreCase("FOCUS")) {
+            if ((imageType != null) && imageType.equalsIgnoreCase("FOCUS")) {
                 object = "FOCUS";
             }
-            if ( (imageType != null) && imageType.equalsIgnoreCase("DARK")) {
+            if ((imageType != null) && imageType.equalsIgnoreCase("DARK")) {
                 object = "DARK";
             }
-            if ( (imageType != null) && imageType.equalsIgnoreCase("FLAT")) {
+            if ((imageType != null) && imageType.equalsIgnoreCase("FLAT")) {
                 object = "FLAT";
             }
-            if ( (imageType != null) && imageType.equalsIgnoreCase("TARGET")) {
+            if ((imageType != null) && imageType.equalsIgnoreCase("TARGET")) {
                 object = getTarget();
-            }            
+            }
             header.addValue("OBJECT", object, "Object name");
-            
+
             // Obtained from properties.
             header.addValue("EXPTIME", Integer.toString(getExposureTime()), "Actual integration time (sec)");
             header.addValue("OBSERVER", getObservers(), "Observers");
@@ -416,7 +415,7 @@ public class Model {
             // System time
             Calendar calendar = Calendar.getInstance();
             calendar.setTimeInMillis(startTime);
-            
+
             // Get the date when the observation was started.
             header.addValue("DATE-OBS", dateFormatter.format(calendar.getTime()), "Date (yyyy-mm-dd) of this exposure");
 
@@ -430,7 +429,7 @@ public class Model {
             gpsCalendar.setTimeInMillis(gpsStartTime);
             header.addValue("GPSTIME", gpsFormatter.format(gpsCalendar.getTime()), "GPS time at exposure start.");
             header.addValue("NTP:GPS", Long.toString(startTime - gpsStartTime), "Clock tick difference in ms, NTP vs GPS");
-            
+
             int xTarget = 0;
             int yTarget = 0;
             if (this.getTargetLocation() != null) {
@@ -445,15 +444,15 @@ public class Model {
                 xComparison = (int) Math.round(getComparisonLocation().getX());
                 yComparison = (int) Math.round(getComparisonLocation().getY());
             }
-            
+
             header.addValue("COMPSTAR", xComparison + ", " + yComparison, "X,Y Coordinates of primary comparison star");
 
-           if ( (comment != null) && (comment.trim().length() > 0) ) {
-             int endIndex = 72;
-             if (comment.trim().length() < endIndex) {
-               endIndex = comment.trim().length();
-             }
-              header.addValue("COMMENT", comment.trim().substring(0, endIndex), null);
+            if ((comment != null) && (comment.trim().length() > 0)) {
+                int endIndex = 72;
+                if (comment.trim().length() < endIndex) {
+                    endIndex = comment.trim().length();
+                }
+                header.addValue("COMMENT", comment.trim().substring(0, endIndex), null);
             }
 
             image.addHDU(header);
@@ -668,170 +667,170 @@ public class Model {
     public synchronized void setComparisonLocation(Point2D comparisonLocation) {
         this.comparisonLocation = comparisonLocation;
     }
-    
+
     /**
      * Corrects the hosts system clock by synchronizing with an NTP time server.
      * This relies on the 'ntpdate' program being present on the host system
      * and the user having sufficient privilege to execute it.
      */
     public void correctSystemClock() {
-      try {
-        Runtime.getRuntime().exec(synchronizeCommand);
-      } catch(IOException ex) {
-        System.err.println("A problem occured when synchronizing the system clock with the command '"
-                + synchronizeCommand + "'");
-        ex.printStackTrace(System.err);
-      }
-    }
-
-  /**
-   * The command to use to synchronize the host's system clock with a
-   * network time server.
-   * @return the synchronizeCommand
-   */
-  public String getSynchronizeCommand() {
-    return synchronizeCommand;
-  }
-
-  /**
-   * The command to use to synchronize the host's system clock with a
-   * network time server.
-   * @param synchronizeCommand the synchronizeCommand to set
-   */
-  public void setSynchronizeCommand(String synchronizeCommand) {
-    this.synchronizeCommand = synchronizeCommand;
-  }
-
-  /**
-   * Adds a measurement of the target object to the list of target measurements.
-   * 
-   * @param measurement the measurement to add.
-   */
-  public void addTargetMeasurement(Measurement measurement) {
-    if (measurement != null) {
-      targetMeasurements.add(measurement);
-    }
-  }
-
-  /**
-   * Adds a measurement of the comparison object to the list of comparison
-   * measurements.
-   *
-   * @param measurement the measurement to add.
-   */
-  public void addComparisonMeasurement(Measurement measurement) {
-    if (measurement != null) {
-      comparisonMeasurements.add(measurement);
-    }
-  }
-
-  /**
-   * Makes a measurement of the image at a specific location (usually
-   * corresponding to an object).
-   *
-   * @param pixels the pixel elements of the image.
-   * @param xCenter the x (column) pixel location of the center of the measurement.
-   * @param yCenter the y (row) pixel location of the center of the measurement.
-   * @param startTime the time when the image acquisition was started (measured in
-   *        milliseconds UTC from the Epoch [1 Jan 1970]).
-   * @param endTime the time when the image acquisition finished (in milliseconds
-   *        since the Epoch).
-   *
-   * @return the measurement centered at (xCenter, yCenter).
-   */
-  public Measurement measure(String filename, int[][] pixels, int xCenter, int yCenter, long startTime, long endTime) {
-    if (pixels == null) {
-      return null;
-    }
-
-    // The maximum radius of the measurement aperture.
-    final int maxRadius = 20;
-    
-    Measurement measurement = new Measurement();
-    
-    measurement.setFrame(filename);
-    measurement.setCentralFlux(pixels[yCenter][xCenter]);
-    measurement.setStartTimeMillis(startTime);
-    measurement.setEndTimeMillis(endTime);
-    measurement.setMaxRadius(maxRadius);
-    measurement.setX(xCenter);
-    measurement.setY(yCenter);
-
-    double[] rawCounts = new double[1 + maxRadius];
-    double[] numPixels = new double[1 + maxRadius];
-    double[] backgroundCounts = new double[1 + maxRadius];
-    
-    
-    final int width = pixels[0].length;
-    final int height = pixels.length;
-    
-    // Iterate through aperture sizes from 0 to the maximum.
-    for (int radius = 0; radius <= maxRadius; ++radius) {
-      int counts = 0;
-      int pixelCount = 0;
-      int radiusSquared = radius * radius;
-      int deltaX = 0;
-      int deltaY = 0;
-      int deltaSquared = 0;
-
-      for (int x = xCenter - radius; x <= (xCenter + radius); ++x) {
-        if ( (x >= 0) && (x < width) ) {
-          for (int y = yCenter - radius; y <= (yCenter + radius); ++y) {
-            if ( (y >= 0) && (y < height) ) {
-              // The pixels is onscreen, now determine whether it is within
-              // the aperture radius.
-              deltaX = x - xCenter;
-              deltaY = y - yCenter;
-              
-              deltaSquared = deltaX*deltaX + deltaY*deltaY;
-              if (deltaSquared <= radiusSquared) {
-                counts += pixels[y][x];
-                pixelCount++;
-              }
-            }
-          }
+        try {
+            Runtime.getRuntime().exec(synchronizeCommand);
+        } catch (IOException ex) {
+            System.err.println("A problem occured when synchronizing the system clock with the command '"
+                    + synchronizeCommand + "'");
+            ex.printStackTrace(System.err);
         }
-      }
-
-      rawCounts[radius] = counts;
-      numPixels[radius] = pixelCount;
     }
 
-    // Determine the background count per pixel.
-    double countsInAnnulus = rawCounts[maxRadius];
-    double pixelsInAnnulus = numPixels[maxRadius];
-
-    if (maxRadius > 0) {
-      countsInAnnulus = rawCounts[maxRadius] - rawCounts[maxRadius - 1];
-      pixelsInAnnulus = numPixels[maxRadius] - numPixels[maxRadius -1];
+    /**
+     * The command to use to synchronize the host's system clock with a
+     * network time server.
+     * @return the synchronizeCommand
+     */
+    public String getSynchronizeCommand() {
+        return synchronizeCommand;
     }
 
-    double background = 0.0;
-    if (pixelsInAnnulus > 0) {
-      background = countsInAnnulus / pixelsInAnnulus;
-    }
-    
-    double totalFlux = 0.0;
-    for (int radius = 0; radius <= maxRadius; ++radius) {
-      backgroundCounts[radius] = background * numPixels[radius];
-
-      totalFlux += rawCounts[radius] - backgroundCounts[radius];
+    /**
+     * The command to use to synchronize the host's system clock with a
+     * network time server.
+     * @param synchronizeCommand the synchronizeCommand to set
+     */
+    public void setSynchronizeCommand(String synchronizeCommand) {
+        this.synchronizeCommand = synchronizeCommand;
     }
 
-    measurement.setRawCounts(rawCounts);
-    measurement.setNumPixels(numPixels);
-    measurement.setBackgroundCounts(backgroundCounts);
-    measurement.setBackground(background);
-    measurement.setFlux(totalFlux);
-    
-    return measurement;
-  }
+    /**
+     * Adds a measurement of the target object to the list of target measurements.
+     *
+     * @param measurement the measurement to add.
+     */
+    public void addTargetMeasurement(Measurement measurement) {
+        if (measurement != null) {
+            targetMeasurements.add(measurement);
+        }
+    }
 
-  /**
-   * The GpsClock device (if we have one)
-   * @param clock the clock to set
-   */
-  public void setGpsClock(GpsClock gpsClock) {
-    this.clock = gpsClock;
-  }
- }
+    /**
+     * Adds a measurement of the comparison object to the list of comparison
+     * measurements.
+     *
+     * @param measurement the measurement to add.
+     */
+    public void addComparisonMeasurement(Measurement measurement) {
+        if (measurement != null) {
+            comparisonMeasurements.add(measurement);
+        }
+    }
+
+    /**
+     * Makes a measurement of the image at a specific location (usually
+     * corresponding to an object).
+     *
+     * @param pixels the pixel elements of the image.
+     * @param xCenter the x (column) pixel location of the center of the measurement.
+     * @param yCenter the y (row) pixel location of the center of the measurement.
+     * @param startTime the time when the image acquisition was started (measured in
+     *        milliseconds UTC from the Epoch [1 Jan 1970]).
+     * @param endTime the time when the image acquisition finished (in milliseconds
+     *        since the Epoch).
+     *
+     * @return the measurement centered at (xCenter, yCenter).
+     */
+    public Measurement measure(String filename, int[][] pixels, int xCenter, int yCenter, long startTime, long endTime) {
+        if (pixels == null) {
+            return null;
+        }
+
+        // The maximum radius of the measurement aperture.
+        final int maxRadius = 20;
+
+        Measurement measurement = new Measurement();
+
+        measurement.setFrame(filename);
+        measurement.setCentralFlux(pixels[yCenter][xCenter]);
+        measurement.setStartTimeMillis(startTime);
+        measurement.setEndTimeMillis(endTime);
+        measurement.setMaxRadius(maxRadius);
+        measurement.setX(xCenter);
+        measurement.setY(yCenter);
+
+        double[] rawCounts = new double[1 + maxRadius];
+        double[] numPixels = new double[1 + maxRadius];
+        double[] backgroundCounts = new double[1 + maxRadius];
+
+
+        final int width = pixels[0].length;
+        final int height = pixels.length;
+
+        // Iterate through aperture sizes from 0 to the maximum.
+        for (int radius = 0; radius <= maxRadius; ++radius) {
+            int counts = 0;
+            int pixelCount = 0;
+            int radiusSquared = radius * radius;
+            int deltaX = 0;
+            int deltaY = 0;
+            int deltaSquared = 0;
+
+            for (int x = xCenter - radius; x <= (xCenter + radius); ++x) {
+                if ((x >= 0) && (x < width)) {
+                    for (int y = yCenter - radius; y <= (yCenter + radius); ++y) {
+                        if ((y >= 0) && (y < height)) {
+                            // The pixels is onscreen, now determine whether it is within
+                            // the aperture radius.
+                            deltaX = x - xCenter;
+                            deltaY = y - yCenter;
+
+                            deltaSquared = deltaX * deltaX + deltaY * deltaY;
+                            if (deltaSquared <= radiusSquared) {
+                                counts += pixels[y][x];
+                                pixelCount++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            rawCounts[radius] = counts;
+            numPixels[radius] = pixelCount;
+        }
+
+        // Determine the background count per pixel.
+        double countsInAnnulus = rawCounts[maxRadius];
+        double pixelsInAnnulus = numPixels[maxRadius];
+
+        if (maxRadius > 0) {
+            countsInAnnulus = rawCounts[maxRadius] - rawCounts[maxRadius - 1];
+            pixelsInAnnulus = numPixels[maxRadius] - numPixels[maxRadius - 1];
+        }
+
+        double background = 0.0;
+        if (pixelsInAnnulus > 0) {
+            background = countsInAnnulus / pixelsInAnnulus;
+        }
+
+        double totalFlux = 0.0;
+        for (int radius = 0; radius <= maxRadius; ++radius) {
+            backgroundCounts[radius] = background * numPixels[radius];
+
+            totalFlux += rawCounts[radius] - backgroundCounts[radius];
+        }
+
+        measurement.setRawCounts(rawCounts);
+        measurement.setNumPixels(numPixels);
+        measurement.setBackgroundCounts(backgroundCounts);
+        measurement.setBackground(background);
+        measurement.setFlux(totalFlux);
+
+        return measurement;
+    }
+
+    /**
+     * The GpsClock device (if we have one)
+     * @param clock the clock to set
+     */
+    public void setGpsClock(GpsClock gpsClock) {
+        this.clock = gpsClock;
+    }
+}

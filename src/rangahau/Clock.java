@@ -11,7 +11,7 @@ import java.util.Date;
 /**
  * Defines a generic clock that can be queried for time/sync information
  *
- * @author Paul Chote.
+ * @author Paul Chote
  */
 public interface Clock {
 

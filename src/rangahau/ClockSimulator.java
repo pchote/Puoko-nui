@@ -12,9 +12,10 @@ import java.util.Date;
  * Wrap the standard system clock so that the software can be run with
  * in simulated hardware mode without the karaka unit present.
  *
- * @author Paul Chote.
+ * @author Paul Chote
  */
 public class ClockSimulator implements Clock {
+
     private boolean open = false;
     private int exposureTime = 5;
 
@@ -91,7 +92,7 @@ public class ClockSimulator implements Clock {
         if (!isOpen()) {
             throw new IllegalStateException("Cannot get the get the last sync pulse time as the SystemClock has not yet been opened for use.");
         }
-        
+
         // TODO
         return new Date();
     }
