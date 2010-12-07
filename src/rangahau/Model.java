@@ -58,23 +58,6 @@ public class Model {
     private Camera camera = null;
     
     /**
-     * The external timing card used to control frame acquisition start and
-     * exposure time.
-     */
-    private TimerCard timerCard = null;
-    
-    /**
-     * The serial port that provides access to GPS timestamps. 
-     */
-    private SerialPortDevice serialPort = null;
-    
-    /**
-     * Decodes GPS messages received on the serial port and extracts timestamp
-     * information. 
-     */
-    private GpsDecoder gpsDecoder = null;
-    
-    /**
      * The exposure time currently being used (in seconds).
      */
     private int exposureTime = 5;
@@ -196,41 +179,10 @@ public class Model {
 
     public Model() {
       utcTimeZone = TimeZone.getTimeZone("UTC"); 
-      gpsDecoder = new GpsDecoder();
-
       targetMeasurements = new ArrayList<Measurement>();
       comparisonMeasurements = new ArrayList<Measurement>();
     }
     
-    /**
-     * Returns the timer card being used to control frame start times and
-     * exposure control. The timer card is also opened for use.
-     * 
-     * @return the timer card being used.
-     */
-    public TimerCard getTimerCard() {
-        if (timerCard != null) {
-            return timerCard;
-        }
-
-        // There is no existing timer card. We must create one.
-        if (isSimulatingHardware()) {
-            timerCard = new TimerCardSimulator();
-        } else {
-            timerCard = new ExternalTimerCard();
-        }
-
-        // Open the timer card for use.
-        timerCard.openPort("/dev/parport0");
-        timerCard.powerOn();
-        timerCard.setTimingEdgeType(false); // Use the falling edge of the GPS input pulse.
-        
-        System.out.println("Detecting timer card = " + timerCard.detectTimerCard());
-        timerCard.setExposureTime(getExposureTime());
- 
-        return timerCard;
-    }
-
     /**
      * Returns the GPS clock being used to control frame start times and
      * exposure control. This clock is also opened for use.
@@ -325,10 +277,6 @@ public class Model {
         this.camera = camera;
     }
 
-    public void setTimerCard(TimerCard timerCard) {
-        this.timerCard = timerCard;
-    }
-
     public void setGpsClockCard(GpsClock gpsClock) {
         this.gpsClock = gpsClock;
     }
@@ -346,18 +294,6 @@ public class Model {
             camera = null;
         }
         
-        if (timerCard != null) {
-            System.out.println("Releasing timercard ...");
-            timerCard.closePort();
-            timerCard = null;
-        }
-        
-        if (serialPort != null) {
-            System.out.println("Releasing serial port ...");
-            serialPort.close();
-            serialPort = null;
-        }
-
         if (gpsClock != null) {
             System.out.println("Releasing GPS clock ...");
             gpsClock.close();
@@ -521,6 +457,7 @@ public class Model {
             SimpleDateFormat gpsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             gpsFormatter.setTimeZone(utcTimeZone);
 
+            // System time
             Calendar calendar = Calendar.getInstance();
             calendar.setTimeInMillis(startTime);
             
@@ -530,24 +467,13 @@ public class Model {
             // Convert the start time into seconds and into a UTC date string.
             header.addValue("UTC", formatter.format(calendar.getTime()), "System-clock exposure start time.");
             header.addValue("UNIXTIME", Long.toString(startTime), "Start of this exposure (milliseconds since 1 Jan 1970)");
-            String haveGPS ="0";
-            long difference = 0; // difference in milliseconds between NTP time and GPS time.
-            if ( (serialPort != null) && serialPort.isOpen() && (gpsStartTime != 0) ) {
-                haveGPS = "1";
-                difference = startTime - gpsStartTime;
-            }
-            header.addValue("GPSCLOCK", haveGPS, "GPS clock status");
-            
-            // If we have GPS readings then write out the exposure start time as
-            // measured by GPS.
-            //if (haveGPS.equals("1")) {
-                Calendar gpsCalendar = Calendar.getInstance();
-                gpsCalendar.setTimeZone(utcTimeZone);
-                gpsCalendar.setTimeInMillis(gpsStartTime);
-                header.addValue("GPSTIME", gpsFormatter.format(gpsCalendar.getTime()), "GPS time at exposure start.");
-            //}
-            
-            header.addValue("NTP:GPS", Long.toString(difference), "Clock tick difference in ms, NTP vs GPS");
+
+            // GPS Time
+            Calendar gpsCalendar = Calendar.getInstance();
+            gpsCalendar.setTimeZone(utcTimeZone);
+            gpsCalendar.setTimeInMillis(gpsStartTime);
+            header.addValue("GPSTIME", gpsFormatter.format(gpsCalendar.getTime()), "GPS time at exposure start.");
+            header.addValue("NTP:GPS", Long.toString(startTime - gpsStartTime), "Clock tick difference in ms, NTP vs GPS");
             
             int xTarget = 0;
             int yTarget = 0;
@@ -607,28 +533,6 @@ public class Model {
         this.destinationPath = destinationPath;
     }
 
-    public SerialPortDevice getSerialPort() {
-        if (serialPort != null) {
-            return serialPort;
-        }
-
-        // There is no existing timer card. We must create one.
-        if (isSimulatingHardware()) {
-            serialPort = new SerialPortDevice(); // TODO - Need a serial port simulator.
-        } else {
-            serialPort = new SerialPortDevice();
-        }
-
-        // Open the serial port for use.
-        serialPort.open("/dev/ttyS0");
- 
-        return serialPort;
-    }
-
-    public void setSerialPort(SerialPortDevice serialPort) {
-        this.serialPort = serialPort;
-    }
-
     public String getRun() {
         return run;
     }
@@ -677,20 +581,6 @@ public class Model {
         this.instrument = instrument;
     }
 
-    public
-
-    /**
-     * Decodes GPS messages received on the serial port and extracts timestamp
-     * information.
-     */
-    GpsDecoder getGpsDecoder() {
-        return gpsDecoder;
-    }
-
-    public void setGpsDecoder(GpsDecoder gpsDecoder) {
-        this.gpsDecoder = gpsDecoder;
-    }
-    
     /**
      * Loads the rangahau.properties file from the user's home directory. If this
      * file is found any recognised properties within it are stored within the 
