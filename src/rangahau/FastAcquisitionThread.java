@@ -46,7 +46,7 @@ public class FastAcquisitionThread extends StoppableThread {
   /**
    * The GPS clock which timestamps can be obtained from.
    */
-  GpsClock gpsClock;
+  Clock clock;
   
   /**
    * Date formatter that shows milliseconds.
@@ -77,21 +77,21 @@ public class FastAcquisitionThread extends StoppableThread {
       model.initialiseImageSource();
     }
 
-    this.gpsClock = model.getGpsClock();
+    this.clock = model.getClock();
     
     // Prepare a buffer where image data will be stored.
     pixels = new int[model.getCamera().getHeight() * model.getCamera().getWidth()];
     image = new int[model.getCamera().getHeight()][model.getCamera().getWidth()];
 
     // Ensure an exposure time has been set.
-    int exposureTime = gpsClock.getExposureTime();
+    int exposureTime = clock.getExposureTime();
     
     if (exposureTime <= 0) {
       final int defaultExposureTime = 5;
       System.out.println("WARNING: The exposure time was not set, setting to default value of "
               + defaultExposureTime + " seconds.");
       
-      gpsClock.setExposureTime(defaultExposureTime);
+      clock.setExposureTime(defaultExposureTime);
       exposureTime = defaultExposureTime;
     }
 
@@ -120,7 +120,7 @@ public class FastAcquisitionThread extends StoppableThread {
         // Update the GPS time shown in the display, but not more than a few
         // times a second.
         if (System.currentTimeMillis() > (lastGpsTimeRequest + gpsTimeRequestIntervalMillis)) {
-          final Date lastGpsTime = gpsClock.getLastGpsPulseTime();
+          final Date lastGpsTime = clock.getLastGpsPulseTime();
           if (lastGpsTime != null) {
             lastGpsTimeRequest = System.currentTimeMillis();
 
@@ -155,7 +155,7 @@ public class FastAcquisitionThread extends StoppableThread {
       // The image is ready, get the GPS sync time at the end of the image.
       // Determine the start time of the exposure (using the end time and
       // exposure start time).
-      Date lastSyncTime = gpsClock.getLastSyncPulseTime();
+      Date lastSyncTime = clock.getLastSyncPulseTime();
       Date syncStartTime = new Date(lastSyncTime.getTime() - exposureTime*1000);
       
       // Get the pixels from the camera.

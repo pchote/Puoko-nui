@@ -74,7 +74,7 @@ public class Model {
     private String run = "xcov27";
     
     /**
-     * A description of the particpating observers who acquired the data.
+     * A description of the participating observers who acquired the data.
      */
     private String observers = "DJS";
     
@@ -132,7 +132,7 @@ public class Model {
     final static String RUN_PROPERTY_NAME = "run";
     
     /**
-     * Name of the property describing the particpanting observers who acquired 
+     * Name of the property describing the participating observers who acquired
      * the data. 
      */
     final static String OBSERVERS_PROPERTY_NAME = "observers";
@@ -168,12 +168,12 @@ public class Model {
     List<Measurement> comparisonMeasurements;
 
     /**
-     * The GpsClock device (if we have one);
+     * The Clock device (if we have one);
      */
-    private GpsClock gpsClock;
+    private Clock clock;
     
     /**
-     * If the camera is a simulator it supoprts extra operations.
+     * If the camera is a simulator it supports extra operations.
      */
     CameraSimulator cameraSimulator;
 
@@ -184,34 +184,33 @@ public class Model {
     }
     
     /**
-     * Returns the GPS clock being used to control frame start times and
+     * Returns the clock being used to control frame start times and
      * exposure control. This clock is also opened for use.
      *
-     * @return the GPS clock being used.
+     * @return the clock being used.
      */
-    public GpsClock getGpsClock() {
-        if (gpsClock != null) {
-            return gpsClock;
+    public Clock getClock() {
+        if (clock != null) {
+            return clock;
         }
 
-        // There is no existing gpsClock. We must create one.
+        // There is no existing clock. We must create one.
         if (isSimulatingHardware()) {
-            // TODO - finish this
-          gpsClock = new GpsClock();
+            clock = new ClockSimulator();
+            clock.open("simulator");
         } else {
-            gpsClock = new GpsClock();
+            clock = new GpsClock();
+
+            // Open the GPS clock for use.
+            List<String> names = GpsClock.getAllDeviceNames();
+            String name = names.get(0);
+            clock.open(name);
         }
 
-        // Open the GPS clock for use.
-        List<String> names = GpsClock.getAllDeviceNames();
-        String name = names.get(0);
+        System.out.println("GPS clock is open = " + clock.isOpen());
+        clock.setExposureTime(getExposureTime());
 
-        gpsClock.open(name);
-
-        System.out.println("GPS clock is open = " + gpsClock.isOpen());
-        gpsClock.setExposureTime(getExposureTime());
-
-        return gpsClock;
+        return clock;
     }
 
     /**
@@ -235,23 +234,14 @@ public class Model {
         if (exposureTime < 0) {
             throw new IllegalArgumentException("Cannot set the exposure time to a negative value, the value given was " + exposureTime);
         }
-//        if (exposureTime > 30) {
-//            throw new IllegalArgumentException("Cannot set the exposure time to a value greater than 30 seconds, the value given was " + exposureTime);
-//        }
         
         // Change the exposure time on the external timer card.        
         System.out.println("Setting the exposure time to " + exposureTime + " s");
 
-        // Set the timer card to use the specified exposure time.
-//        if (timerCard == null) {
-//            timerCard = getTimerCard();
-//        }
-//        timerCard.setExposureTime(exposureTime);
-
-        if (gpsClock == null) {
-          gpsClock = getGpsClock();
+        if (clock == null) {
+          clock = getClock();
         }
-        gpsClock.setExposureTime(exposureTime);
+        clock.setExposureTime(exposureTime);
 
         if (cameraSimulator != null) {
           System.out.println("Model Setting camera simulator exposure time to " + exposureTime);
@@ -277,10 +267,6 @@ public class Model {
         this.camera = camera;
     }
 
-    public void setGpsClockCard(GpsClock gpsClock) {
-        this.gpsClock = gpsClock;
-    }
-
     /**
      * Releases any resources managed by the model. This is usually performed
      * at application shutdown.
@@ -294,10 +280,10 @@ public class Model {
             camera = null;
         }
         
-        if (gpsClock != null) {
+        if (clock != null) {
             System.out.println("Releasing GPS clock ...");
-            gpsClock.close();
-            gpsClock = null;
+            clock.close();
+            clock = null;
         }
     }
     
@@ -313,18 +299,14 @@ public class Model {
         // Set up the camera that will acquire images.
         if (simulate) {
             System.out.println("Using simulated hardware devices.");
-            //timerCard = getTimerCard();
-            //serialPort = getSerialPort();
-            gpsClock = getGpsClock();
+            clock = getClock();
             cameraSimulator = new CameraSimulator();
 
             camera = cameraSimulator;
 
         } else {
             System.out.println("Using physical hardware devices.");
-            //timerCard = getTimerCard();
-            //serialPort = getSerialPort();
-            gpsClock = getGpsClock();
+            clock = getClock();
             camera = new RoperCamera();
         }
 
@@ -335,32 +317,6 @@ public class Model {
             ex.printStackTrace();
         }
         
-        // Ensure we can read output pulses from the camera.
-//        boolean foundTimerCard = false;
-//        try {
-//            foundTimerCard = timerCard.detectTimerCard();
-//        } catch(Throwable ex) {
-//            ex.printStackTrace();
-//        }
-//        System.out.println("Timercard detection returned " + foundTimerCard);
-        
-        // Test we can read a GPS timestamp.
-//        long gpsTime = getGpsDecoder().readGpsTimestamp(getSerialPort());
-//        if (gpsTime == 0L) {
-//            System.out.println("Could not read a GPS timestamp.");
-//        } else {
-//            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS z");
-//            formatter.setTimeZone(utcTimeZone);
-//
-//            Calendar calendar = Calendar.getInstance();
-//            calendar.setTimeZone(utcTimeZone);
-//            calendar.setTimeInMillis(gpsTime);
-//
-//            String formattedTime = formatter.format(calendar.getTime()) ;
-//
-//            System.out.println("Successfully read a GPS timestamp, the time read was " + formattedTime);
-//        }
-         
         sourceInitialised = true;
     }
     
@@ -873,9 +829,9 @@ public class Model {
 
   /**
    * The GpsClock device (if we have one)
-   * @param gpsClock the gpsClock to set
+   * @param clock the clock to set
    */
   public void setGpsClock(GpsClock gpsClock) {
-    this.gpsClock = gpsClock;
+    this.clock = gpsClock;
   }
  }

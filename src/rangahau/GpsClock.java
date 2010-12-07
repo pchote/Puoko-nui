@@ -48,7 +48,7 @@ import java.util.TimeZone;
  * 
  * @author Michael Reid, for Argonaut Ltd.
  */
-public class GpsClock {
+public class GpsClock implements Clock {
     // Load the attached JNI library.
     static {
         System.loadLibrary("gpsclock");
@@ -253,6 +253,7 @@ public class GpsClock {
 
       return destination;
     }
+
     /**
      * Indicates whether the device has been opened for use or not.
      * 
