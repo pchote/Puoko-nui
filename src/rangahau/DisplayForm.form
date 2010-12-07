@@ -23,80 +23,57 @@
   <Layout>
     <DimensionLayout dim="0">
       <Group type="103" groupAlignment="0" attributes="0">
-          <Group type="102" alignment="1" attributes="0">
+          <Group type="102" alignment="0" attributes="0">
               <EmptySpace max="-2" attributes="0"/>
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" alignment="1" attributes="0">
-                      <Group type="103" groupAlignment="1" attributes="0">
-                          <Component id="imageScrollPane" alignment="0" pref="968" max="32767" attributes="1"/>
-                          <Group type="102" alignment="0" attributes="1">
-                              <Component id="commentLabel" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Component id="commentField" pref="897" max="32767" attributes="0"/>
-                          </Group>
-                          <Group type="102" alignment="0" attributes="0">
-                              <Group type="103" groupAlignment="1" attributes="0">
-                                  <Group type="102" attributes="0">
-                                      <Group type="103" groupAlignment="0" attributes="0">
-                                          <Component id="frameNumberLabel" alignment="0" min="-2" max="-2" attributes="1"/>
-                                          <Component id="startButton" alignment="0" min="-2" max="-2" attributes="0"/>
-                                          <Component id="imageTypeLabel" alignment="0" min="-2" max="-2" attributes="0"/>
-                                          <Component id="settingsButton" alignment="0" min="-2" max="-2" attributes="1"/>
-                                      </Group>
-                                      <EmptySpace max="-2" attributes="0"/>
-                                      <Group type="103" groupAlignment="1" max="-2" attributes="0">
-                                          <Component id="imageTypeComboBox" alignment="0" pref="116" max="32767" attributes="1"/>
-                                          <Component id="saveImagesCheckbox" alignment="0" min="-2" max="-2" attributes="0"/>
-                                          <Component id="frameNumberField" alignment="0" max="32767" attributes="1"/>
-                                      </Group>
-                                      <EmptySpace min="-2" pref="15" max="-2" attributes="0"/>
-                                  </Group>
-                                  <Group type="102" alignment="1" attributes="0">
-                                      <Component id="fixedAspectRatioCheckbox" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace max="-2" attributes="0"/>
-                                  </Group>
-                              </Group>
-                              <Component id="exposureControlPanel" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace type="separate" max="-2" attributes="0"/>
-                              <Component id="mousePositionPanel" min="-2" max="-2" attributes="1"/>
-                              <EmptySpace type="separate" max="-2" attributes="0"/>
-                              <Component id="hardwarePanel" max="32767" attributes="0"/>
-                          </Group>
+                  <Group type="102" alignment="0" attributes="1">
+                      <Component id="commentLabel" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace max="-2" attributes="0"/>
+                      <Component id="commentField" pref="908" max="32767" attributes="0"/>
+                  </Group>
+                  <Group type="102" alignment="0" attributes="0">
+                      <Group type="103" groupAlignment="0" attributes="0">
+                          <Component id="frameNumberLabel" alignment="0" min="-2" max="-2" attributes="1"/>
+                          <Component id="startButton" alignment="0" min="-2" max="-2" attributes="0"/>
+                          <Component id="imageTypeLabel" alignment="0" min="-2" max="-2" attributes="0"/>
+                          <Component id="settingsButton" alignment="0" min="-2" max="-2" attributes="1"/>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
+                      <Group type="103" groupAlignment="1" max="-2" attributes="0">
+                          <Component id="imageTypeComboBox" alignment="0" pref="116" max="32767" attributes="1"/>
+                          <Component id="saveImagesCheckbox" alignment="0" min="-2" max="-2" attributes="0"/>
+                          <Component id="frameNumberField" alignment="0" min="-2" max="-2" attributes="1"/>
+                      </Group>
+                      <EmptySpace min="-2" pref="15" max="-2" attributes="0"/>
+                      <Component id="exposureControlPanel" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace min="-2" pref="194" max="-2" attributes="0"/>
+                      <Component id="hardwarePanel" max="32767" attributes="0"/>
                   </Group>
                   <Group type="102" alignment="0" attributes="0">
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Component id="destinationDirectoryLabel" min="-2" max="-2" attributes="0"/>
-                          <Component id="destinationDirectoryField" pref="539" max="32767" attributes="0"/>
+                          <Component id="destinationDirectoryField" pref="550" max="32767" attributes="0"/>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="browseDestinationButton" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="markComparisonButton" min="-2" pref="145" max="-2" attributes="1"/>
-                          <Component id="markTargetButton" min="-2" pref="145" max="-2" attributes="1"/>
-                      </Group>
-                      <EmptySpace min="-2" pref="71" max="-2" attributes="0"/>
+                      <EmptySpace min="-2" pref="222" max="-2" attributes="0"/>
                       <Component id="exitButton" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace min="-2" pref="55" max="-2" attributes="0"/>
+                      <EmptySpace min="-2" pref="35" max="-2" attributes="0"/>
                   </Group>
               </Group>
+              <EmptySpace min="-2" pref="23" max="-2" attributes="0"/>
           </Group>
       </Group>
     </DimensionLayout>
     <DimensionLayout dim="1">
       <Group type="103" groupAlignment="0" attributes="0">
-          <Group type="102" attributes="0">
+          <Group type="102" alignment="0" attributes="0">
               <EmptySpace max="-2" attributes="0"/>
-              <Component id="imageScrollPane" pref="252" max="32767" attributes="0"/>
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" attributes="0">
-                      <EmptySpace min="-2" pref="23" max="-2" attributes="0"/>
-                      <Group type="103" groupAlignment="1" max="-2" attributes="0">
+                  <Group type="102" alignment="0" attributes="0">
+                      <EmptySpace min="-2" pref="3" max="-2" attributes="0"/>
+                      <Group type="103" groupAlignment="1" attributes="0">
                           <Group type="102" alignment="1" attributes="1">
-                              <Component id="fixedAspectRatioCheckbox" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace max="32767" attributes="0"/>
                               <Group type="103" groupAlignment="3" attributes="0">
                                   <Component id="startButton" alignment="3" min="-2" max="-2" attributes="0"/>
                                   <Component id="saveImagesCheckbox" alignment="3" min="-2" max="-2" attributes="0"/>
@@ -115,13 +92,9 @@
                               <Component id="settingsButton" min="-2" max="-2" attributes="0"/>
                           </Group>
                           <Component id="exposureControlPanel" alignment="1" min="-2" max="-2" attributes="1"/>
-                          <Component id="mousePositionPanel" alignment="1" min="-2" max="-2" attributes="1"/>
                       </Group>
                   </Group>
-                  <Group type="102" attributes="0">
-                      <EmptySpace min="-2" pref="20" max="-2" attributes="0"/>
-                      <Component id="hardwarePanel" min="-2" max="-2" attributes="1"/>
-                  </Group>
+                  <Component id="hardwarePanel" alignment="0" min="-2" max="-2" attributes="1"/>
               </Group>
               <EmptySpace max="-2" attributes="0"/>
               <Group type="103" groupAlignment="3" attributes="0">
@@ -130,7 +103,7 @@
               </Group>
               <EmptySpace min="-2" pref="24" max="-2" attributes="0"/>
               <Group type="103" groupAlignment="1" attributes="0">
-                  <Group type="102" attributes="0">
+                  <Group type="102" alignment="1" attributes="0">
                       <Component id="destinationDirectoryLabel" min="-2" max="-2" attributes="0"/>
                       <EmptySpace min="-2" pref="4" max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="3" attributes="0">
@@ -138,38 +111,17 @@
                           <Component id="browseDestinationButton" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
                   </Group>
-                  <Group type="103" alignment="1" groupAlignment="0" attributes="0">
-                      <Group type="102" alignment="0" attributes="0">
-                          <EmptySpace min="-2" pref="19" max="-2" attributes="0"/>
-                          <Component id="exitButton" min="-2" max="-2" attributes="0"/>
-                      </Group>
-                      <Group type="102" alignment="0" attributes="0">
-                          <Component id="markTargetButton" min="-2" max="-2" attributes="0"/>
-                          <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                          <Component id="markComparisonButton" min="-2" max="-2" attributes="0"/>
-                      </Group>
+                  <Group type="102" alignment="1" attributes="0">
+                      <EmptySpace min="-2" pref="19" max="-2" attributes="0"/>
+                      <Component id="exitButton" min="-2" max="-2" attributes="0"/>
                   </Group>
               </Group>
-              <EmptySpace max="-2" attributes="0"/>
+              <EmptySpace pref="32" max="32767" attributes="0"/>
           </Group>
       </Group>
     </DimensionLayout>
   </Layout>
   <SubComponents>
-    <Container class="javax.swing.JScrollPane" name="imageScrollPane">
-      <Properties>
-        <Property name="horizontalScrollBarPolicy" type="int" value="31"/>
-        <Property name="verticalScrollBarPolicy" type="int" value="21"/>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-      </Properties>
-      <Events>
-        <EventHandler event="mouseWheelMoved" listener="java.awt.event.MouseWheelListener" parameters="java.awt.event.MouseWheelEvent" handler="imageScrollPaneMouseWheelMoved"/>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="imageScrollPaneMouseClicked"/>
-        <EventHandler event="mouseMoved" listener="java.awt.event.MouseMotionListener" parameters="java.awt.event.MouseEvent" handler="imageScrollPaneMouseMoved"/>
-      </Events>
-
-      <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
-    </Container>
     <Component class="javax.swing.JButton" name="exitButton">
       <Properties>
         <Property name="text" type="java.lang.String" value="Exit"/>
@@ -310,7 +262,7 @@
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Group type="102" alignment="0" attributes="0">
                           <Component id="simulateHardwareButton" min="-2" max="-2" attributes="0"/>
-                          <EmptySpace pref="51" max="32767" attributes="0"/>
+                          <EmptySpace pref="62" max="32767" attributes="0"/>
                           <Component id="resetButton" min="-2" pref="112" max="-2" attributes="0"/>
                           <EmptySpace min="-2" pref="38" max="-2" attributes="0"/>
                       </Group>
@@ -318,7 +270,6 @@
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Component id="hardwareLabel" alignment="0" min="-2" max="-2" attributes="0"/>
                               <Component id="cameraLabel" alignment="0" min="-2" max="-2" attributes="0"/>
-                              <Component id="timingCardLabel" alignment="0" min="-2" max="-2" attributes="0"/>
                               <Group type="102" alignment="0" attributes="0">
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Component id="gpsInputPulseLabel" alignment="0" min="-2" max="-2" attributes="0"/>
@@ -326,8 +277,8 @@
                                   </Group>
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Group type="103" groupAlignment="0" attributes="0">
-                                      <Component id="syncTimeField" pref="197" max="32767" attributes="0"/>
-                                      <Component id="gpsTimeField" alignment="0" pref="197" max="32767" attributes="0"/>
+                                      <Component id="syncTimeField" pref="208" max="32767" attributes="0"/>
+                                      <Component id="gpsTimeField" alignment="0" pref="208" max="32767" attributes="0"/>
                                   </Group>
                               </Group>
                           </Group>
@@ -344,9 +295,7 @@
                   <Component id="hardwareLabel" min="-2" max="-2" attributes="0"/>
                   <EmptySpace max="-2" attributes="0"/>
                   <Component id="cameraLabel" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace max="-2" attributes="0"/>
-                  <Component id="timingCardLabel" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace max="-2" attributes="0"/>
+                  <EmptySpace min="-2" pref="32" max="-2" attributes="0"/>
                   <Group type="103" groupAlignment="3" attributes="0">
                       <Component id="gpsInputPulseLabel" alignment="3" min="-2" max="-2" attributes="0"/>
                       <Component id="gpsTimeField" alignment="3" min="-2" max="-2" attributes="0"/>
@@ -375,11 +324,6 @@
         <Component class="javax.swing.JLabel" name="cameraLabel">
           <Properties>
             <Property name="text" type="java.lang.String" value="Camera"/>
-          </Properties>
-        </Component>
-        <Component class="javax.swing.JLabel" name="timingCardLabel">
-          <Properties>
-            <Property name="text" type="java.lang.String" value="Timing Card"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="gpsInputPulseLabel">
@@ -485,126 +429,6 @@
         <Property name="toolTipText" type="java.lang.String" value="The type of image to be acquired."/>
       </Properties>
     </Component>
-    <Component class="javax.swing.JToggleButton" name="markComparisonButton">
-      <Properties>
-        <Property name="text" type="java.lang.String" value="Mark Comparison"/>
-        <Property name="toolTipText" type="java.lang.String" value="Enables left clicking the mouse on the image display to mark the comparison or right clicking to unmark the comparison location."/>
-      </Properties>
-      <Events>
-        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="markComparisonButtonActionPerformed"/>
-      </Events>
-    </Component>
-    <Component class="javax.swing.JToggleButton" name="markTargetButton">
-      <Properties>
-        <Property name="text" type="java.lang.String" value="Mark Target"/>
-        <Property name="toolTipText" type="java.lang.String" value="Enables left clicking the mouse on the image display to mark the target or right clicking to unmark the target location."/>
-      </Properties>
-      <Events>
-        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="markTargetButtonActionPerformed"/>
-      </Events>
-    </Component>
-    <Container class="javax.swing.JPanel" name="mousePositionPanel">
-      <Properties>
-        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-          <Border info="org.netbeans.modules.form.compat2.border.SoftBevelBorderInfo">
-            <BevelBorder/>
-          </Border>
-        </Property>
-      </Properties>
-
-      <Layout>
-        <DimensionLayout dim="0">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" alignment="0" attributes="0">
-                  <Component id="jLabel1" pref="128" max="32767" attributes="0"/>
-                  <EmptySpace min="-2" pref="24" max="-2" attributes="0"/>
-              </Group>
-              <Group type="102" alignment="0" attributes="0">
-                  <EmptySpace max="-2" attributes="0"/>
-                  <Group type="103" groupAlignment="1" attributes="0">
-                      <Component id="xLabel" alignment="1" min="-2" max="-2" attributes="0"/>
-                      <Component id="yLabel" min="-2" max="-2" attributes="0"/>
-                      <Component id="valueLabel" min="-2" max="-2" attributes="0"/>
-                  </Group>
-                  <EmptySpace max="-2" attributes="0"/>
-                  <Group type="103" groupAlignment="0" attributes="0">
-                      <Component id="yField" alignment="1" pref="69" max="32767" attributes="1"/>
-                      <Component id="valueField" alignment="1" pref="69" max="32767" attributes="0"/>
-                      <Component id="xField" pref="69" max="32767" attributes="1"/>
-                  </Group>
-                  <EmptySpace max="-2" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-        <DimensionLayout dim="1">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" alignment="1" attributes="0">
-                  <EmptySpace max="-2" attributes="0"/>
-                  <Component id="jLabel1" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace type="separate" max="-2" attributes="0"/>
-                  <Group type="103" groupAlignment="3" attributes="0">
-                      <Component id="xLabel" alignment="3" min="-2" max="-2" attributes="0"/>
-                      <Component id="xField" alignment="3" min="-2" max="-2" attributes="0"/>
-                  </Group>
-                  <EmptySpace max="-2" attributes="0"/>
-                  <Group type="103" groupAlignment="3" attributes="0">
-                      <Component id="yLabel" alignment="3" min="-2" max="-2" attributes="0"/>
-                      <Component id="yField" alignment="3" min="-2" max="-2" attributes="0"/>
-                  </Group>
-                  <EmptySpace max="-2" attributes="0"/>
-                  <Group type="103" groupAlignment="3" attributes="0">
-                      <Component id="valueField" alignment="3" min="-2" max="-2" attributes="0"/>
-                      <Component id="valueLabel" alignment="3" min="-2" max="-2" attributes="0"/>
-                  </Group>
-                  <EmptySpace max="32767" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-      </Layout>
-      <SubComponents>
-        <Component class="javax.swing.JTextField" name="xField">
-          <Properties>
-            <Property name="editable" type="boolean" value="false"/>
-            <Property name="toolTipText" type="java.lang.String" value="The x coordinate within the image"/>
-          </Properties>
-        </Component>
-        <Component class="javax.swing.JTextField" name="yField">
-          <Properties>
-            <Property name="editable" type="boolean" value="false"/>
-            <Property name="toolTipText" type="java.lang.String" value="The y coordinate within the image"/>
-          </Properties>
-        </Component>
-        <Component class="javax.swing.JLabel" name="xLabel">
-          <Properties>
-            <Property name="text" type="java.lang.String" value="x"/>
-            <Property name="toolTipText" type="java.lang.String" value="The x coordinate within the image"/>
-          </Properties>
-        </Component>
-        <Component class="javax.swing.JLabel" name="yLabel">
-          <Properties>
-            <Property name="text" type="java.lang.String" value="y"/>
-            <Property name="toolTipText" type="java.lang.String" value="The y coordinate within the image"/>
-          </Properties>
-        </Component>
-        <Component class="javax.swing.JLabel" name="valueLabel">
-          <Properties>
-            <Property name="text" type="java.lang.String" value="value"/>
-            <Property name="toolTipText" type="java.lang.String" value="The intensity value within the image"/>
-          </Properties>
-        </Component>
-        <Component class="javax.swing.JTextField" name="valueField">
-          <Properties>
-            <Property name="editable" type="boolean" value="false"/>
-            <Property name="toolTipText" type="java.lang.String" value="The intensity value within the image"/>
-          </Properties>
-        </Component>
-        <Component class="javax.swing.JLabel" name="jLabel1">
-          <Properties>
-            <Property name="text" type="java.lang.String" value="Cursor Position"/>
-          </Properties>
-        </Component>
-      </SubComponents>
-    </Container>
     <Component class="javax.swing.JLabel" name="commentLabel">
       <Properties>
         <Property name="text" type="java.lang.String" value="Comment"/>
@@ -617,12 +441,6 @@
       <Events>
         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="commentFieldActionPerformed"/>
       </Events>
-    </Component>
-    <Component class="javax.swing.JCheckBox" name="fixedAspectRatioCheckbox">
-      <Properties>
-        <Property name="text" type="java.lang.String" value="Fix Aspect Ratio"/>
-        <Property name="toolTipText" type="java.lang.String" value="Check to fix the width-to-height pixel aspect ratio to 1:1"/>
-      </Properties>
     </Component>
   </SubComponents>
 </Form>

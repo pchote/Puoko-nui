@@ -14,8 +14,6 @@ package rangahau;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Font;
-import java.awt.Graphics2D;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.PointerInfo;
@@ -26,8 +24,8 @@ import java.awt.image.BufferedImage;
 
 import java.awt.geom.Point2D;
 
-import java.awt.geom.Rectangle2D;
-import java.io.File;
+import java.io.DataOutputStream;
+import java.io.OutputStream;
 
 import java.text.SimpleDateFormat;
 
@@ -38,6 +36,8 @@ import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
+import nom.tam.fits.BasicHDU;
+import nom.tam.fits.Fits;
 
 /**
  *
@@ -55,20 +55,9 @@ public class DisplayForm extends javax.swing.JFrame {
      */
     private TimeZone utcTimeZone = null;
     
-    /*
-     * The canvas that shows the image the latest image that has been acquired.
-     */
-    ImageCanvas imageCanvas = null;
-
-    /**
-     * This performs histogram equalisation in image data to produce an
-     * image with high contrast that is ready for display.
-     */
-    EqualisedImageFactory imageFactory = null;
-
     /**
      * The thread used to acquire images from the camera. This may be for
-     * measurement or focussing purposes.
+     * measurement or focusing purposes.
      */
     StoppableThread acquisitionThread = null;
 
@@ -79,7 +68,7 @@ public class DisplayForm extends javax.swing.JFrame {
 
     /**
      * Indicates whether acquisition is presently underway or not. True means
-     * that acquisitions are occuring.
+     * that acquisitions are occurring.
      */
     boolean acquiring = false;
     /**
@@ -153,14 +142,6 @@ public class DisplayForm extends javax.swing.JFrame {
         // model for any properties that are found.
         model.loadPropertiesFromFile();
 
-        imageFactory = new EqualisedImageFactory();
-        imageFactory.loadColourmapB();
-
-        imageScrollPane.getViewport().setLayout(new BorderLayout());
-        imageScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
-        imageScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-        imageScrollPane.setWheelScrollingEnabled(false); // We use the mouse to zoom.
-
         // Set the default exposure time values.
         desiredExposureTime = model.getExposureTime();
         desiredExposureTimeSpinner.setValue(desiredExposureTime);
@@ -190,10 +171,10 @@ public class DisplayForm extends javax.swing.JFrame {
 
         // Resize the display form so that its height matches the height of the
         // screen.
-        int screenHeight = Toolkit.getDefaultToolkit().getScreenSize().height;
-        int currentWidth = getWidth();
+        //int screenHeight = Toolkit.getDefaultToolkit().getScreenSize().height;
+        //int currentWidth = getWidth();
 
-        setSize(currentWidth, screenHeight);
+        //setSize(currentWidth, screenHeight);
     }
 
     /**
@@ -210,123 +191,34 @@ public class DisplayForm extends javax.swing.JFrame {
         if (pixels == null) {
             return; // There is nothing to display.
         }
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS z");
-        formatter.setTimeZone(utcTimeZone);
-//        SimpleDateFormat gpsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
-//        gpsFormatter.setTimeZone(utcTimeZone);
-//
-//        long showingTime = System.currentTimeMillis();
-//        System.out.println("Showing image (current system time " + formatter.format(new Date(showingTime))
-//                            + ", frame started at GPS time " + gpsFormatter.format(new Date(gpsStartTime)) + ", system - GPS = " + (startTime - gpsStartTime) + " ms)");
+        
+        // TODO: This is currently a huge hack
+        try {
+            Process process = Runtime.getRuntime().exec("/Users/paul/bin/xpaset ds9 fits");
+            OutputStream stdin = process.getOutputStream();
+            DataOutputStream dos = new DataOutputStream(stdin);
+            Fits image = new Fits();
+            BasicHDU header = Fits.makeHDU(pixels);
 
-        lastImagePixels = pixels;
-        BufferedImage image = (BufferedImage) imageFactory.generateImage(pixels);
+            header.addValue("SIMPLE", "T", "File does conform to FITS standard");
+            header.addValue("BITPIX", 32, "number of bits per data pixel");
+            header.addValue("NAXIS", 2, "number of data axes");
+            header.addValue("NAXIS1", pixels.length, "length of data axis 1");
+            header.addValue("NAXIS2", pixels[0].length, "length of data axis 2");
+            header.addValue("BZERO", 0, "offset data range to that of unsigned short");
+            header.addValue("BSCALE", 1, "default scaling factor");
 
-        if (imageCanvas == null) {
-            imageCanvas = new ImageCanvas(image);
-            imageScrollPane.getViewport().add(imageCanvas, BorderLayout.CENTER);
-            imageCanvas.setModel(model);
+            // Write any info we want to display in ds9 to the OBJECT field
+            header.addValue("OBJECT", "TODO: Show image info here" , "");
+            image.addHDU(header);
+            image.write(dos);
+            dos.close();
+            stdin.close();
+        } catch (Exception ex) {
+            System.out.println("Error updating image display; continuing");
         }
-
-        // Flip the image so that pixel row 0 is at the bottom of the image, 
-        // not at the top.
-        final int scaledWidth = (int) imageScale * image.getWidth();
-        final int scaledHeight = (int) imageScale * image.getHeight();
-        BufferedImage flippedImage = new BufferedImage(scaledWidth, scaledHeight, image.getType());
-
-        flippedImage.getGraphics().drawImage(image,
-                scaledWidth, scaledHeight, // first-point of destination
-                0, 0, // second-point of destination
-                0, 0, // first-point of source
-                image.getWidth(), image.getHeight(), // second-point of source
-                null);
-
-        image.getGraphics().dispose();
-
-        // If we are simulation mode then also indicate the time that the image
-        // is scheduled for display.
-        if (model.isSimulatingHardware()) {
-            Graphics2D graphics = (Graphics2D) flippedImage.getGraphics();
-            Font font = new Font("System", Font.BOLD, 24);
-            graphics.setFont(font);
-
-            String imageStart = "Drawn at: " + formatter.format(new Date());
-
-            Rectangle2D bounds = graphics.getFontMetrics().getStringBounds(imageStart, graphics);
-
-            int offset = 100;
-            graphics.translate(flippedImage.getWidth() / 2 - bounds.getWidth() / 2, flippedImage.getHeight() / 2 - bounds.getHeight() / 2 + offset);
-            //graphics.scale(1.0, -1.0);
-
-            graphics.drawString(imageStart, 0, 0);
-        }
-
-        imageCanvas.setFixedAspectRatio(fixedAspectRatioCheckbox.isSelected());
-        imageCanvas.setImage(flippedImage);
-
-        // Since the image has changed we need to update the information in
-        // the position and pixel intensity fields.
-        showCurrentPosition();
-
-        repaint(); // Indicate this component should be repainted.
-        imageCanvas.repaint();
-
-        // Save the image to disk, but only of the user has chosen to save
-        // images.
-        if (saveImagesCheckbox.isSelected()) {
-            final String filename = model.getDestinationPath() + File.separator + getNextImageFilename();
-
-            final long start = startTime;
-            final long gpsTime = gpsStartTime;
-
-            final String imageType = (String) imageTypeComboBox.getSelectedItem();
-            final String comment = commentField.getText();
-
-            final int[][] pixelValues = pixels;
-            SwingUtilities.invokeLater(new Runnable() {
-
-                public void run() {
-                    System.out.println("Saving image called " + filename);
-                    model.saveImage(filename, pixelValues, start, gpsTime, imageType, comment);
-                }
-            });
-        }
-
-        // Calculate approximate aperture photometry for the target and
-        // comparison (if they are marked).
-        Measurement targetMeasurement = null;
-        Measurement comparisonMeasurement = null;
-
-        if (model.getTargetLocation() != null) {
-            Integer imageSeriesNumber = (Integer) frameNumberField.getValue();
-            String seriesNumber = String.format("%04d", imageSeriesNumber.intValue());
-            String filename = model.getDestinationPath() + File.separator + seriesNumber;
-
-            targetMeasurement = model.measure(filename, pixels, (int) model.getTargetLocation().getX(),
-                    (int) model.getTargetLocation().getX(), startTime, startTime + 1000 * model.getExposureTime());
-            model.addTargetMeasurement(targetMeasurement);
-            System.out.println("Target total flux = " + targetMeasurement.getFlux()
-                    + ", central flux = " + targetMeasurement.getCentralFlux()
-                    + ", background = " + targetMeasurement.getBackground());
-        }
-
-        if (model.getComparisonLocation() != null) {
-            Integer imageSeriesNumber = (Integer) frameNumberField.getValue();
-            String seriesNumber = String.format("%04d", imageSeriesNumber.intValue());
-            String filename = model.getDestinationPath() + File.separator + seriesNumber;
-
-            comparisonMeasurement = model.measure(filename, pixels, (int) model.getComparisonLocation().getX(),
-                    (int) model.getComparisonLocation().getX(), startTime, startTime + 1000 * model.getExposureTime());
-            model.addComparisonMeasurement(comparisonMeasurement);
-            System.out.println("Comparison total flux = " + comparisonMeasurement.getFlux()
-                    + ", central flux = " + comparisonMeasurement.getCentralFlux()
-                    + ", background = " + comparisonMeasurement.getBackground());
-        }
-
-        // Update the display of target and comparison measurements.
-        // TODO - 
     }
-
+    
     /**
      * Generates a filename that is describes the image to be saved to disk as
      * part of a series of images.
@@ -365,478 +257,334 @@ public class DisplayForm extends javax.swing.JFrame {
      * WARNING: Do NOT modify this code. The content of this method is
      * always regenerated by the Form Editor.
      */
-  // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-  private void initComponents() {
+    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
+    private void initComponents() {
 
-    imageScrollPane = new javax.swing.JScrollPane();
-    exitButton = new javax.swing.JButton();
-    startButton = new javax.swing.JButton();
-    saveImagesCheckbox = new javax.swing.JCheckBox();
-    exposureControlPanel = new javax.swing.JPanel();
-    exposureControlLabel = new javax.swing.JLabel();
-    currentExposureTimeLabel = new javax.swing.JLabel();
-    currentExposureTimeField = new javax.swing.JTextField();
-    desiredExposureTimeLabel = new javax.swing.JLabel();
-    desiredExposureTimeSpinner = new javax.swing.JSpinner();
-    setExposureTimeButton = new javax.swing.JButton();
-    hardwarePanel = new javax.swing.JPanel();
-    hardwareLabel = new javax.swing.JLabel();
-    cameraLabel = new javax.swing.JLabel();
-    timingCardLabel = new javax.swing.JLabel();
-    gpsInputPulseLabel = new javax.swing.JLabel();
-    triggerPulseLabel = new javax.swing.JLabel();
-    simulateHardwareButton = new javax.swing.JCheckBox();
-    resetButton = new javax.swing.JButton();
-    gpsTimeField = new javax.swing.JTextField();
-    syncTimeField = new javax.swing.JTextField();
-    browseDestinationButton = new javax.swing.JButton();
-    destinationDirectoryField = new javax.swing.JTextField();
-    destinationDirectoryLabel = new javax.swing.JLabel();
-    frameNumberField = new javax.swing.JSpinner();
-    frameNumberLabel = new javax.swing.JLabel();
-    settingsButton = new javax.swing.JButton();
-    imageTypeComboBox = new javax.swing.JComboBox();
-    imageTypeLabel = new javax.swing.JLabel();
-    markComparisonButton = new javax.swing.JToggleButton();
-    markTargetButton = new javax.swing.JToggleButton();
-    mousePositionPanel = new javax.swing.JPanel();
-    xField = new javax.swing.JTextField();
-    yField = new javax.swing.JTextField();
-    xLabel = new javax.swing.JLabel();
-    yLabel = new javax.swing.JLabel();
-    valueLabel = new javax.swing.JLabel();
-    valueField = new javax.swing.JTextField();
-    jLabel1 = new javax.swing.JLabel();
-    commentLabel = new javax.swing.JLabel();
-    commentField = new javax.swing.JTextField();
-    fixedAspectRatioCheckbox = new javax.swing.JCheckBox();
+        exitButton = new javax.swing.JButton();
+        startButton = new javax.swing.JButton();
+        saveImagesCheckbox = new javax.swing.JCheckBox();
+        exposureControlPanel = new javax.swing.JPanel();
+        exposureControlLabel = new javax.swing.JLabel();
+        currentExposureTimeLabel = new javax.swing.JLabel();
+        currentExposureTimeField = new javax.swing.JTextField();
+        desiredExposureTimeLabel = new javax.swing.JLabel();
+        desiredExposureTimeSpinner = new javax.swing.JSpinner();
+        setExposureTimeButton = new javax.swing.JButton();
+        hardwarePanel = new javax.swing.JPanel();
+        hardwareLabel = new javax.swing.JLabel();
+        cameraLabel = new javax.swing.JLabel();
+        gpsInputPulseLabel = new javax.swing.JLabel();
+        triggerPulseLabel = new javax.swing.JLabel();
+        simulateHardwareButton = new javax.swing.JCheckBox();
+        resetButton = new javax.swing.JButton();
+        gpsTimeField = new javax.swing.JTextField();
+        syncTimeField = new javax.swing.JTextField();
+        browseDestinationButton = new javax.swing.JButton();
+        destinationDirectoryField = new javax.swing.JTextField();
+        destinationDirectoryLabel = new javax.swing.JLabel();
+        frameNumberField = new javax.swing.JSpinner();
+        frameNumberLabel = new javax.swing.JLabel();
+        settingsButton = new javax.swing.JButton();
+        imageTypeComboBox = new javax.swing.JComboBox();
+        imageTypeLabel = new javax.swing.JLabel();
+        commentLabel = new javax.swing.JLabel();
+        commentField = new javax.swing.JTextField();
 
-    setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-    setTitle("Rangahau Data Acquisition System");
+        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setTitle("Rangahau Data Acquisition System");
 
-    imageScrollPane.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-    imageScrollPane.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
-    imageScrollPane.setDoubleBuffered(true);
-    imageScrollPane.addMouseWheelListener(new java.awt.event.MouseWheelListener() {
-      public void mouseWheelMoved(java.awt.event.MouseWheelEvent evt) {
-        imageScrollPaneMouseWheelMoved(evt);
-      }
-    });
-    imageScrollPane.addMouseListener(new java.awt.event.MouseAdapter() {
-      public void mouseClicked(java.awt.event.MouseEvent evt) {
-        imageScrollPaneMouseClicked(evt);
-      }
-    });
-    imageScrollPane.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
-      public void mouseMoved(java.awt.event.MouseEvent evt) {
-        imageScrollPaneMouseMoved(evt);
-      }
-    });
+        exitButton.setText("Exit");
+        exitButton.setToolTipText("Exits the application");
+        exitButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exitButtonActionPerformed(evt);
+            }
+        });
 
-    exitButton.setText("Exit");
-    exitButton.setToolTipText("Exits the application");
-    exitButton.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        exitButtonActionPerformed(evt);
-      }
-    });
+        startButton.setText("Start");
+        startButton.setToolTipText("Starts acquiring and displaying images from the camera");
+        startButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                startButtonActionPerformed(evt);
+            }
+        });
 
-    startButton.setText("Start");
-    startButton.setToolTipText("Starts acquiring and displaying images from the camera");
-    startButton.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        startButtonActionPerformed(evt);
-      }
-    });
+        saveImagesCheckbox.setText("Save images");
+        saveImagesCheckbox.setToolTipText("Save images to disk");
 
-    saveImagesCheckbox.setText("Save images");
-    saveImagesCheckbox.setToolTipText("Save images to disk");
+        exposureControlPanel.setBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED));
 
-    exposureControlPanel.setBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED));
+        exposureControlLabel.setText("Exposure Control");
 
-    exposureControlLabel.setText("Exposure Control");
+        currentExposureTimeLabel.setText("Current");
 
-    currentExposureTimeLabel.setText("Current");
+        currentExposureTimeField.setEditable(false);
+        currentExposureTimeField.setToolTipText("The current exposure time (in seconds)");
+        currentExposureTimeField.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                currentExposureTimeFieldActionPerformed(evt);
+            }
+        });
 
-    currentExposureTimeField.setEditable(false);
-    currentExposureTimeField.setToolTipText("The current exposure time (in seconds)");
-    currentExposureTimeField.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        currentExposureTimeFieldActionPerformed(evt);
-      }
-    });
+        desiredExposureTimeLabel.setText("Desired");
 
-    desiredExposureTimeLabel.setText("Desired");
+        desiredExposureTimeSpinner.setModel(new javax.swing.SpinnerNumberModel(1, 1, 30, 1));
+        desiredExposureTimeSpinner.setToolTipText("The desired exposure time (in seconds)");
 
-    desiredExposureTimeSpinner.setModel(new javax.swing.SpinnerNumberModel(1, 1, 30, 1));
-    desiredExposureTimeSpinner.setToolTipText("The desired exposure time (in seconds)");
+        setExposureTimeButton.setText("Set Exposure Time");
+        setExposureTimeButton.setToolTipText("Sets the current exposure time to the value in the desired exposure time field");
+        setExposureTimeButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                setExposureTimeButtonActionPerformed(evt);
+            }
+        });
 
-    setExposureTimeButton.setText("Set Exposure Time");
-    setExposureTimeButton.setToolTipText("Sets the current exposure time to the value in the desired exposure time field");
-    setExposureTimeButton.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        setExposureTimeButtonActionPerformed(evt);
-      }
-    });
-
-    javax.swing.GroupLayout exposureControlPanelLayout = new javax.swing.GroupLayout(exposureControlPanel);
-    exposureControlPanel.setLayout(exposureControlPanelLayout);
-    exposureControlPanelLayout.setHorizontalGroup(
-      exposureControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addGroup(exposureControlPanelLayout.createSequentialGroup()
-        .addContainerGap()
-        .addGroup(exposureControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-          .addComponent(exposureControlLabel, javax.swing.GroupLayout.DEFAULT_SIZE, 132, Short.MAX_VALUE)
-          .addGroup(exposureControlPanelLayout.createSequentialGroup()
-            .addComponent(currentExposureTimeLabel)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(currentExposureTimeField, javax.swing.GroupLayout.DEFAULT_SIZE, 72, Short.MAX_VALUE))
-          .addGroup(exposureControlPanelLayout.createSequentialGroup()
-            .addComponent(desiredExposureTimeLabel)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(desiredExposureTimeSpinner, javax.swing.GroupLayout.DEFAULT_SIZE, 71, Short.MAX_VALUE))
-          .addComponent(setExposureTimeButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        .addContainerGap())
-    );
-    exposureControlPanelLayout.setVerticalGroup(
-      exposureControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addGroup(exposureControlPanelLayout.createSequentialGroup()
-        .addContainerGap()
-        .addComponent(exposureControlLabel)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-        .addGroup(exposureControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(currentExposureTimeLabel)
-          .addComponent(currentExposureTimeField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-        .addGroup(exposureControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(desiredExposureTimeLabel)
-          .addComponent(desiredExposureTimeSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addComponent(setExposureTimeButton)
-        .addContainerGap(15, Short.MAX_VALUE))
-    );
-
-    hardwarePanel.setBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED));
-    hardwarePanel.setEnabled(false);
-
-    hardwareLabel.setText("Hardware");
-
-    cameraLabel.setText("Camera");
-
-    timingCardLabel.setText("Timing Card");
-
-    gpsInputPulseLabel.setText("GPS Time");
-
-    triggerPulseLabel.setText("Sync Time");
-
-    simulateHardwareButton.setText("Simulate ");
-    simulateHardwareButton.setToolTipText("Use simulated hardware rather than real hardware (good for software development purposes)");
-    simulateHardwareButton.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        simulateHardwareButtonActionPerformed(evt);
-      }
-    });
-
-    resetButton.setText("Reset");
-    resetButton.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        resetButtonActionPerformed(evt);
-      }
-    });
-
-    gpsTimeField.setToolTipText("The UTC time last received from GPS");
-
-    syncTimeField.setToolTipText("The UTC time the last sync pulse was sent");
-
-    javax.swing.GroupLayout hardwarePanelLayout = new javax.swing.GroupLayout(hardwarePanel);
-    hardwarePanel.setLayout(hardwarePanelLayout);
-    hardwarePanelLayout.setHorizontalGroup(
-      hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addGroup(hardwarePanelLayout.createSequentialGroup()
-        .addContainerGap()
-        .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-          .addGroup(hardwarePanelLayout.createSequentialGroup()
-            .addComponent(simulateHardwareButton)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 51, Short.MAX_VALUE)
-            .addComponent(resetButton, javax.swing.GroupLayout.PREFERRED_SIZE, 112, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addGap(38, 38, 38))
-          .addGroup(hardwarePanelLayout.createSequentialGroup()
-            .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-              .addComponent(hardwareLabel)
-              .addComponent(cameraLabel)
-              .addComponent(timingCardLabel)
-              .addGroup(hardwarePanelLayout.createSequentialGroup()
-                .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                  .addComponent(gpsInputPulseLabel)
-                  .addComponent(triggerPulseLabel))
+        javax.swing.GroupLayout exposureControlPanelLayout = new javax.swing.GroupLayout(exposureControlPanel);
+        exposureControlPanel.setLayout(exposureControlPanelLayout);
+        exposureControlPanelLayout.setHorizontalGroup(
+            exposureControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(exposureControlPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(exposureControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(exposureControlLabel, javax.swing.GroupLayout.DEFAULT_SIZE, 160, Short.MAX_VALUE)
+                    .addGroup(exposureControlPanelLayout.createSequentialGroup()
+                        .addComponent(currentExposureTimeLabel)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(currentExposureTimeField, javax.swing.GroupLayout.DEFAULT_SIZE, 103, Short.MAX_VALUE))
+                    .addGroup(exposureControlPanelLayout.createSequentialGroup()
+                        .addComponent(desiredExposureTimeLabel)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(desiredExposureTimeSpinner, javax.swing.GroupLayout.DEFAULT_SIZE, 102, Short.MAX_VALUE))
+                    .addComponent(setExposureTimeButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
+        );
+        exposureControlPanelLayout.setVerticalGroup(
+            exposureControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(exposureControlPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(exposureControlLabel)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(exposureControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(currentExposureTimeLabel)
+                    .addComponent(currentExposureTimeField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(exposureControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(desiredExposureTimeLabel)
+                    .addComponent(desiredExposureTimeSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(setExposureTimeButton)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+
+        hardwarePanel.setBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED));
+        hardwarePanel.setEnabled(false);
+
+        hardwareLabel.setText("Hardware");
+
+        cameraLabel.setText("Camera");
+
+        gpsInputPulseLabel.setText("GPS Time");
+
+        triggerPulseLabel.setText("Sync Time");
+
+        simulateHardwareButton.setText("Simulate ");
+        simulateHardwareButton.setToolTipText("Use simulated hardware rather than real hardware (good for software development purposes)");
+        simulateHardwareButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                simulateHardwareButtonActionPerformed(evt);
+            }
+        });
+
+        resetButton.setText("Reset");
+        resetButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                resetButtonActionPerformed(evt);
+            }
+        });
+
+        gpsTimeField.setToolTipText("The UTC time last received from GPS");
+
+        syncTimeField.setToolTipText("The UTC time the last sync pulse was sent");
+
+        javax.swing.GroupLayout hardwarePanelLayout = new javax.swing.GroupLayout(hardwarePanel);
+        hardwarePanel.setLayout(hardwarePanelLayout);
+        hardwarePanelLayout.setHorizontalGroup(
+            hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(hardwarePanelLayout.createSequentialGroup()
+                .addContainerGap()
                 .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                  .addComponent(syncTimeField, javax.swing.GroupLayout.DEFAULT_SIZE, 196, Short.MAX_VALUE)
-                  .addComponent(gpsTimeField, javax.swing.GroupLayout.DEFAULT_SIZE, 196, Short.MAX_VALUE))))
-            .addContainerGap())))
-    );
-    hardwarePanelLayout.setVerticalGroup(
-      hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addGroup(hardwarePanelLayout.createSequentialGroup()
-        .addContainerGap()
-        .addComponent(hardwareLabel)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addComponent(cameraLabel)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addComponent(timingCardLabel)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(gpsInputPulseLabel)
-          .addComponent(gpsTimeField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-        .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(triggerPulseLabel)
-          .addComponent(syncTimeField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-        .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(simulateHardwareButton)
-          .addComponent(resetButton))
-        .addContainerGap())
-    );
-
-    browseDestinationButton.setText("Browse");
-    browseDestinationButton.setToolTipText("Browse for a destination directory to save images to");
-    browseDestinationButton.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        browseDestinationButtonActionPerformed(evt);
-      }
-    });
-
-    destinationDirectoryField.setEditable(false);
-    destinationDirectoryField.setToolTipText("Destination directory where images are saved to");
-    destinationDirectoryField.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        destinationDirectoryFieldActionPerformed(evt);
-      }
-    });
-
-    destinationDirectoryLabel.setText("Destination");
-
-    frameNumberField.setToolTipText("The sequence number of the next frame to be saved");
-
-    frameNumberLabel.setText("Frame Number");
-
-    settingsButton.setText("Settings ...");
-    settingsButton.setToolTipText("Change settings that are recorded in the image headers");
-    settingsButton.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        settingsButtonActionPerformed(evt);
-      }
-    });
-
-    imageTypeComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Focus", "Dark", "Flat", "Target" }));
-    imageTypeComboBox.setToolTipText("The type of image to be acquired.");
-    imageTypeComboBox.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        imageTypeComboBoxActionPerformed(evt);
-      }
-    });
-
-    imageTypeLabel.setText("Image Type");
-    imageTypeLabel.setToolTipText("The type of image to be acquired.");
-
-    markComparisonButton.setText("Mark Comparison");
-    markComparisonButton.setToolTipText("Enables left clicking the mouse on the image display to mark the comparison or right clicking to unmark the comparison location.");
-    markComparisonButton.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        markComparisonButtonActionPerformed(evt);
-      }
-    });
-
-    markTargetButton.setText("Mark Target");
-    markTargetButton.setToolTipText("Enables left clicking the mouse on the image display to mark the target or right clicking to unmark the target location.");
-    markTargetButton.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        markTargetButtonActionPerformed(evt);
-      }
-    });
-
-    mousePositionPanel.setBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED));
-
-    xField.setEditable(false);
-    xField.setToolTipText("The x coordinate within the image");
-
-    yField.setEditable(false);
-    yField.setToolTipText("The y coordinate within the image");
-
-    xLabel.setText("x");
-    xLabel.setToolTipText("The x coordinate within the image");
-
-    yLabel.setText("y");
-    yLabel.setToolTipText("The y coordinate within the image");
-
-    valueLabel.setText("value");
-    valueLabel.setToolTipText("The intensity value within the image");
-
-    valueField.setEditable(false);
-    valueField.setToolTipText("The intensity value within the image");
-
-    jLabel1.setText("Cursor Position");
-
-    javax.swing.GroupLayout mousePositionPanelLayout = new javax.swing.GroupLayout(mousePositionPanel);
-    mousePositionPanel.setLayout(mousePositionPanelLayout);
-    mousePositionPanelLayout.setHorizontalGroup(
-      mousePositionPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addGroup(mousePositionPanelLayout.createSequentialGroup()
-        .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, 115, Short.MAX_VALUE)
-        .addGap(24, 24, 24))
-      .addGroup(mousePositionPanelLayout.createSequentialGroup()
-        .addContainerGap()
-        .addGroup(mousePositionPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-          .addComponent(xLabel)
-          .addComponent(yLabel)
-          .addComponent(valueLabel))
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addGroup(mousePositionPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-          .addComponent(yField, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 69, Short.MAX_VALUE)
-          .addComponent(valueField, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 69, Short.MAX_VALUE)
-          .addComponent(xField, javax.swing.GroupLayout.DEFAULT_SIZE, 69, Short.MAX_VALUE))
-        .addContainerGap())
-    );
-    mousePositionPanelLayout.setVerticalGroup(
-      mousePositionPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, mousePositionPanelLayout.createSequentialGroup()
-        .addContainerGap()
-        .addComponent(jLabel1)
-        .addGap(18, 18, 18)
-        .addGroup(mousePositionPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(xLabel)
-          .addComponent(xField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addGroup(mousePositionPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(yLabel)
-          .addComponent(yField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addGroup(mousePositionPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(valueField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-          .addComponent(valueLabel))
-        .addContainerGap(18, Short.MAX_VALUE))
-    );
-
-    commentLabel.setText("Comment");
-
-    commentField.setToolTipText("Comment text to place within FITS header (up to 72 characters)");
-    commentField.setAutoscrolls(true);
-    commentField.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
-        commentFieldActionPerformed(evt);
-      }
-    });
-
-    fixedAspectRatioCheckbox.setText("Fix Aspect Ratio");
-    fixedAspectRatioCheckbox.setToolTipText("Check to fix the width-to-height pixel aspect ratio to 1:1");
-
-    javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-    getContentPane().setLayout(layout);
-    layout.setHorizontalGroup(
-      layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-        .addContainerGap()
-        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-          .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-              .addComponent(imageScrollPane, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 887, Short.MAX_VALUE)
-              .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
-                .addComponent(commentLabel)
+                    .addGroup(hardwarePanelLayout.createSequentialGroup()
+                        .addComponent(simulateHardwareButton)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 62, Short.MAX_VALUE)
+                        .addComponent(resetButton, javax.swing.GroupLayout.PREFERRED_SIZE, 112, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(38, 38, 38))
+                    .addGroup(hardwarePanelLayout.createSequentialGroup()
+                        .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(hardwareLabel)
+                            .addComponent(cameraLabel)
+                            .addGroup(hardwarePanelLayout.createSequentialGroup()
+                                .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(gpsInputPulseLabel)
+                                    .addComponent(triggerPulseLabel))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(syncTimeField, javax.swing.GroupLayout.DEFAULT_SIZE, 208, Short.MAX_VALUE)
+                                    .addComponent(gpsTimeField, javax.swing.GroupLayout.DEFAULT_SIZE, 208, Short.MAX_VALUE))))
+                        .addContainerGap())))
+        );
+        hardwarePanelLayout.setVerticalGroup(
+            hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(hardwarePanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(hardwareLabel)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(commentField, javax.swing.GroupLayout.DEFAULT_SIZE, 811, Short.MAX_VALUE))
-              .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                  .addGroup(layout.createSequentialGroup()
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                      .addComponent(frameNumberLabel)
-                      .addComponent(startButton)
-                      .addComponent(imageTypeLabel)
-                      .addComponent(settingsButton))
-                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                      .addComponent(imageTypeComboBox, javax.swing.GroupLayout.Alignment.LEADING, 0, 116, Short.MAX_VALUE)
-                      .addComponent(saveImagesCheckbox, javax.swing.GroupLayout.Alignment.LEADING)
-                      .addComponent(frameNumberField, javax.swing.GroupLayout.Alignment.LEADING))
-                    .addGap(15, 15, 15))
-                  .addGroup(layout.createSequentialGroup()
-                    .addComponent(fixedAspectRatioCheckbox)
-                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
-                .addComponent(exposureControlPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addComponent(mousePositionPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addComponent(hardwarePanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-            .addContainerGap())
-          .addGroup(layout.createSequentialGroup()
-            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-              .addComponent(destinationDirectoryLabel)
-              .addComponent(destinationDirectoryField, javax.swing.GroupLayout.DEFAULT_SIZE, 523, Short.MAX_VALUE))
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(browseDestinationButton)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-              .addComponent(markComparisonButton, javax.swing.GroupLayout.PREFERRED_SIZE, 145, javax.swing.GroupLayout.PREFERRED_SIZE)
-              .addComponent(markTargetButton, javax.swing.GroupLayout.PREFERRED_SIZE, 145, javax.swing.GroupLayout.PREFERRED_SIZE))
-            .addGap(71, 71, 71)
-            .addComponent(exitButton)
-            .addGap(55, 55, 55))))
-    );
-    layout.setVerticalGroup(
-      layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addGroup(layout.createSequentialGroup()
-        .addContainerGap()
-        .addComponent(imageScrollPane, javax.swing.GroupLayout.DEFAULT_SIZE, 252, Short.MAX_VALUE)
-        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-          .addGroup(layout.createSequentialGroup()
-            .addGap(23, 23, 23)
-            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-              .addGroup(layout.createSequentialGroup()
-                .addComponent(fixedAspectRatioCheckbox)
+                .addComponent(cameraLabel)
+                .addGap(32, 32, 32)
+                .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(gpsInputPulseLabel)
+                    .addComponent(gpsTimeField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(triggerPulseLabel)
+                    .addComponent(syncTimeField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                  .addComponent(startButton)
-                  .addComponent(saveImagesCheckbox))
-                .addGap(12, 12, 12)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                  .addComponent(imageTypeComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                  .addComponent(imageTypeLabel))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                  .addComponent(frameNumberLabel)
-                  .addComponent(frameNumberField, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(settingsButton))
-              .addComponent(exposureControlPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-              .addComponent(mousePositionPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-          .addGroup(layout.createSequentialGroup()
-            .addGap(20, 20, 20)
-            .addComponent(hardwarePanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(commentField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-          .addComponent(commentLabel))
-        .addGap(24, 24, 24)
-        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-          .addGroup(layout.createSequentialGroup()
-            .addComponent(destinationDirectoryLabel)
-            .addGap(4, 4, 4)
-            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-              .addComponent(destinationDirectoryField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-              .addComponent(browseDestinationButton)))
-          .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-              .addGap(19, 19, 19)
-              .addComponent(exitButton))
-            .addGroup(layout.createSequentialGroup()
-              .addComponent(markTargetButton)
-              .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-              .addComponent(markComparisonButton))))
-        .addContainerGap())
-    );
+                .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(simulateHardwareButton)
+                    .addComponent(resetButton))
+                .addContainerGap())
+        );
 
-    pack();
-  }// </editor-fold>//GEN-END:initComponents
+        browseDestinationButton.setText("Browse");
+        browseDestinationButton.setToolTipText("Browse for a destination directory to save images to");
+        browseDestinationButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                browseDestinationButtonActionPerformed(evt);
+            }
+        });
+
+        destinationDirectoryField.setEditable(false);
+        destinationDirectoryField.setToolTipText("Destination directory where images are saved to");
+        destinationDirectoryField.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                destinationDirectoryFieldActionPerformed(evt);
+            }
+        });
+
+        destinationDirectoryLabel.setText("Destination");
+
+        frameNumberField.setToolTipText("The sequence number of the next frame to be saved");
+
+        frameNumberLabel.setText("Frame Number");
+
+        settingsButton.setText("Settings ...");
+        settingsButton.setToolTipText("Change settings that are recorded in the image headers");
+        settingsButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                settingsButtonActionPerformed(evt);
+            }
+        });
+
+        imageTypeComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Focus", "Dark", "Flat", "Target" }));
+        imageTypeComboBox.setToolTipText("The type of image to be acquired.");
+        imageTypeComboBox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                imageTypeComboBoxActionPerformed(evt);
+            }
+        });
+
+        imageTypeLabel.setText("Image Type");
+        imageTypeLabel.setToolTipText("The type of image to be acquired.");
+
+        commentLabel.setText("Comment");
+
+        commentField.setToolTipText("Comment text to place within FITS header (up to 72 characters)");
+        commentField.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                commentFieldActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(commentLabel)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(commentField, javax.swing.GroupLayout.DEFAULT_SIZE, 908, Short.MAX_VALUE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(frameNumberLabel)
+                            .addComponent(startButton)
+                            .addComponent(imageTypeLabel)
+                            .addComponent(settingsButton))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                            .addComponent(imageTypeComboBox, javax.swing.GroupLayout.Alignment.LEADING, 0, 116, Short.MAX_VALUE)
+                            .addComponent(saveImagesCheckbox, javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(frameNumberField, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(15, 15, 15)
+                        .addComponent(exposureControlPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(194, 194, 194)
+                        .addComponent(hardwarePanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(destinationDirectoryLabel)
+                            .addComponent(destinationDirectoryField, javax.swing.GroupLayout.DEFAULT_SIZE, 550, Short.MAX_VALUE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(browseDestinationButton)
+                        .addGap(222, 222, 222)
+                        .addComponent(exitButton)
+                        .addGap(35, 35, 35)))
+                .addGap(23, 23, 23))
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(3, 3, 3)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                    .addComponent(startButton)
+                                    .addComponent(saveImagesCheckbox))
+                                .addGap(12, 12, 12)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                    .addComponent(imageTypeComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(imageTypeLabel))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                    .addComponent(frameNumberLabel)
+                                    .addComponent(frameNumberField, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(settingsButton))
+                            .addComponent(exposureControlPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addComponent(hardwarePanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(commentField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(commentLabel))
+                .addGap(24, 24, 24)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(destinationDirectoryLabel)
+                        .addGap(4, 4, 4)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(destinationDirectoryField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(browseDestinationButton)))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(19, 19, 19)
+                        .addComponent(exitButton)))
+                .addContainerGap(32, Short.MAX_VALUE))
+        );
+
+        pack();
+    }// </editor-fold>//GEN-END:initComponents
     private void exitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exitButtonActionPerformed
 
         try {
@@ -869,10 +617,6 @@ public class DisplayForm extends javax.swing.JFrame {
             startButton.setText("Start");
         }
     }//GEN-LAST:event_startButtonActionPerformed
-
-    private void imageScrollPaneMouseMoved(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_imageScrollPaneMouseMoved
-        showCurrentPosition();
-    }//GEN-LAST:event_imageScrollPaneMouseMoved
 
     private void currentExposureTimeFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_currentExposureTimeFieldActionPerformed
         // TODO add your handling code here:
@@ -955,90 +699,6 @@ private void imageTypeComboBoxActionPerformed(java.awt.event.ActionEvent evt) {/
         }
     }
 //GEN-LAST:event_imageTypeComboBoxActionPerformed
-private void markTargetButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_markTargetButtonActionPerformed
-    inMarkTargetMode = markTargetButton.isSelected();
-
-    markComparisonButton.setEnabled(!inMarkTargetMode);
-}//GEN-LAST:event_markTargetButtonActionPerformed
-
-private void markComparisonButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_markComparisonButtonActionPerformed
-    inMarkComparisonMode = markComparisonButton.isSelected();
-
-    markTargetButton.setEnabled(!inMarkComparisonMode);
-}//GEN-LAST:event_markComparisonButtonActionPerformed
-
-private void imageScrollPaneMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_imageScrollPaneMouseClicked
-    // Get the location of the mouse in the coordinate system of the image.
-
-    if (imageCanvas == null) {
-        return; // there is no information to be displayed.
-    }
-
-    PointerInfo mouseInfo = MouseInfo.getPointerInfo();
-    // The location within the mouseInfo is in screen coordinates. We want
-    // window coordinates relative to the image canvas.
-    Point point = new Point(mouseInfo.getLocation());
-    SwingUtilities.convertPointFromScreen(point, imageCanvas);
-
-    double relativeX = imageCanvas.getImage().getWidth(null) / (double) imageCanvas.getWidth();
-    // Note that image coordinates increase in the opposite direction to screen coordinates.
-    double relativeY = imageCanvas.getImage().getHeight(null) / (double) imageCanvas.getHeight();
-
-    boolean validLocation = true; // false if the mouse pointer is outside the image canvas.
-
-    int imageX = (int) (point.x * relativeX);
-    if (imageX >= imageCanvas.getImage().getWidth(null)) {
-        validLocation = false;
-    }
-    if (imageX < 0) {
-        validLocation = false;
-    }
-
-    int imageY = (int) ((imageCanvas.getHeight() - point.y) * relativeY);
-    if (imageY >= imageCanvas.getImage().getHeight(null)) {
-        validLocation = false;
-    }
-    if (imageY < 0) {
-        validLocation = false;
-    }
-
-    // If we are in a mode where we mark the target star then record the 
-    // selected coordinates.
-    if (inMarkTargetMode) {
-        if (!validLocation || (evt.getButton() != evt.BUTTON1)) {
-            // The user either clicked out side the image or clicked with
-            // a button other than the left button. This means they want to
-            // clear the target location.
-            model.setTargetLocation(null);
-        } else {
-            // The mouse was clicked on an object, so record the location of
-            // this object.
-            Point2D targetLocation = new Point2D.Double(point.x * relativeX, (imageCanvas.getHeight() - point.y) * relativeY);
-            model.setTargetLocation(targetLocation);
-        }
-    }
-
-    // If we are in a mode where we are marking the comparison star then record 
-    // the selected coordinates.
-    if (inMarkComparisonMode) {
-        if (!validLocation || (evt.getButton() != evt.BUTTON1)) {
-            // The user either clicked out side the image or clicked with
-            // a button other than the left button. This means they want to
-            // clear the comparison location.
-            model.setComparisonLocation(null);
-        } else {
-            // The mouse was clicked on an object, so record the location of
-            // this object.
-            Point2D comparisonLocation = new Point2D.Double(point.x * relativeX, (imageCanvas.getHeight() - point.y) * relativeY);
-            model.setComparisonLocation(comparisonLocation);
-        }
-    }
-
-    // Show the updated position as soon as we can.
-    if (imageCanvas != null) {
-        imageCanvas.repaint();
-    }
-}//GEN-LAST:event_imageScrollPaneMouseClicked
 
 private void commentFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_commentFieldActionPerformed
     // TODO add your handling code here:
@@ -1080,80 +740,6 @@ private void resetButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-F
     model.initialiseImageSource();
 
 }//GEN-LAST:event_resetButtonActionPerformed
-
-private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) {//GEN-FIRST:event_imageScrollPaneMouseWheelMoved
-    int numClicks = evt.getWheelRotation();
-
-    // Positive numbers are when the mouse wheel was rotated toward the user and
-    // are used for zoom out (increasing scale).
-    imageScale += 0.5 * numClicks;
-
-    final double minImageScale = 1.0;
-    final double maxImageScale = 20.0;
-
-    if (imageScale < minImageScale) {
-        imageScale = minImageScale;
-    }
-
-    if (imageScale > maxImageScale) {
-        imageScale = maxImageScale;
-    }
-
-    // Redraw the image with the new scale.
-    if (lastImagePixels == null) {
-        return; // Nothing to do.
-    }
-    BufferedImage image = (BufferedImage) imageFactory.generateImage(lastImagePixels);
-
-    if (imageCanvas == null) {
-        imageCanvas = new ImageCanvas(image);
-        imageScrollPane.getViewport().add(imageCanvas, BorderLayout.CENTER);
-        imageCanvas.setModel(model);
-    }
-
-    // Flip the image so that pixel row 0 is at the bottom of the image,
-    // not at the top.
-    final int scaledWidth = (int) imageScale * image.getWidth();
-    final int scaledHeight = (int) imageScale * image.getHeight();
-    BufferedImage flippedImage = new BufferedImage(scaledWidth, scaledHeight, image.getType());
-
-    flippedImage.getGraphics().drawImage(image,
-            0, scaledHeight, // first-point of destination
-            scaledWidth, 0, // second-point of destination
-            0, 0, // first-point of source
-            image.getWidth(), image.getHeight(), // second-point of source
-            null);
-
-    image.getGraphics().dispose();
-
-    // If we are simulation mode then also indicate the time that the image
-    // is scheduled for display.
-//  if (model.isSimulatingHardware()) {
-//    Graphics2D graphics = (Graphics2D) flippedImage.getGraphics();
-//    Font font = new Font("System", Font.BOLD, 24);
-//    graphics.setFont(font);
-//
-//    String imageStart = "Drawn at: " + formatter.format(new Date());
-//
-//    Rectangle2D bounds = graphics.getFontMetrics().getStringBounds(imageStart, graphics);
-//
-//    int offset = 100;
-//    graphics.translate(flippedImage.getWidth() / 2 - bounds.getWidth() / 2, flippedImage.getHeight() / 2 - bounds.getHeight() / 2 + offset);
-//    //graphics.scale(1.0, -1.0);
-//
-//    graphics.drawString(imageStart, 0, 0);
-//  }
-
-    imageCanvas.setFixedAspectRatio(fixedAspectRatioCheckbox.isSelected());
-    imageCanvas.setImage(flippedImage);
-
-    // Since the image has changed we need to update the information in
-    // the position and pixel intensity fields.
-    //showCurrentPosition();
-
-    repaint(); // Indicate this component should be repainted.
-    imageCanvas.repaint();
-}//GEN-LAST:event_imageScrollPaneMouseWheelMoved
 
     /**
      * Sets the exposure time. 
@@ -1262,65 +848,6 @@ private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) 
     }
 
     /**
-     * Updates the x,y, and value fields to show the pixel value for the pixel
-     * under the current mouse pointer position. 
-     */
-    private void showCurrentPosition() {
-        // When the mouse is moved over the scroll pane we want to show
-        // its position (in image coordinates, not window coordinates),
-        // and the intensity value under the mouse pointer.
-        if (imageCanvas == null) {
-            return; // there is no information to be displayed.
-        }
-
-        PointerInfo mouseInfo = MouseInfo.getPointerInfo();
-        // The location within the mouseInfo is in screen coordinates. We want
-        // window coordinates relative to the image canvas.
-        Point point = new Point(mouseInfo.getLocation());
-        SwingUtilities.convertPointFromScreen(point, imageCanvas);
-
-        double relativeX = imageCanvas.getImage().getWidth(null) / (double) imageCanvas.getWidth();
-        // Note that image coordinates increase in the opposite direction to screen coordinates.
-        double relativeY = imageCanvas.getImage().getHeight(null) / (double) imageCanvas.getHeight();
-
-        boolean validLocation = true; // false if the mouse pointer is outside the image canvas.
-
-        int imageX = (int) (point.x * relativeX);
-        if (imageX >= imageCanvas.getImage().getWidth(null)) {
-            validLocation = false;
-        }
-        if (imageX < 0) {
-            validLocation = false;
-        }
-
-        int imageY = (int) ((imageCanvas.getHeight() - point.y) * relativeY);
-        if (imageY >= imageCanvas.getImage().getHeight(null)) {
-            validLocation = false;
-        }
-        if (imageY < 0) {
-            validLocation = false;
-        }
-
-        int value = 0;
-        if (validLocation && (lastImagePixels != null)) {
-            value = lastImagePixels[imageY][imageX];
-        }
-
-        // Update the x,y and value fields to reflect the mouse position.
-        // If the x,y coordinates are outside the imageCanvas then clear all
-        // field values.
-        if (validLocation) {
-            xField.setText(Integer.toString(imageX));
-            yField.setText(Integer.toString(imageY));
-            valueField.setText(Integer.toString(value));
-        } else {
-            xField.setText(null);
-            yField.setText(null);
-            valueField.setText(null);
-        }
-    }
-
-    /**
      * @param args the command line arguments
      */
     public static void main(String args[]) {
@@ -1331,50 +858,37 @@ private void imageScrollPaneMouseWheelMoved(java.awt.event.MouseWheelEvent evt) 
             }
         });
     }
-  // Variables declaration - do not modify//GEN-BEGIN:variables
-  private javax.swing.JButton browseDestinationButton;
-  private javax.swing.JLabel cameraLabel;
-  private javax.swing.JTextField commentField;
-  private javax.swing.JLabel commentLabel;
-  private javax.swing.JTextField currentExposureTimeField;
-  private javax.swing.JLabel currentExposureTimeLabel;
-  private javax.swing.JLabel desiredExposureTimeLabel;
-  private javax.swing.JSpinner desiredExposureTimeSpinner;
-  private javax.swing.JTextField destinationDirectoryField;
-  private javax.swing.JLabel destinationDirectoryLabel;
-  private javax.swing.JButton exitButton;
-  private javax.swing.JLabel exposureControlLabel;
-  private javax.swing.JPanel exposureControlPanel;
-  private javax.swing.JCheckBox fixedAspectRatioCheckbox;
-  private javax.swing.JSpinner frameNumberField;
-  private javax.swing.JLabel frameNumberLabel;
-  private javax.swing.JLabel gpsInputPulseLabel;
-  private javax.swing.JTextField gpsTimeField;
-  private javax.swing.JLabel hardwareLabel;
-  private javax.swing.JPanel hardwarePanel;
-  private javax.swing.JScrollPane imageScrollPane;
-  private javax.swing.JComboBox imageTypeComboBox;
-  private javax.swing.JLabel imageTypeLabel;
-  private javax.swing.JLabel jLabel1;
-  private javax.swing.JToggleButton markComparisonButton;
-  private javax.swing.JToggleButton markTargetButton;
-  private javax.swing.JPanel mousePositionPanel;
-  private javax.swing.JButton resetButton;
-  private javax.swing.JCheckBox saveImagesCheckbox;
-  private javax.swing.JButton setExposureTimeButton;
-  private javax.swing.JButton settingsButton;
-  private javax.swing.JCheckBox simulateHardwareButton;
-  private javax.swing.JButton startButton;
-  private javax.swing.JTextField syncTimeField;
-  private javax.swing.JLabel timingCardLabel;
-  private javax.swing.JLabel triggerPulseLabel;
-  private javax.swing.JTextField valueField;
-  private javax.swing.JLabel valueLabel;
-  private javax.swing.JTextField xField;
-  private javax.swing.JLabel xLabel;
-  private javax.swing.JTextField yField;
-  private javax.swing.JLabel yLabel;
-  // End of variables declaration//GEN-END:variables
+    // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton browseDestinationButton;
+    private javax.swing.JLabel cameraLabel;
+    private javax.swing.JTextField commentField;
+    private javax.swing.JLabel commentLabel;
+    private javax.swing.JTextField currentExposureTimeField;
+    private javax.swing.JLabel currentExposureTimeLabel;
+    private javax.swing.JLabel desiredExposureTimeLabel;
+    private javax.swing.JSpinner desiredExposureTimeSpinner;
+    private javax.swing.JTextField destinationDirectoryField;
+    private javax.swing.JLabel destinationDirectoryLabel;
+    private javax.swing.JButton exitButton;
+    private javax.swing.JLabel exposureControlLabel;
+    private javax.swing.JPanel exposureControlPanel;
+    private javax.swing.JSpinner frameNumberField;
+    private javax.swing.JLabel frameNumberLabel;
+    private javax.swing.JLabel gpsInputPulseLabel;
+    private javax.swing.JTextField gpsTimeField;
+    private javax.swing.JLabel hardwareLabel;
+    private javax.swing.JPanel hardwarePanel;
+    private javax.swing.JComboBox imageTypeComboBox;
+    private javax.swing.JLabel imageTypeLabel;
+    private javax.swing.JButton resetButton;
+    private javax.swing.JCheckBox saveImagesCheckbox;
+    private javax.swing.JButton setExposureTimeButton;
+    private javax.swing.JButton settingsButton;
+    private javax.swing.JCheckBox simulateHardwareButton;
+    private javax.swing.JButton startButton;
+    private javax.swing.JTextField syncTimeField;
+    private javax.swing.JLabel triggerPulseLabel;
+    // End of variables declaration//GEN-END:variables
 
     /**
      * The desired exposure time (in seconds). This desired exposure time will
