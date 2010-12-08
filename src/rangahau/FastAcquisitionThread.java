@@ -183,7 +183,7 @@ public class FastAcquisitionThread extends StoppableThread {
             if (!stopThread) {
                 final Date syncStart = syncStartTime;
                 final Date lastSync = lastSyncTime;
-                System.out.println("Displaying image ...");
+
                 if (SwingUtilities.isEventDispatchThread()) {
                     form.showImage(image, systemStartTime, syncStart.getTime());
                     form.showSyncTime(lastSync);

@@ -6,7 +6,6 @@
  */
 package rangahau;
 
-import java.awt.geom.Point2D;
 
 import java.io.File;
 import java.io.DataOutputStream;
@@ -61,12 +60,6 @@ public class Model {
     private int exposureTime = 5;
 
     /**
-     * The command to use to synchronize the host's system clock with a
-     * network time server.
-     */
-    private String synchronizeCommand = "ntpdate time.nist.gov";
-
-    /**
      * A description of the run. For example, "xcov26".
      */
     private String run = "xcov27";
@@ -101,18 +94,6 @@ public class Model {
      */
     private String destinationPath = null;
 
-    /**
-     * The location of the target object. This may be null if the target object
-     * has not yet been designated.
-     */
-    private Point2D targetLocation = null;
-    
-    /**
-     * The location of the comparison object. This may be null if the comparison
-     * object has not yet been designated.
-     */
-    private Point2D comparisonLocation = null;
-    
     /**
      * File name of the properties file  (excluding the file path) holding 
      * the rangahau settings.
@@ -249,10 +230,6 @@ public class Model {
         return camera;
     }
 
-    public void setCamera(Camera camera) {
-        this.camera = camera;
-    }
-
     /**
      * Releases any resources managed by the model. This is usually performed
      * at application shutdown.
@@ -338,6 +315,7 @@ public class Model {
         Calendar now = Calendar.getInstance();
         SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
 
+        
         // Add information to the FITS header.
         try {
             FileOutputStream fos = new FileOutputStream(filename);
@@ -435,6 +413,39 @@ public class Model {
         } catch (Exception ex) {
             ex.printStackTrace();
             System.exit(3);
+        }
+    }
+
+    /**
+     * Display pixels as an image using DS9
+     *
+     * @param pixels the pixel elements of the image.
+     */
+    public void displayImage(int[][] pixels) {
+        // Todo: Assumes that ds9 is running
+        try {
+            Process process = new ProcessBuilder("xpaset", "ds9", "fits").start();
+
+            DataOutputStream dos = new DataOutputStream(process.getOutputStream());
+            Fits image = new Fits();
+            BasicHDU header = Fits.makeHDU(pixels);
+
+            header.addValue("SIMPLE", "T", "File does conform to FITS standard");
+            header.addValue("BITPIX", 32, "number of bits per data pixel");
+            header.addValue("NAXIS", 2, "number of data axes");
+            header.addValue("NAXIS1", pixels.length, "length of data axis 1");
+            header.addValue("NAXIS2", pixels[0].length, "length of data axis 2");
+            header.addValue("BZERO", 0, "offset data range to that of unsigned short");
+            header.addValue("BSCALE", 1, "default scaling factor");
+
+            // Write any info we want to display in ds9 to the OBJECT field
+            header.addValue("OBJECT", "TODO: Show image info here" , "");
+            image.addHDU(header);
+            image.write(dos);
+            dos.close();
+        } catch (Exception ex) {
+            System.out.println(ex.getMessage());
+            System.out.println("Error updating image display; continuing");
         }
     }
 
@@ -595,38 +606,5 @@ public class Model {
             ex.printStackTrace(System.err);
             return;
         }
-    }
-
-    /**
-     * Corrects the hosts system clock by synchronizing with an NTP time server.
-     * This relies on the 'ntpdate' program being present on the host system
-     * and the user having sufficient privilege to execute it.
-     */
-    public void correctSystemClock() {
-        try {
-            Runtime.getRuntime().exec(synchronizeCommand);
-        } catch (IOException ex) {
-            System.err.println("A problem occured when synchronizing the system clock with the command '"
-                    + synchronizeCommand + "'");
-            ex.printStackTrace(System.err);
-        }
-    }
-
-    /**
-     * The command to use to synchronize the host's system clock with a
-     * network time server.
-     * @return the synchronizeCommand
-     */
-    public String getSynchronizeCommand() {
-        return synchronizeCommand;
-    }
-
-    /**
-     * The command to use to synchronize the host's system clock with a
-     * network time server.
-     * @param synchronizeCommand the synchronizeCommand to set
-     */
-    public void setSynchronizeCommand(String synchronizeCommand) {
-        this.synchronizeCommand = synchronizeCommand;
     }
 }

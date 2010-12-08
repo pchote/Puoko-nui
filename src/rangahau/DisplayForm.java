@@ -12,32 +12,15 @@
  */
 package rangahau;
 
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.MouseInfo;
-import java.awt.Point;
-import java.awt.PointerInfo;
-import java.awt.Toolkit;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.awt.image.BufferedImage;
-
-import java.awt.geom.Point2D;
-
-import java.io.DataOutputStream;
-import java.io.OutputStream;
-
+import java.io.File;
 import java.text.SimpleDateFormat;
-
 import java.util.Date;
 import java.util.TimeZone;
-
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
-import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
-import nom.tam.fits.BasicHDU;
-import nom.tam.fits.Fits;
 
 /**
  *
@@ -62,15 +45,11 @@ public class DisplayForm extends javax.swing.JFrame {
     StoppableThread acquisitionThread = null;
 
     /**
-     * The pixels contained within the last image acquired.
-     */
-    int[][] lastImagePixels = null;
-
-    /**
      * Indicates whether acquisition is presently underway or not. True means
      * that acquisitions are occurring.
      */
     boolean acquiring = false;
+    
     /**
      * The desired exposure time (in seconds). This desired exposure time will 
      * not become the actual exposure time until the current image acquisition
@@ -78,64 +57,12 @@ public class DisplayForm extends javax.swing.JFrame {
      */
     private int desiredExposureTime = 0;
     
-    /**
-     * True if the mouse cursor is being used to mark the primary target of the
-     * observation.
-     */
-    boolean inMarkTargetMode = false;
-
-    /**
-     * True if the mouse cursor is being used to mark the primary comparison
-     * object of the observation.
-     */
-    boolean inMarkComparisonMode = false;
-    
-    /**
-     * The glass pane is used to draw anywhere over this frame. We use it to
-     * draw markers over the image canvas (the glass pane content is drawn no
-     * matter in what order the image canvas is drawn relative to the markers).
-     */
-    Component glassPane = null;
-
-    /**
-     * The scale to display the image in.
-     */
-    double imageScale = 1.0;
-
     /** Creates new form DisplayForm */
     public DisplayForm() {
-        // Use the Nimbus Look&Feel if we can.
-        // Create the main frame of the application.
-        // Use the Napkin Look & Feel.
-//        try {
-//            String lookAndFeelName = null;
-//            //lookAndFeelName = "com.sun.java.swing.plaf.nimbus.NimbusLookAndFeel";
-//            //lookAndFeelName = "org.jdesktop.swingx.plaf.nimbus.NimbusLookAndFeel";  
-//            UIManager.setLookAndFeel(lookAndFeelName);
-//        } 
-//        catch (UnsupportedLookAndFeelException e) {
-//            // handle exception
-//            throw new RuntimeException("Unsupported Look and Feel when trying to load the Nimbus Look & Feel.", e);
-//        }
-//        catch (ClassNotFoundException e) {
-//            // handle exception
-//            throw new RuntimeException("Class not found when trying to load Nimbus Look & Feel.", e);           
-//        }
-//        catch (InstantiationException e) {
-//            // handle exception
-//            throw new RuntimeException("Instantiation problem found when trying to load Nimbus Look & Feel.", e);
-//        }
-//        catch (IllegalAccessException e) {
-//            // handle exception
-//            throw new RuntimeException("Illegal Access occured when trying to load Nimbus Look & Feel.", e);
-//        }
 
         initComponents();
-
         utcTimeZone = TimeZone.getTimeZone("UTC");
-
         model = new Model();
-//        model.setSimulatingHardware(true);
 
         // Load any properties from the rangahau.properties file in the user's
         // home directory. This overwrites any settings in the application's
@@ -168,13 +95,6 @@ public class DisplayForm extends javax.swing.JFrame {
 
         // Indicate whether hardware is being simulated or not.
         simulateHardwareButton.setSelected(model.isSimulatingHardware());
-
-        // Resize the display form so that its height matches the height of the
-        // screen.
-        //int screenHeight = Toolkit.getDefaultToolkit().getScreenSize().height;
-        //int currentWidth = getWidth();
-
-        //setSize(currentWidth, screenHeight);
     }
 
     /**
@@ -191,31 +111,37 @@ public class DisplayForm extends javax.swing.JFrame {
         if (pixels == null) {
             return; // There is nothing to display.
         }
+
+        // Save the image to disk
+        if (saveImagesCheckbox.isSelected()) {
+            final String filename = model.getDestinationPath() + File.separator + getNextImageFilename();
+
+            final long start = startTime;
+            final long gpsTime = gpsStartTime;
+
+
+            final String imageType = (String) imageTypeComboBox.getSelectedItem();
+            final String comment = commentField.getText();
+
+            final int[][] pixelValues = pixels;
+            SwingUtilities.invokeLater(new Runnable() {
+
+                public void run() {
+                    System.out.println("Saving image called " + filename);
+                    model.saveImage(filename, pixelValues, start, gpsTime, imageType, comment);
+                }
+            });
+        }
         
-        // TODO: This is currently a huge hack
-        try {
-            Process process = Runtime.getRuntime().exec("/Users/paul/bin/xpaset ds9 fits");
-            OutputStream stdin = process.getOutputStream();
-            DataOutputStream dos = new DataOutputStream(stdin);
-            Fits image = new Fits();
-            BasicHDU header = Fits.makeHDU(pixels);
-
-            header.addValue("SIMPLE", "T", "File does conform to FITS standard");
-            header.addValue("BITPIX", 32, "number of bits per data pixel");
-            header.addValue("NAXIS", 2, "number of data axes");
-            header.addValue("NAXIS1", pixels.length, "length of data axis 1");
-            header.addValue("NAXIS2", pixels[0].length, "length of data axis 2");
-            header.addValue("BZERO", 0, "offset data range to that of unsigned short");
-            header.addValue("BSCALE", 1, "default scaling factor");
-
-            // Write any info we want to display in ds9 to the OBJECT field
-            header.addValue("OBJECT", "TODO: Show image info here" , "");
-            image.addHDU(header);
-            image.write(dos);
-            dos.close();
-            stdin.close();
-        } catch (Exception ex) {
-            System.out.println("Error updating image display; continuing");
+        // Display the image in an external viewer
+        if (displayImagesCheckbox.isSelected()) {
+            final int[][] pixelValues = pixels;
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+                    System.out.println("displaying image");
+                    model.displayImage(pixelValues);
+                }
+            });
         }
     }
     
@@ -289,6 +215,7 @@ public class DisplayForm extends javax.swing.JFrame {
         imageTypeLabel = new javax.swing.JLabel();
         commentLabel = new javax.swing.JLabel();
         commentField = new javax.swing.JTextField();
+        displayImagesCheckbox = new javax.swing.JCheckBox();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("Rangahau Data Acquisition System");
@@ -311,6 +238,11 @@ public class DisplayForm extends javax.swing.JFrame {
 
         saveImagesCheckbox.setText("Save images");
         saveImagesCheckbox.setToolTipText("Save images to disk");
+        saveImagesCheckbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                saveImagesCheckboxActionPerformed(evt);
+            }
+        });
 
         exposureControlPanel.setBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED));
 
@@ -415,7 +347,7 @@ public class DisplayForm extends javax.swing.JFrame {
                 .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(hardwarePanelLayout.createSequentialGroup()
                         .addComponent(simulateHardwareButton)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 62, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 59, Short.MAX_VALUE)
                         .addComponent(resetButton, javax.swing.GroupLayout.PREFERRED_SIZE, 112, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(38, 38, 38))
                     .addGroup(hardwarePanelLayout.createSequentialGroup()
@@ -428,8 +360,8 @@ public class DisplayForm extends javax.swing.JFrame {
                                     .addComponent(triggerPulseLabel))
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addGroup(hardwarePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(syncTimeField, javax.swing.GroupLayout.DEFAULT_SIZE, 208, Short.MAX_VALUE)
-                                    .addComponent(gpsTimeField, javax.swing.GroupLayout.DEFAULT_SIZE, 208, Short.MAX_VALUE))))
+                                    .addComponent(syncTimeField, javax.swing.GroupLayout.DEFAULT_SIZE, 205, Short.MAX_VALUE)
+                                    .addComponent(gpsTimeField, javax.swing.GroupLayout.DEFAULT_SIZE, 205, Short.MAX_VALUE))))
                         .addContainerGap())))
         );
         hardwarePanelLayout.setVerticalGroup(
@@ -504,6 +436,14 @@ public class DisplayForm extends javax.swing.JFrame {
             }
         });
 
+        displayImagesCheckbox.setText("Display images");
+        displayImagesCheckbox.setToolTipText("Send images to DS9");
+        displayImagesCheckbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                displayImagesCheckboxActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -514,7 +454,7 @@ public class DisplayForm extends javax.swing.JFrame {
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(commentLabel)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(commentField, javax.swing.GroupLayout.DEFAULT_SIZE, 908, Short.MAX_VALUE))
+                        .addComponent(commentField, javax.swing.GroupLayout.DEFAULT_SIZE, 917, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(frameNumberLabel)
@@ -522,18 +462,20 @@ public class DisplayForm extends javax.swing.JFrame {
                             .addComponent(imageTypeLabel)
                             .addComponent(settingsButton))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                            .addComponent(imageTypeComboBox, javax.swing.GroupLayout.Alignment.LEADING, 0, 116, Short.MAX_VALUE)
-                            .addComponent(saveImagesCheckbox, javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(frameNumberField, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGap(15, 15, 15)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(saveImagesCheckbox)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                                .addComponent(imageTypeComboBox, javax.swing.GroupLayout.Alignment.LEADING, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(frameNumberField, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 144, Short.MAX_VALUE))
+                            .addComponent(displayImagesCheckbox))
+                        .addGap(175, 175, 175)
                         .addComponent(exposureControlPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(194, 194, 194)
+                        .addGap(18, 18, 18)
                         .addComponent(hardwarePanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(destinationDirectoryLabel)
-                            .addComponent(destinationDirectoryField, javax.swing.GroupLayout.DEFAULT_SIZE, 550, Short.MAX_VALUE))
+                            .addComponent(destinationDirectoryField, javax.swing.GroupLayout.DEFAULT_SIZE, 559, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(browseDestinationButton)
                         .addGap(222, 222, 222)
@@ -546,25 +488,29 @@ public class DisplayForm extends javax.swing.JFrame {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(hardwarePanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(3, 3, 3)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                        .addGap(17, 17, 17)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(exposureControlPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addGroup(layout.createSequentialGroup()
+                                .addGap(51, 51, 51)
+                                .addComponent(displayImagesCheckbox)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                                     .addComponent(startButton)
                                     .addComponent(saveImagesCheckbox))
                                 .addGap(12, 12, 12)
                                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                    .addComponent(imageTypeComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(imageTypeLabel))
+                                    .addComponent(imageTypeLabel)
+                                    .addComponent(imageTypeComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                    .addComponent(frameNumberLabel)
-                                    .addComponent(frameNumberField, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(settingsButton))
-                            .addComponent(exposureControlPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                    .addComponent(hardwarePanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addGroup(layout.createSequentialGroup()
+                                        .addComponent(frameNumberLabel)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                        .addComponent(settingsButton))
+                                    .addComponent(frameNumberField, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE))))))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(commentField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -577,9 +523,7 @@ public class DisplayForm extends javax.swing.JFrame {
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                             .addComponent(destinationDirectoryField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(browseDestinationButton)))
-                    .addGroup(layout.createSequentialGroup()
-                        .addGap(19, 19, 19)
-                        .addComponent(exitButton)))
+                    .addComponent(exitButton))
                 .addContainerGap(32, Short.MAX_VALUE))
         );
 
@@ -601,7 +545,6 @@ public class DisplayForm extends javax.swing.JFrame {
     }//GEN-LAST:event_exitButtonActionPerformed
 
     private void startButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_startButtonActionPerformed
-        // TODO add your handling code here:
 
         if (!acquiring) {
             // Start acquiring images.
@@ -619,7 +562,6 @@ public class DisplayForm extends javax.swing.JFrame {
     }//GEN-LAST:event_startButtonActionPerformed
 
     private void currentExposureTimeFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_currentExposureTimeFieldActionPerformed
-        // TODO add your handling code here:
 }//GEN-LAST:event_currentExposureTimeFieldActionPerformed
 
     private void setExposureTimeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_setExposureTimeButtonActionPerformed
@@ -628,7 +570,6 @@ public class DisplayForm extends javax.swing.JFrame {
     }//GEN-LAST:event_setExposureTimeButtonActionPerformed
 
 private void destinationDirectoryFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_destinationDirectoryFieldActionPerformed
-// TODO add your handling code here:
 }//GEN-LAST:event_destinationDirectoryFieldActionPerformed
 
 private void browseDestinationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_browseDestinationButtonActionPerformed
@@ -701,7 +642,6 @@ private void imageTypeComboBoxActionPerformed(java.awt.event.ActionEvent evt) {/
 //GEN-LAST:event_imageTypeComboBoxActionPerformed
 
 private void commentFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_commentFieldActionPerformed
-    // TODO add your handling code here:
 }//GEN-LAST:event_commentFieldActionPerformed
 
 private void simulateHardwareButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_simulateHardwareButtonActionPerformed
@@ -740,6 +680,12 @@ private void resetButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-F
     model.initialiseImageSource();
 
 }//GEN-LAST:event_resetButtonActionPerformed
+
+private void displayImagesCheckboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_displayImagesCheckboxActionPerformed
+}//GEN-LAST:event_displayImagesCheckboxActionPerformed
+
+private void saveImagesCheckboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveImagesCheckboxActionPerformed
+}//GEN-LAST:event_saveImagesCheckboxActionPerformed
 
     /**
      * Sets the exposure time. 
@@ -798,7 +744,6 @@ private void resetButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-F
             if ((imageType == null) || (imageType.equalsIgnoreCase("Focus"))) {
                 acquisitionThread = new FocusThread(this, model);
             } else {
-                //acquisitionThread = new AcquisitionThread(this, model);
                 acquisitionThread = new FastAcquisitionThread(this, model);
             }
 
@@ -869,6 +814,7 @@ private void resetButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-F
     private javax.swing.JSpinner desiredExposureTimeSpinner;
     private javax.swing.JTextField destinationDirectoryField;
     private javax.swing.JLabel destinationDirectoryLabel;
+    private javax.swing.JCheckBox displayImagesCheckbox;
     private javax.swing.JButton exitButton;
     private javax.swing.JLabel exposureControlLabel;
     private javax.swing.JPanel exposureControlPanel;
