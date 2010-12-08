@@ -71,7 +71,7 @@ public class FastAcquisitionThread extends StoppableThread {
      */
     public void run() {
 
-        System.out.println("Starting focus acquisition with an exposure time of " + model.getExposureTime() + " ms.");
+        System.out.println("Starting acquisition with an exposure time of " + model.getExposureTime() + " ms.");
 
         if (!model.isImageSourceInitialised()) {
             model.initialiseImageSource();

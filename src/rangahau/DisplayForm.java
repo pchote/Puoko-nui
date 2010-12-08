@@ -416,7 +416,7 @@ public class DisplayForm extends javax.swing.JFrame {
             }
         });
 
-        imageTypeComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Focus", "Dark", "Flat", "Target" }));
+        imageTypeComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Dark", "Flat", "Target" }));
         imageTypeComboBox.setToolTipText("The type of image to be acquired.");
         imageTypeComboBox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -741,13 +741,7 @@ private void saveImagesCheckboxActionPerformed(java.awt.event.ActionEvent evt) {
 
         // If an acquisition thread is already running we don't need to do anything.
         if (acquisitionThread == null) {
-            String imageType = (String) imageTypeComboBox.getSelectedItem();
-            if ((imageType == null) || (imageType.equalsIgnoreCase("Focus"))) {
-                acquisitionThread = new FocusThread(this, model);
-            } else {
-                acquisitionThread = new FastAcquisitionThread(this, model);
-            }
-
+            acquisitionThread = new FastAcquisitionThread(this, model);
             acquisitionThread.start();
         }
         acquiring = true;

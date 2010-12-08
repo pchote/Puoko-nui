@@ -348,9 +348,6 @@ public class Model {
             header.addValue("RUN", getRun(), "name of this run");
 
             String object = null;
-            if ((imageType != null) && imageType.equalsIgnoreCase("FOCUS")) {
-                object = "FOCUS";
-            }
             if ((imageType != null) && imageType.equalsIgnoreCase("DARK")) {
                 object = "DARK";
             }

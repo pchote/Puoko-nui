@@ -418,11 +418,10 @@
     <Component class="javax.swing.JComboBox" name="imageTypeComboBox">
       <Properties>
         <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.editors2.ComboBoxModelEditor">
-          <StringArray count="4">
-            <StringItem index="0" value="Focus"/>
-            <StringItem index="1" value="Dark"/>
-            <StringItem index="2" value="Flat"/>
-            <StringItem index="3" value="Target"/>
+          <StringArray count="3">
+            <StringItem index="0" value="Dark"/>
+            <StringItem index="1" value="Flat"/>
+            <StringItem index="2" value="Target"/>
           </StringArray>
         </Property>
         <Property name="toolTipText" type="java.lang.String" value="The type of image to be acquired."/>
