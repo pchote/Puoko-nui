@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.zip.GZIPOutputStream;
+import javax.swing.SwingUtilities;
 
 import nom.tam.fits.BasicHDU;
 import nom.tam.fits.Fits;
@@ -146,6 +147,12 @@ public class Model {
      */
     CameraSimulator cameraSimulator;
 
+    /**
+     * ProcessBuilders for communicating with ds9
+     */
+    ProcessBuilder ds9Check = new ProcessBuilder("xpaaccess", "ds9");
+    ProcessBuilder ds9Display = new ProcessBuilder("xpaset", "ds9", "fits");
+    
     public Model() {
         utcTimeZone = TimeZone.getTimeZone("UTC");
     }
@@ -422,9 +429,16 @@ public class Model {
      * @param pixels the pixel elements of the image.
      */
     public void displayImage(int[][] pixels) {
-        // Todo: Assumes that ds9 is running
         try {
-            Process process = new ProcessBuilder("xpaset", "ds9", "fits").start();
+            Process p = ds9Check.start();
+            p.waitFor();
+            
+            // ds9 is not available
+            if (p.exitValue() == 0) {
+                System.err.println("ds9 is not open. Skipping image display");
+                return;
+            }
+            Process process = ds9Display.start();
 
             DataOutputStream dos = new DataOutputStream(process.getOutputStream());
             Fits image = new Fits();
@@ -444,8 +458,8 @@ public class Model {
             image.write(dos);
             dos.close();
         } catch (Exception ex) {
-            System.out.println(ex.getMessage());
-            System.out.println("Error updating image display; continuing");
+            System.err.println(ex.getMessage());
+            System.err.println("Error updating image display; continuing");
         }
     }
 

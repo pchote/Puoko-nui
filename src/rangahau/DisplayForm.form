@@ -452,6 +452,7 @@
     </Component>
     <Component class="javax.swing.JCheckBox" name="displayImagesCheckbox">
       <Properties>
+        <Property name="selected" type="boolean" value="true"/>
         <Property name="text" type="java.lang.String" value="Display images"/>
         <Property name="toolTipText" type="java.lang.String" value="Send images to DS9"/>
       </Properties>

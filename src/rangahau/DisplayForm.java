@@ -138,7 +138,7 @@ public class DisplayForm extends javax.swing.JFrame {
             final int[][] pixelValues = pixels;
             SwingUtilities.invokeLater(new Runnable() {
                 public void run() {
-                    System.out.println("displaying image");
+                    System.out.println("Displaying image");
                     model.displayImage(pixelValues);
                 }
             });
@@ -436,6 +436,7 @@ public class DisplayForm extends javax.swing.JFrame {
             }
         });
 
+        displayImagesCheckbox.setSelected(true);
         displayImagesCheckbox.setText("Display images");
         displayImagesCheckbox.setToolTipText("Send images to DS9");
         displayImagesCheckbox.addActionListener(new java.awt.event.ActionListener() {
