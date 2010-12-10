@@ -425,7 +425,7 @@ public class Model {
      *
      * @param pixels the pixel elements of the image.
      */
-    public void displayImage(int[][] pixels) {
+    public void displayImage(int[][] pixels, long gpsStartTime) {
         try {
             Process p = ds9Check.start();
             p.waitFor();
@@ -449,8 +449,13 @@ public class Model {
             header.addValue("BZERO", 0, "offset data range to that of unsigned short");
             header.addValue("BSCALE", 1, "default scaling factor");
 
-            // Write any info we want to display in ds9 to the OBJECT field
-            header.addValue("OBJECT", "TODO: Show image info here" , "");
+            // Write the gps start time into the OBJECT field to display in ds9
+            SimpleDateFormat gpsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            gpsFormatter.setTimeZone(utcTimeZone);
+            Calendar gpsCalendar = Calendar.getInstance();
+            gpsCalendar.setTimeZone(utcTimeZone);
+            gpsCalendar.setTimeInMillis(gpsStartTime);
+            header.addValue("OBJECT", gpsFormatter.format(gpsCalendar.getTime()), "GPS time at exposure start.");
             image.addHDU(header);
             image.write(dos);
             dos.close();

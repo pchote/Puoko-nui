@@ -136,10 +136,11 @@ public class DisplayForm extends javax.swing.JFrame {
         // Display the image in an external viewer
         if (displayImagesCheckbox.isSelected()) {
             final int[][] pixelValues = pixels;
+            final long gpsTime = gpsStartTime;
             SwingUtilities.invokeLater(new Runnable() {
                 public void run() {
                     System.out.println("Displaying image");
-                    model.displayImage(pixelValues);
+                    model.displayImage(pixelValues, gpsTime);
                 }
             });
         }
