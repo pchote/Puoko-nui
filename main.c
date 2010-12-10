@@ -36,7 +36,7 @@ typedef struct
 RangahauView view;
 
 /* Convinience function */
-make_gtk_entry_editable(GtkWidget *widget, gboolean editable)
+void make_gtk_entry_editable(GtkWidget *widget, gboolean editable)
 {
 		gtk_editable_set_editable(GTK_EDITABLE(widget), editable);
 		gtk_widget_set_sensitive(widget, editable);
@@ -89,6 +89,7 @@ gboolean update_pctime_cb(gpointer data)
 	time_t t = time(NULL);
 	strftime(strtime, 20, "%Y-%m-%d %H:%M:%S", gmtime(&t));
 	gtk_label_set_label(GTK_LABEL(view.pctime_label), strtime);
+	return TRUE;
 }
 
 /* Return a GtkWidget containing the settings panel */
@@ -252,8 +253,6 @@ GtkWidget *rangahau_aquire_panel()
 	view.startstop_btn = gtk_toggle_button_new_with_label("Start Aquisition");	
 	gtk_box_pack_start(GTK_BOX(box), view.startstop_btn, FALSE, FALSE, 10);
     g_signal_connect(view.startstop_btn, "clicked", G_CALLBACK (startstop_pressed), NULL);
-
-
 
 	return align;
 }
