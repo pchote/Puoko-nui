@@ -56,9 +56,9 @@ void *rangahau_acquisition_thread(void *_info)
 		 * us if we are tardy copying the data */
 
 		RangahauFrame frame = rangahau_camera_latest_frame(info->camera);
-
 		if (info->cancelled)
 			break;
+		printf("Frame size: %d x %d\n",frame.width, frame.height);
 
 		/* TODO: Notify the controller that an image is available */
 	}

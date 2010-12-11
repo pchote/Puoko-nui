@@ -102,7 +102,11 @@ void rangahau_camera_close(RangahauCamera *cam)
 
 	/* Simulated camera doesn't need cleanup */
 	if (cam->simulated)
+	{
+		/* sleep for 1 second to simulate camera shutdown time */
+		sleep(1);
 		return;
+	}
 
 	if (cam->status == ACQUIRING)
 	{
@@ -133,7 +137,12 @@ void rangahau_camera_start_acquisition(RangahauCamera *cam)
 	printf("Starting acquisition\n");
 	cam->status = INITIALISING;
 
-	if (!cam->simulated)
+	if (cam->simulated)
+	{
+		/* sleep for 1 second to simulate camera init time */
+		sleep(1);
+	}
+	else
 	{
 		int width = 0;
 		int height = 0;
@@ -172,9 +181,17 @@ void rangahau_camera_start_acquisition(RangahauCamera *cam)
 void rangahau_camera_stop_acquisition(RangahauCamera *cam)
 {
 	check_camera(cam);
-	printf("Stopping acquisition\n");
+	
+	int status = cam->status;
+	cam->status = INITIALISING;
 
-	if (!cam->simulated && cam->status == ACQUIRING)
+	printf("Stopping acquisition\n");
+	if (cam->simulated)
+	{
+		/* sleep for 1 second to simulate camera init time */
+		sleep(1);
+	}
+	else if (status == ACQUIRING)
 	{
 		pl_exp_stop_cont(cam->handle, CCS_CLEAR);
 		check_pvcam_error("Cannot stop acquisition as there was a problem stopping the exposure (pl_exp_stop_cont)", __LINE__);
@@ -193,6 +210,7 @@ boolean rangahau_camera_image_available(RangahauCamera *cam)
 
 	if (cam->simulated)
 	{
+		/* Trigger a simulated download every 10 requests (~1 second) */		
 		if (!(++simulate_count % 10))		
 			simulate_count = 0;
 
@@ -209,6 +227,7 @@ boolean rangahau_camera_image_available(RangahauCamera *cam)
 	return (status == FRAME_AVAILABLE);
 }
 
+int simulator_data[1024*1024];
 RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam)
 {
 	check_camera(cam);
@@ -216,7 +235,8 @@ RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam)
 	if (cam->simulated)
 	{
 		RangahauFrame frame;
-		frame.data = NULL; frame.width = frame.height = -1;
+		frame.data = &simulator_data[0];
+		frame.width = frame.height = 1024;
 		return frame;
 	}
 
