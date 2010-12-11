@@ -17,6 +17,7 @@ typedef struct
 	int exptime;
 	boolean cancelled;
 	boolean active;
+	void (*on_frame_available)(RangahauFrame frame);
 } RangahauAcquisitionThreadInfo;
 
 void *rangahau_acquisition_thread(void *info);

@@ -60,7 +60,7 @@ void *rangahau_acquisition_thread(void *_info)
 			break;
 		printf("Frame size: %d x %d\n",frame.width, frame.height);
 
-		/* TODO: Notify the controller that an image is available */
+		info->on_frame_available(frame);
 	}
 
 	/* Stop camera acquisition */

@@ -10,6 +10,7 @@
 #include <gtk/gtk.h>
 #include <time.h>
 #include <pthread.h>
+#include <fitsio.h>
 #include "camera.h"
 #include "acquisitionthread.h"
 
@@ -17,6 +18,8 @@ typedef struct
 {
 	/* Acquire panel */
 	GtkWidget *startstop_btn;
+	GtkWidget *save_checkbox;
+	GtkWidget *display_checkbox;
 
 	/* Hardware panel */
 	GtkWidget *gpstime_label;
@@ -39,8 +42,59 @@ typedef struct
 RangahauView view;
 RangahauAcquisitionThreadInfo acquisition_info;
 pthread_t acquisition_thread;
-
 RangahauCamera camera;
+
+
+/* Write frame data to a fits file */
+void rangahau_save_frame(RangahauFrame frame)
+{
+	printf("Saving frame\n");
+
+	/* Build the file path to save to */
+	int framenum = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.frame_entry));
+	const char *destination = gtk_entry_get_text(GTK_ENTRY(view.destination_entry));
+	const char *prefix = gtk_entry_get_text(GTK_ENTRY(view.run_entry));
+	char filepath[1024];
+	sprintf(filepath, "%s/%s-%d.fits",destination,prefix,framenum);
+
+	/* Increment the next frame */
+	gtk_spin_button_spin(GTK_SPIN_BUTTON(view.frame_entry), GTK_SPIN_STEP_FORWARD, 1);
+
+	/* Collect the various frame data we want to write */
+	long exposure = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
+
+	fitsfile *fptr;
+	int status = 0;
+	/* Create a new fits file */
+	/* TODO: construct the filename */
+	fits_create_file(&fptr, filepath, &status);
+
+	/* Create the primary array image (16-bit short integer pixels */
+	long size[2] = { frame.width, frame.height };
+	fits_create_img(fptr, SHORT_IMG, 2, size, &status);
+
+	/* Write header keys */
+	fits_update_key(fptr, TLONG, "EXPOSURE", &exposure, "Total Exposure Time", &status);
+
+	/* Write the frame data to the image */
+	fits_write_img(fptr, TSHORT, 1, frame.width*frame.height, frame.data, &status);
+	fits_close_file(fptr, &status);
+
+	/* print out any error messages */
+	fits_report_error(stderr, status);
+}
+
+
+/* Called when the acquisition thread has downloaded a frame
+ * Note: this runs in the acquisition thread *not* the main thread. */
+void rangahau_frame_downloaded_cb(RangahauFrame frame)
+{
+	printf("Frame downloaded\n");
+    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox)))
+	{
+		rangahau_save_frame(frame);
+	}
+}
 
 /* Convinience function */
 void make_gtk_entry_editable(GtkWidget *widget, gboolean editable)
@@ -72,6 +126,7 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		acquisition_info.camera = &camera;
 		acquisition_info.exptime = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
 		acquisition_info.cancelled = FALSE;
+		acquisition_info.on_frame_available = rangahau_frame_downloaded_cb;
 		
 		pthread_create(&acquisition_thread, NULL, rangahau_acquisition_thread, (void *)&acquisition_info);
 
@@ -291,13 +346,13 @@ GtkWidget *rangahau_acquire_panel()
 	gtk_container_add(GTK_CONTAINER(align), box);
 
 	/* Contents */
-    GtkWidget *display = gtk_check_button_new_with_label("Display Frames");
-    gtk_box_pack_start(GTK_BOX(box), display, TRUE, TRUE, 0);
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(display), TRUE);
+    view.display_checkbox = gtk_check_button_new_with_label("Display Frames");
+    gtk_box_pack_start(GTK_BOX(box), view.display_checkbox, TRUE, TRUE, 0);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view.display_checkbox), TRUE);
     
-	GtkWidget *save = gtk_check_button_new_with_label ("Save Frames");
-    gtk_box_pack_start(GTK_BOX(box), save, TRUE, TRUE, 0);
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(save), FALSE);
+	view.save_checkbox = gtk_check_button_new_with_label ("Save Frames");
+    gtk_box_pack_start(GTK_BOX(box), view.save_checkbox, TRUE, TRUE, 0);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view.save_checkbox), FALSE);
 
 	view.startstop_btn = gtk_toggle_button_new_with_label("Start Acquisition");	
 	gtk_box_pack_start(GTK_BOX(box), view.startstop_btn, FALSE, FALSE, 10);

@@ -227,7 +227,7 @@ boolean rangahau_camera_image_available(RangahauCamera *cam)
 	return (status == FRAME_AVAILABLE);
 }
 
-int simulator_data[1024*1024];
+short simulator_data[1024*1024];
 RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam)
 {
 	check_camera(cam);
@@ -237,6 +237,12 @@ RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam)
 		RangahauFrame frame;
 		frame.data = &simulator_data[0];
 		frame.width = frame.height = 1024;
+
+		/* Draw a linear ramp across the frame */
+		for (int ii = 0; ii < frame.width; ii++)
+			for (int jj = 0; jj < frame.height; jj++)
+				simulator_data[ii + jj*frame.width] = ii+jj;
+
 		return frame;
 	}
 
