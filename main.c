@@ -70,7 +70,7 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 
 		/* Start acquisition thread */
 		acquisition_info.camera = &camera;
-		acquisition_info.exptime = 5;
+		acquisition_info.exptime = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
 		acquisition_info.cancelled = FALSE;
 		
 		pthread_create(&acquisition_thread, NULL, rangahau_acquisition_thread, (void *)&acquisition_info);
@@ -98,6 +98,13 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
     }
 }
 
+/* target type changed: hide or display the target name field */
+static void targettype_changed(GtkWidget *widget, gpointer data)
+{
+	boolean visible = (gtk_combo_box_get_active(GTK_COMBO_BOX(view.target_combobox)) == 2);
+	gtk_widget_set_visible(view.target_entry, visible);
+}
+
 /* update the various information fields */
 gboolean update_gui_cb(gpointer data)
 {
@@ -105,7 +112,7 @@ gboolean update_gui_cb(gpointer data)
 	char strtime[20];
 	time_t t = time(NULL);
 	strftime(strtime, 20, "%Y-%m-%d %H:%M:%S", gmtime(&t));
-
+	gtk_label_set_label(GTK_LABEL(view.pctime_label), strtime);
 
 	/* Camera status */
 	char *label;
@@ -168,7 +175,9 @@ GtkWidget *rangahau_settings_panel()
 	gtk_table_attach_defaults(GTK_TABLE(table), view.exptime_entry, 1,2,1,2);
 	gtk_entry_set_width_chars(GTK_ENTRY(view.exptime_entry), 3);
 
-	field = gtk_label_new("seconds");
+	/* Hack: pad the label with extra spaces to the panel 
+	 * doesn't reflow then the target entry is hidden */
+	field = gtk_label_new("seconds      ");
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 2,3,1,2);
 	gtk_misc_set_alignment(GTK_MISC(field), 0, 0.5);
 
@@ -185,6 +194,7 @@ GtkWidget *rangahau_settings_panel()
 	gtk_combo_box_append_text(GTK_COMBO_BOX(view.target_combobox), "Flat");
 	gtk_combo_box_append_text(GTK_COMBO_BOX(view.target_combobox), "Target");
 	gtk_combo_box_set_active(GTK_COMBO_BOX(view.target_combobox), 2);
+    g_signal_connect(view.target_combobox, "changed", G_CALLBACK (targettype_changed), NULL);
 
 	view.target_entry = gtk_entry_new();
 	gtk_table_attach_defaults(GTK_TABLE(table), view.target_entry, 2,3,2,3);
