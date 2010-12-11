@@ -67,6 +67,12 @@ RangahauCamera rangahau_camera_new()
 
 void rangahau_camera_close(RangahauCamera *cam)
 {
+	if (cam == NULL)
+	{
+		printf("cam is null @ %s:%d\n", __FILE__, __LINE__);
+		//exit(1);
+	}
+
 	if (cam->acquiring)
 	{
 		pl_exp_stop_cont(cam->handle, CCS_CLEAR);
@@ -91,4 +97,19 @@ void rangahau_camera_close(RangahauCamera *cam)
 	}
 
 	// TODO: Free any memory associated with the frame buffer
+}
+
+void rangahau_camera_start_acquisition(RangahauCamera *cam)
+{
+
+}
+
+boolean rangahau_camera_image_available(RangahauCamera *cam)
+{
+	if (cam == NULL)
+	{
+		printf("cam is null @ %s:%d\n", __FILE__, __LINE__);
+		//exit(1);
+	}
+	return FALSE;
 }

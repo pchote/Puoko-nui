@@ -9,10 +9,13 @@
 #include <stdlib.h>
 #include <gtk/gtk.h>
 #include <time.h>
+#include <pthread.h>
+#include "camera.h"
+#include "acquisitionthread.h"
 
 typedef struct
 {
-	/* Aquire panel */
+	/* Acquire panel */
 	GtkWidget *startstop_btn;
 
 	/* Hardware panel */
@@ -30,25 +33,27 @@ typedef struct
 	GtkWidget *destination_btn;
 	GtkWidget *run_entry;
 	GtkWidget *frame_entry;
-
 } RangahauView;
 
 RangahauView view;
+RangahauAcquisitionThreadInfo acquisition_info;
+pthread_t acquisition_thread;
 
 /* Convinience function */
 void make_gtk_entry_editable(GtkWidget *widget, gboolean editable)
 {
-		gtk_editable_set_editable(GTK_EDITABLE(widget), editable);
-		gtk_widget_set_sensitive(widget, editable);
+	gtk_editable_set_editable(GTK_EDITABLE(widget), editable);
+	gtk_widget_set_sensitive(widget, editable);
 }
+
 /*
- * Start or stop aquiring frames in response to user input
+ * Start or stop acquiring frames in response to user input
  */
 static void startstop_pressed(GtkWidget *widget, gpointer data)
 {
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) 
     {
-        g_print("Starting Aquisition\n");
+        g_print("Starting Acquisition\n");
 		/* Disable settings fields */
 		make_gtk_entry_editable(view.observers_entry, FALSE);
 		make_gtk_entry_editable(view.exptime_entry, FALSE);
@@ -61,11 +66,18 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		make_gtk_entry_editable(view.run_entry, FALSE);
 		make_gtk_entry_editable(view.frame_entry, FALSE);
 
-		gtk_button_set_label(GTK_BUTTON(widget), "Stop Aquisition");
+		/* Start acquisition thread */
+		acquisition_info.camera = NULL;
+		acquisition_info.exptime = 5;
+		acquisition_info.cancelled = FALSE;
+		
+		pthread_create(&acquisition_thread, NULL, rangahau_acquisition_thread, (void *)&acquisition_info);
+
+		gtk_button_set_label(GTK_BUTTON(widget), "Stop Acquisition");
     }
 	else
 	{
-    	g_print("Stopping Aquisition\n");
+    	g_print("Stopping Acquisition\n");
 		/* Enable settings fields */
 		make_gtk_entry_editable(view.observers_entry, TRUE);
 		make_gtk_entry_editable(view.exptime_entry, TRUE);
@@ -78,7 +90,10 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		make_gtk_entry_editable(view.run_entry, TRUE);
 		make_gtk_entry_editable(view.frame_entry, TRUE);
 
-		gtk_button_set_label(GTK_BUTTON(widget), "Start Aquisition");
+		/* Stop aquisition thread */
+		acquisition_info.cancelled = TRUE;
+
+		gtk_button_set_label(GTK_BUTTON(widget), "Start Acquisition");
     }
 }
 
@@ -233,8 +248,8 @@ GtkWidget *rangahau_save_panel()
 	return frame;
 }
 
-/* Return a GtkWidget containing the aquisition settings panel */
-GtkWidget *rangahau_aquire_panel()
+/* Return a GtkWidget containing the acquisition settings panel */
+GtkWidget *rangahau_acquire_panel()
 {
 	/* Setup */	
 	GtkWidget *align = gtk_alignment_new(0,1,0,0);	
@@ -250,7 +265,7 @@ GtkWidget *rangahau_aquire_panel()
     gtk_box_pack_start(GTK_BOX(box), save, TRUE, TRUE, 0);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(save), FALSE);
 
-	view.startstop_btn = gtk_toggle_button_new_with_label("Start Aquisition");	
+	view.startstop_btn = gtk_toggle_button_new_with_label("Start Acquisition");	
 	gtk_box_pack_start(GTK_BOX(box), view.startstop_btn, FALSE, FALSE, 10);
     g_signal_connect(view.startstop_btn, "clicked", G_CALLBACK (startstop_pressed), NULL);
 
@@ -265,7 +280,7 @@ int main( int argc, char *argv[] )
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_widget_set_size_request (GTK_WIDGET(window), 650, 210);
 	gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
-    gtk_window_set_title(GTK_WINDOW(window), "Rangahau Data Aquisition System");
+    gtk_window_set_title(GTK_WINDOW(window), "Rangahau Data Acquisition System");
 	gtk_container_set_border_width(GTK_CONTAINER(window), 5);
 
     g_signal_connect(window, "destroy",
@@ -277,7 +292,7 @@ int main( int argc, char *argv[] )
 	/* 
 	 * Outer container
 	 * Left column: All settings
-	 * Right column: Aquire settings
+	 * Right column: Acquire settings
 	 */
     GtkWidget *outer = gtk_hbox_new(FALSE, 0);
     gtk_container_add(GTK_CONTAINER(window), outer);
@@ -304,7 +319,7 @@ int main( int argc, char *argv[] )
 	/* 
 	 * Inner-right container.
 	 */
-	gtk_box_pack_end(GTK_BOX(outer), rangahau_aquire_panel(), FALSE, FALSE, 5);
+	gtk_box_pack_end(GTK_BOX(outer), rangahau_acquire_panel(), FALSE, FALSE, 5);
 
 
 	/* Update the pctime at 10Hz */

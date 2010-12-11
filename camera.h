@@ -4,6 +4,7 @@
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
+
 #include <master.h>
 #include <pvcam.h>
 
@@ -27,6 +28,7 @@ typedef struct
 	boolean acquiring;
 } RangahauCamera;
 
-
+void rangahau_camera_start_acquisition(RangahauCamera *cam);
+boolean rangahau_camera_image_available(RangahauCamera *cam);
 
 #endif
