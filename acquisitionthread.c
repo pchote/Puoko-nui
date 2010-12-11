@@ -59,7 +59,10 @@ void *rangahau_acquisition_thread(void *_info)
 
 		/* TODO: Notify the controller that an image is available */
 	}
-	printf("Thread completed.\n");
+
+	/* Stop camera acquisition */
+	rangahau_camera_stop_acquisition(info->camera);
+	printf("Acquisition thread completed.\n");
 	info->active = FALSE;
 
 	pthread_exit(NULL);

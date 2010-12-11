@@ -21,6 +21,7 @@ typedef struct
 	/* Hardware panel */
 	GtkWidget *gpstime_label;
 	GtkWidget *pctime_label;
+	GtkWidget *camerastatus_label;
 
 	/* Settings panel */
 	GtkWidget *observers_entry;
@@ -39,6 +40,8 @@ RangahauView view;
 RangahauAcquisitionThreadInfo acquisition_info;
 pthread_t acquisition_thread;
 
+RangahauCamera camera;
+
 /* Convinience function */
 void make_gtk_entry_editable(GtkWidget *widget, gboolean editable)
 {
@@ -53,7 +56,6 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 {
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) 
     {
-        g_print("Starting Acquisition\n");
 		/* Disable settings fields */
 		make_gtk_entry_editable(view.observers_entry, FALSE);
 		make_gtk_entry_editable(view.exptime_entry, FALSE);
@@ -67,7 +69,7 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		make_gtk_entry_editable(view.frame_entry, FALSE);
 
 		/* Start acquisition thread */
-		acquisition_info.camera = NULL;
+		acquisition_info.camera = &camera;
 		acquisition_info.exptime = 5;
 		acquisition_info.cancelled = FALSE;
 		
@@ -77,7 +79,6 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
     }
 	else
 	{
-    	g_print("Stopping Acquisition\n");
 		/* Enable settings fields */
 		make_gtk_entry_editable(view.observers_entry, TRUE);
 		make_gtk_entry_editable(view.exptime_entry, TRUE);
@@ -97,13 +98,37 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
     }
 }
 
-/* Set the pctime text field */
-gboolean update_pctime_cb(gpointer data)
+/* update the various information fields */
+gboolean update_gui_cb(gpointer data)
 {
+	/* PC time */	
 	char strtime[20];
 	time_t t = time(NULL);
 	strftime(strtime, 20, "%Y-%m-%d %H:%M:%S", gmtime(&t));
-	gtk_label_set_label(GTK_LABEL(view.pctime_label), strtime);
+
+
+	/* Camera status */
+	char *label;
+	switch(camera.status)
+	{
+		default:		
+		case INITIALISING:
+			label = "Initialising";
+		break;
+		case IDLE:
+			label = "Idle";
+		break;
+		case ACQUIRING:
+			label = "Acquiring";
+		break;
+	}
+	gtk_label_set_label(GTK_LABEL(view.camerastatus_label), label);
+
+	/* Can't start/stop acquisition if the camera is initialising */
+	boolean initialising = (camera.status == INITIALISING);
+	if (initialising == gtk_widget_get_sensitive(view.startstop_btn))
+		gtk_widget_set_sensitive(view.startstop_btn, !initialising);
+
 	return TRUE;
 }
 
@@ -180,10 +205,9 @@ GtkWidget *rangahau_hardware_panel()
 	GtkWidget *field = gtk_label_new("Camera:");
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,0,1);
-	field = gtk_label_new("Idle");
-	gtk_misc_set_alignment(GTK_MISC(field), 0, 0.5);
-	gtk_table_attach_defaults(GTK_TABLE(table), field, 1,2,0,1);
-
+	view.camerastatus_label = gtk_label_new("Idle");
+	gtk_misc_set_alignment(GTK_MISC(view.camerastatus_label), 0, 0.5);
+	gtk_table_attach_defaults(GTK_TABLE(table), view.camerastatus_label, 1,2,0,1);
 
 	field = gtk_label_new("GPS:");
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
@@ -268,13 +292,24 @@ GtkWidget *rangahau_acquire_panel()
 	view.startstop_btn = gtk_toggle_button_new_with_label("Start Acquisition");	
 	gtk_box_pack_start(GTK_BOX(box), view.startstop_btn, FALSE, FALSE, 10);
     g_signal_connect(view.startstop_btn, "clicked", G_CALLBACK (startstop_pressed), NULL);
+	/* Can't start acquisition until the camer is ready */
+	gtk_widget_set_sensitive(view.startstop_btn, FALSE);
 
 	return align;
 }
 
 int main( int argc, char *argv[] )
 {
-    gtk_init (&argc, &argv);
+    /* 
+	 * Initialise the camera.
+	 * Run in a separate thread to avoid blocking the gui.
+	 */
+	camera = rangahau_camera_new(TRUE); /* simulate */
+	pthread_t camera_init;
+	pthread_create(&camera_init, NULL, rangahau_camera_init, (void *)&camera);
+
+	/* Initialise the gui */
+	gtk_init (&argc, &argv);
 
 	/* Main window */
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -322,8 +357,8 @@ int main( int argc, char *argv[] )
 	gtk_box_pack_end(GTK_BOX(outer), rangahau_acquire_panel(), FALSE, FALSE, 5);
 
 
-	/* Update the pctime at 10Hz */
-	g_timeout_add(100,update_pctime_cb,NULL);
+	/* Update the gui at 10Hz */
+	g_timeout_add(100,update_gui_cb,NULL);
 
 	/* Display and run */
     gtk_widget_show_all(window);

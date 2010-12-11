@@ -20,15 +20,29 @@ enum ForceReadOut {
     MAKE_AUTOMATIC
 };
 
+/* Represents the current state of the camera */
+typedef enum
+{
+	INITIALISING,
+	IDLE,
+	ACQUIRING
+} RangahauCameraStatus;
+
 /* Holds the state of a camera */
 typedef struct
 {
 	boolean pvcam_inited;
 	short handle;
-	boolean acquiring;
+	RangahauCameraStatus status;
+	boolean simulated;
 } RangahauCamera;
 
+
+
+RangahauCamera rangahau_camera_new(boolean simulate);
+void *rangahau_camera_init(void *cam);
 void rangahau_camera_start_acquisition(RangahauCamera *cam);
+void rangahau_camera_stop_acquisition(RangahauCamera *cam);
 boolean rangahau_camera_image_available(RangahauCamera *cam);
 
 #endif
