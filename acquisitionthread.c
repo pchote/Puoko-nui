@@ -51,8 +51,11 @@ void *rangahau_acquisition_thread(void *_info)
 		if (info->cancelled)
 			break;
 
-		/* TODO: grab a reference to the image data */
+		/* Get the frame data. Note: this contains a reference
+		 * to the native pvcam buffer, so may be overwritten beneath
+		 * us if we are tardy copying the data */
 
+		RangahauFrame frame = rangahau_camera_latest_frame(info->camera);
 
 		if (info->cancelled)
 			break;

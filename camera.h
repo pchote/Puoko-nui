@@ -35,8 +35,17 @@ typedef struct
 	short handle;
 	RangahauCameraStatus status;
 	boolean simulated;
+	void *image_buffer;
+	uns32 image_buffer_size;
 } RangahauCamera;
 
+/* Represents an aquired frame */
+typedef struct
+{
+	int width;
+	int height;
+	int *data; /* Pointer to the start of the frame data */
+} RangahauFrame;
 
 
 RangahauCamera rangahau_camera_new(boolean simulate);
@@ -44,5 +53,6 @@ void *rangahau_camera_init(void *cam);
 void rangahau_camera_start_acquisition(RangahauCamera *cam);
 void rangahau_camera_stop_acquisition(RangahauCamera *cam);
 boolean rangahau_camera_image_available(RangahauCamera *cam);
+RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam);
 
 #endif

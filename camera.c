@@ -24,6 +24,15 @@ void check_pvcam_error(const char * msg, int line)
 	exit(1);
 }
 
+void check_camera(RangahauCamera *cam)
+{
+	if (cam == NULL)
+	{
+		printf("cam is null @ %s:%d\n", __FILE__, __LINE__);
+		exit(1);
+	}
+}
+
 RangahauCamera rangahau_camera_new(boolean simulate)
 {
 	RangahauCamera cam;
@@ -31,15 +40,19 @@ RangahauCamera rangahau_camera_new(boolean simulate)
 	cam.handle = -1;
 	cam.simulated = simulate;
 	cam.status = INITIALISING;
+	cam.image_buffer = NULL;
+	cam.image_buffer_size = 0;
 	return cam;
 }
 
 void *rangahau_camera_init(void *_cam)
 {
 	RangahauCamera *cam = (RangahauCamera *)_cam;
+	check_camera(cam);
+	
 	if (cam->simulated)
 	{
-		/* sleep for 5 seconds to simulate camera startup time */
+		/* sleep for 1 second to simulate camera startup time */
 		sleep(1);
 	}
 	else
@@ -85,25 +98,18 @@ void *rangahau_camera_init(void *_cam)
 
 void rangahau_camera_close(RangahauCamera *cam)
 {
-	if (cam == NULL)
-	{
-		printf("cam is null @ %s:%d\n", __FILE__, __LINE__);
-		//exit(1);
-	}
+	check_camera(cam);
 
+	/* Simulated camera doesn't need cleanup */
 	if (cam->simulated)
-	{
 		return;
-	}
-	/* have a real camera - clean it up */
 
 	if (cam->status == ACQUIRING)
 	{
 		pl_exp_stop_cont(cam->handle, CCS_CLEAR);
 		check_pvcam_error("Cannot close the camera as there was a problem stopping the exposure (pl_exp_stop_cont)", __LINE__);
-		// TODO: finish sequence once we have a pixel buffer to reference (created when the exposure run is started)
-		//pl_exp_finish_seq(cam->handle, pPixelBuffer, 0);
-		//check_pvcam_error("Cannot close the camera as there was a problem finishing the exposure sequence (pl_exp_finish_seq)", __LINE__);
+		pl_exp_finish_seq(cam->handle, cam->image_buffer, 0);
+		check_pvcam_error("Cannot close the camera as there was a problem finishing the exposure sequence (pl_exp_finish_seq)", __LINE__);
 		pl_exp_uninit_seq();
 		check_pvcam_error("Cannot close the camera as there was a problem uninitialising the sequence (pl_exp_uninit_seq)", __LINE__);
 	}
@@ -119,29 +125,113 @@ void rangahau_camera_close(RangahauCamera *cam)
     	pl_pvcam_uninit();
 		check_pvcam_error("Cannot close the camera as there was a problem uninitialising the PVCAM library (pl_pvcam_uninit)", __LINE__);
 	}
-
-	// TODO: Free any memory associated with the frame buffer
 }
 
 void rangahau_camera_start_acquisition(RangahauCamera *cam)
 {
+	check_camera(cam);
 	printf("Starting acquisition\n");
+	cam->status = INITIALISING;
+
+	if (!cam->simulated)
+	{
+		int width = 0;
+		int height = 0;
+
+		pl_get_param(cam->handle, PARAM_SER_SIZE, ATTR_CURRENT, (void *)&width);
+		pl_get_param(cam->handle, PARAM_PAR_SIZE, ATTR_CURRENT, (void *)&height);
+
+		rgn_type region;
+		region.s1 = 0;        // x start ('serial' direction).
+		region.s2 = width-1;  // x end.
+		region.sbin = 1;      // x binning (1 = no binning).
+		region.p1 = 0;        // y start ('parallel' direction).
+		region.p2 = height-1; // y end.
+		region.pbin = 1;      // y binning (1 = no binning).
+
+		/* Init exposure control libs */
+		pl_exp_init_seq();
+
+		/* Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer */
+		unsigned long bytesInFrame = 0;
+		pl_exp_setup_cont(cam->handle, 1, &region, STROBED_MODE, 0, &bytesInFrame, CIRC_OVERWRITE);
+		check_pvcam_error("Cannot start acquisition as there was a problem setting up continuous exposure", __LINE__);
+
+		/* Get an image buffer */
+		pl_exp_get_driver_buffer(cam->handle, &cam->image_buffer, &cam->image_buffer_size);
+		check_pvcam_error("Cannot start acquisition as there was a problem setting up exposure buffer", __LINE__);
+
+		/* Start waiting for sync pulses */
+		pl_exp_start_cont(cam->handle, cam->image_buffer, cam->image_buffer_size);
+		check_pvcam_error("Cannot start acquisition as there was a problem starting continuous exposure", __LINE__);
+	}
+
 	cam->status = ACQUIRING;
 }
 
 void rangahau_camera_stop_acquisition(RangahauCamera *cam)
 {
+	check_camera(cam);
 	printf("Stopping acquisition\n");
+
+	if (!cam->simulated && cam->status == ACQUIRING)
+	{
+		pl_exp_stop_cont(cam->handle, CCS_CLEAR);
+		check_pvcam_error("Cannot stop acquisition as there was a problem stopping the exposure (pl_exp_stop_cont)", __LINE__);
+		pl_exp_finish_seq(cam->handle, cam->image_buffer, 0);
+		check_pvcam_error("Cannot stop acquisition as there was a problem finishing the exposure sequence (pl_exp_finish_seq)", __LINE__);
+		pl_exp_uninit_seq();
+		check_pvcam_error("Cannot stop acquisition as there was a problem uninitialising the sequence (pl_exp_uninit_seq)", __LINE__);
+	}
 	cam->status = IDLE;
 }
 
+int simulate_count = 0;
 boolean rangahau_camera_image_available(RangahauCamera *cam)
 {
-	if (cam == NULL)
+	check_camera(cam);
+
+	if (cam->simulated)
 	{
-		printf("cam is null @ %s:%d\n", __FILE__, __LINE__);
-		//exit(1);
+		if (!(++simulate_count % 10))		
+			simulate_count = 0;
+
+		return (simulate_count == 0);
 	}
-	return FALSE;
+
+	short status = ACQUISITION_IN_PROGRESS; // Indicates whether the a frame is available for readout or not.
+	unsigned long bytesStored = 0;       // The number of bytes currently stored in the buffer.
+	unsigned long numFilledBuffers = 0;  // The number of times the buffer has been filled.
+	pl_exp_check_cont_status(cam->handle, &status, &bytesStored, &numFilledBuffers);
+	check_pvcam_error("Cannot determine whether an image is ready (pl_exp_check_cont_status)", __LINE__);
+
+	/* TODO: Use status to update cam->status? */
+	return (status == FRAME_AVAILABLE);
+}
+
+RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam)
+{
+	check_camera(cam);
+
+	if (cam->simulated)
+	{
+		RangahauFrame frame;
+		frame.data = NULL; frame.width = frame.height = -1;
+		return frame;
+	}
+
+	/* Retrieve frame data directly into a frame struct */
+	RangahauFrame frame;
+	frame.data = NULL; frame.width = frame.height = -1;
+	pl_exp_get_latest_frame(cam->handle, (void *)&frame.data);
+	check_pvcam_error("Cannot get the latest frame (pl_exp_get_latest_frame)", __LINE__);
+	if (frame.data == NULL)
+	{
+		printf("frame data is null @ %s:%d\n", __FILE__, __LINE__);
+		exit(1);
+	}
+	pl_get_param(cam->handle, PARAM_SER_SIZE, ATTR_CURRENT, (void *)&frame.width);
+	pl_get_param(cam->handle, PARAM_PAR_SIZE, ATTR_CURRENT, (void *)&frame.height);
+	return frame;
 }
 
