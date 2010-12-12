@@ -162,13 +162,13 @@ void rangahau_camera_start_acquisition(RangahauCamera *cam)
 		pl_exp_init_seq();
 
 		/* Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer */
-		unsigned long bytesInFrame = 0;
-		pl_exp_setup_cont(cam->handle, 1, &region, STROBED_MODE, 0, &bytesInFrame, CIRC_OVERWRITE);
+		unsigned long frame_size = 0;
+		pl_exp_setup_cont(cam->handle, 1, &region, STROBED_MODE, 0, &frame_size, CIRC_OVERWRITE);
 		check_pvcam_error("Cannot start acquisition as there was a problem setting up continuous exposure", __LINE__);
 
-		/* Get an image buffer */
-		pl_exp_get_driver_buffer(cam->handle, &cam->image_buffer, &cam->image_buffer_size);
-		check_pvcam_error("Cannot start acquisition as there was a problem setting up exposure buffer", __LINE__);
+		/* Create a buffer big enough to hold 5 images */
+		cam->image_buffer_size = frame_size * 5;
+		cam->image_buffer = (uns16*)malloc( cam->image_buffer_size );
 
 		/* Start waiting for sync pulses */
 		pl_exp_start_cont(cam->handle, cam->image_buffer, cam->image_buffer_size);
@@ -199,6 +199,7 @@ void rangahau_camera_stop_acquisition(RangahauCamera *cam)
 		check_pvcam_error("Cannot stop acquisition as there was a problem finishing the exposure sequence (pl_exp_finish_seq)", __LINE__);
 		pl_exp_uninit_seq();
 		check_pvcam_error("Cannot stop acquisition as there was a problem uninitialising the sequence (pl_exp_uninit_seq)", __LINE__);
+		free(cam->image_buffer);
 	}
 	cam->status = IDLE;
 }
