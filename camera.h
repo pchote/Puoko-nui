@@ -44,7 +44,7 @@ typedef struct
 {
 	int width;
 	int height;
-	int *data; /* Pointer to the start of the frame data */
+	short *data; /* Pointer to the start of the frame data */
 } RangahauFrame;
 
 

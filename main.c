@@ -7,10 +7,15 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <gtk/gtk.h>
 #include <time.h>
 #include <pthread.h>
 #include <fitsio.h>
+
+#include <sys/select.h>
+#include <xpa.h>
+
 #include "camera.h"
 #include "acquisitionthread.h"
 
@@ -46,27 +51,17 @@ RangahauCamera camera;
 
 
 /* Write frame data to a fits file */
-void rangahau_save_frame(RangahauFrame frame)
+void rangahau_save_frame(RangahauFrame frame, const char *filepath)
 {
-	printf("Saving frame\n");
+	fitsfile *fptr;
+	int status = 0;
 
-	/* Build the file path to save to */
-	int framenum = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.frame_entry));
-	const char *destination = gtk_entry_get_text(GTK_ENTRY(view.destination_entry));
-	const char *prefix = gtk_entry_get_text(GTK_ENTRY(view.run_entry));
-	char filepath[1024];
-	sprintf(filepath, "%s/%s-%d.fits",destination,prefix,framenum);
-
-	/* Increment the next frame */
-	gtk_spin_button_spin(GTK_SPIN_BUTTON(view.frame_entry), GTK_SPIN_STEP_FORWARD, 1);
+	printf("Saving frame to %s\n", filepath);
 
 	/* Collect the various frame data we want to write */
 	long exposure = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
 
-	fitsfile *fptr;
-	int status = 0;
 	/* Create a new fits file */
-	/* TODO: construct the filename */
 	fits_create_file(&fptr, filepath, &status);
 
 	/* Create the primary array image (16-bit short integer pixels */
@@ -78,12 +73,55 @@ void rangahau_save_frame(RangahauFrame frame)
 
 	/* Write the frame data to the image */
 	fits_write_img(fptr, TSHORT, 1, frame.width*frame.height, frame.data, &status);
+
 	fits_close_file(fptr, &status);
 
 	/* print out any error messages */
 	fits_report_error(stderr, status);
 }
 
+void rangahau_preview_frame(RangahauFrame frame)
+{
+	fitsfile *fptr;
+	int status = 0;
+	void *fitsbuf;
+
+	/* Size of the memory buffer = 1024*1024*2 bytes 
+	 * for pixels + 4096 for the header */
+	/* TODO: What is a good number for this? */
+	size_t fitssize = 2101248;
+
+	/* Allocate a chunk of memory for the image */
+	if(!(fitsbuf = malloc(fitssize)))
+	{
+		printf("Error: couldn't allocate fitsbuf\n");
+		exit(1);
+	}
+
+	/* Create a new fits file in memory */
+	fits_create_memfile(&fptr, &fitsbuf, &fitssize, 2880, realloc, &status);
+
+	/* Create the primary array image (16-bit short integer pixels */
+	long size[2] = { frame.width, frame.height };
+	fits_create_img(fptr, SHORT_IMG, 2, size, &status);
+
+	/* Write frame data to the OBJECT header for ds9 to display */
+	char buf[128];
+	sprintf(buf, "Exposure @ %d", (int)time(NULL));
+	fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
+
+	/* Write the frame data to the image */
+	fits_write_img(fptr, TSHORT, 1, frame.width*frame.height, frame.data, &status);
+	fits_close_file(fptr, &status);
+
+	/* print out any error messages */
+	if (status)
+		fits_report_error(stderr, status);
+	else /* Tell ds9 to draw the new image via XPA */
+		XPASet(NULL, "ds9", "fits", NULL, fitsbuf, fitssize, NULL, NULL, 1);
+	
+	free(fitsbuf);
+}
 
 /* Called when the acquisition thread has downloaded a frame
  * Note: this runs in the acquisition thread *not* the main thread. */
@@ -92,8 +130,22 @@ void rangahau_frame_downloaded_cb(RangahauFrame frame)
 	printf("Frame downloaded\n");
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox)))
 	{
-		rangahau_save_frame(frame);
+		/* Build the file path to save to */
+		int framenum = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.frame_entry));
+		const char *destination = gtk_entry_get_text(GTK_ENTRY(view.destination_entry));
+		const char *prefix = gtk_entry_get_text(GTK_ENTRY(view.run_entry));
+		char filepath[1024];
+		sprintf(filepath, "%s/%s-%d.fits.gz",destination,prefix,framenum);
+
+		/* Increment the next frame */
+		gtk_spin_button_spin(GTK_SPIN_BUTTON(view.frame_entry), GTK_SPIN_STEP_FORWARD, 1);
+
+		rangahau_save_frame(frame, filepath);		
 	}
+
+	/* Display the frame in ds9 */
+    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.display_checkbox)))
+		rangahau_preview_frame(frame);
 }
 
 /* Convinience function */
@@ -331,7 +383,7 @@ GtkWidget *rangahau_save_panel()
 	gtk_entry_set_width_chars(GTK_ENTRY(view.frame_entry), 4);
 	gtk_box_pack_start(GTK_BOX(box), view.frame_entry, FALSE, FALSE, 0);
 
-	item = gtk_label_new(".fits");
+	item = gtk_label_new(".fits.gz");
 	gtk_box_pack_start(GTK_BOX(box), item, FALSE, FALSE, 0);
 
 	return frame;
