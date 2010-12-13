@@ -20,7 +20,7 @@ void check_pvcam_error(const char * msg, int line)
 	pvmsg[0] = '\0';
 	pl_error_message(error, pvmsg);
 
-	printf("%s %d PVCAM error: %d = %s; %s", __FILE__, line, error, pvmsg, msg);
+	printf("%s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);
 	exit(1);
 }
 

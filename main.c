@@ -12,7 +12,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <fitsio.h>
-
+#include <string.h>
 #include <sys/select.h>
 #include <xpa.h>
 
@@ -183,17 +183,25 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 
 int main( int argc, char *argv[] )
 {
-    /* 
+    gtk_init (&argc, &argv);
+
+	boolean simulate = FALSE;
+	/* Parse the commandline args */
+	for (int i = 0; i < argc; i++)
+		if (strcmp(argv[i], "--simulate") == 0)
+			simulate = TRUE;
+
+	/* 
 	 * Initialise the camera.
 	 * Run in a separate thread to avoid blocking the gui.
 	 */
-	camera = rangahau_camera_new(TRUE); /* simulate */
+	camera = rangahau_camera_new(simulate);
+	view.camera = &camera;
 	pthread_t camera_init;
 	pthread_create(&camera_init, NULL, rangahau_camera_init, (void *)&camera);
 
 	/* Initialise the gui and start */
-	gtk_init (&argc, &argv);
-	view.camera = &camera;
+
 	rangahau_init_gui(&view, startstop_pressed);
     gtk_main();
 
