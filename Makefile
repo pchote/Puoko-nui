@@ -3,10 +3,10 @@ CFLAGS = -g -c -ansi -Wall -O3 -pedantic -Wno-deprecated $(shell pkg-config --cf
 LFLAGS = -lcfitsio -lxpa -lpvcam -ldl -lpthread -lraw1394 $(shell pkg-config --libs gtk+-2.0)
 
 SRC = main.c camera.c acquisitionthread.c
-OBJ = $(SRC:.c=.o) libxpa.a
+OBJ = $(SRC:.c=.o)
 
 rangahau: $(OBJ)
-	$(CC) $(LFLAGS) $(OBJ) -o $@
+	$(CC) $(LFLAGS) $(OBJ) libxpa.a -o $@
 
 clean:
 	-rm $(OBJ) rangahau
