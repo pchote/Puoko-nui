@@ -136,6 +136,7 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		/* Start acquisition thread */
 		acquisition_info.camera = &camera;
 		acquisition_info.exptime = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
+		acquisition_info.binsize = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.binsize_entry));
 		acquisition_info.cancelled = FALSE;
 		acquisition_info.on_frame_available = rangahau_frame_downloaded_cb;
 		

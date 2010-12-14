@@ -42,6 +42,7 @@ RangahauCamera rangahau_camera_new(boolean simulate)
 	cam.status = INITIALISING;
 	cam.image_buffer = NULL;
 	cam.image_buffer_size = 0;
+	cam._binsize = 1;
 	return cam;
 }
 
@@ -143,11 +144,12 @@ void rangahau_camera_close(RangahauCamera *cam)
 		check_pvcam_error("Cannot close the camera as there was a problem uninitialising the PVCAM library (pl_pvcam_uninit)", __LINE__);
 }
 
-void rangahau_camera_start_acquisition(RangahauCamera *cam)
+void rangahau_camera_start_acquisition(RangahauCamera *cam, uns16 binsize)
 {
 	check_camera(cam);
 	printf("Starting acquisition\n");
 	cam->status = INITIALISING;
+	cam->_binsize = binsize;
 
 	if (cam->simulated)
 	{
@@ -166,10 +168,10 @@ void rangahau_camera_start_acquisition(RangahauCamera *cam)
 		rgn_type region;
 		region.s1 = 0;        /* x start ('serial' direction) */
 		region.s2 = width-1;  /* x end */
-		region.sbin = 1;      /* x binning (1 = no binning) */
+		region.sbin = binsize;      /* x binning (1 = no binning) */
 		region.p1 = 0;        /* y start ('parallel' direction) */
 		region.p2 = height-1; /* y end */
-		region.pbin = 1;      /* y binning (1 = no binning) */
+		region.pbin = binsize;      /* y binning (1 = no binning) */
 
 		/* Init exposure control libs */
 		if (!pl_exp_init_seq())
@@ -256,13 +258,12 @@ RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam)
 	{
 		RangahauFrame frame;
 		frame.data = &simulator_data[0];
-		frame.width = frame.height = 1024;
+		frame.width = frame.height = 1024/cam->_binsize;
 
 		/* Draw a linear ramp across the frame */
-		for (int ii = 0; ii < frame.width; ii++)
+		for (int ii = 0, i=0; ii < frame.width; ii++)
 			for (int jj = 0; jj < frame.height; jj++)
-				simulator_data[ii + jj*frame.width] = ii+jj;
-
+				simulator_data[i++] = ii+jj;
 		return frame;
 	}
 
@@ -283,6 +284,10 @@ RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam)
 
 	if (!pl_get_param(cam->handle, PARAM_PAR_SIZE, ATTR_CURRENT, (void *)&frame.height))
 		check_pvcam_error("Error querying camera height", __LINE__);
+
+	/* Divide the chip size by the bin size to find the frame dimensions */
+	frame.width /= cam->_binsize;
+	frame.height /= cam->_binsize;
 
 	return frame;
 }

@@ -14,7 +14,8 @@
 typedef struct
 {
 	RangahauCamera *camera;
-	int exptime;
+	int32 exptime;
+	uns16 binsize;
 	boolean cancelled;
 	boolean active;
 	void (*on_frame_available)(RangahauFrame frame);

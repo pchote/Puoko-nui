@@ -16,7 +16,7 @@ void *rangahau_acquisition_thread(void *_info)
 	RangahauAcquisitionThreadInfo *info = (RangahauAcquisitionThreadInfo *)_info;
 
 	info->active = TRUE;
-	printf("Starting acquisition thread with exposure time of %d sec.\n", info->exptime);
+	printf("Starting acquisition thread with exposure time of %d sec.\n", (int)info->exptime);
 	
 	/* Poll the camera for frames at 10Hz */
 	struct timespec wait;
@@ -29,7 +29,7 @@ void *rangahau_acquisition_thread(void *_info)
 	 * Tell the camera to start listening for sync pulses from the gps,
 	 * and exposing frames
 	 */
-	rangahau_camera_start_acquisition(info->camera);
+	rangahau_camera_start_acquisition(info->camera, info->binsize);
 
 	/* Dump any existing images that may have been buffered on the camera */
 	//rangahau_camera_purge_images(info->camera);

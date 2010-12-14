@@ -37,6 +37,8 @@ typedef struct
 	rs_bool simulated;
 	void *image_buffer;
 	uns32 image_buffer_size;
+	/* internal copy of view->binsize. Do not use outside of camera */
+	uns16 _binsize;
 } RangahauCamera;
 
 /* Represents an aquired frame */
@@ -51,7 +53,7 @@ typedef struct
 RangahauCamera rangahau_camera_new(boolean simulate);
 void *rangahau_camera_init(void *cam);
 void rangahau_camera_close(RangahauCamera *cam);
-void rangahau_camera_start_acquisition(RangahauCamera *cam);
+void rangahau_camera_start_acquisition(RangahauCamera *cam, uns16 binsize);
 void rangahau_camera_stop_acquisition(RangahauCamera *cam);
 boolean rangahau_camera_image_available(RangahauCamera *cam);
 RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam);
