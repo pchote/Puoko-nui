@@ -30,6 +30,7 @@ void check_gps(RangahauGPS *gps, char *file, int line)
 	}
 }
 
+/* Initialise a gps object with a valid usb device */
 RangahauGPS rangahau_gps_new()
 {
 	printf("Enumerating FTDI devices\n");	
@@ -69,6 +70,7 @@ void rangahau_gps_free(RangahauGPS *gps)
 	check_gps(gps, __FILE__, __LINE__);
 }
 
+/* Open the usb gps device and prepare it for reading/writing */
 void rangahau_gps_init(RangahauGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);	
@@ -103,6 +105,7 @@ void rangahau_gps_init(RangahauGPS *gps)
 	check_ftdi("ftdi_set_latency_timer() returned an error code", __FILE__, __LINE__, status);
 }
 
+/* Close the usb gps device */
 void rangahau_gps_uninit(RangahauGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);
@@ -120,3 +123,24 @@ void rangahau_gps_uninit(RangahauGPS *gps)
 	gps->context = NULL;
 }
 
+/* Send a series of bytes to the gps device */
+void rangahau_gps_write(RangahauGPS *gps, unsigned char *bytes, int numBytes)
+{
+	check_gps(gps, __FILE__, __LINE__);
+	if (ftdi_write_data(gps->context, bytes, numBytes) != numBytes)
+	{
+		printf("Error writing data @ %s:%d\n", __FILE__, __LINE__);
+		exit(1);
+	}
+}
+
+/* Read a series of bytes from a gps device */
+void rangahau_gps_read(RangahauGPS *gps, unsigned char *bytes, int maxBytes, int *numBytes)
+{
+	check_gps(gps, __FILE__, __LINE__);
+	if ((*numBytes = ftdi_read_data(gps->context, bytes, maxBytes)) < 0)
+	{
+		printf("Error reading data @ %s:%d\n", __FILE__, __LINE__);
+		exit(1);
+	}	
+}
