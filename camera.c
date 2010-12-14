@@ -49,7 +49,6 @@ RangahauCamera rangahau_camera_new(boolean simulate)
 /* TODO: Things to implement?
  *
  * PARAM_CCS_STATUS - query camera status
- * PARAM_CAM_FW_VERSION - query camera firmware version
  * PARAM_SHTR_OPEN_MODE = OPEN_NO_CHANGE - tells the camera to never send any shutter signals (use instead of setting shutter time to 0?
  * PARAM_TEMP - get the camera temperature in degrees c * 100
  */
@@ -66,16 +65,21 @@ void *rangahau_camera_init(void *_cam)
 	}
 	else
 	{
-		/* Init PVCAM library */
 		if (!pl_pvcam_init())
-			check_pvcam_error("Cannot open the camera as could not initialise the PVCAM library (pl_pvcam_init)", __LINE__);
+			check_pvcam_error("Could not initialise the PVCAM library (pl_pvcam_init)", __LINE__);
 		
+		uns16 pversion;
+		if (!pl_pvcam_get_ver(&pversion))
+			check_pvcam_error("Cannot query pvcam version", __LINE__);
+
+		printf("Initialising PVCAM Version %d.%d.%d (0x%x)\n",pversion>>8, (pversion & 0x00F0)>>4, pversion & 0x000F, pversion);
 		cam->pvcam_inited = TRUE;
 
 		int16 numCams = 0;
 		if (!pl_cam_get_total(&numCams))
 			check_pvcam_error("Cannot query the number of cameras (pl_cam_get_total)", __LINE__);
 
+		printf("Found %d camera(s)\n", numCams);
 		if (numCams == 0)
 		{
 			printf("No cameras are available (pass --simulate to use simulated hardware).\n");
@@ -89,7 +93,22 @@ void *rangahau_camera_init(void *_cam)
 
 		/* Open the camera */
 		if (!pl_cam_open(cameraName, &cam->handle, OPEN_EXCLUSIVE))
-			check_pvcam_error("Cannot open the camera (pl_cam_open)", __LINE__);
+			check_pvcam_error("Cannot open the camera. Are you running as root?", __LINE__);
+
+		/* Print the camera firmware version if available */
+		char fwver_buf[16] = "Unknown";
+		uns16 fwver;
+		rs_bool avail = FALSE;
+		if (!pl_get_param(cam->handle, PARAM_CAM_FW_VERSION, ATTR_AVAIL, (void *)&avail))
+			check_pvcam_error("Error querying camera fw version", __LINE__);
+
+		if (avail)
+		{
+			if (pl_get_param(cam->handle, PARAM_CAM_FW_VERSION, ATTR_CURRENT, (void *)&fwver))
+				check_pvcam_error("Error querying camera fw version", __LINE__);
+			sprintf(fwver_buf, "%d.%d (0x%x)", fwver >> 8, fwver & 0x00FF, fwver);
+		}
+		printf("Opened %s: Firmware version %s\n", cameraName, fwver_buf);
 
 		/* Check camera status */
 		if (!pl_cam_get_diags(cam->handle))
