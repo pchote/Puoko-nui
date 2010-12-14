@@ -113,7 +113,7 @@ GtkWidget *rangahau_settings_panel(RangahauView *view)
 	view->target_entry = gtk_entry_new();
 	gtk_table_attach_defaults(GTK_TABLE(table), view->target_entry, 4,5,0,1);
 	gtk_entry_set_text(GTK_ENTRY(view->target_entry), "ec20058");
-	gtk_entry_set_width_chars(GTK_ENTRY(view->target_entry), 8);
+	gtk_entry_set_width_chars(GTK_ENTRY(view->target_entry), 12);
 
 	/* Bin size */
 	field = gtk_label_new("Bin Size:");
@@ -138,7 +138,7 @@ GtkWidget *rangahau_settings_panel(RangahauView *view)
 
 	/* Hack: pad the label with extra spaces to the panel 
 	 * doesn't reflow then the target entry is hidden */
-	field = gtk_label_new("seconds      ");
+	field = gtk_label_new("seconds              ");
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 4,5,2,3);
 	gtk_misc_set_alignment(GTK_MISC(field), 0, 0.5);
 
@@ -189,67 +189,57 @@ GtkWidget *rangahau_hardware_panel(RangahauView *view)
 /* Return a GtkWidget containing the save settings panel */
 GtkWidget *rangahau_save_panel(RangahauView *view)
 {
-	GtkWidget *frame = gtk_frame_new("Destination");
+	GtkWidget *frame = gtk_frame_new("Output");
 	GtkWidget *box = gtk_hbox_new(FALSE, 5);
 	gtk_container_add(GTK_CONTAINER(frame), box);
-	gtk_container_set_border_width(GTK_CONTAINER(box), 5);
+	gtk_container_set_border_width(GTK_CONTAINER(box), 0);
+
+	GtkWidget *align = gtk_alignment_new(0,0.5,0,0);
+	gtk_box_pack_start(GTK_BOX(box), align, FALSE, FALSE, 5);
+	GtkWidget *path = gtk_hbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(align), path);
 
 	view->destination_entry = gtk_entry_new();
 	gtk_entry_set_text(GTK_ENTRY(view->destination_entry), "/home/sullivan/Desktop");
 	gtk_entry_set_width_chars(GTK_ENTRY(view->destination_entry), 27);
-	gtk_box_pack_start(GTK_BOX(box), view->destination_entry, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(path), view->destination_entry, FALSE, FALSE, 0);
 
 	view->destination_btn = gtk_button_new_with_label("Browse");
-	gtk_box_pack_start(GTK_BOX(box), view->destination_btn, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(path), view->destination_btn, FALSE, FALSE, 0);
 
 	GtkWidget *item = gtk_label_new("/");
-	gtk_box_pack_start(GTK_BOX(box), item, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(path), item, FALSE, FALSE, 0);
 
 	view->run_entry = gtk_entry_new();
 	gtk_entry_set_text(GTK_ENTRY(view->run_entry), "run");
 	gtk_entry_set_width_chars(GTK_ENTRY(view->run_entry), 7);
-	gtk_box_pack_start(GTK_BOX(box), view->run_entry, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(path), view->run_entry, FALSE, FALSE, 0);
 
 	item = gtk_label_new("-");
-	gtk_box_pack_start(GTK_BOX(box), item, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(path), item, FALSE, FALSE, 0);
 
 	view->frame_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(0, 0, 100000, 1, 10, 0), 0, 0);
 	gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(view->frame_entry), TRUE);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->frame_entry), 4);
-	gtk_box_pack_start(GTK_BOX(box), view->frame_entry, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(path), view->frame_entry, FALSE, FALSE, 0);
 
 	item = gtk_label_new(".fits.gz");
-	gtk_box_pack_start(GTK_BOX(box), item, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(path), item, FALSE, FALSE, 0);
 
-	return frame;
-}
+	/* Display and view checkboxes */
+	GtkWidget *box2 = gtk_vbox_new(FALSE, 5);
+	gtk_box_pack_start(GTK_BOX(box), box2, FALSE, FALSE, 0);
 
-/* Return a GtkWidget containing the acquisition settings panel */
-GtkWidget *rangahau_acquire_panel(RangahauView *view, void (starstop_pressed_cb)(GtkWidget *, void *))
-{
-	/* Setup */	
-	GtkWidget *align = gtk_alignment_new(0,1,0,0);	
-	GtkWidget *box = gtk_vbox_new(FALSE, 5);
-	gtk_container_add(GTK_CONTAINER(align), box);
-
-	/* Contents */
-	view->display_checkbox = gtk_check_button_new_with_label("Display Frames");
-	gtk_box_pack_start(GTK_BOX(box), view->display_checkbox, TRUE, TRUE, 0);
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view->display_checkbox), TRUE);
-    
-	view->save_checkbox = gtk_check_button_new_with_label ("Save Frames");
-	gtk_box_pack_start(GTK_BOX(box), view->save_checkbox, TRUE, TRUE, 0);
+	view->save_checkbox = gtk_check_button_new_with_label ("Save");
+	gtk_box_pack_start(GTK_BOX(box2), view->save_checkbox, TRUE, TRUE, 0);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view->save_checkbox), FALSE);
 
-	view->startstop_btn = gtk_toggle_button_new_with_label("Start Acquisition");	
-	gtk_box_pack_start(GTK_BOX(box), view->startstop_btn, FALSE, FALSE, 10);
-	g_signal_connect(view->startstop_btn, "clicked", G_CALLBACK(starstop_pressed_cb), NULL);
-	/* Can't start acquisition until the camer is ready */
-	gtk_widget_set_sensitive(view->startstop_btn, FALSE);
-
-	return align;
+	view->display_checkbox = gtk_check_button_new_with_label("Display");
+	gtk_box_pack_start(GTK_BOX(box2), view->display_checkbox, TRUE, TRUE, 0);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view->display_checkbox), TRUE);
+    
+	return frame;
 }
-
 
 /* update the various information fields */
 gboolean update_gui_cb(gpointer data)
@@ -260,6 +250,9 @@ gboolean update_gui_cb(gpointer data)
 	time_t t = time(NULL);
 	strftime(strtime, 20, "%Y-%m-%d %H:%M:%S", gmtime(&t));
 	gtk_label_set_label(GTK_LABEL(view->pctime_label), strtime);
+
+	/* TODO: GPS time */
+	gtk_label_set_label(GTK_LABEL(view->gpstime_label), strtime);
 
 	/* Camera status */
 	char *label;
@@ -290,7 +283,7 @@ void rangahau_init_gui(RangahauView *view, void (starstop_pressed_cb)(GtkWidget 
 {
 	/* Main window */
 	GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_widget_set_size_request (GTK_WIDGET(window), 850, 210);
+	gtk_widget_set_size_request (GTK_WIDGET(window), 760, 220);
 	gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
 	gtk_window_set_title(GTK_WINDOW(window), "Rangahau Data Acquisition System");
 	gtk_container_set_border_width(GTK_CONTAINER(window), 5);
@@ -299,20 +292,11 @@ void rangahau_init_gui(RangahauView *view, void (starstop_pressed_cb)(GtkWidget 
 	g_signal_connect_swapped(window, "delete-event", G_CALLBACK(gtk_widget_destroy), window);
 
 	/* 
-	* Outer container
-	* Left column: All settings
-	* Right column: Acquire settings
-	*/
-	GtkWidget *outer = gtk_hbox_new(FALSE, 0);
-	gtk_container_add(GTK_CONTAINER(window), outer);
-
-	/* 
-	 * Inner-left container.
 	 * Top row: Hardware & Settings
 	 * Bottom row: Save path
 	 */
 	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(outer), vbox, FALSE, FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(window), vbox);
 
 	/* top row */
 	GtkWidget *topbox = gtk_hbox_new(FALSE, 0);
@@ -325,10 +309,14 @@ void rangahau_init_gui(RangahauView *view, void (starstop_pressed_cb)(GtkWidget 
 	gtk_box_pack_end(GTK_BOX(vbox), bottombox, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(bottombox), rangahau_save_panel(view), FALSE, FALSE, 5);
 
-	/* 
-	 * Inner-right container.
-	 */
-	gtk_box_pack_end(GTK_BOX(outer), rangahau_acquire_panel(view, starstop_pressed_cb), FALSE, FALSE, 5);
+
+	/* Start / Stop button */
+	view->startstop_btn = gtk_toggle_button_new_with_label("Start Acquisition");	
+	gtk_box_pack_end(GTK_BOX(bottombox), view->startstop_btn, FALSE, FALSE, 10);
+	g_signal_connect(view->startstop_btn, "clicked", G_CALLBACK(starstop_pressed_cb), NULL);
+
+	/* Can't start acquisition until the camer is ready */
+	gtk_widget_set_sensitive(view->startstop_btn, FALSE);
 
 
 	/* Update the gui at 10Hz */

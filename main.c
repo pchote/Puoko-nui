@@ -156,7 +156,7 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 
 int main( int argc, char *argv[] )
 {
-    gtk_init (&argc, &argv);
+	gtk_init(&argc, &argv);
 
 	boolean simulate = FALSE;
 	/* Parse the commandline args */
@@ -164,21 +164,18 @@ int main( int argc, char *argv[] )
 		if (strcmp(argv[i], "--simulate") == 0)
 			simulate = TRUE;
 
-	/* 
-	 * Initialise the camera.
-	 * Run in a separate thread to avoid blocking the gui.
-	 */
+	/* Initialise the camera.
+	 * Run in a separate thread to avoid blocking the gui. */
 	camera = rangahau_camera_new(simulate);
 	view.camera = &camera;
 	pthread_t camera_init;
 	pthread_create(&camera_init, NULL, rangahau_camera_init, (void *)&camera);
 
 	/* Initialise the gui and start */
-
 	rangahau_init_gui(&view, startstop_pressed);
-    gtk_main();
+	gtk_main();
 
 	/* Close the camera before exiting */
 	rangahau_camera_close(&camera);
-    return 0;
+	return 0;
 }
