@@ -104,7 +104,7 @@ void rangahau_preview_frame(RangahauFrame frame)
 void rangahau_frame_downloaded_cb(RangahauFrame frame)
 {
 	printf("Frame downloaded\n");
-    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox)))
+	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox)))
 	{
 		/* Build the file path to save to */
 		int framenum = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.frame_entry));
@@ -120,15 +120,8 @@ void rangahau_frame_downloaded_cb(RangahauFrame frame)
 	}
 
 	/* Display the frame in ds9 */
-    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.display_checkbox)))
+	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.display_checkbox)))
 		rangahau_preview_frame(frame);
-}
-
-/* Convinience function */
-void make_gtk_entry_editable(GtkWidget *widget, gboolean editable)
-{
-	gtk_editable_set_editable(GTK_EDITABLE(widget), editable);
-	gtk_widget_set_sensitive(widget, editable);
 }
 
 /*
@@ -136,19 +129,9 @@ void make_gtk_entry_editable(GtkWidget *widget, gboolean editable)
  */
 static void startstop_pressed(GtkWidget *widget, gpointer data)
 {
-    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) 
-    {
-		/* Disable settings fields */
-		make_gtk_entry_editable(view.observers_entry, FALSE);
-		make_gtk_entry_editable(view.exptime_entry, FALSE);
-		gtk_widget_set_sensitive(view.target_combobox, FALSE);
-		make_gtk_entry_editable(view.target_entry, FALSE);
-
-		/* Disable destination fields */
-		make_gtk_entry_editable(view.destination_entry, FALSE);
-		gtk_widget_set_sensitive(view.destination_btn, FALSE);
-		make_gtk_entry_editable(view.run_entry, FALSE);
-		make_gtk_entry_editable(view.frame_entry, FALSE);
+	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) 
+	{
+		rangahau_set_fields_editable(&view, FALSE);
 
 		/* Start acquisition thread */
 		acquisition_info.camera = &camera;
@@ -159,20 +142,10 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		pthread_create(&acquisition_thread, NULL, rangahau_acquisition_thread, (void *)&acquisition_info);
 
 		gtk_button_set_label(GTK_BUTTON(widget), "Stop Acquisition");
-    }
+	}
 	else
 	{
-		/* Enable settings fields */
-		make_gtk_entry_editable(view.observers_entry, TRUE);
-		make_gtk_entry_editable(view.exptime_entry, TRUE);
-		gtk_widget_set_sensitive(view.target_combobox, TRUE);
-		make_gtk_entry_editable(view.target_entry, TRUE);
-
-		/* Enable destination fields */
-		make_gtk_entry_editable(view.destination_entry, TRUE);
-		gtk_widget_set_sensitive(view.destination_btn, TRUE);
-		make_gtk_entry_editable(view.run_entry, TRUE);
-		make_gtk_entry_editable(view.frame_entry, TRUE);
+		rangahau_set_fields_editable(&view, TRUE);
 
 		/* Stop aquisition thread */
 		acquisition_info.cancelled = TRUE;

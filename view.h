@@ -28,9 +28,12 @@ typedef struct
 
 	/* Settings panel */
 	GtkWidget *observers_entry;
-	GtkWidget *exptime_entry;
+	GtkWidget *observatory_entry;
+	GtkWidget *telescope_entry;
 	GtkWidget *target_combobox;
 	GtkWidget *target_entry;
+	GtkWidget *binsize_entry;
+	GtkWidget *exptime_entry;
 
 	/* Destination panel */
 	GtkWidget *destination_entry;
@@ -40,5 +43,6 @@ typedef struct
 } RangahauView;
 
 void rangahau_init_gui(RangahauView *view, void (starstop_pressed_cb)(GtkWidget *, void *));
+void rangahau_set_fields_editable(RangahauView *view, gboolean editable);
 #endif
 
