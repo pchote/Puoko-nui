@@ -19,6 +19,7 @@
 #include "view.h"
 #include "camera.h"
 #include "acquisitionthread.h"
+#include "gps.h"
 
 RangahauView view;
 RangahauAcquisitionThreadInfo acquisition_info;
@@ -157,8 +158,13 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 
 int main( int argc, char *argv[] )
 {
-	gtk_init(&argc, &argv);
+	RangahauGPS gps = rangahau_gps_new();
+	rangahau_gps_init(&gps);
+	rangahau_gps_uninit(&gps);
+	rangahau_gps_free(&gps);
+	exit(1);
 
+	gtk_init(&argc, &argv);
 	boolean simulate = FALSE;
 	/* Parse the commandline args */
 	for (int i = 0; i < argc; i++)
