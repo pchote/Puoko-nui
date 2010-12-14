@@ -42,13 +42,13 @@ void rangahau_save_frame(RangahauFrame frame, const char *filepath)
 
 	/* Create the primary array image (16-bit short integer pixels */
 	long size[2] = { frame.width, frame.height };
-	fits_create_img(fptr, SHORT_IMG, 2, size, &status);
+	fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
 	/* Write header keys */
 	fits_update_key(fptr, TLONG, "EXPOSURE", &exposure, "Total Exposure Time", &status);
 
 	/* Write the frame data to the image */
-	fits_write_img(fptr, TSHORT, 1, frame.width*frame.height, frame.data, &status);
+	fits_write_img(fptr, TUSHORT, 1, frame.width*frame.height, frame.data, &status);
 
 	fits_close_file(fptr, &status);
 
@@ -79,7 +79,7 @@ void rangahau_preview_frame(RangahauFrame frame)
 
 	/* Create the primary array image (16-bit short integer pixels */
 	long size[2] = { frame.width, frame.height };
-	fits_create_img(fptr, SHORT_IMG, 2, size, &status);
+	fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
 	/* Write frame data to the OBJECT header for ds9 to display */
 	char buf[128];
@@ -87,7 +87,7 @@ void rangahau_preview_frame(RangahauFrame frame)
 	fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
 
 	/* Write the frame data to the image */
-	fits_write_img(fptr, TSHORT, 1, frame.width*frame.height, frame.data, &status);
+	fits_write_img(fptr, TUSHORT, 1, frame.width*frame.height, frame.data, &status);
 	fits_close_file(fptr, &status);
 
 	/* print out any error messages */
