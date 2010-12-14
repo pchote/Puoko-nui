@@ -25,16 +25,16 @@ typedef enum
 {
 	INITIALISING,
 	IDLE,
-	ACQUIRING
+	ACTIVE
 } RangahauCameraStatus;
 
 /* Holds the state of a camera */
 typedef struct
 {
-	boolean pvcam_inited;
-	short handle;
+	rs_bool pvcam_inited;
+	int16 handle;
 	RangahauCameraStatus status;
-	boolean simulated;
+	rs_bool simulated;
 	void *image_buffer;
 	uns32 image_buffer_size;
 } RangahauCamera;
@@ -42,14 +42,15 @@ typedef struct
 /* Represents an aquired frame */
 typedef struct
 {
-	int width;
-	int height;
-	short *data; /* Pointer to the start of the frame data */
+	uns16 width;
+	uns16 height;
+	uns16 *data; /* Pointer to the start of the frame data */
 } RangahauFrame;
 
 
 RangahauCamera rangahau_camera_new(boolean simulate);
 void *rangahau_camera_init(void *cam);
+void rangahau_camera_close(RangahauCamera *cam);
 void rangahau_camera_start_acquisition(RangahauCamera *cam);
 void rangahau_camera_stop_acquisition(RangahauCamera *cam);
 boolean rangahau_camera_image_available(RangahauCamera *cam);

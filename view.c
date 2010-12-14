@@ -217,8 +217,8 @@ gboolean update_gui_cb(gpointer data)
 		case IDLE:
 			label = "Idle";
 		break;
-		case ACQUIRING:
-			label = "Acquiring";
+		case ACTIVE:
+			label = "Active";
 		break;
 	}
 	gtk_label_set_label(GTK_LABEL(view->camerastatus_label), label);

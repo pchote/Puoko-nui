@@ -205,5 +205,7 @@ int main( int argc, char *argv[] )
 	rangahau_init_gui(&view, startstop_pressed);
     gtk_main();
 
+	/* Close the camera before exiting */
+	rangahau_camera_close(&camera);
     return 0;
 }
