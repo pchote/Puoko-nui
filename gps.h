@@ -8,22 +8,30 @@
 #ifndef GPS_H
 #define GPS_H
 
+#include <stdbool.h>
+
 /* datalink escape byte */
 #define DLE 0x10
 /* End of text byte */
 #define ETX 0x03
 
+/* Maximum gps packet length */
+#define GPS_PACKET_LENGTH 255
+
+/* GPS command types */
 typedef enum
 {
 	ECHO = 0x01,
 	GETGPSTIME = 0x23,
+	GETSYNCTIME = 0x25,
 	GETEXPOSURETIME = 0x24,
 	SETEXPOSURETIME = 0x44,
-	GETSYNCTIME = 0x25,
 } RangahauGPSRequest;
 
+/* GPS error types */
 typedef enum
 {
+	REQUEST_TIMEOUT = 0,	
 	NO_ERROR = 1<<0,
 	PACKET_ID_INVALID = 1<<1,
 	UTC_ACCESS_ON_UPDATE = 1<<2,
@@ -33,14 +41,16 @@ typedef enum
 	GPS_SERIAL_LOST = 1<<7
 } RangahauGPSError;
 
+/* Represents a response packet from the GPS */
 typedef struct
 {
 	RangahauGPSRequest type;
-	unsigned char data[1024];
+	unsigned char data[GPS_PACKET_LENGTH];
 	int datalength;	
 	unsigned char error;
 } RangahauGPSResponse;
 
+/* Represents the GPS hardware */
 typedef struct
 {
 	struct usb_device *device;
@@ -52,5 +62,8 @@ void rangahau_gps_free(RangahauGPS *gps);
 void rangahau_gps_init(RangahauGPS *gps);
 void rangahau_gps_uninit(RangahauGPS *gps);
 
-void ranaghau_gps_ping_device(RangahauGPS *gps);
+bool ranaghau_gps_ping_device(RangahauGPS *gps);
+bool rangahau_gps_query_gpstime(RangahauGPS *gps, char *outbuf);
+bool rangahau_gps_query_synctime(RangahauGPS *gps, char *outbuf);
+bool rangahau_gps_query_exposetime(RangahauGPS *gps, int *outbuf);
 #endif

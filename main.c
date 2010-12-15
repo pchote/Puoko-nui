@@ -160,7 +160,20 @@ int main( int argc, char *argv[] )
 {
 	RangahauGPS gps = rangahau_gps_new();
 	rangahau_gps_init(&gps);
-	ranaghau_gps_ping_device(&gps);
+	if (ranaghau_gps_ping_device(&gps))
+		printf("Ping succeeded\n");
+	else
+		printf("Ping failed\n");
+
+	char buf[30];
+	rangahau_gps_query_gpstime(&gps, buf);
+	printf("gpstime: %s\n",buf);
+	rangahau_gps_query_synctime(&gps, buf);
+	printf("synctime: %s\n",buf);
+	int exp;
+	rangahau_gps_query_exposetime(&gps, &exp);
+	printf("exposetime: %d\n",exp);
+
 	rangahau_gps_uninit(&gps);
 	rangahau_gps_free(&gps);
 	exit(1);

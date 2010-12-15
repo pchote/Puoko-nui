@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/time.h>
-#include <stdbool.h>
 #include <ftdi.h>
 #include "gps.h"
 
@@ -150,24 +149,23 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeout)
 	gettimeofday(&tv, NULL);
 	suseconds_t maxtime = tv.tv_usec + 1000*timeout;
 
-	const int BUFSIZE = 1024;
 	RangahauGPSResponse response;
 	response.type = 0;
-	response.error = 0;
+	response.error = REQUEST_TIMEOUT;
 	response.datalength = 0;
 	response.data[0] = (int)NULL;		
-	unsigned char recvbuf[BUFSIZE];
-	unsigned char totalbuf[BUFSIZE];
+	unsigned char recvbuf[GPS_PACKET_LENGTH];
+	unsigned char totalbuf[GPS_PACKET_LENGTH];
 	int recievedBytes = 0;
 	int parsedBytes = 0;
 
 	while (tv.tv_usec < maxtime)
 	{
-		int ret = ftdi_read_data(gps->context, recvbuf, BUFSIZE);
+		int ret = ftdi_read_data(gps->context, recvbuf, GPS_PACKET_LENGTH);
 		if (ret < 0)
 			die("Bad response from gps");
 
-		for (int i = 0; i < ret && recievedBytes < BUFSIZE; i++)
+		for (int i = 0; i < ret && recievedBytes < GPS_PACKET_LENGTH; i++)
 			totalbuf[recievedBytes++] = recvbuf[i];
 
 		/* Parse the packet header */
@@ -176,7 +174,7 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeout)
 			if (totalbuf[0] != DLE)
 			{
 				char error[30];				
-				sprintf(error, "Expected 0x%02x, got 0x%02x", DLE, totalbuf[0]);				
+				sprintf(error, "Malformed packed: Expected 0x%02x, got 0x%02x", DLE, totalbuf[0]);				
 				die(error);
 			}
 			response.type = totalbuf[1];
@@ -205,21 +203,80 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeout)
 		}
 		gettimeofday(&tv, NULL);
 	}
-	die("request timeout");
 	return response;
 }
 
-/* Sends an echo request and checks for the correct response */
-void ranaghau_gps_ping_device(RangahauGPS *gps)
+/* Ping the gps device
+ * Returns false on error after printing the error to stderr */
+bool ranaghau_gps_ping_device(RangahauGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);
-	
 	rangahau_gps_send_command(gps, ECHO);
 
-	RangahauGPSResponse response = rangahau_gps_read(gps,  20);
-	if (response.type == ECHO && response.error == NO_ERROR)
-		printf("ping succeeded\n");
-	else
-		printf("ping failed (error 0x%02x)\n", response.error);
+	RangahauGPSResponse response = rangahau_gps_read(gps, 20);
+	if (!(response.type == ECHO && response.error == NO_ERROR))
+	{
+		fprintf(stderr, "ping failed (error 0x%02x)\n", response.error);
+		return false;
+	}
+	return true;
 }
 
+/* Query the last gps pulse time
+ * outbuf is assumed to be of the correct length (>= 25)
+ * Returns false on error after printing the error to stderr */
+bool rangahau_gps_query_gpstime(RangahauGPS *gps, char outbuf[])
+{
+	check_gps(gps, __FILE__, __LINE__);
+	rangahau_gps_send_command(gps, GETGPSTIME);
+
+	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
+	if (!(response.type == GETGPSTIME && response.error == NO_ERROR))
+	{
+		fprintf(stderr, "gpstime failed (error 0x%02x)\n", response.error);
+		return false;
+	}
+	strcpy(outbuf, (char *)response.data);
+	return true;
+}
+
+/* Query the last sync pulse time
+ * outbuf is assumed to be of the correct length (>= 25)
+ * Returns false on error after printing the error to stderr */
+bool rangahau_gps_query_synctime(RangahauGPS *gps, char outbuf[])
+{
+	check_gps(gps, __FILE__, __LINE__);
+	rangahau_gps_send_command(gps, GETSYNCTIME);
+
+	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
+	if (!(response.type == GETSYNCTIME && response.error == NO_ERROR))
+	{
+		fprintf(stderr, "synctime failed (error 0x%02x)\n", response.error);
+		return false;
+	}
+	strcpy(outbuf, (char *)response.data);
+	return true;
+}
+
+/* Query the current exposure time
+ * Returns false on error after printing the error to stderr */
+bool rangahau_gps_query_exposetime(RangahauGPS *gps, int *outbuf)
+{
+	check_gps(gps, __FILE__, __LINE__);
+	rangahau_gps_send_command(gps, GETEXPOSURETIME);
+
+	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
+	if (!(response.type == GETEXPOSURETIME && response.error == NO_ERROR))
+	{
+		fprintf(stderr,"exposetime failed (error 0x%02x)\n", response.error);
+		return false;
+	}
+
+	/* Parse the response */
+	if (sscanf((char *)response.data, "%d", outbuf) != 1)
+	{
+		fprintf(stderr,"Error parsing exposetime: `%s`\n", response.data);
+		return false;
+	}
+	return true;
+}
