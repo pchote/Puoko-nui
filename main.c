@@ -160,6 +160,7 @@ int main( int argc, char *argv[] )
 {
 	RangahauGPS gps = rangahau_gps_new();
 	rangahau_gps_init(&gps);
+	ranaghau_gps_ping_device(&gps);
 	rangahau_gps_uninit(&gps);
 	rangahau_gps_free(&gps);
 	exit(1);

@@ -22,6 +22,25 @@ typedef enum
 	GETSYNCTIME = 0x25,
 } RangahauGPSRequest;
 
+typedef enum
+{
+	NO_ERROR = 1<<0,
+	PACKET_ID_INVALID = 1<<1,
+	UTC_ACCESS_ON_UPDATE = 1<<2,
+	EOF_ACCESS_ON_UPDATE = 1<<3,
+	PACKET_8FAB_LENGTH_WRONG = 1<<4,
+	GPS_TIME_NOT_LOCKED = 1<<5,
+	GPS_SERIAL_LOST = 1<<7
+} RangahauGPSError;
+
+typedef struct
+{
+	RangahauGPSRequest type;
+	unsigned char data[1024];
+	int datalength;	
+	unsigned char error;
+} RangahauGPSResponse;
+
 typedef struct
 {
 	struct usb_device *device;
@@ -32,4 +51,6 @@ RangahauGPS rangahau_gps_new();
 void rangahau_gps_free(RangahauGPS *gps);
 void rangahau_gps_init(RangahauGPS *gps);
 void rangahau_gps_uninit(RangahauGPS *gps);
+
+void ranaghau_gps_ping_device(RangahauGPS *gps);
 #endif

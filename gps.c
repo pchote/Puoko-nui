@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
+#include <stdbool.h>
 #include <ftdi.h>
 #include "gps.h"
 
@@ -123,24 +125,101 @@ void rangahau_gps_uninit(RangahauGPS *gps)
 	gps->context = NULL;
 }
 
-/* Send a series of bytes to the gps device */
-void rangahau_gps_write(RangahauGPS *gps, unsigned char *bytes, int numBytes)
+/* Send a command to the gps device
+ * Returns false if the write failed */
+bool rangahau_gps_send_command(RangahauGPS *gps, RangahauGPSRequest type)
 {
 	check_gps(gps, __FILE__, __LINE__);
-	if (ftdi_write_data(gps->context, bytes, numBytes) != numBytes)
-	{
-		printf("Error writing data @ %s:%d\n", __FILE__, __LINE__);
-		exit(1);
-	}
+	unsigned char send[5] = {DLE, type, 0, DLE, ETX};
+	return (ftdi_write_data(gps->context, send, 5) == 5);
 }
 
-/* Read a series of bytes from a gps device */
-void rangahau_gps_read(RangahauGPS *gps, unsigned char *bytes, int maxBytes, int *numBytes)
+void die(char *error)
+{
+	printf("%s",error);
+	exit(1);
+}
+
+/* Read the gps response to a command
+ * Give up after a timeout of <timeout> ms.
+ * Returns the number of bytes read */
+RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeout)
 {
 	check_gps(gps, __FILE__, __LINE__);
-	if ((*numBytes = ftdi_read_data(gps->context, bytes, maxBytes)) < 0)
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	suseconds_t maxtime = tv.tv_usec + 1000*timeout;
+
+	const int BUFSIZE = 1024;
+	RangahauGPSResponse response;
+	response.type = 0;
+	response.error = 0;
+	response.datalength = 0;
+	response.data[0] = (int)NULL;		
+	unsigned char recvbuf[BUFSIZE];
+	unsigned char totalbuf[BUFSIZE];
+	int recievedBytes = 0;
+	int parsedBytes = 0;
+
+	while (tv.tv_usec < maxtime)
 	{
-		printf("Error reading data @ %s:%d\n", __FILE__, __LINE__);
-		exit(1);
-	}	
+		int ret = ftdi_read_data(gps->context, recvbuf, BUFSIZE);
+		if (ret < 0)
+			die("Bad response from gps");
+
+		for (int i = 0; i < ret && recievedBytes < BUFSIZE; i++)
+			totalbuf[recievedBytes++] = recvbuf[i];
+
+		/* Parse the packet header */
+		if (parsedBytes == 0 && recievedBytes > 2)
+		{
+			if (totalbuf[0] != DLE)
+			{
+				char error[30];				
+				sprintf(error, "Expected 0x%02x, got 0x%02x", DLE, totalbuf[0]);				
+				die(error);
+			}
+			response.type = totalbuf[1];
+			response.error = totalbuf[2];
+			parsedBytes += 3;
+		}
+
+		/* Need at least 2 bytes available to parse the payload
+		 * so that we can strip padding bytes */
+		while (recievedBytes - parsedBytes >= 2)
+		{
+			/* Found a padding byte - strip it from the payload */			
+			if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == DLE)
+			{
+				parsedBytes++;
+				continue;
+			}
+			
+			/* Reached the end of the packet */
+			if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == ETX)
+				return response;
+			
+			/* Add byte to data bucket and shift terminator */
+			response.data[response.datalength++] = totalbuf[parsedBytes++];
+			response.data[response.datalength] = (int)NULL;		
+		}
+		gettimeofday(&tv, NULL);
+	}
+	die("request timeout");
+	return response;
 }
+
+/* Sends an echo request and checks for the correct response */
+void ranaghau_gps_ping_device(RangahauGPS *gps)
+{
+	check_gps(gps, __FILE__, __LINE__);
+	
+	rangahau_gps_send_command(gps, ECHO);
+
+	RangahauGPSResponse response = rangahau_gps_read(gps,  20);
+	if (response.type == ECHO && response.error == NO_ERROR)
+		printf("ping succeeded\n");
+	else
+		printf("ping failed (error 0x%02x)\n", response.error);
+}
+
