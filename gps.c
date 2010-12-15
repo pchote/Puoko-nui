@@ -211,16 +211,13 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeout)
 		 * so that we can strip padding bytes */
 		while (recievedBytes - parsedBytes >= 2)
 		{
-			/* Found a padding byte - strip it from the payload */			
-			if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == DLE)
-			{
-				parsedBytes++;
-				continue;
-			}
-			
 			/* Reached the end of the packet */
 			if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == ETX)
 				return response;
+				
+			/* Found a padding byte - strip it from the payload */			
+			if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == DLE)
+				parsedBytes++;
 			
 			/* Add byte to data bucket and shift terminator */
 			response.data[response.datalength++] = totalbuf[parsedBytes++];
