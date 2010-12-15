@@ -133,6 +133,31 @@ bool rangahau_gps_send_command(RangahauGPS *gps, RangahauGPSRequest type)
 	return (ftdi_write_data(gps->context, send, 5) == 5);
 }
 
+/* Send a command to the gps device with a data payload
+ * Returns false if the write failed */
+bool rangahau_gps_send_command_with_data(RangahauGPS *gps, RangahauGPSRequest type, const char data[], int numBytes)
+{
+	check_gps(gps, __FILE__, __LINE__);
+	
+	int length = 0;
+	unsigned char send[GPS_PACKET_LENGTH];
+	send[length++] = DLE;
+	send[length++] = type;
+	send[length++] = 0;
+	for (int i = 0; i < numBytes; i++)
+	{
+		send[length++] = data[i];
+		/* Add a padding byte if necessary */
+		if (data[i] == DLE)
+			send[length++] = DLE;
+	}
+	send[length++] = DLE;
+	send[length++] = ETX;
+
+	return (ftdi_write_data(gps->context, send, length) == length);
+}
+
+
 void die(char *error)
 {
 	printf("%s",error);
@@ -225,7 +250,7 @@ bool ranaghau_gps_ping_device(RangahauGPS *gps)
 /* Query the last gps pulse time
  * outbuf is assumed to be of the correct length (>= 25)
  * Returns false on error after printing the error to stderr */
-bool rangahau_gps_query_gpstime(RangahauGPS *gps, char outbuf[])
+bool rangahau_gps_get_gpstime(RangahauGPS *gps, char outbuf[])
 {
 	check_gps(gps, __FILE__, __LINE__);
 	rangahau_gps_send_command(gps, GETGPSTIME);
@@ -243,7 +268,7 @@ bool rangahau_gps_query_gpstime(RangahauGPS *gps, char outbuf[])
 /* Query the last sync pulse time
  * outbuf is assumed to be of the correct length (>= 25)
  * Returns false on error after printing the error to stderr */
-bool rangahau_gps_query_synctime(RangahauGPS *gps, char outbuf[])
+bool rangahau_gps_get_synctime(RangahauGPS *gps, char outbuf[])
 {
 	check_gps(gps, __FILE__, __LINE__);
 	rangahau_gps_send_command(gps, GETSYNCTIME);
@@ -260,7 +285,7 @@ bool rangahau_gps_query_synctime(RangahauGPS *gps, char outbuf[])
 
 /* Query the current exposure time
  * Returns false on error after printing the error to stderr */
-bool rangahau_gps_query_exposetime(RangahauGPS *gps, int *outbuf)
+bool rangahau_gps_get_exposetime(RangahauGPS *gps, int *outbuf)
 {
 	check_gps(gps, __FILE__, __LINE__);
 	rangahau_gps_send_command(gps, GETEXPOSURETIME);
@@ -276,6 +301,30 @@ bool rangahau_gps_query_exposetime(RangahauGPS *gps, int *outbuf)
 	if (sscanf((char *)response.data, "%d", outbuf) != 1)
 	{
 		fprintf(stderr,"Error parsing exposetime: `%s`\n", response.data);
+		return false;
+	}
+	return true;
+}
+
+/* Set the exposure time
+ * Returns false on error after printing the error to stderr */
+bool rangahau_gps_set_exposetime(RangahauGPS *gps, int exptime)
+{
+	check_gps(gps, __FILE__, __LINE__);
+	if (exptime < 0 || exptime > 9999)
+	{
+		fprintf(stderr, "Exposure time `%d` is not between 0 and 9999\n", exptime);
+		return false;
+	}
+
+	/* gps expects exptime to be a 4 character ascii string */
+	char buf[5];
+	sprintf(buf, "%04d",exptime);
+	rangahau_gps_send_command_with_data(gps, SETEXPOSURETIME, buf, 4);
+	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
+	if (!(response.type == SETEXPOSURETIME && response.error == NO_ERROR))
+	{
+		fprintf(stderr,"setexposetime failed (error 0x%02x)\n", response.error);
 		return false;
 	}
 	return true;

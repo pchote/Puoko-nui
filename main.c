@@ -166,12 +166,17 @@ int main( int argc, char *argv[] )
 		printf("Ping failed\n");
 
 	char buf[30];
-	rangahau_gps_query_gpstime(&gps, buf);
+	rangahau_gps_get_gpstime(&gps, buf);
 	printf("gpstime: %s\n",buf);
-	rangahau_gps_query_synctime(&gps, buf);
+	rangahau_gps_get_synctime(&gps, buf);
 	printf("synctime: %s\n",buf);
 	int exp;
-	rangahau_gps_query_exposetime(&gps, &exp);
+	rangahau_gps_get_exposetime(&gps, &exp);
+	printf("exposetime: %d\n",exp);
+
+	rangahau_gps_set_exposetime(&gps, 3);
+
+	rangahau_gps_get_exposetime(&gps, &exp);
 	printf("exposetime: %d\n",exp);
 
 	rangahau_gps_uninit(&gps);
