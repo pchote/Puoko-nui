@@ -11,24 +11,21 @@
 #include <string.h>
 #include <sys/time.h>
 #include <ftdi.h>
+
+#include "common.h"
 #include "gps.h"
 
 void check_ftdi(const char *message, char* file, int line, int status)
 {
-	if (status >= 0)
-		return;
-	printf("%s line %d : %s, status = %d\n", file, line, message, status);
-	exit(1);
+	if (status < 0)
+		rangahau_die("%s line %d : %s, status = %d\n", file, line, message, status);
 }
 
 
 void check_gps(RangahauGPS *gps, char *file, int line)
 {
 	if (gps == NULL)
-	{
-		printf("gps is null @ %s:%d\n", file, line);
-		exit(1);
-	}
+		rangahau_die("gps is null @ %s:%d\n", file, line);
 }
 
 /* Initialise a gps object with a valid usb device */
@@ -48,8 +45,7 @@ RangahauGPS rangahau_gps_new()
 	if (numDevices == 0)
 	{
   		ftdi_list_free(&devices);		
-		printf("No GPS available (pass --simulate to use simulated hardware).\n");
-		exit(1);
+		rangahau_die("No GPS available (pass --simulate to use simulated hardware).\n");
 	}
 
 	RangahauGPS ret;
@@ -71,10 +67,8 @@ void rangahau_gps_init(RangahauGPS *gps)
 	printf("Opened FTDI device `%s`\n", gps->device->filename);
 
 	if (gps->context != NULL)
-	{
-		printf("device %s is already open @ %s:%d\n", gps->device->filename, __FILE__, __LINE__);
-		exit(1);
-	}
+		rangahau_die("device %s is already open @ %s:%d\n", gps->device->filename, __FILE__, __LINE__);
+
 	gps->context = ftdi_new();
 	int status = ftdi_init(gps->context);
 	check_ftdi("ftdi_init() returned an error code", __FILE__, __LINE__, status);
@@ -105,10 +99,8 @@ void rangahau_gps_uninit(RangahauGPS *gps)
 	check_gps(gps, __FILE__, __LINE__);
 	printf("Closing device %s\n", gps->device->filename);
 	if (gps->context == NULL)
-	{
 		printf("device %s is already closed @ %s:%d\n", gps->device->filename, __FILE__, __LINE__);
-		exit(1);
-	}
+
 	int status = ftdi_usb_close(gps->context);
 	check_ftdi("ftdi_usb_close() returned an error code", __FILE__, __LINE__, status);
 
@@ -150,13 +142,6 @@ bool rangahau_gps_send_command_with_data(RangahauGPS *gps, RangahauGPSRequest ty
 	return (ftdi_write_data(gps->context, send, length) == length);
 }
 
-
-void die(char *error)
-{
-	printf("%s",error);
-	exit(1);
-}
-
 /* Read the gps response to a command
  * Give up after a timeout of <timeout> ms.
  * Returns the number of bytes read */
@@ -189,10 +174,7 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
 	{
 		int ret = ftdi_read_data(gps->context, recvbuf, GPS_PACKET_LENGTH);
 		if (ret < 0)
-		{
-			die("Bad response from gps");
-			exit(1);
-		}
+			rangahau_die("Bad response from gps. return code 0x%x",ret);
 
 		for (int i = 0; i < ret && recievedBytes < GPS_PACKET_LENGTH; i++)
 			totalbuf[recievedBytes++] = recvbuf[i];
@@ -201,11 +183,8 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
 		if (parsedBytes == 0 && recievedBytes > 2)
 		{
 			if (totalbuf[0] != DLE)
-			{
-				char error[30];				
-				sprintf(error, "Malformed packed: Expected 0x%02x, got 0x%02x", DLE, totalbuf[0]);				
-				die(error);
-			}
+				rangahau_die("Malformed packed: Expected 0x%02x, got 0x%02x", DLE, totalbuf[0]);
+
 			response.type = totalbuf[1];
 			response.error = totalbuf[2];
 			parsedBytes += 3;
@@ -225,7 +204,7 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
 			
 			/* Add byte to data bucket and shift terminator */
 			response.data[response.datalength++] = totalbuf[parsedBytes++];
-			response.data[response.datalength] = (int)NULL;		
+			response.data[response.datalength] = 0;		
 		}
 		gettimeofday(&curtime, NULL);
 	}

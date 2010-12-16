@@ -11,6 +11,9 @@
 #include "camera.h"
 #include "acquisitionthread.h"
 
+/* Starts an acquisition run and downloads frames on a different thread
+ * Note: access to gtk objects should only be made from the main thread, so
+ * the bin size is passed as an argument to this worker thread */
 void *rangahau_acquisition_thread(void *_info)
 {
 	RangahauAcquisitionThreadInfo *info = (RangahauAcquisitionThreadInfo *)_info;

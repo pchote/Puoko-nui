@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
+
+#include "common.h"
 #include "camera.h"
 
 void check_pvcam_error(const char * msg, int line)
@@ -20,17 +22,13 @@ void check_pvcam_error(const char * msg, int line)
 	pvmsg[0] = '\0';
 	pl_error_message(error, pvmsg);
 
-	printf("%s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);
-	exit(1);
+	rangahau_die("%s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);
 }
 
 void check_camera(RangahauCamera *cam)
 {
 	if (cam == NULL)
-	{
-		printf("cam is null @ %s:%d\n", __FILE__, __LINE__);
-		exit(1);
-	}
+		rangahau_die("cam is null @ %s:%d\n", __FILE__, __LINE__);
 }
 
 RangahauCamera rangahau_camera_new(boolean simulate)
@@ -81,10 +79,7 @@ void *rangahau_camera_init(void *_cam)
 
 		printf("Found %d camera(s)\n", numCams);
 		if (numCams == 0)
-		{
-			printf("No cameras are available (pass --simulate to use simulated hardware).\n");
-			exit(1);
-		}
+			rangahau_die("No cameras are available (pass --simulate to use simulated hardware).\n");
 
 		/* Get the camera name (assume that we only have one camera) */
 		char cameraName[CAM_NAME_LEN];
@@ -291,12 +286,6 @@ RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam)
 	frame.data = NULL; frame.width = frame.height = 0;
 	if (!pl_exp_get_latest_frame(cam->handle, (void *)&frame.data))
 		check_pvcam_error("Cannot get the latest frame (pl_exp_get_latest_frame)", __LINE__);
-
-	if (frame.data == NULL)
-	{
-		printf("frame data is null @ %s:%d\n", __FILE__, __LINE__);
-		exit(1);
-	}
 
 	if (!pl_get_param(cam->handle, PARAM_SER_SIZE, ATTR_CURRENT, (void *)&frame.width))
 		check_pvcam_error("Error querying camera width", __LINE__);

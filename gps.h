@@ -62,6 +62,9 @@ void rangahau_gps_free(RangahauGPS *gps);
 void rangahau_gps_init(RangahauGPS *gps);
 void rangahau_gps_uninit(RangahauGPS *gps);
 
+bool rangahau_gps_send_command(RangahauGPS *gps, RangahauGPSRequest type);
+RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms);
+
 bool ranaghau_gps_ping_device(RangahauGPS *gps);
 bool rangahau_gps_get_gpstime(RangahauGPS *gps, char *outbuf);
 bool rangahau_gps_get_synctime(RangahauGPS *gps, char *outbuf);

@@ -16,6 +16,7 @@
 #include <sys/select.h>
 #include <xpa.h>
 
+#include "common.h"
 #include "view.h"
 #include "camera.h"
 #include "acquisitionthread.h"
@@ -71,10 +72,7 @@ void rangahau_preview_frame(RangahauFrame frame)
 
 	/* Allocate a chunk of memory for the image */
 	if(!(fitsbuf = malloc(fitssize)))
-	{
-		printf("Error: couldn't allocate fitsbuf\n");
-		exit(1);
-	}
+		rangahau_die("Error: couldn't allocate fitsbuf\n");
 
 	/* Create a new fits file in memory */
 	fits_create_memfile(&fptr, &fitsbuf, &fitssize, 2880, realloc, &status);
@@ -145,12 +143,9 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		int buf;
 		rangahau_gps_get_exposetime(&gps, &buf);
 		if (buf != exptime)
-		{
-			fprintf(stderr, "Error setting exposure time. Expected %d, was %d\n", exptime, buf);
-			exit(1);
-		}		
-		else
-			printf("Set exposure time to %d\n", exptime);
+			rangahau_die("Error setting exposure time. Expected %d, was %d\n", exptime, buf);	
+		
+		printf("Set exposure time to %d\n", exptime);
 
 		/* Start acquisition thread */
 		acquisition_info.camera = &camera;
@@ -198,11 +193,31 @@ int main( int argc, char *argv[] )
 	rangahau_init_gui(&view, startstop_pressed);
 	gtk_main();
 
+	rangahau_shutdown();
+	return 0;
+}
+
+void rangahau_shutdown()
+{
+	/* Stop the acquisition thread */
+	acquisition_info.cancelled = TRUE;
+
 	/* Close the camera */
 	rangahau_camera_close(&camera);
 
 	/* Close the gps */
 	rangahau_gps_uninit(&gps);
 	rangahau_gps_free(&gps);
-	return 0;
+}
+
+void rangahau_die(const char * format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	vfprintf(stderr, format, args);
+	va_end(args);
+	fprintf(stderr, "\n");
+
+	rangahau_shutdown();
+	exit(1);
 }

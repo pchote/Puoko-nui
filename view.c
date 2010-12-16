@@ -164,7 +164,7 @@ GtkWidget *rangahau_hardware_panel(RangahauView *view)
 	field = gtk_label_new("GPS:");
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,1,2);
-	field = gtk_label_new("Locked");
+	field = gtk_label_new("TODO");
 	gtk_misc_set_alignment(GTK_MISC(field), 0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 1,2,1,2);
 
@@ -253,8 +253,19 @@ gboolean update_gui_cb(gpointer data)
 
 	/* GPS time */
 	char *gpstime = "Unavailable";
-	if (rangahau_gps_get_gpstime(view->gps, strtime))
-		gpstime = strtime;
+	RangahauGPSResponse response;
+	do
+	{
+		rangahau_gps_send_command(view->gps, GETGPSTIME);
+		response = rangahau_gps_read(view->gps, 1000);
+		if (response.type == GETGPSTIME && response.error == NO_ERROR)
+		{
+			gpstime = (char *)response.data;
+			/* Don't display ms in the time label */
+			gpstime[19] = 0;
+		}
+	} while (response.error & UTC_ACCESS_ON_UPDATE);
+
 	gtk_label_set_label(GTK_LABEL(view->gpstime_label), gpstime);
 
 	/* Camera status */
