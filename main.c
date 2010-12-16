@@ -25,6 +25,7 @@ RangahauView view;
 RangahauAcquisitionThreadInfo acquisition_info;
 pthread_t acquisition_thread;
 RangahauCamera camera;
+RangahauGPS gps;
 
 
 /* Write frame data to a fits file */
@@ -104,6 +105,8 @@ void rangahau_preview_frame(RangahauFrame frame)
  * Note: this runs in the acquisition thread *not* the main thread. */
 void rangahau_frame_downloaded_cb(RangahauFrame frame)
 {
+	/* TODO: Get the last gps sync pulse time, subtract exptime to find frame start */
+	
 	printf("Frame downloaded\n");
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox)))
 	{
@@ -134,9 +137,23 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 	{
 		rangahau_set_fields_editable(&view, FALSE);
 
+		/* Set the exposure time */
+		int exptime = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
+		rangahau_gps_set_exposetime(&gps, exptime);
+		
+		/* Check that it was set correctly */		
+		int buf;
+		rangahau_gps_get_exposetime(&gps, &buf);
+		if (buf != exptime)
+		{
+			fprintf(stderr, "Error setting exposure time. Expected %d, was %d\n", exptime, buf);
+			exit(1);
+		}		
+		else
+			printf("Set exposure time to %d\n", exptime);
+
 		/* Start acquisition thread */
 		acquisition_info.camera = &camera;
-		acquisition_info.exptime = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
 		acquisition_info.binsize = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.binsize_entry));
 		acquisition_info.cancelled = FALSE;
 		acquisition_info.on_frame_available = rangahau_frame_downloaded_cb;
@@ -158,37 +175,17 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 
 int main( int argc, char *argv[] )
 {
-	RangahauGPS gps = rangahau_gps_new();
-	rangahau_gps_init(&gps);
-	if (ranaghau_gps_ping_device(&gps))
-		printf("Ping succeeded\n");
-	else
-		printf("Ping failed\n");
-
-	char buf[30];
-	rangahau_gps_get_gpstime(&gps, buf);
-	printf("gpstime: %s\n",buf);
-	rangahau_gps_get_synctime(&gps, buf);
-	printf("synctime: %s\n",buf);
-	int exp;
-	rangahau_gps_get_exposetime(&gps, &exp);
-	printf("exposetime: %d\n",exp);
-
-	rangahau_gps_set_exposetime(&gps, 3);
-
-	rangahau_gps_get_exposetime(&gps, &exp);
-	printf("exposetime: %d\n",exp);
-
-	rangahau_gps_uninit(&gps);
-	rangahau_gps_free(&gps);
-	exit(1);
-
 	gtk_init(&argc, &argv);
 	boolean simulate = FALSE;
 	/* Parse the commandline args */
 	for (int i = 0; i < argc; i++)
 		if (strcmp(argv[i], "--simulate") == 0)
 			simulate = TRUE;
+
+	/* Initialise the gps */
+	gps = rangahau_gps_new();
+	rangahau_gps_init(&gps);
+	view.gps = &gps;
 
 	/* Initialise the camera.
 	 * Run in a separate thread to avoid blocking the gui. */
@@ -197,11 +194,15 @@ int main( int argc, char *argv[] )
 	pthread_t camera_init;
 	pthread_create(&camera_init, NULL, rangahau_camera_init, (void *)&camera);
 
-	/* Initialise the gui and start */
+	/* Initialise the gui and start the event loop */
 	rangahau_init_gui(&view, startstop_pressed);
 	gtk_main();
 
-	/* Close the camera before exiting */
+	/* Close the camera */
 	rangahau_camera_close(&camera);
+
+	/* Close the gps */
+	rangahau_gps_uninit(&gps);
+	rangahau_gps_free(&gps);
 	return 0;
 }

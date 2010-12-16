@@ -14,7 +14,6 @@
 typedef struct
 {
 	RangahauCamera *camera;
-	int32 exptime;
 	uns16 binsize;
 	boolean cancelled;
 	boolean active;

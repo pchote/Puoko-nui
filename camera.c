@@ -108,7 +108,7 @@ void *rangahau_camera_init(void *_cam)
 				check_pvcam_error("Error querying camera fw version", __LINE__);
 			sprintf(fwver_buf, "%d.%d (0x%x)", fwver >> 8, fwver & 0x00FF, fwver);
 		}
-		printf("Opened %s: Firmware version %s\n", cameraName, fwver_buf);
+		printf("Opened camera `%s`: Firmware version %s\n", cameraName, fwver_buf);
 
 		/* Check camera status */
 		if (!pl_cam_get_diags(cam->handle))

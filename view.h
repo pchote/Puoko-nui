@@ -7,14 +7,16 @@
 
 #include <gtk/gtk.h>
 #include "camera.h"
+#include "gps.h"
 
 #ifndef VIEW_H
 #define VIEW_H
 
 typedef struct
 {
-	/* Pointer to the camera for gui updates */
+	/* Pointers to hardware for gui updates */
 	RangahauCamera *camera;
+	RangahauGPS *gps;
 
 	/* Acquire panel */
 	GtkWidget *startstop_btn;

@@ -14,39 +14,17 @@
 void *rangahau_acquisition_thread(void *_info)
 {
 	RangahauAcquisitionThreadInfo *info = (RangahauAcquisitionThreadInfo *)_info;
-
 	info->active = TRUE;
-	printf("Starting acquisition thread with exposure time of %d sec.\n", (int)info->exptime);
-	
-	/* Poll the camera for frames at 10Hz */
-	struct timespec wait;
-	wait.tv_sec = 0;
-	wait.tv_nsec = 1e8;
 
-	/* Todo: set gps to use exposuretime? maybe do that in the controller. */
-
-	/*
-	 * Tell the camera to start listening for sync pulses from the gps,
-	 * and exposing frames
-	 */
+	/* Tell the camera to start listening for sync pulses */
 	rangahau_camera_start_acquisition(info->camera, info->binsize);
 
-	/* Dump any existing images that may have been buffered on the camera */
-	//rangahau_camera_purge_images(info->camera);
-
+	/* Poll the camera for frames at 10Hz for frames */
+	struct timespec wait = {0,1e8};
 	while (!info->cancelled)
 	{
 		while (!info->cancelled && !rangahau_camera_image_available(info->camera))
-		{
-			printf("Waiting for camera...\n");
 			nanosleep(&wait, NULL);
-		}
-
-		if (info->cancelled)
-			break;
-
-		printf("Frame available!\n");
-		/* TODO: Get the last gps sync pulse time, subtract exptime to find frame start */
 
 		if (info->cancelled)
 			break;
@@ -54,11 +32,9 @@ void *rangahau_acquisition_thread(void *_info)
 		/* Get the frame data. Note: this contains a reference
 		 * to the native pvcam buffer, so may be overwritten beneath
 		 * us if we are tardy copying the data */
-
 		RangahauFrame frame = rangahau_camera_latest_frame(info->camera);
 		if (info->cancelled)
 			break;
-		printf("Frame size: %d x %d\n",frame.width, frame.height);
 
 		info->on_frame_available(frame);
 	}

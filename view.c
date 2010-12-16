@@ -246,13 +246,16 @@ gboolean update_gui_cb(gpointer data)
 {
 	RangahauView *view = (RangahauView *)data;
 	/* PC time */	
-	char strtime[20];
+	char strtime[30];
 	time_t t = time(NULL);
 	strftime(strtime, 20, "%Y-%m-%d %H:%M:%S", gmtime(&t));
 	gtk_label_set_label(GTK_LABEL(view->pctime_label), strtime);
 
-	/* TODO: GPS time */
-	gtk_label_set_label(GTK_LABEL(view->gpstime_label), strtime);
+	/* GPS time */
+	char *gpstime = "Unavailable";
+	if (rangahau_gps_get_gpstime(view->gps, strtime))
+		gpstime = strtime;
+	gtk_label_set_label(GTK_LABEL(view->gpstime_label), gpstime);
 
 	/* Camera status */
 	char *label;

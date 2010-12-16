@@ -34,7 +34,6 @@ void check_gps(RangahauGPS *gps, char *file, int line)
 /* Initialise a gps object with a valid usb device */
 RangahauGPS rangahau_gps_new()
 {
-	printf("Enumerating FTDI devices\n");	
 	struct ftdi_device_list* devices = NULL;
 	const int vendorId = 0x0403;  /* The USB vendor identifier for the FTDI company */
 	const int productId = 0x6001; /* USB product identifier for the FT232 device */
@@ -43,19 +42,13 @@ RangahauGPS rangahau_gps_new()
 	int numDevices = ftdi_usb_find_all(NULL, &devices, vendorId, productId);
 	check_ftdi("ftdi_usb_find_all() returned an error code", __FILE__, __LINE__, numDevices);
 	
-	printf("Found %d devices:\n", numDevices);
-	struct ftdi_device_list* cur = devices;
-	while (cur != NULL)
-	{
-		printf("\t%s\n",cur->dev->filename);
-		cur = cur->next;
-	}
+	printf("Found %d FTDI device(s)\n", numDevices);
 
 	/* Assume that the first device is the gps unit */
-	if (!numDevices)
+	if (numDevices == 0)
 	{
-		printf("Could not find the GPS unit\n");
-  		ftdi_list_free(&devices);
+  		ftdi_list_free(&devices);		
+		printf("No GPS available (pass --simulate to use simulated hardware).\n");
 		exit(1);
 	}
 
@@ -75,7 +68,7 @@ void rangahau_gps_free(RangahauGPS *gps)
 void rangahau_gps_init(RangahauGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);	
-	printf("Opening device %s\n", gps->device->filename);
+	printf("Opened FTDI device `%s`\n", gps->device->filename);
 
 	if (gps->context != NULL)
 	{
@@ -167,12 +160,9 @@ void die(char *error)
 /* Read the gps response to a command
  * Give up after a timeout of <timeout> ms.
  * Returns the number of bytes read */
-RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeout)
+RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
 {
 	check_gps(gps, __FILE__, __LINE__);
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	suseconds_t maxtime = tv.tv_usec + 1000*timeout;
 
 	RangahauGPSResponse response;
 	response.type = 0;
@@ -184,11 +174,25 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeout)
 	int recievedBytes = 0;
 	int parsedBytes = 0;
 
-	while (tv.tv_usec < maxtime)
+	struct timeval curtime;
+	gettimeofday(&curtime, NULL);
+
+	/* Calculate timeout time */
+	long int tus = curtime.tv_usec + 1000*timeoutms;
+	struct timeval timeout;
+	timeout.tv_sec = curtime.tv_sec + tus / 1000000;
+	timeout.tv_usec = curtime.tv_usec + tus % 1000000;
+
+	/* Poll for data until we reach the end of the packet, or timeout */
+	while (curtime.tv_sec < timeout.tv_sec ||
+		(curtime.tv_sec == timeout.tv_sec && curtime.tv_usec < timeout.tv_usec))
 	{
 		int ret = ftdi_read_data(gps->context, recvbuf, GPS_PACKET_LENGTH);
 		if (ret < 0)
+		{
 			die("Bad response from gps");
+			exit(1);
+		}
 
 		for (int i = 0; i < ret && recievedBytes < GPS_PACKET_LENGTH; i++)
 			totalbuf[recievedBytes++] = recvbuf[i];
@@ -214,7 +218,7 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeout)
 			/* Reached the end of the packet */
 			if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == ETX)
 				return response;
-				
+
 			/* Found a padding byte - strip it from the payload */			
 			if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == DLE)
 				parsedBytes++;
@@ -223,8 +227,9 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeout)
 			response.data[response.datalength++] = totalbuf[parsedBytes++];
 			response.data[response.datalength] = (int)NULL;		
 		}
-		gettimeofday(&tv, NULL);
+		gettimeofday(&curtime, NULL);
 	}
+	printf("gps request timed out after %dms\n", timeoutms);
 	return response;
 }
 
@@ -251,7 +256,6 @@ bool rangahau_gps_get_gpstime(RangahauGPS *gps, char outbuf[])
 {
 	check_gps(gps, __FILE__, __LINE__);
 	rangahau_gps_send_command(gps, GETGPSTIME);
-
 	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
 	if (!(response.type == GETGPSTIME && response.error == NO_ERROR))
 	{
