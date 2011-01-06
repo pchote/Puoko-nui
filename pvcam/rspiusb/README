@@ -1,5 +1,0 @@
-rspiusb kernel module for ST133 controller USB card.
-Makefile is from the KERNEL26.zip package provided by Roper
-Updated module source obtained from
-ftp://ftp.kernel.org/pub/scm/linux/kernel/git/hseto/misc-2.6.git/drivers/staging/rspiusb/
-
