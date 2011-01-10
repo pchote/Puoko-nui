@@ -8,3 +8,5 @@ nbproject/private
 
 rangahau
 *.o
+pvcam/rspiusb/*
+libxpa.a
