@@ -28,7 +28,6 @@ pthread_t acquisition_thread;
 RangahauCamera camera;
 RangahauGPS gps;
 
-
 /* Write frame data to a fits file */
 void rangahau_save_frame(RangahauFrame frame, const char *filepath)
 {
@@ -48,7 +47,32 @@ void rangahau_save_frame(RangahauFrame frame, const char *filepath)
 	fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
 	/* Write header keys */
-	fits_update_key(fptr, TLONG, "EXPOSURE", &exposure, "Total Exposure Time", &status);
+	fits_update_key(fptr, TSTRING, "RUN", (void *)gtk_entry_get_text(GTK_ENTRY(view.run_entry)), "name of this run", &status);
+	char *object = (char *)gtk_entry_get_text(GTK_ENTRY(view.target_entry));
+/*
+	target_combobox
+	"DARK"
+	"FLAT"
+*/
+	fits_update_key(fptr, TSTRING, "OBJECT", (void *)object, "Object name", &status);
+	fits_update_key(fptr, TLONG, "EXPTIME", &exposure, "Actual integration time (sec)", &status);
+	fits_update_key(fptr, TSTRING, "OBSERVER", (void *)gtk_entry_get_text(GTK_ENTRY(view.observers_entry)), "Observers", &status);
+	fits_update_key(fptr, TSTRING, "OBSERVAT", (void *)gtk_entry_get_text(GTK_ENTRY(view.observatory_entry)), "Observatory", &status);
+	fits_update_key(fptr, TSTRING, "TELESCOP", (void *)gtk_entry_get_text(GTK_ENTRY(view.telescope_entry)), "Telescope name", &status);
+	fits_update_key(fptr, TSTRING, "PROGRAM", "rangahau", "Data acquistion program", &status);
+	fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
+
+	fits_update_key(fptr, TSTRING, "UTC-DATE", "", "GPS Exposure start date (UTC)", &status);
+	fits_update_key(fptr, TSTRING, "UTC-TIME", "", "GPS Exposure start time (UTC)", &status);
+	fits_update_key(fptr, TSTRING, "GPS-CLOCK", "TODO", "GPS clock status", &status);
+
+	char timebuf[15];
+	time_t t = time(NULL);
+	strftime(timebuf, 15, "%Y-%m-%d", gmtime(&t));
+	fits_update_key(fptr, TSTRING, "PC-DATE", (void *)timebuf, "PC Exposure start date (UTC)", &status);
+	strftime(timebuf, 15, "%H:%M:%S", gmtime(&t));
+	fits_update_key(fptr, TSTRING, "PC-TIME", (void *)timebuf, "PC Exposure start time (UTC)", &status);
+
 
 	/* Write the frame data to the image */
 	fits_write_img(fptr, TUSHORT, 1, frame.width*frame.height, frame.data, &status);

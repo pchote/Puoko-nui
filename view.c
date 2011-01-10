@@ -68,34 +68,32 @@ GtkWidget *rangahau_settings_panel(RangahauView *view)
 	gtk_container_set_border_width(GTK_CONTAINER(table), 5);
 	GtkWidget *field;
 	
-
-	/* Observers */
-	field = gtk_label_new("Observatory:");
-	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
-	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,0,1);
-	view->observers_entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(view->observers_entry), "MJUO");
-	gtk_entry_set_width_chars(GTK_ENTRY(view->observers_entry), 12);
-	gtk_table_attach_defaults(GTK_TABLE(table), view->observers_entry, 1,2,0,1);
-
-	/* Observatory */
-	field = gtk_label_new("Telescope:");
-	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
-	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,1,2);
-	view->observatory_entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(view->observatory_entry), "MJUO 1-meter");
-	gtk_entry_set_width_chars(GTK_ENTRY(view->observatory_entry), 12);
-	gtk_table_attach_defaults(GTK_TABLE(table), view->observatory_entry, 1,2,1,2);
-
 	/* Telescope */
-	field = gtk_label_new("Observers:");
+	field = gtk_label_new("Telescope:");
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,2,3);
 	view->telescope_entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(view->telescope_entry), "DJS");
+	gtk_entry_set_text(GTK_ENTRY(view->telescope_entry), "MJUO 1-meter");
 	gtk_entry_set_width_chars(GTK_ENTRY(view->telescope_entry), 12);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->telescope_entry, 1,2,2,3);
 
+	/* Observatory */
+	field = gtk_label_new("Observatory:");
+	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
+	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,1,2);
+	view->observatory_entry = gtk_entry_new();
+	gtk_entry_set_text(GTK_ENTRY(view->observatory_entry), "MJUO");
+	gtk_entry_set_width_chars(GTK_ENTRY(view->observatory_entry), 12);
+	gtk_table_attach_defaults(GTK_TABLE(table), view->observatory_entry, 1,2,1,2);
+
+	/* Observers */
+	field = gtk_label_new("Observers:");
+	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
+	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,0,1);
+	view->observers_entry = gtk_entry_new();
+	gtk_entry_set_text(GTK_ENTRY(view->observers_entry), "DJS");
+	gtk_entry_set_width_chars(GTK_ENTRY(view->observers_entry), 12);
+	gtk_table_attach_defaults(GTK_TABLE(table), view->observers_entry, 1,2,0,1);
 
 	/* Observation type (dark, flat, target) */
 	field = gtk_label_new("Type:");
@@ -132,7 +130,7 @@ GtkWidget *rangahau_settings_panel(RangahauView *view)
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 2,3,2,3);
 
-	view->exptime_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(5, 2, 10000, 1, 10, 0), 0, 0);
+	view->exptime_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(5, 0, 10000, 1, 10, 0), 0, 0);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->exptime_entry, 3,4,2,3);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->exptime_entry), 3);
 
@@ -248,7 +246,7 @@ gboolean update_gui_cb(gpointer data)
 	/* PC time */	
 	char strtime[30];
 	time_t t = time(NULL);
-	strftime(strtime, 20, "%Y-%m-%d %H:%M:%S", gmtime(&t));
+	strftime(strtime, 30, "%Y-%m-%d %H:%M:%S", gmtime(&t));
 	gtk_label_set_label(GTK_LABEL(view->pctime_label), strtime);
 
 	/* GPS time */
