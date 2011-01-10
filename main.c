@@ -48,12 +48,22 @@ void rangahau_save_frame(RangahauFrame frame, const char *filepath)
 
 	/* Write header keys */
 	fits_update_key(fptr, TSTRING, "RUN", (void *)gtk_entry_get_text(GTK_ENTRY(view.run_entry)), "name of this run", &status);
-	char *object = (char *)gtk_entry_get_text(GTK_ENTRY(view.target_entry));
-/*
-	target_combobox
-	"DARK"
-	"FLAT"
-*/
+	
+	char *object;
+	switch (gtk_combo_box_get_active(GTK_COMBO_BOX(view.target_combobox)))
+	{
+		case OBJECT_DARK:
+			object = "DARK";
+		break;
+		case OBJECT_FLAT:
+			object = "FLAT";
+		break;
+		default:
+		case OBJECT_TARGET:
+			object = (char *)gtk_entry_get_text(GTK_ENTRY(view.target_entry));
+		break;
+	}
+
 	fits_update_key(fptr, TSTRING, "OBJECT", (void *)object, "Object name", &status);
 	fits_update_key(fptr, TLONG, "EXPTIME", &exposure, "Actual integration time (sec)", &status);
 	fits_update_key(fptr, TSTRING, "OBSERVER", (void *)gtk_entry_get_text(GTK_ENTRY(view.observers_entry)), "Observers", &status);

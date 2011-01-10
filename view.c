@@ -22,7 +22,7 @@
 static void targettype_changed(GtkWidget *widget, gpointer data)
 {
 	RangahauView *view = (RangahauView *)data;	
-	gboolean visible = (gtk_combo_box_get_active(GTK_COMBO_BOX(view->target_combobox)) == 2);
+	gboolean visible = (gtk_combo_box_get_active(GTK_COMBO_BOX(view->target_combobox)) == OBJECT_TARGET);
 	gtk_widget_set_visible(view->target_entry, visible);
 }
 
@@ -102,10 +102,10 @@ GtkWidget *rangahau_settings_panel(RangahauView *view)
 
 	view->target_combobox = gtk_combo_box_new_text();
 	gtk_table_attach_defaults(GTK_TABLE(table), view->target_combobox, 3,4,0,1);
-	gtk_combo_box_append_text(GTK_COMBO_BOX(view->target_combobox), "Dark");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(view->target_combobox), "Flat");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(view->target_combobox), "Target");
-	gtk_combo_box_set_active(GTK_COMBO_BOX(view->target_combobox), 2);
+	gtk_combo_box_insert_text(GTK_COMBO_BOX(view->target_combobox), OBJECT_DARK, "Dark");
+	gtk_combo_box_insert_text(GTK_COMBO_BOX(view->target_combobox), OBJECT_FLAT, "Flat");
+	gtk_combo_box_insert_text(GTK_COMBO_BOX(view->target_combobox), OBJECT_TARGET, "Target");
+	gtk_combo_box_set_active(GTK_COMBO_BOX(view->target_combobox), OBJECT_TARGET);
 	g_signal_connect(view->target_combobox, "changed", G_CALLBACK (targettype_changed), view);
 
 	view->target_entry = gtk_entry_new();

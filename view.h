@@ -44,6 +44,13 @@ typedef struct
 	GtkWidget *frame_entry;
 } RangahauView;
 
+typedef enum
+{
+	OBJECT_DARK,
+	OBJECT_FLAT,
+	OBJECT_TARGET
+} RangahauObjectType;
+
 void rangahau_init_gui(RangahauView *view, void (starstop_pressed_cb)(GtkWidget *, void *));
 void rangahau_set_fields_editable(RangahauView *view, gboolean editable);
 #endif
