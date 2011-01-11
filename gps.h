@@ -84,4 +84,6 @@ bool rangahau_gps_get_gpstime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTi
 bool rangahau_gps_get_synctime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTimestamp *timestamp);
 bool rangahau_gps_get_exposetime(RangahauGPS *gps, int *outbuf);
 bool rangahau_gps_set_exposetime(RangahauGPS *gps, int exptime);
+
+void rangahau_timestamp_subtract_seconds(RangahauGPSTimestamp *ts, int seconds);
 #endif

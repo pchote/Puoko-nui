@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/time.h>
+#include <time.h>
 #include <ftdi.h>
 
 #include "common.h"
@@ -351,4 +352,20 @@ bool rangahau_gps_set_exposetime(RangahauGPS *gps, int exptime)
 		return false;
 	}
 	return true;
+}
+
+// Subtract a number of seconds from a given timestamp
+void rangahau_timestamp_subtract_seconds(RangahauGPSTimestamp *ts, int seconds)
+{
+	/* Make use of the fact that mktime/timegm() normalizes time values to do
+	 * the conversion for us while handling rollover cases */
+	struct tm a = {ts->seconds - seconds, ts->minutes, ts->hours, ts->day, ts->month, ts->year - 1900,0,0,0};
+	time_t b = timegm(&a);
+	gmtime_r(&b, &a);
+	ts->seconds = a.tm_sec;
+	ts->minutes = a.tm_min;
+	ts->hours = a.tm_hour;
+	ts->day = a.tm_mday;
+	ts->month = a.tm_mon;
+	ts->year = a.tm_year + 1900;
 }

@@ -81,17 +81,24 @@ void rangahau_save_frame(RangahauFrame frame, const char *filepath)
 	char datebuf[15];
 	char gpstimebuf[15];
 
-	// Get the synctime. Failure is not an option!
+	/* Get the synctime. Failure is not an option! */
 	while (!rangahau_gps_get_synctime(&gps, 2000, &ts));
+
 	sprintf(datebuf, "%04d-%02d-%02d", ts.year, ts.month, ts.day);
 	sprintf(gpstimebuf, "%02d:%02d:%02d.%3d", ts.hours, ts.minutes, ts.seconds, ts.milliseconds);
 
 	fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "GPS Exposure start date (UTC)", &status);
+	fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "GPS Exposure end time (UTC)", &status);
+
+	/* synctime gives the *end* of the exposure. The start of the exposure
+	 * is found by subtracting the exposure time */
+	rangahau_timestamp_subtract_seconds(&ts, exposure);
+	sprintf(gpstimebuf, "%02d:%02d:%02d.%3d", ts.hours, ts.minutes, ts.seconds, ts.milliseconds);
 	fits_update_key(fptr, TSTRING, "UTC-TIME", gpstimebuf, "GPS Exposure start time (UTC)", &status);
 	//fits_update_key(fptr, TSTRING, "GPS-CLOCK", "TODO", "GPS clock status", &status);
 
 	char timebuf[15];
-	time_t t = time(NULL);
+	time_t t = time(NULL) - exposure;
 	strftime(timebuf, 15, "%Y-%m-%d", gmtime(&t));
 	fits_update_key(fptr, TSTRING, "PC-DATE", (void *)timebuf, "PC Exposure start date (UTC)", &status);
 	strftime(timebuf, 15, "%H:%M:%S", gmtime(&t));
