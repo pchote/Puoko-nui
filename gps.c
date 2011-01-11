@@ -63,6 +63,7 @@ void rangahau_gps_free(RangahauGPS *gps)
 /* Open the usb gps device and prepare it for reading/writing */
 void rangahau_gps_init(RangahauGPS *gps)
 {
+	pthread_mutex_lock(&gps->commLock);
 	check_gps(gps, __FILE__, __LINE__);	
 	printf("Opened FTDI device `%s`\n", gps->device->filename);
 
@@ -91,11 +92,13 @@ void rangahau_gps_init(RangahauGPS *gps)
 	unsigned char latency = 1; // the latency in milliseconds before partially full bit buffers are sent.
 	status = ftdi_set_latency_timer(gps->context, latency);
 	check_ftdi("ftdi_set_latency_timer() returned an error code", __FILE__, __LINE__, status);
+	pthread_mutex_unlock(&gps->commLock);
 }
 
 /* Close the usb gps device */
 void rangahau_gps_uninit(RangahauGPS *gps)
 {
+	pthread_mutex_lock(&gps->commLock);	
 	check_gps(gps, __FILE__, __LINE__);
 	printf("Closing device %s\n", gps->device->filename);
 	if (gps->context == NULL)
@@ -107,6 +110,7 @@ void rangahau_gps_uninit(RangahauGPS *gps)
 	ftdi_deinit(gps->context);
 	ftdi_free(gps->context);
 	gps->context = NULL;
+	pthread_mutex_unlock(&gps->commLock);
 }
 
 /* Send a command to the gps device
@@ -217,9 +221,12 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
 bool ranaghau_gps_ping_device(RangahauGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);
-	rangahau_gps_send_command(gps, ECHO);
 
+	pthread_mutex_lock(&gps->commLock);
+	rangahau_gps_send_command(gps, ECHO);
 	RangahauGPSResponse response = rangahau_gps_read(gps, 20);
+	pthread_mutex_unlock(&gps->commLock);
+
 	if (!(response.type == ECHO && response.error == NO_ERROR))
 	{
 		fprintf(stderr, "ping failed (error 0x%02x)\n", response.error);
@@ -238,8 +245,11 @@ bool rangahau_gps_get_gpstime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTi
 	RangahauGPSTimestamp ret;
 	do
 	{
+		pthread_mutex_lock(&gps->commLock);		
 		rangahau_gps_send_command(gps, GETGPSTIME);
 		response = rangahau_gps_read(gps, timeoutMillis);
+		pthread_mutex_unlock(&gps->commLock);
+
 		if (response.type == GETGPSTIME && response.error == NO_ERROR)
 		{
 			if (sscanf((const char *)response.data, "%d:%d:%d:%d:%d:%d:%d", &ret.year, &ret.month, &ret.day, &ret.hours, &ret.minutes, &ret.seconds, &ret.milliseconds) == 7)
@@ -268,8 +278,10 @@ bool rangahau_gps_get_synctime(RangahauGPS *gps, int timeoutMillis, RangahauGPST
 	RangahauGPSTimestamp ret;
 	do
 	{
+		pthread_mutex_lock(&gps->commLock);
 		rangahau_gps_send_command(gps, GETSYNCTIME);
 		response = rangahau_gps_read(gps, timeoutMillis);
+		pthread_mutex_unlock(&gps->commLock);
 		if (response.type == GETSYNCTIME && response.error == NO_ERROR)
 		{
 			if (sscanf((const char *)response.data, "%d:%d:%d:%d:%d:%d:%d", &ret.year, &ret.month, &ret.day, &ret.hours, &ret.minutes, &ret.seconds, &ret.milliseconds) == 7)
@@ -292,9 +304,12 @@ bool rangahau_gps_get_synctime(RangahauGPS *gps, int timeoutMillis, RangahauGPST
 bool rangahau_gps_get_exposetime(RangahauGPS *gps, int *outbuf)
 {
 	check_gps(gps, __FILE__, __LINE__);
-	rangahau_gps_send_command(gps, GETEXPOSURETIME);
 
+	pthread_mutex_lock(&gps->commLock);
+	rangahau_gps_send_command(gps, GETEXPOSURETIME);
 	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
+	pthread_mutex_unlock(&gps->commLock);
+
 	if (!(response.type == GETEXPOSURETIME && response.error == NO_ERROR))
 	{
 		fprintf(stderr,"exposetime failed (error 0x%02x)\n", response.error);
@@ -324,8 +339,12 @@ bool rangahau_gps_set_exposetime(RangahauGPS *gps, int exptime)
 	/* gps expects exptime to be a 4 character ascii string */
 	char buf[5];
 	sprintf(buf, "%04d",exptime);
+
+	pthread_mutex_lock(&gps->commLock);
 	rangahau_gps_send_command_with_data(gps, SETEXPOSURETIME, buf, 4);
 	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
+	pthread_mutex_unlock(&gps->commLock);
+
 	if (!(response.type == SETEXPOSURETIME && response.error == NO_ERROR))
 	{
 		fprintf(stderr,"setexposetime failed (error 0x%02x)\n", response.error);

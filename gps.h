@@ -9,6 +9,7 @@
 #define GPS_H
 
 #include <stdbool.h>
+#include <pthread.h>
 
 /* datalink escape byte */
 #define DLE 0x10
@@ -67,6 +68,7 @@ typedef struct
 {
 	struct usb_device *device;
 	struct ftdi_context *context;
+	pthread_mutex_t commLock;
 } RangahauGPS;
 
 RangahauGPS rangahau_gps_new();
