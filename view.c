@@ -333,19 +333,13 @@ gboolean update_gui_cb(gpointer data)
 
 	/* GPS time */
 	char *gpstime = "Unavailable";
-	RangahauGPSResponse response;
-	do
+	char gpsbuf[30];
+	RangahauGPSTimestamp ts;
+	if (rangahau_gps_get_gpstime(view->gps, 500, &ts))
 	{
-		rangahau_gps_send_command(view->gps, GETGPSTIME);
-		response = rangahau_gps_read(view->gps, 1000);
-		if (response.type == GETGPSTIME && response.error == NO_ERROR)
-		{
-			gpstime = (char *)response.data;
-			/* Don't display ms in the time label */
-			gpstime[19] = 0;
-		}
-	} while (response.error & UTC_ACCESS_ON_UPDATE);
-
+		sprintf(gpsbuf, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
+		gpstime = gpsbuf;
+	}
 	gtk_label_set_label(GTK_LABEL(view->gpstime_label), gpstime);
 
 	/* Camera status */

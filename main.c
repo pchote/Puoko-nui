@@ -77,9 +77,18 @@ void rangahau_save_frame(RangahauFrame frame, const char *filepath)
 	fits_update_key(fptr, TSTRING, "PROGRAM", "rangahau", "Data acquistion program", &status);
 	fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
 
-	fits_update_key(fptr, TSTRING, "UTC-DATE", "", "GPS Exposure start date (UTC)", &status);
-	fits_update_key(fptr, TSTRING, "UTC-TIME", "", "GPS Exposure start time (UTC)", &status);
-	fits_update_key(fptr, TSTRING, "GPS-CLOCK", "TODO", "GPS clock status", &status);
+	RangahauGPSTimestamp ts;
+	char datebuf[15];
+	char gpstimebuf[15];
+
+	// Get the synctime. Failure is not an option!
+	while (!rangahau_gps_get_synctime(&gps, 2000, &ts));
+	sprintf(datebuf, "%04d-%02d-%02d", ts.year, ts.month, ts.day);
+	sprintf(gpstimebuf, "%02d:%02d:%02d.%3d", ts.hours, ts.minutes, ts.seconds, ts.milliseconds);
+
+	fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "GPS Exposure start date (UTC)", &status);
+	fits_update_key(fptr, TSTRING, "UTC-TIME", gpstimebuf, "GPS Exposure start time (UTC)", &status);
+	//fits_update_key(fptr, TSTRING, "GPS-CLOCK", "TODO", "GPS clock status", &status);
 
 	char timebuf[15];
 	time_t t = time(NULL);

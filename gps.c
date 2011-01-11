@@ -229,38 +229,62 @@ bool ranaghau_gps_ping_device(RangahauGPS *gps)
 }
 
 /* Query the last gps pulse time
- * outbuf is assumed to be of the correct length (>= 25)
  * Returns false on error after printing the error to stderr */
-bool rangahau_gps_get_gpstime(RangahauGPS *gps, char outbuf[])
+bool rangahau_gps_get_gpstime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTimestamp *timestamp)
 {
 	check_gps(gps, __FILE__, __LINE__);
-	rangahau_gps_send_command(gps, GETGPSTIME);
-	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
-	if (!(response.type == GETGPSTIME && response.error == NO_ERROR))
+	
+	RangahauGPSResponse response;
+	RangahauGPSTimestamp ret;
+	do
 	{
-		fprintf(stderr, "gpstime failed (error 0x%02x)\n", response.error);
-		return false;
-	}
-	strcpy(outbuf, (char *)response.data);
-	return true;
+		rangahau_gps_send_command(gps, GETGPSTIME);
+		response = rangahau_gps_read(gps, timeoutMillis);
+		if (response.type == GETGPSTIME && response.error == NO_ERROR)
+		{
+			if (sscanf((const char *)response.data, "%d:%d:%d:%d:%d:%d:%d", &ret.year, &ret.month, &ret.day, &ret.hours, &ret.minutes, &ret.seconds, &ret.milliseconds) == 7)
+			{
+				*timestamp = ret;
+				return true;
+			}
+			fprintf(stderr, "Malformed time string: %s",(char *)response.data);
+		}
+	} while (response.error & UTC_ACCESS_ON_UPDATE);
+
+	if (response.error)
+		fprintf(stderr, "gettime failed (error 0x%02x)\n", response.error);
+
+	return false;
 }
 
 /* Query the last sync pulse time
  * outbuf is assumed to be of the correct length (>= 25)
  * Returns false on error after printing the error to stderr */
-bool rangahau_gps_get_synctime(RangahauGPS *gps, char outbuf[])
+bool rangahau_gps_get_synctime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTimestamp *timestamp)
 {
 	check_gps(gps, __FILE__, __LINE__);
-	rangahau_gps_send_command(gps, GETSYNCTIME);
-
-	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
-	if (!(response.type == GETSYNCTIME && response.error == NO_ERROR))
+	
+	RangahauGPSResponse response;
+	RangahauGPSTimestamp ret;
+	do
 	{
+		rangahau_gps_send_command(gps, GETSYNCTIME);
+		response = rangahau_gps_read(gps, timeoutMillis);
+		if (response.type == GETSYNCTIME && response.error == NO_ERROR)
+		{
+			if (sscanf((const char *)response.data, "%d:%d:%d:%d:%d:%d:%d", &ret.year, &ret.month, &ret.day, &ret.hours, &ret.minutes, &ret.seconds, &ret.milliseconds) == 7)
+			{
+				*timestamp = ret;
+				return true;
+			}
+			fprintf(stderr, "Malformed time string: %s",(char *)response.data);
+		}
+	} while (response.error & UTC_ACCESS_ON_UPDATE);
+
+	if (response.error)
 		fprintf(stderr, "synctime failed (error 0x%02x)\n", response.error);
-		return false;
-	}
-	strcpy(outbuf, (char *)response.data);
-	return true;
+
+	return false;
 }
 
 /* Query the current exposure time

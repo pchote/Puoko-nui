@@ -50,6 +50,18 @@ typedef struct
 	unsigned char error;
 } RangahauGPSResponse;
 
+/* Represents a timestamp from the GPS */
+typedef struct
+{
+	int year;
+	int month;
+	int day;
+	int hours;
+	int minutes;
+	int seconds;
+	int milliseconds;
+} RangahauGPSTimestamp;
+
 /* Represents the GPS hardware */
 typedef struct
 {
@@ -66,8 +78,8 @@ bool rangahau_gps_send_command(RangahauGPS *gps, RangahauGPSRequest type);
 RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms);
 
 bool ranaghau_gps_ping_device(RangahauGPS *gps);
-bool rangahau_gps_get_gpstime(RangahauGPS *gps, char *outbuf);
-bool rangahau_gps_get_synctime(RangahauGPS *gps, char *outbuf);
+bool rangahau_gps_get_gpstime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTimestamp *timestamp);
+bool rangahau_gps_get_synctime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTimestamp *timestamp);
 bool rangahau_gps_get_exposetime(RangahauGPS *gps, int *outbuf);
 bool rangahau_gps_set_exposetime(RangahauGPS *gps, int exptime);
 #endif
