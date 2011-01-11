@@ -174,8 +174,7 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 {
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) 
 	{
-		rangahau_set_fields_editable(&view, FALSE);
-
+		rangahau_set_camera_editable(&view, FALSE);	
 		/* Set the exposure time */
 		int exptime = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
 		rangahau_gps_set_exposetime(&gps, exptime);
@@ -200,12 +199,10 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 	}
 	else
 	{
-		rangahau_set_fields_editable(&view, TRUE);
-
 		/* Stop aquisition thread */
 		acquisition_info.cancelled = TRUE;
-
 		gtk_button_set_label(GTK_BUTTON(widget), "Start Acquisition");
+		rangahau_set_camera_editable(&view, TRUE);	
     }
 }
 

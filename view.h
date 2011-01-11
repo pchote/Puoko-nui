@@ -52,6 +52,6 @@ typedef enum
 } RangahauObjectType;
 
 void rangahau_init_gui(RangahauView *view, void (starstop_pressed_cb)(GtkWidget *, void *));
-void rangahau_set_fields_editable(RangahauView *view, gboolean editable);
+void rangahau_set_camera_editable(RangahauView *view, gboolean editable);
 #endif
 
