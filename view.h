@@ -18,6 +18,7 @@ typedef struct
 	RangahauCamera *camera;
 	RangahauGPS *gps;
 
+	GtkWidget *window;
 	/* Acquire panel */
 	GtkWidget *startstop_btn;
 	GtkWidget *save_checkbox;
@@ -38,7 +39,6 @@ typedef struct
 	GtkWidget *exptime_entry;
 
 	/* Destination panel */
-	GtkWidget *destination_entry;
 	GtkWidget *destination_btn;
 	GtkWidget *run_entry;
 	GtkWidget *frame_entry;

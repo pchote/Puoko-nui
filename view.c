@@ -45,8 +45,6 @@ void rangahau_set_fields_editable(RangahauView *view, gboolean editable)
 	gtk_widget_set_sensitive(view->target_entry, editable);
 
 	/* Destination fields */
-	gtk_editable_set_editable(GTK_EDITABLE(view->destination_entry), editable);
-	gtk_widget_set_sensitive(view->destination_entry, editable);
 	gtk_widget_set_sensitive(view->destination_btn, editable);
 	gtk_editable_set_editable(GTK_EDITABLE(view->run_entry), editable);
 	gtk_widget_set_sensitive(view->run_entry, editable);
@@ -130,7 +128,7 @@ GtkWidget *rangahau_settings_panel(RangahauView *view)
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 2,3,2,3);
 
-	view->exptime_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(5, 0, 10000, 1, 10, 0), 0, 0);
+	view->exptime_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(5, 2, 10000, 1, 10, 0), 0, 0);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->exptime_entry, 3,4,2,3);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->exptime_entry), 3);
 
@@ -197,16 +195,17 @@ GtkWidget *rangahau_save_panel(RangahauView *view)
 	GtkWidget *path = gtk_hbox_new(FALSE, 0);
 	gtk_container_add(GTK_CONTAINER(align), path);
 
-	view->destination_entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(view->destination_entry), "/home/sullivan/Desktop");
-	gtk_entry_set_width_chars(GTK_ENTRY(view->destination_entry), 27);
-	gtk_box_pack_start(GTK_BOX(path), view->destination_entry, FALSE, FALSE, 0);
+	GtkWidget *item = gtk_label_new("Directory:");
+	gtk_box_pack_start(GTK_BOX(path), item, FALSE, FALSE, 5);
 
-	view->destination_btn = gtk_button_new_with_label("Browse");
+	view->destination_btn = gtk_file_chooser_button_new("Select output directory",
+                                        GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+	gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(view->destination_btn), "/home/sullivan/Desktop");
+	gtk_file_chooser_button_set_width_chars(GTK_FILE_CHOOSER_BUTTON(view->destination_btn), 30);	
 	gtk_box_pack_start(GTK_BOX(path), view->destination_btn, FALSE, FALSE, 0);
 
-	GtkWidget *item = gtk_label_new("/");
-	gtk_box_pack_start(GTK_BOX(path), item, FALSE, FALSE, 0);
+	item = gtk_label_new("File:");
+	gtk_box_pack_start(GTK_BOX(path), item, FALSE, FALSE, 5);
 
 	view->run_entry = gtk_entry_new();
 	gtk_entry_set_text(GTK_ENTRY(view->run_entry), "run");
@@ -232,7 +231,7 @@ GtkWidget *rangahau_save_panel(RangahauView *view)
 	gtk_box_pack_start(GTK_BOX(box2), view->save_checkbox, TRUE, TRUE, 0);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view->save_checkbox), FALSE);
 
-	view->display_checkbox = gtk_check_button_new_with_label("Display");
+	view->display_checkbox = gtk_check_button_new_with_label("Preview");
 	gtk_box_pack_start(GTK_BOX(box2), view->display_checkbox, TRUE, TRUE, 0);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view->display_checkbox), TRUE);
     
@@ -294,21 +293,21 @@ gboolean update_gui_cb(gpointer data)
 void rangahau_init_gui(RangahauView *view, void (starstop_pressed_cb)(GtkWidget *, void *))
 {
 	/* Main window */
-	GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_widget_set_size_request (GTK_WIDGET(window), 760, 220);
-	gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
-	gtk_window_set_title(GTK_WINDOW(window), "Rangahau Data Acquisition System");
-	gtk_container_set_border_width(GTK_CONTAINER(window), 5);
+	view->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	gtk_widget_set_size_request (GTK_WIDGET(view->window), 760, 220);
+	gtk_window_set_resizable(GTK_WINDOW(view->window), FALSE);
+	gtk_window_set_title(GTK_WINDOW(view->window), "Rangahau Data Acquisition System");
+	gtk_container_set_border_width(GTK_CONTAINER(view->window), 5);
 
-	g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
-	g_signal_connect_swapped(window, "delete-event", G_CALLBACK(gtk_widget_destroy), window);
+	g_signal_connect(view->window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+	g_signal_connect_swapped(view->window, "delete-event", G_CALLBACK(gtk_widget_destroy), view->window);
 
 	/* 
 	 * Top row: Hardware & Settings
 	 * Bottom row: Save path
 	 */
 	GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
-	gtk_container_add(GTK_CONTAINER(window), vbox);
+	gtk_container_add(GTK_CONTAINER(view->window), vbox);
 
 	/* top row */
 	GtkWidget *topbox = gtk_hbox_new(FALSE, 0);
@@ -335,6 +334,6 @@ void rangahau_init_gui(RangahauView *view, void (starstop_pressed_cb)(GtkWidget 
 	g_timeout_add(100, update_gui_cb, view);
 
 	/* Display and run */
-	gtk_widget_show_all(window);
+	gtk_widget_show_all(view->window);
 }
 

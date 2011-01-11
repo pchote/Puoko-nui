@@ -38,9 +38,14 @@ void rangahau_save_frame(RangahauFrame frame, const char *filepath)
 
 	/* Collect the various frame data we want to write */
 	long exposure = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
+	
+	/* Append a ! to the filepath to force overwriting of existing files */
+	char *file = (char *)malloc((strlen(filepath)+2)*sizeof(char));
+	sprintf(file, "!%s",filepath);
+	printf("%s\n",file);
 
 	/* Create a new fits file */
-	fits_create_file(&fptr, filepath, &status);
+	fits_create_file(&fptr, file, &status);
 
 	/* Create the primary array image (16-bit short integer pixels */
 	long size[2] = { frame.width, frame.height };
@@ -91,6 +96,8 @@ void rangahau_save_frame(RangahauFrame frame, const char *filepath)
 
 	/* print out any error messages */
 	fits_report_error(stderr, status);
+
+	free(file);
 }
 
 void rangahau_preview_frame(RangahauFrame frame)
@@ -144,7 +151,7 @@ void rangahau_frame_downloaded_cb(RangahauFrame frame)
 	{
 		/* Build the file path to save to */
 		int framenum = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.frame_entry));
-		const char *destination = gtk_entry_get_text(GTK_ENTRY(view.destination_entry));
+		const char *destination = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(view.destination_btn));
 		const char *prefix = gtk_entry_get_text(GTK_ENTRY(view.run_entry));
 		char filepath[1024];
 		sprintf(filepath, "%s/%s-%d.fits.gz",destination,prefix,framenum);
