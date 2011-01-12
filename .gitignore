@@ -1,12 +1,5 @@
-build
-dist
 *.o
-*.so
-*.ko
-nbproject/private
-*.txt
-
 rangahau
-*.o
 pvcam/rspiusb/*
 libxpa.a
+preferences.dat
