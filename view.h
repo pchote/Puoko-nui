@@ -8,6 +8,7 @@
 #include <gtk/gtk.h>
 #include "camera.h"
 #include "gps.h"
+#include "preferences.h"
 
 #ifndef VIEW_H
 #define VIEW_H
@@ -17,6 +18,7 @@ typedef struct
 	/* Pointers to hardware for gui updates */
 	RangahauCamera *camera;
 	RangahauGPS *gps;
+	RangahauPreferences *prefs;
 
 	GtkWidget *window;
 	/* Acquire panel */
@@ -44,14 +46,10 @@ typedef struct
 	GtkWidget *frame_entry;
 } RangahauView;
 
-typedef enum
-{
-	OBJECT_DARK,
-	OBJECT_FLAT,
-	OBJECT_TARGET
-} RangahauObjectType;
-
 void rangahau_init_gui(RangahauView *view, void (starstop_pressed_cb)(GtkWidget *, void *));
 void rangahau_set_camera_editable(RangahauView *view, gboolean editable);
+
+void rangahau_update_camera_preferences(RangahauView *view);
+void rangahau_update_output_preferences(RangahauView *view);
 #endif
 

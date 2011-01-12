@@ -51,7 +51,32 @@ static void save_changed(GtkWidget *widget, gpointer data)
 	RangahauView *view = (RangahauView *)data;	
 	gboolean set = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view->save_checkbox));
 	rangahau_set_output_editable(view, !set);
+	if (set)
+		rangahau_update_output_preferences(view);
 }
+
+void rangahau_update_camera_preferences(RangahauView *view)
+{
+	view->prefs->exposure_time = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view->exptime_entry));
+	view->prefs->bin_size = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view->binsize_entry));
+	rangahau_save_preferences(view->prefs, "preferences.dat");
+}
+
+void rangahau_update_output_preferences(RangahauView *view)
+{
+	rangahau_set_preference_string(view->prefs->output_directory,gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(view->destination_btn)));
+	rangahau_set_preference_string(view->prefs->run_prefix, gtk_entry_get_text(GTK_ENTRY(view->run_entry)));
+	view->prefs->run_number = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view->frame_entry));
+
+	view->prefs->object_type = gtk_combo_box_get_active(GTK_COMBO_BOX(view->target_combobox));
+	rangahau_set_preference_string(view->prefs->object_name, gtk_entry_get_text(GTK_ENTRY(view->target_entry)));
+
+	rangahau_set_preference_string(view->prefs->observers, gtk_entry_get_text(GTK_ENTRY(view->observers_entry)));
+	rangahau_set_preference_string(view->prefs->observatory, gtk_entry_get_text(GTK_ENTRY(view->observatory_entry)));
+	rangahau_set_preference_string(view->prefs->telescope, gtk_entry_get_text(GTK_ENTRY(view->telescope_entry)));
+	rangahau_save_preferences(view->prefs, "preferences.dat");
+}
+
 
 /* Called when the startstop button is pressed to enable or disable the camera fields */
 void rangahau_set_camera_editable(RangahauView *view, gboolean editable)
@@ -81,7 +106,7 @@ GtkWidget *rangahau_output_panel(RangahauView *view)
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,0,1);
 	view->observatory_entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(view->observatory_entry), "MJUO");
+	gtk_entry_set_text(GTK_ENTRY(view->observatory_entry), view->prefs->observatory);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->observatory_entry), 12);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->observatory_entry, 1,2,0,1);
 
@@ -91,7 +116,7 @@ GtkWidget *rangahau_output_panel(RangahauView *view)
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 2,3,0,1);
 
 	view->telescope_entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(view->telescope_entry), "MJUO 1-meter");
+	gtk_entry_set_text(GTK_ENTRY(view->telescope_entry), view->prefs->telescope);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->telescope_entry, 3,4,0,1);
 
 	/* Observers */
@@ -99,7 +124,7 @@ GtkWidget *rangahau_output_panel(RangahauView *view)
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,1,2);
 	view->observers_entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(view->observers_entry), "DJS");
+	gtk_entry_set_text(GTK_ENTRY(view->observers_entry), view->prefs->observers);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->observers_entry), 12);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->observers_entry, 1,2,1,2);
 
@@ -113,12 +138,12 @@ GtkWidget *rangahau_output_panel(RangahauView *view)
 	gtk_combo_box_insert_text(GTK_COMBO_BOX(view->target_combobox), OBJECT_DARK, "Dark");
 	gtk_combo_box_insert_text(GTK_COMBO_BOX(view->target_combobox), OBJECT_FLAT, "Flat");
 	gtk_combo_box_insert_text(GTK_COMBO_BOX(view->target_combobox), OBJECT_TARGET, "Target");
-	gtk_combo_box_set_active(GTK_COMBO_BOX(view->target_combobox), OBJECT_TARGET);
+	gtk_combo_box_set_active(GTK_COMBO_BOX(view->target_combobox), view->prefs->object_type);
 	g_signal_connect(view->target_combobox, "changed", G_CALLBACK (targettype_changed), view);
 	gtk_box_pack_start(GTK_BOX(object), view->target_combobox, FALSE, FALSE, 0);
 
 	view->target_entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(view->target_entry), "ec20058");
+	gtk_entry_set_text(GTK_ENTRY(view->target_entry), view->prefs->object_name);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->target_entry), 12);
 	gtk_box_pack_start(GTK_BOX(object), view->target_entry, FALSE, FALSE, 5);
 
@@ -131,7 +156,7 @@ GtkWidget *rangahau_output_panel(RangahauView *view)
 
 	view->destination_btn = gtk_file_chooser_button_new("Select output directory",
                                         GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
-	gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(view->destination_btn), "/home/sullivan/Desktop");
+	gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(view->destination_btn), view->prefs->output_directory);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->destination_btn, 1,2,2,3);
 
 	/* Output file */
@@ -141,14 +166,14 @@ GtkWidget *rangahau_output_panel(RangahauView *view)
 
 	GtkWidget *path = gtk_hbox_new(FALSE, 0);
 	view->run_entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(view->run_entry), "run");
+	gtk_entry_set_text(GTK_ENTRY(view->run_entry), view->prefs->run_prefix);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->run_entry), 7);
 	gtk_box_pack_start(GTK_BOX(path), view->run_entry, FALSE, FALSE, 0);
 
 	field = gtk_label_new("-");
 	gtk_box_pack_start(GTK_BOX(path), field, FALSE, FALSE, 0);
 
-	view->frame_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(0, 0, 100000, 1, 10, 0), 0, 0);
+	view->frame_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(view->prefs->run_number, 0 , 1E9, 1, 10, 0), 0, 0);
 	gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(view->frame_entry), TRUE);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->frame_entry), 4);
 	gtk_box_pack_start(GTK_BOX(path), view->frame_entry, FALSE, FALSE, 0);
@@ -199,7 +224,7 @@ GtkWidget *rangahau_camera_panel(RangahauView *view, void (startstop_pressed_cb)
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,1,2);
 
-	view->binsize_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(1, 1, 1024, 1, 1, 0), 0, 0);
+	view->binsize_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(view->prefs->bin_size, 1, 1024, 1, 1, 0), 0, 0);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->binsize_entry, 1,2,1,2);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->binsize_entry), 3);
 	field = gtk_label_new("pixel(s)");
@@ -211,7 +236,7 @@ GtkWidget *rangahau_camera_panel(RangahauView *view, void (startstop_pressed_cb)
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,2,3);
 
-	view->exptime_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(5, 2, 10000, 1, 10, 0), 0, 0);
+	view->exptime_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(view->prefs->exposure_time, 2, 10000, 1, 10, 0), 0, 0);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->exptime_entry, 1,2,2,3);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->exptime_entry), 3);
 	field = gtk_label_new("seconds");
@@ -325,6 +350,11 @@ GtkWidget *rangahau_save_panel(RangahauView *view)
 gboolean update_gui_cb(gpointer data)
 {
 	RangahauView *view = (RangahauView *)data;
+
+	/* Frame number */
+	if (!gtk_editable_get_editable(GTK_EDITABLE(view->frame_entry)))
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(view->frame_entry), view->prefs->run_number);
+
 	/* PC time */	
 	char strtime[30];
 	time_t t = time(NULL);
