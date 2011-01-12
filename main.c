@@ -37,7 +37,7 @@ void rangahau_save_frame(RangahauFrame frame)
 
 	char filepath[PATH_MAX];
 	/* Append a ! to the filepath to force overwriting of existing files */
-	sprintf(filepath, "!%s/%s-%d.fits.gz", prefs.output_directory, prefs.run_prefix, prefs.run_number);
+	sprintf(filepath, "!%s/%s-%04d.fits.gz", prefs.output_directory, prefs.run_prefix, prefs.run_number);
 	printf("Saving frame to %s\n", filepath);
 	
 	/* Create a new fits file */
@@ -73,32 +73,41 @@ void rangahau_save_frame(RangahauFrame frame)
 	fits_update_key(fptr, TSTRING, "PROGRAM", "rangahau", "Data acquistion program", &status);
 	fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
 
-	RangahauGPSTimestamp ts;
+	RangahauGPSTimestamp end;
 	char datebuf[15];
 	char gpstimebuf[15];
 
 	/* Get the synctime. Failure is not an option! */
-	while (!rangahau_gps_get_synctime(&gps, 2000, &ts));
-
-	sprintf(datebuf, "%04d-%02d-%02d", ts.year, ts.month, ts.day);
-	sprintf(gpstimebuf, "%02d:%02d:%02d.%03d", ts.hours, ts.minutes, ts.seconds, ts.milliseconds);
-
-	fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "GPS Exposure start date (UTC)", &status);
-	fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "GPS Exposure end time (UTC)", &status);
+	while (!rangahau_gps_get_synctime(&gps, 2000, &end));
 
 	/* synctime gives the *end* of the exposure. The start of the exposure
 	 * is found by subtracting the exposure time */
-	rangahau_timestamp_subtract_seconds(&ts, prefs.exposure_time);
-	sprintf(gpstimebuf, "%02d:%02d:%02d.%03d", ts.hours, ts.minutes, ts.seconds, ts.milliseconds);
-	fits_update_key(fptr, TSTRING, "UTC-TIME", gpstimebuf, "GPS Exposure start time (UTC)", &status);
+	RangahauGPSTimestamp start = end;
+	rangahau_timestamp_subtract_seconds(&start, prefs.exposure_time);
+
+	sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
+	fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
+
+	sprintf(gpstimebuf, "%02d:%02d:%02d.%03d", start.hours, start.minutes, start.seconds, start.milliseconds);
+	fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
+
+	sprintf(gpstimebuf, "%02d:%02d:%02d.%03d", end.hours, end.minutes, end.seconds, end.milliseconds);
+	fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
+
 	//fits_update_key(fptr, TSTRING, "GPS-CLOCK", "TODO", "GPS clock status", &status);
 
 	char timebuf[15];
-	time_t t = time(NULL) - prefs.exposure_time;
-	strftime(timebuf, 15, "%Y-%m-%d", gmtime(&t));
-	fits_update_key(fptr, TSTRING, "PC-DATE", (void *)timebuf, "PC Exposure start date (UTC)", &status);
-	strftime(timebuf, 15, "%H:%M:%S", gmtime(&t));
-	fits_update_key(fptr, TSTRING, "PC-TIME", (void *)timebuf, "PC Exposure start time (UTC)", &status);
+	time_t pcend = time(NULL);
+	time_t pcstart = pcend - prefs.exposure_time;
+
+	strftime(timebuf, 15, "%Y-%m-%d", gmtime(&pcstart));
+	fits_update_key(fptr, TSTRING, "PC-DATE", (void *)timebuf, "Exposure start date (PC)", &status);
+
+	strftime(timebuf, 15, "%H:%M:%S", gmtime(&pcstart));
+	fits_update_key(fptr, TSTRING, "PC-BEG", (void *)timebuf, "Exposure start time (PC)", &status);
+	
+	strftime(timebuf, 15, "%H:%M:%S", gmtime(&pcend));
+	fits_update_key(fptr, TSTRING, "PC-END", (void *)timebuf, "Exposure end time (PC)", &status);
 
 	/* Write the frame data to the image */
 	fits_write_img(fptr, TUSHORT, 1, frame.width*frame.height, frame.data, &status);
