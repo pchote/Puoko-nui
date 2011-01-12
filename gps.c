@@ -59,11 +59,13 @@ RangahauGPS rangahau_gps_new()
 void rangahau_gps_free(RangahauGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);
+	pthread_mutex_destroy(&gps->commLock);
 }
 
 /* Open the usb gps device and prepare it for reading/writing */
 void rangahau_gps_init(RangahauGPS *gps)
 {
+	pthread_mutex_init(&gps->commLock, NULL);
 	pthread_mutex_lock(&gps->commLock);
 	check_gps(gps, __FILE__, __LINE__);	
 	printf("Opened FTDI device `%s`\n", gps->device->filename);
@@ -144,6 +146,11 @@ bool rangahau_gps_send_command_with_data(RangahauGPS *gps, RangahauGPSRequest ty
 	send[length++] = DLE;
 	send[length++] = ETX;
 
+	// Flush the read buffer
+	unsigned char recvbuf[GPS_PACKET_LENGTH];
+	while(ftdi_read_data(gps->context, recvbuf, GPS_PACKET_LENGTH));
+
+	// Send the request
 	return (ftdi_write_data(gps->context, send, length) == length);
 }
 
@@ -188,8 +195,10 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
 		if (parsedBytes == 0 && recievedBytes > 2)
 		{
 			if (totalbuf[0] != DLE)
-				rangahau_die("Malformed packed: Expected 0x%02x, got 0x%02x", DLE, totalbuf[0]);
-
+			{
+				totalbuf[recievedBytes] = 0;
+				rangahau_die("Malformed packed: Expected 0x%02x, got 0x%02x.\nData: `%s`", DLE, totalbuf[0], totalbuf);
+			}
 			response.type = totalbuf[1];
 			response.error = totalbuf[2];
 			parsedBytes += 3;
@@ -213,7 +222,8 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
 		}
 		gettimeofday(&curtime, NULL);
 	}
-	printf("gps request timed out after %dms\n", timeoutms);
+
+	printf("gps request timed out after %dms. Have data `%s`\n", timeoutms, response.data);
 	return response;
 }
 
@@ -246,7 +256,7 @@ bool rangahau_gps_get_gpstime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTi
 	RangahauGPSTimestamp ret;
 	do
 	{
-		pthread_mutex_lock(&gps->commLock);		
+		pthread_mutex_lock(&gps->commLock);
 		rangahau_gps_send_command(gps, GETGPSTIME);
 		response = rangahau_gps_read(gps, timeoutMillis);
 		pthread_mutex_unlock(&gps->commLock);

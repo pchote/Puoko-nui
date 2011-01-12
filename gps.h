@@ -32,7 +32,7 @@ typedef enum
 /* GPS error types */
 typedef enum
 {
-	REQUEST_TIMEOUT = 0,	
+	REQUEST_TIMEOUT = 0,
 	NO_ERROR = 1<<0,
 	PACKET_ID_INVALID = 1<<1,
 	UTC_ACCESS_ON_UPDATE = 1<<2,
