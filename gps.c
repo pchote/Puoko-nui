@@ -301,7 +301,7 @@ bool rangahau_gps_get_synctime(RangahauGPS *gps, int timeoutMillis, RangahauGPST
 			}
 			fprintf(stderr, "Malformed time string: %s",(char *)response.data);
 		}
-	} while (response.error & UTC_ACCESS_ON_UPDATE);
+	} while (response.error & EOF_ACCESS_ON_UPDATE);
 
 	if (response.error)
 		fprintf(stderr, "synctime failed (error 0x%02x)\n", response.error);
