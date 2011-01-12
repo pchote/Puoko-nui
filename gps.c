@@ -363,6 +363,8 @@ bool rangahau_gps_set_exposetime(RangahauGPS *gps, int exptime)
 	return true;
 }
 
+extern time_t timegm(struct tm *);
+
 // Subtract a number of seconds from a given timestamp
 void rangahau_timestamp_subtract_seconds(RangahauGPSTimestamp *ts, int seconds)
 {
