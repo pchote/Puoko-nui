@@ -1,5 +1,5 @@
 /*
-* Copyright 2007-2010 The Authors (see AUTHORS)
+* Copyright 2010, 2011 Paul Chote
 * This file is part of Rangahau, which is free software. It is made available
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
@@ -15,7 +15,6 @@
 #include <string.h>
 #include <sys/select.h>
 #include <xpa.h>
-
 #include "common.h"
 #include "view.h"
 #include "camera.h"
