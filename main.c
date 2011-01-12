@@ -38,7 +38,7 @@ void rangahau_save_frame(RangahauFrame frame)
 	char filepath[PATH_MAX];
 	/* Append a ! to the filepath to force overwriting of existing files */
 	sprintf(filepath, "!%s/%s-%04d.fits.gz", prefs.output_directory, prefs.run_prefix, prefs.run_number);
-	printf("Saving frame to %s\n", filepath);
+	printf("Saving frame %s\n", filepath);
 	
 	/* Create a new fits file */
 	fits_create_file(&fptr, filepath, &status);
@@ -169,6 +169,7 @@ void rangahau_frame_downloaded_cb(RangahauFrame frame)
 
 		/* Increment the next frame */
 		prefs.run_number++;
+		rangahau_save_preferences(&prefs, "preferences.dat");
 	}
 
 	/* Display the frame in ds9 */
