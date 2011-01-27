@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <gtk/gtk.h>
 #include <time.h>
 #include <pthread.h>
@@ -56,7 +57,6 @@ static void save_changed(GtkWidget *widget, gpointer data)
 void rangahau_update_camera_preferences(RangahauView *view)
 {
 	view->prefs->exposure_time = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view->exptime_entry));
-	view->prefs->bin_size = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view->binsize_entry));
 	rangahau_save_preferences(view->prefs, "preferences.dat");
 }
 
@@ -81,8 +81,6 @@ void rangahau_set_camera_editable(RangahauView *view, gboolean editable)
 {
 	gtk_editable_set_editable(GTK_EDITABLE(view->exptime_entry), editable);
 	gtk_widget_set_sensitive(view->exptime_entry, editable);
-	gtk_editable_set_editable(GTK_EDITABLE(view->binsize_entry), editable);
-	gtk_widget_set_sensitive(view->binsize_entry, editable);
 }
 
 /* Return a GtkWidget containing the settings panel */
@@ -217,15 +215,15 @@ GtkWidget *rangahau_camera_panel(RangahauView *view, void (startstop_pressed_cb)
 	gtk_table_attach_defaults(GTK_TABLE(table), view->camerastatus_label, 1,3,0,1);
 
 
-	/* Bin size */
-	field = gtk_label_new("Bin Size:");
+	/* Temperature label */
+	field = gtk_label_new("Temperature:");
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,1,2);
 
-	view->binsize_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(view->prefs->bin_size, 1, 1024, 1, 1, 0), 0, 0);
-	gtk_table_attach_defaults(GTK_TABLE(table), view->binsize_entry, 1,2,1,2);
-	gtk_entry_set_width_chars(GTK_ENTRY(view->binsize_entry), 3);
-	field = gtk_label_new("pixel(s)");
+	view->cameratemp_label = gtk_label_new("");
+	gtk_table_attach_defaults(GTK_TABLE(table), view->cameratemp_label, 1,2,1,2);
+
+	field = gtk_label_new("°C");
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 2,3,1,2);
 	gtk_misc_set_alignment(GTK_MISC(field), 0, 0.5);
 
@@ -237,7 +235,7 @@ GtkWidget *rangahau_camera_panel(RangahauView *view, void (startstop_pressed_cb)
 	view->exptime_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(view->prefs->exposure_time, 2, 10000, 1, 10, 0), 0, 0);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->exptime_entry, 1,2,2,3);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->exptime_entry), 3);
-	field = gtk_label_new("seconds");
+	field = gtk_label_new("s");
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 2,3,2,3);
 	gtk_misc_set_alignment(GTK_MISC(field), 0, 0.5);
 
@@ -386,7 +384,15 @@ gboolean update_gui_cb(gpointer data)
 		break;
 	}
 	gtk_label_set_label(GTK_LABEL(view->camerastatus_label), label);
-
+	
+	/* Camera temperature */
+	char temp[10];
+	if (view->camera->status == ACTIVE)
+		sprintf(temp, "%0.02f",(float)view->camera->temperature/100);
+	else
+		strcpy(temp, "XXX");
+	gtk_label_set_label(GTK_LABEL(view->cameratemp_label), temp);
+	
 	/* Can't start/stop acquisition if the camera is initialising */
 	boolean initialising = (view->camera->status == INITIALISING);
 	if (initialising == gtk_widget_get_sensitive(view->startstop_btn))

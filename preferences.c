@@ -27,7 +27,6 @@ void rangahau_load_preferences(RangahauPreferences *prefs, const char *path)
 		prefs->run_number = 0;
 
 		prefs->exposure_time = 5;
-		prefs->bin_size = 1;
 	}
 	else
 	{	

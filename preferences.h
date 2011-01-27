@@ -25,7 +25,6 @@ typedef struct
 	char telescope[PREFERENCES_LENGTH];
 
 	int exposure_time;
-	int bin_size;
 } RangahauPreferences;
 
 

@@ -30,6 +30,7 @@ typedef struct
 	GtkWidget *gpstime_label;
 	GtkWidget *pctime_label;
 	GtkWidget *camerastatus_label;
+	GtkWidget *cameratemp_label;
 
 	/* Settings panel */
 	GtkWidget *observers_entry;
@@ -37,7 +38,6 @@ typedef struct
 	GtkWidget *telescope_entry;
 	GtkWidget *target_combobox;
 	GtkWidget *target_entry;
-	GtkWidget *binsize_entry;
 	GtkWidget *exptime_entry;
 
 	/* Destination panel */

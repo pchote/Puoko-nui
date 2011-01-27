@@ -57,6 +57,7 @@ typedef struct
 	RangahauCameraStatus status;
 	uns16 frame_width;
 	uns16 frame_height;
+	int16 temperature;
 
 	/* internal use only */
 	int16 handle;

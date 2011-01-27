@@ -211,35 +211,48 @@ void *rangahau_camera_thread(void *_cam)
 	/* Start a continuous acquisition sequence into a circular buffer */
 	if (!cam->shutdown)	
 		initialise_acquisition(cam);
-
-	/* Poll the camera for frames at 10Hz for frames */
+	
+	/* Set initial temperature */
+	pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );
+	/* Poll the camera for frames at 10Hz for frames
+	 * and at ~0.2Hz for temperature */
 	cam->status = ACTIVE;
-
 	struct timespec wait = {0,1e8};
+	uns32 temp_ticks = 0;
 	while (!cam->shutdown)
 	{
-		while (!cam->shutdown && !frame_available(cam))
+		while (!cam->shutdown && ++temp_ticks <= 50 && !frame_available(cam))
 			nanosleep(&wait, NULL);
 
-		printf("Frame available\n");
 		/* Retrieve frame data */
-		void_ptr camera_frame;
-		if (!cam->shutdown && !pl_exp_get_oldest_frame(cam->handle, &camera_frame))
-			check_pvcam_error("Error retrieving oldest frame", __LINE__);
-
-		/* Do something with the frame data */
-		if (!cam->shutdown && cam->acquire_frames)
+		if (!cam->shutdown && frame_available(cam))
 		{
-			RangahauFrame frame;			
-			frame.width = cam->frame_width;
-			frame.height = cam->frame_height;
-			frame.data = camera_frame;
-			cam->on_frame_available(&frame);
+			printf("Frame available\n");
+			void_ptr camera_frame;
+			if (!pl_exp_get_oldest_frame(cam->handle, &camera_frame))
+				check_pvcam_error("Error retrieving oldest frame", __LINE__);
+
+			/* Do something with the frame data */
+			if (cam->acquire_frames)
+			{
+				RangahauFrame frame;			
+				frame.width = cam->frame_width;
+				frame.height = cam->frame_height;
+				frame.data = camera_frame;
+				cam->on_frame_available(&frame);
+			}
+
+			/* Unlock the frame buffer for reuse */
+			if (!pl_exp_unlock_oldest_frame(cam->handle))
+				check_pvcam_error("Error unlocking oldest frame", __LINE__);
 		}
 
-		/* Unlock the frame buffer for reuse */
-		if (!cam->shutdown && !pl_exp_unlock_oldest_frame(cam->handle))
-			check_pvcam_error("Error unlocking oldest frame", __LINE__);
+		/* Query camera temperature */
+		if (!cam->shutdown && temp_ticks >= 50)
+		{
+			temp_ticks = 0;
+			pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );
+		}
 	}
 	
 	/* Finish the acquisition sequence and close the camera */	
