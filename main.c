@@ -18,19 +18,16 @@
 #include "common.h"
 #include "view.h"
 #include "camera.h"
-#include "acquisitionthread.h"
 #include "gps.h"
 #include "preferences.h"
 
 RangahauView view;
-RangahauAcquisitionThreadInfo acquisition_info;
-pthread_t acquisition_thread;
 RangahauCamera camera;
 RangahauGPS gps;
 RangahauPreferences prefs;
 
 /* Write frame data to a fits file */
-void rangahau_save_frame(RangahauFrame frame)
+void rangahau_save_frame(RangahauFrame *frame)
 {
 	fitsfile *fptr;
 	int status = 0;
@@ -44,7 +41,7 @@ void rangahau_save_frame(RangahauFrame frame)
 	fits_create_file(&fptr, filepath, &status);
 
 	/* Create the primary array image (16-bit short integer pixels */
-	long size[2] = { frame.width, frame.height };
+	long size[2] = { frame->width, frame->height };
 	fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
 	/* Write header keys */
@@ -110,7 +107,7 @@ void rangahau_save_frame(RangahauFrame frame)
 	fits_update_key(fptr, TSTRING, "PC-END", (void *)timebuf, "Exposure end time (PC)", &status);
 
 	/* Write the frame data to the image */
-	fits_write_img(fptr, TUSHORT, 1, frame.width*frame.height, frame.data, &status);
+	fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
 
 	fits_close_file(fptr, &status);
 
@@ -118,7 +115,7 @@ void rangahau_save_frame(RangahauFrame frame)
 	fits_report_error(stderr, status);
 }
 
-void rangahau_preview_frame(RangahauFrame frame)
+void rangahau_preview_frame(RangahauFrame *frame)
 {
 	fitsfile *fptr;
 	int status = 0;
@@ -137,7 +134,7 @@ void rangahau_preview_frame(RangahauFrame frame)
 	fits_create_memfile(&fptr, &fitsbuf, &fitssize, 2880, realloc, &status);
 
 	/* Create the primary array image (16-bit short integer pixels */
-	long size[2] = { frame.width, frame.height };
+	long size[2] = { frame->width, frame->height };
 	fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
 	/* Write frame data to the OBJECT header for ds9 to display */
@@ -146,7 +143,7 @@ void rangahau_preview_frame(RangahauFrame frame)
 	fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
 
 	/* Write the frame data to the image */
-	fits_write_img(fptr, TUSHORT, 1, frame.width*frame.height, frame.data, &status);
+	fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
 	fits_close_file(fptr, &status);
 
 	/* print out any error messages */
@@ -160,7 +157,7 @@ void rangahau_preview_frame(RangahauFrame frame)
 
 /* Called when the acquisition thread has downloaded a frame
  * Note: this runs in the acquisition thread *not* the main thread. */
-void rangahau_frame_downloaded_cb(RangahauFrame frame)
+void rangahau_frame_downloaded_cb(RangahauFrame *frame)
 {
 	printf("Frame downloaded\n");
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox)))
@@ -199,20 +196,14 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		
 		printf("Set exposure time to %d\n", exptime);
 
-		/* Start acquisition thread */
-		acquisition_info.camera = &camera;
-		acquisition_info.binsize = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.binsize_entry));
-		acquisition_info.cancelled = FALSE;
-		acquisition_info.on_frame_available = rangahau_frame_downloaded_cb;
-		
-		pthread_create(&acquisition_thread, NULL, rangahau_acquisition_thread, (void *)&acquisition_info);
-
+		/* Start acquisition */
+		camera.acquire_frames = TRUE;
 		gtk_button_set_label(GTK_BUTTON(widget), "Stop Acquisition");
 	}
 	else
 	{
 		/* Stop aquisition thread */
-		acquisition_info.cancelled = TRUE;
+		camera.acquire_frames = FALSE;
 		gtk_button_set_label(GTK_BUTTON(widget), "Start Acquisition");
 		rangahau_set_camera_editable(&view, TRUE);	
     }
@@ -223,11 +214,14 @@ int main( int argc, char *argv[] )
 	gtk_init(&argc, &argv);
 	rangahau_load_preferences(&prefs, "preferences.dat");
 	rangahau_save_preferences(&prefs, "preferences.dat");
+
+	/*	
 	boolean simulate = FALSE;
-	/* Parse the commandline args */
+	/ * Parse the commandline args * /
 	for (int i = 0; i < argc; i++)
 		if (strcmp(argv[i], "--simulate") == 0)
 			simulate = TRUE;
+	*/
 
 	/* Initialise the gps */
 	gps = rangahau_gps_new();
@@ -235,30 +229,30 @@ int main( int argc, char *argv[] )
 	view.gps = &gps;
 	view.prefs = &prefs;
 
-	/* Initialise the camera.
-	 * Run in a separate thread to avoid blocking the gui. */
-	camera = rangahau_camera_new(simulate);
-	view.camera = &camera;
-	pthread_t camera_init;
-	pthread_create(&camera_init, NULL, rangahau_camera_init, (void *)&camera);
+	/* Initialise the camera on its own thread */
+	camera = rangahau_camera_new();
+	camera.on_frame_available = rangahau_frame_downloaded_cb;
+	pthread_t camera_thread;
+	pthread_create(&camera_thread, NULL, rangahau_camera_thread, (void *)&camera);
 
 	/* Initialise the gui and start the event loop */
+	view.camera = &camera;
 	rangahau_init_gui(&view, startstop_pressed);
 	gtk_main();
 
+	/* Shutdown hardware cleanly before exiting */
 	rangahau_shutdown();
+	void **retval = NULL;
+	pthread_join(camera_thread, retval);
 	return 0;
 }
 
 void rangahau_shutdown()
 {
-	/* Stop the acquisition thread */
-	acquisition_info.cancelled = TRUE;
+	/* Camera shutdown is done in the camera thread */
+	camera.shutdown = TRUE;
 
-	/* Close the camera */
-	rangahau_camera_close(&camera);
-
-	/* Close the gps */
+	/* Shutdown the gps */
 	rangahau_gps_uninit(&gps);
 	rangahau_gps_free(&gps);
 }

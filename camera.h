@@ -24,22 +24,16 @@ enum ForceReadOut {
 typedef enum
 {
 	INITIALISING,
-	IDLE,
-	ACTIVE
+	ACTIVE,
+	SHUTDOWN,
 } RangahauCameraStatus;
 
-/* Holds the state of a camera */
-typedef struct
+typedef enum
 {
-	rs_bool pvcam_inited;
-	int16 handle;
-	RangahauCameraStatus status;
-	rs_bool simulated;
-	void *image_buffer;
-	uns32 image_buffer_size;
-	/* internal copy of view->binsize. Do not use outside of camera */
-	uns16 _binsize;
-} RangahauCamera;
+	INIT_UNINITIALISED = 0,
+	INIT_OPEN = 1,
+	INIT_AQUIRING = 2
+} RangahauCameraInitStatus;
 
 /* Represents an aquired frame */
 typedef struct
@@ -50,12 +44,28 @@ typedef struct
 } RangahauFrame;
 
 
-RangahauCamera rangahau_camera_new(boolean simulate);
-void *rangahau_camera_init(void *cam);
-void rangahau_camera_close(RangahauCamera *cam);
-void rangahau_camera_start_acquisition(RangahauCamera *cam, uns16 binsize);
-void rangahau_camera_stop_acquisition(RangahauCamera *cam);
-boolean rangahau_camera_image_available(RangahauCamera *cam);
-RangahauFrame rangahau_camera_latest_frame(RangahauCamera *cam);
+/* Holds the state of a camera */
+typedef struct
+{
+	/* read/write */
+	uns16 binsize;
+	rs_bool acquire_frames;
+	void (*on_frame_available)(RangahauFrame *frame);
+	rs_bool shutdown;
+
+	/* read only */
+	RangahauCameraStatus status;
+	uns16 frame_width;
+	uns16 frame_height;
+
+	/* internal use only */
+	int16 handle;
+	void *image_buffer;
+	uns32 image_buffer_size;
+	RangahauCameraInitStatus init_status;
+} RangahauCamera;
+
+RangahauCamera rangahau_camera_new();
+void *rangahau_camera_thread(void *cam);
 
 #endif
