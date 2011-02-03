@@ -36,14 +36,14 @@ def prompt_region(d):
         if args == ['']:
             break;
         
-        x = int(args[0])
-        y = int(args[1])
+        x = int(args[0])-1
+        y = int(args[1])-1
         r1 = int(args[2])
         r2 = int(args[3])
         
         d.set("regions deleteall")
-        d.set("regions command {circle %d %d %d}" % (x,y,r1))
-        d.set("regions command {circle %d %d %d #background}" % (x,y,r2))
+        d.set("regions command {circle %d %d %d}" % (x+1,y+1,r1))
+        d.set("regions command {circle %d %d %d #background}" % (x+1,y+1,r2))
         
         msg = "Enter x,y,r1,r2 or press enter to confirm: "
         first = False
@@ -92,7 +92,6 @@ def center_aperture(x, y, r1, bg, std, imagedata):
 # Returns the background intensity plus standard deviation
 def calculate_background(x, y, r1, r2, imagedata):
     mask = numpy.ones(imagedata.shape)
-    print x,y,r1,r2
     for j in range(y-r2,y+r2,1):
         for i in range(x-r2,x+r2,1):
             d2 = (x-i)**2 + (y-j)**2
@@ -104,6 +103,27 @@ def calculate_background(x, y, r1, r2, imagedata):
     bg = 3*numpy.mean(masked) - 2*numpy.ma.extras.median(masked)
     std = math.sqrt(numpy.mean(abs(masked - bg)**2))
     return bg, std
+
+# Integrates the flux within the specified aperture, 
+# accounting for partially covered pixels.
+#   Takes the x,y and radius coordinates of the center of the aperture
+#      and the image data
+#   Returns the contained flux (including background)
+def integrate_aperture(x,y,r1, imagedata):
+    # First attempt - only count pixels that are totally inside the region
+    x = math.floor(x)
+    y = math.floor(y)
+    r1 = math.floor(r1)
+    
+    mask = numpy.ones(imagedata.shape)
+    for j in range(y-r1,y+r1,1):
+        for i in range(x-r1,x+r1,1):
+            d2 = (x-i)**2 + (y-j)**2
+            if d2 <= r1*r1:
+                mask[j,i] = 0
+    
+    masked = numpy.ma.masked_array(imagedata, mask=mask)
+    return numpy.sum(masked)
     
 def main():
     # First argument gives the name of the fits file to open 
@@ -134,7 +154,14 @@ def main():
         x,y = center_aperture(x, y, r1, bg, std, imagedata)
         d.set('crosshair %f %f' % (x+1,y+1))
         print x,y
-        #display_region([x - r2,460,150,150], imagedata)
+        d.set("regions deleteall")
+        d.set("regions command {circle %d %d %d}" % (x+1,y+1,r1))
+
+        # Evaluate star and sky intensities
+        star_intensity = integrate_aperture(x,y,r1, imagedata)
+        sky_intensity = bg*math.pi*r1*r1
+        
+        print star_intensity, sky_intensity, star_intensity - sky_intensity
         hdulist.close()
     else:
         print 'No filename specified'
