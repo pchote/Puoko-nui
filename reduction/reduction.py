@@ -8,7 +8,8 @@
 
 """Online reduction script for rangahau. Processes photometric
 intensity of a selection of stars """
-
+import os
+import fnmatch
 import sys
 import pyfits
 import numpy
@@ -124,45 +125,59 @@ def integrate_aperture(x,y,r1, imagedata):
     
     masked = numpy.ma.masked_array(imagedata, mask=mask)
     return numpy.sum(masked)
+
+
+def process_frame(imagedata, region, d):
+    x,y,r1,r2 = region
+
+    bg, std = calculate_background(x, y, r1, r2, imagedata)
+    print "Background level: %f" % bg
+    print "Standard Deviation: %f" % std
+    
+    # Compute improved x,y
+    x,y = center_aperture(x, y, r1, bg, std, imagedata)
+    d.set('crosshair %f %f' % (x+1,y+1))
+    print x,y
+    d.set("regions deleteall")
+    d.set("regions command {circle %d %d %d}" % (x+1,y+1,r1))
+
+    # Evaluate star and sky intensities
+    star_intensity = integrate_aperture(x,y,r1, imagedata)
+    sky_intensity = bg*math.pi*r1*r1
+    
+    print star_intensity, sky_intensity, star_intensity - sky_intensity
+    
     
 def main():
-    # First argument gives the name of the fits file to open 
+
+    # First argument gives the dir containing images, second the regex of the files to process 
     if len(sys.argv) >= 2:
-        name = sys.argv[1]
-        hdulist = pyfits.open(name)
-        hdulist.info()
-
-        imagedata = hdulist[0].data
         
-        # Copy imagedata into a format ds9 can display (this is an ugly hack!)
-        out = numpy.empty(imagedata.shape)
-        for j in range(0,imagedata.shape[0],1):
-          for i in range(0,imagedata.shape[1],1):
-            out[j,i] = imagedata[j,i]
+        os.chdir(sys.argv[1])
+        files = os.listdir('.')
+        first = True
+        region = [-1,-1,-1,-1]
+        filtered = fnmatch.filter(files, sys.argv[2])
+        print "Found %d files" % len(filtered)
+        
+        # Todo open an output file and write header, pass to process_frame
+        
+        for filename in filtered:
+            print filename
+            hdulist = pyfits.open(filename)
+            imagedata = hdulist[0].data
             
-        d = ds9.ds9('rangahau')
-        d.set_np2arr(out)
+            d = ds9.ds9('rangahau')
+            d.set_np2arr(imagedata,dtype=numpy.int32)
+            
+            # Promt the user for a region
+            if first:
+                region = prompt_region(d)
+                first = False
+            
+            process_frame(imagedata, region, d)
         
-        # Prompt the user for x,y,r1,r2
-        x, y, r1, r2 = prompt_region(d)
-
-        bg, std = calculate_background(x, y, r1, r2, imagedata)
-        print "Background level: %f" % bg
-        print "Standard Deviation: %f" % std
-        
-        # Compute improved x,y
-        x,y = center_aperture(x, y, r1, bg, std, imagedata)
-        d.set('crosshair %f %f' % (x+1,y+1))
-        print x,y
-        d.set("regions deleteall")
-        d.set("regions command {circle %d %d %d}" % (x+1,y+1,r1))
-
-        # Evaluate star and sky intensities
-        star_intensity = integrate_aperture(x,y,r1, imagedata)
-        sky_intensity = bg*math.pi*r1*r1
-        
-        print star_intensity, sky_intensity, star_intensity - sky_intensity
-        hdulist.close()
+            hdulist.close()
     else:
         print 'No filename specified'
 
