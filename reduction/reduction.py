@@ -127,7 +127,7 @@ def integrate_aperture(x,y,r1, imagedata):
     return numpy.sum(masked)
 
 
-def process_frame(imagedata, region, d):
+def process_frame(imagedata, region, output, d):
     x,y,r1,r2 = region
 
     bg, std = calculate_background(x, y, r1, r2, imagedata)
@@ -145,14 +145,14 @@ def process_frame(imagedata, region, d):
     star_intensity = integrate_aperture(x,y,r1, imagedata)
     sky_intensity = bg*math.pi*r1*r1
     
+    output.write('{0:10f} {1:10f}\n'.format(star_intensity - sky_intensity, sky_intensity))
+    output.flush()
     print star_intensity, sky_intensity, star_intensity - sky_intensity
     
     
 def main():
-
     # First argument gives the dir containing images, second the regex of the files to process 
     if len(sys.argv) >= 2:
-        
         os.chdir(sys.argv[1])
         files = os.listdir('.')
         first = True
@@ -161,6 +161,8 @@ def main():
         print "Found %d files" % len(filtered)
         
         # Todo open an output file and write header, pass to process_frame
+        output = open('output.dat', 'w')
+        output.write('{0:10} {1:10}\n'.format('star - sky', 'sky'))
         
         for filename in filtered:
             print filename
@@ -175,7 +177,7 @@ def main():
                 region = prompt_region(d)
                 first = False
             
-            process_frame(imagedata, region, d)
+            process_frame(imagedata, region, output, d)
         
             hdulist.close()
     else:
