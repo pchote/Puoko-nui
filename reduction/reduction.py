@@ -127,7 +127,7 @@ def integrate_aperture(x,y,r1, imagedata):
     return numpy.sum(masked)
 
 
-def process_frame(imagedata, region, output, d):
+def process_frame(filename, datestart, exptime, imagedata, region, output, d):
     x,y,r1,r2 = region
 
     bg, std = calculate_background(x, y, r1, r2, imagedata)
@@ -141,11 +141,11 @@ def process_frame(imagedata, region, output, d):
     d.set("regions deleteall")
     d.set("regions command {circle %d %d %d}" % (x+1,y+1,r1))
 
-    # Evaluate star and sky intensities
-    star_intensity = integrate_aperture(x,y,r1, imagedata)
-    sky_intensity = bg*math.pi*r1*r1
+    # Evaluate star and sky intensities, normalised to / 1s
+    star_intensity = integrate_aperture(x,y,r1, imagedata) / exptime
+    sky_intensity = bg*math.pi*r1*r1 / exptime
     
-    output.write('{0:10f} {1:10f}\n'.format(star_intensity - sky_intensity, sky_intensity))
+    output.write('{0} {1} {2} {3:10f} {4:10f}\n'.format(filename, datestart, exptime, star_intensity - sky_intensity, sky_intensity))
     output.flush()
     print star_intensity, sky_intensity, star_intensity - sky_intensity
     
@@ -162,12 +162,15 @@ def main():
         
         # Todo open an output file and write header, pass to process_frame
         output = open('output.dat', 'w')
-        output.write('#{0:10} {1:10}\n'.format('star - sky', 'sky'))
+        output.write('#Filenamem, Datestart, Exptime, Star - Sky (normalised), Sky (normalised)\n')
         
         for filename in filtered:
             print filename
             hdulist = pyfits.open(filename)
             imagedata = hdulist[0].data
+
+            datestart = hdulist[0].header['GPSTIME']
+            exptime = int(hdulist[0].header['EXPTIME'])
             
             d = ds9.ds9('rangahau')
             d.set_np2arr(imagedata,dtype=numpy.int32)
@@ -177,7 +180,7 @@ def main():
                 region = prompt_region(d)
                 first = False
             
-            process_frame(imagedata, region, output, d)
+            process_frame(filename, datestart, exptime, imagedata, region, output, d)
         
             hdulist.close()
     else:

@@ -8,6 +8,8 @@
 
 """Test plot script"""
 import os
+import time
+import calendar
 import fnmatch
 import copy
 import sys
@@ -23,25 +25,33 @@ import matplotlib.pyplot as plt
 def main():
     target = []
     comparison = []
+    obstime = []
     f = open("output_target.dat", "r")
     for line in f.readlines():
         if line[0] is '#':
             continue
-        target.append(float(line.split()[0]))
+        
+        filename, date, starttime, exptime, star, sky = line.split()
+        
+        t = time.strptime("{0} {1}".format(date,starttime), "%Y-%m-%d %H:%M:%S")
+        
+        target.append(float(star))
+        obstime.append(calendar.timegm(t))
 
     f = open("output_comp.dat", "r")
     for line in f.readlines():
         if line[0] is '#':
             continue
-        comparison.append(float(line.split()[0]))
+        filename, date, starttime, exptime, star, sky = line.split()
+        comparison.append(float(star))
     
     display = []
     for i in range(0,len(target),1):
-        display.append(200000*target[i]/comparison[i])
+        display.append(20000*target[i]/comparison[i])
     
-    plt.plot(display)    
-    plt.plot(target)
-    plt.plot(comparison)
+    plt.plot(obstime,display)    
+    plt.plot(obstime,target)
+    plt.plot(obstime,comparison)
     plt.show()
 
 if __name__ == '__main__':
