@@ -162,7 +162,7 @@ def main():
         
         # Todo open an output file and write header, pass to process_frame
         output = open('output.dat', 'w')
-        output.write('{0:10} {1:10}\n'.format('star - sky', 'sky'))
+        output.write('#{0:10} {1:10}\n'.format('star - sky', 'sky'))
         
         for filename in filtered:
             print filename
