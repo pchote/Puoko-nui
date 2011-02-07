@@ -131,6 +131,7 @@ def line_circle_intersection(c, p1, p2):
     
     # Solve for line parameter x.
     x1,x2 = quadratic(a,b,c)
+    print "parameters", x1,x2
     # The solution we want will be 0<=x<=1
     x = x1 if (x1 >= 0 and x1 <= 1) else x2
     
@@ -139,33 +140,82 @@ def line_circle_intersection(c, p1, p2):
 # Calculate the area enclosed between a chord defined by p1 and p2 (both x,y)
 # and the edge of a circle c (x,y,r)
 #   Returns the area
-def chord_area(p1, p2, c):
+def chord_area(c, p1, p2):
     r = c[2]
     # b is 0.5*the length of the chord defined by p1 and p2
     b = math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)/2
     return r*r*math.asin(b/r) - b*math.sqrt(r*r-b*b)
 
+# Calculate the area of a polygon defined by a list of points
+#   Returns the area
+def polygon_area(p):
+    a = 0
+    n = len(p)
+    for i in range(0,n,1):
+        a += p[(i-1)%n][0]*p[i][1] - p[i][0]*p[(i-1)%n][1]
+    return abs(a/2)
+
 # Integrates the flux within the specified aperture, 
 # accounting for partially covered pixels.
-#   Takes the x,y and radius coordinates of the center of the aperture
-#      and the image data
+#   Takes the aperture (x,y,r) and the image data (2d numpy array)
 #   Returns the contained flux (including background)
-def integrate_aperture(x,y,r1, imagedata):
+def integrate_aperture(c, imagedata):
+    boxx = math.floor(c[0])
+    boxy = math.floor(c[1])
+    boxr = math.floor(c[2]) + 1
+    x = c[0]
+    y = c[1]
+    r1 = c[2]
+    
     total = 0
-    for j in range(y-r1,y+r1,1):
-        for i in range(x-r1,x+r1,1):
+    for j in range(boxy-boxr,boxy+boxr,1):
+        for i in range(boxx-boxr,boxx+boxr,1):
             # Test 4 corners to see how much of pixel is contained
+            #           TL    BL    BR    TR
             corners = [[0,0],[0,1],[1,1],[1,0]]
-            hit = 0
-            for c in corners:
-                ii = x + c[0]
-                jj = y + c[1]
-                if (ii-i)**2 + (jj-j)**2 <= r1*r1:
-                    hit += 1
+            hit = [False,False,False,False]
+            hit_count = 0
             
+            for c in range(0,4,1):
+                ii = i + corners[c][0]
+                jj = j + corners[c][1]
+                if (ii-x)**2 + (jj-y)**2 <= r1*r1:
+                    hit[c] = True
+                    hit_count += 1
+            
+            if hit_count is 0:
+                continue
+            
+            if hit_count is 4:
+                total += imagedata[j,i]
+                continue
+            
+            if hit_count is 1:
+                # Find the vertex that is inside
+                inside = 0
+                for c in range(0,4,1):
+                    if hit[c] is True:
+                        inside = c
+                        break
+                
+                # Corner points
+                pbef = [i + corners[(inside-1)%4][0], j + corners[(inside-1)%4][1]]
+                pin = [i + corners[inside][0], j + corners[inside][1]]
+                paft = [i + corners[(inside+1)%4][0], j + corners[(inside+1)%4][1]]
+                
+                # Intersection points
+                x1 = line_circle_intersection([x,y,r1], pbef, pin)
+                x2 = line_circle_intersection([x,y,r1], pin, paft)
+                
+                # Area
+                total += (polygon_area([x1, pin, x2]) + chord_area([x, y, r1], x1, x2))*imagedata[j,i]
+                
+                continue
+            
+            
+            print "cheat: %d %d %d" % (i,j,hit_count)
             # Second attempt: Weight by the number of corners contained
-            total += (imagedata[j,i] * hit / 4)
-            #362,752,30,60
+            total += (imagedata[j,i] * hit_count / 4)
     return total
 
 
@@ -184,7 +234,7 @@ def process_frame(filename, datestart, exptime, imagedata, region, output, d):
     d.set("regions command {circle %f %f %d}" % (x+1,y+1,r1))
 
     # Evaluate star and sky intensities, normalised to / 1s
-    star_intensity = integrate_aperture(x,y,r1, imagedata) / exptime
+    star_intensity = integrate_aperture([x,y,r1], imagedata) / exptime
     sky_intensity = bg*math.pi*r1*r1 / exptime
     
     output.write('{0} {1} {2} {3:10f} {4:10f}\n'.format(filename, datestart, exptime, star_intensity - sky_intensity, sky_intensity))
@@ -218,10 +268,10 @@ def main():
             d.set_np2arr(imagedata,dtype=numpy.int32)
             
             # Promt the user for a region
-            if first:
-                region = prompt_region(d)
-                first = False
-            
+            #if first:
+            #    region = prompt_region(d)
+            #    first = False
+            region = [183,583,20,50]
             process_frame(filename, datestart, exptime, imagedata, region, output, d)
         
             hdulist.close()
