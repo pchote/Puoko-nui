@@ -26,6 +26,7 @@ def main():
     target = []
     comparison = []
     obstime = []
+    firstt = -1
     f = open("output_target.dat", "r")
     for line in f.readlines():
         if line[0] is '#':
@@ -34,9 +35,11 @@ def main():
         filename, date, starttime, exptime, star, sky = line.split()
         
         t = time.strptime("{0} {1}".format(date,starttime), "%Y-%m-%d %H:%M:%S")
-        
+        if (firstt == -1):
+            firstt = t
+            
         target.append(float(star))
-        obstime.append(calendar.timegm(t))
+        obstime.append(calendar.timegm(t) - calendar.timegm(firstt))
 
     f = open("output_comp.dat", "r")
     for line in f.readlines():

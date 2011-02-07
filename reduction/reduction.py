@@ -105,26 +105,68 @@ def calculate_background(x, y, r1, r2, imagedata):
     std = math.sqrt(numpy.mean(abs(masked - bg)**2))
     return bg, std
 
+# Calculates the two solutions of a quadratic equation
+#   Takes the coefficients in the form ax^2 + bx + c = 0
+def quadratic(a, b, c):
+    d = math.sqrt(b**2-4*a*c)
+    x1 = (-b + d)/(2*a)
+    x2 = (-b - d)/(2*a)
+    return x1,x2
+
+# Finds the intersection point of the line defined by p1 and p2 (both x,y)
+# with the circle c (x,y,r).
+#   Assumes that there is only one intersection (one point inside, one outside)
+#   Returns (x,y) of the intersection
+# See logbook 07/02/11 for calculation workthrough
+def line_circle_intersection(c, p1, p2):
+    # Line from p1 to p2
+    dp = p2[0] - p1[0], p2[1] - p1[1]
+    # Line from c to p1
+    dc = p1[0] - c[0], p1[1] - c[1]
+    
+    # Polynomial coefficients
+    a = dp[0]**2 + dp[1]**2
+    b = 2*(dc[0]*dp[0] + dc[1]*dp[1])
+    c = dc[0]**2 + dc[1]**2 - c[2]**2
+    
+    # Solve for line parameter x.
+    x1,x2 = quadratic(a,b,c)
+    # The solution we want will be 0<=x<=1
+    x = x1 if (x1 >= 0 and x1 <= 1) else x2
+    
+    return [p1[0]+x*dp[0], p1[1] + x*dp[1]]
+
+# Calculate the area enclosed between a chord defined by p1 and p2 (both x,y)
+# and the edge of a circle c (x,y,r)
+#   Returns the area
+def chord_area(p1, p2, c):
+    r = c[2]
+    # b is 0.5*the length of the chord defined by p1 and p2
+    b = math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)/2
+    return r*r*math.asin(b/r) - b*math.sqrt(r*r-b*b)
+
 # Integrates the flux within the specified aperture, 
 # accounting for partially covered pixels.
 #   Takes the x,y and radius coordinates of the center of the aperture
 #      and the image data
 #   Returns the contained flux (including background)
 def integrate_aperture(x,y,r1, imagedata):
-    # First attempt - only count pixels that are totally inside the region
-    x = math.floor(x)
-    y = math.floor(y)
-    r1 = math.floor(r1)
-    
-    mask = numpy.ones(imagedata.shape)
+    total = 0
     for j in range(y-r1,y+r1,1):
         for i in range(x-r1,x+r1,1):
-            d2 = (x-i)**2 + (y-j)**2
-            if d2 <= r1*r1:
-                mask[j,i] = 0
-    
-    masked = numpy.ma.masked_array(imagedata, mask=mask)
-    return numpy.sum(masked)
+            # Test 4 corners to see how much of pixel is contained
+            corners = [[0,0],[0,1],[1,1],[1,0]]
+            hit = 0
+            for c in corners:
+                ii = x + c[0]
+                jj = y + c[1]
+                if (ii-i)**2 + (jj-j)**2 <= r1*r1:
+                    hit += 1
+            
+            # Second attempt: Weight by the number of corners contained
+            total += (imagedata[j,i] * hit / 4)
+            #362,752,30,60
+    return total
 
 
 def process_frame(filename, datestart, exptime, imagedata, region, output, d):
@@ -139,7 +181,7 @@ def process_frame(filename, datestart, exptime, imagedata, region, output, d):
     d.set('crosshair %f %f' % (x+1,y+1))
     print x,y
     d.set("regions deleteall")
-    d.set("regions command {circle %d %d %d}" % (x+1,y+1,r1))
+    d.set("regions command {circle %f %f %d}" % (x+1,y+1,r1))
 
     # Evaluate star and sky intensities, normalised to / 1s
     star_intensity = integrate_aperture(x,y,r1, imagedata) / exptime
