@@ -131,7 +131,7 @@ def line_circle_intersection(c, p1, p2):
     
     # Solve for line parameter x.
     x1,x2 = quadratic(a,b,c)
-    print "parameters", x1,x2
+
     # The solution we want will be 0<=x<=1
     x = x1 if (x1 >= 0 and x1 <= 1) else x2
     
@@ -159,13 +159,13 @@ def polygon_area(p):
 # accounting for partially covered pixels.
 #   Takes the aperture (x,y,r) and the image data (2d numpy array)
 #   Returns the contained flux (including background)
-def integrate_aperture(c, imagedata):
-    boxx = math.floor(c[0])
-    boxy = math.floor(c[1])
-    boxr = math.floor(c[2]) + 1
-    x = c[0]
-    y = c[1]
-    r1 = c[2]
+def integrate_aperture(aperture, imagedata):
+    boxx = math.floor(aperture[0])
+    boxy = math.floor(aperture[1])
+    boxr = math.floor(aperture[2]) + 1
+    x = aperture[0]
+    y = aperture[1]
+    r1 = aperture[2]
     
     total = 0
     for j in range(boxy-boxr,boxy+boxr,1):
@@ -186,10 +186,6 @@ def integrate_aperture(c, imagedata):
             if hit_count is 0:
                 continue
             
-            if hit_count is 4:
-                total += imagedata[j,i]
-                continue
-            
             if hit_count is 1:
                 # Find the vertex that is inside
                 inside = 0
@@ -208,14 +204,52 @@ def integrate_aperture(c, imagedata):
                 x2 = line_circle_intersection([x,y,r1], pin, paft)
                 
                 # Area
-                total += (polygon_area([x1, pin, x2]) + chord_area([x, y, r1], x1, x2))*imagedata[j,i]
-                
-                continue
+                total += (polygon_area([x1, pin, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
+                            
+            elif hit_count is 2:
+                # Find the vertex that is inside
+                first = 0
+                for c in range(0,4,1):
+                    if hit[c] is True and hit[(c+1)%4] is True:
+                        first = c
+                        break
+
+                # Corner points
+                pbef = [i + corners[(first-1)%4][0], j + corners[(first-1)%4][1]]
+                p1 = [i + corners[first][0], j + corners[first][1]]
+                p2 = [i + corners[(first+1)%4][0], j + corners[(first+1)%4][1]]
+                paft = [i + corners[(first+2)%4][0], j + corners[(first+2)%4][1]]
+
+                # Intersection points
+                x1 = line_circle_intersection([x,y,r1], pbef, p1)
+                x2 = line_circle_intersection([x,y,r1], p2, paft)
+
+                # Area
+                total += (polygon_area([x1, p1, p2, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
             
-            
-            print "cheat: %d %d %d" % (i,j,hit_count)
-            # Second attempt: Weight by the number of corners contained
-            total += (imagedata[j,i] * hit_count / 4)
+            elif hit_count is 3:
+                # Find the vertex that is outside
+                outside = 0
+                for c in range(0,4,1):
+                    if hit[c] is False:
+                        outside = c
+                        break
+
+                # Corner points
+                pbef = [i + corners[(outside-1)%4][0], j + corners[(outside-1)%4][1]]
+                pout = [i + corners[outside][0], j + corners[outside][1]]
+                paft = [i + corners[(outside+1)%4][0], j + corners[(outside+1)%4][1]]
+
+                # Intersection points
+                x1 = line_circle_intersection([x,y,r1], pbef, pout)
+                x2 = line_circle_intersection([x,y,r1], pout, paft)
+
+                # Area
+                total += (1 - polygon_area([x1, pout, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
+                        
+            elif hit_count is 4:
+                total += imagedata[j,i]
+        
     return total
 
 
