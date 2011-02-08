@@ -160,14 +160,14 @@ def polygon_area(p):
 #   Takes the aperture (x,y,r) and the image data (2d numpy array)
 #   Returns the contained flux (including background)
 def integrate_aperture(aperture, imagedata):
-    boxx = math.floor(aperture[0])
-    boxy = math.floor(aperture[1])
-    boxr = math.floor(aperture[2]) + 1
+    boxx = int(aperture[0])
+    boxy = int(aperture[1])
+    boxr = int(aperture[2]) + 1
     x = aperture[0]
     y = aperture[1]
     r1 = aperture[2]
-    
     total = 0
+    
     for j in range(boxy-boxr,boxy+boxr,1):
         for i in range(boxx-boxr,boxx+boxr,1):
             # Test 4 corners to see how much of pixel is contained
@@ -249,7 +249,6 @@ def integrate_aperture(aperture, imagedata):
                         
             elif hit_count is 4:
                 total += imagedata[j,i]
-        
     return total
 
 
@@ -302,10 +301,9 @@ def main():
             d.set_np2arr(imagedata,dtype=numpy.int32)
             
             # Promt the user for a region
-            #if first:
-            #    region = prompt_region(d)
-            #    first = False
-            region = [183,583,20,50]
+            if first:
+                region = prompt_region(d)
+                first = False
             process_frame(filename, datestart, exptime, imagedata, region, output, d)
         
             hdulist.close()

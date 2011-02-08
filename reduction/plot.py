@@ -52,9 +52,9 @@ def main():
     for i in range(0,len(target),1):
         display.append(20000*target[i]/comparison[i])
     
-    plt.plot(obstime,display)    
-    plt.plot(obstime,target)
-    plt.plot(obstime,comparison)
+    plt.plot(obstime,display, 'bx')    
+    plt.plot(obstime,target,'gx')
+    plt.plot(obstime,comparison,'rx')
     plt.show()
 
 if __name__ == '__main__':
