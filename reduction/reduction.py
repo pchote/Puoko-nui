@@ -56,14 +56,16 @@ def center_aperture(x, y, r1, bg, std, imagedata):
 # Takes the search annulus and imagedata
 # Returns the background intensity plus standard deviation
 def calculate_background(x, y, r1, r2, imagedata):
-    mask = numpy.ones(imagedata.shape)
+    mask = numpy.ones([2*r2, 2*r2])
+    data = numpy.empty([2*r2, 2*r2])
     for j in range(y-r2,y+r2,1):
         for i in range(x-r2,x+r2,1):
+            data[j-y+r2,i-x+r2] = imagedata[j,i]
             d2 = (x-i)**2 + (y-j)**2
             if (d2 > r1*r1 and d2 < r2*r2):
-                mask[j,i] = 0
+                mask[j-y+r2,i-x+r2] = 0
     
-    masked = numpy.ma.masked_array(imagedata, mask=mask)
+    masked = numpy.ma.masked_array(data, mask=mask)
     
     # Calculate the mode of the background
     bg = 3*numpy.mean(masked) - 2*numpy.ma.extras.median(masked)
