@@ -60,7 +60,8 @@ typedef struct
 	int hours;
 	int minutes;
 	int seconds;
-	int milliseconds;
+    int milliseconds;
+    bool locked
 } RangahauGPSTimestamp;
 
 /* Represents the GPS hardware */

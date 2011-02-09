@@ -265,7 +265,7 @@ GtkWidget *rangahau_status_panel(RangahauView *view)
 	field = gtk_label_new("Status:");
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,0,1);
-	field = gtk_label_new("TODO");
+	view->gpsstatus_label = gtk_label_new("");
 	gtk_misc_set_alignment(GTK_MISC(field), 0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 1,2,0,1);
 
@@ -367,7 +367,8 @@ gboolean update_gui_cb(gpointer data)
 		gpstime = gpsbuf;
 	}
 	gtk_label_set_label(GTK_LABEL(view->gpstime_label), gpstime);
-
+    gtk_label_set_label(GTK_LABEL(view->gpsstatus_label), ts.locked ? "Locked" : "Unlocked");
+    
 	/* Camera status */
 	char *label;
 	switch(view->camera->status)
