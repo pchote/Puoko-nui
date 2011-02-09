@@ -291,7 +291,7 @@ def main():
                 hdulist = pyfits.open(filename)
                 imagedata = hdulist[0].data
 
-                datestart = hdulist[0].header['GPSTIME']
+                datestart = hdulist[0].header['UTC-BEG'] if hdulist[0].header.has_key('UTC-BEG') else hdulist[0].header['GPSTIME']
                 exptime = int(hdulist[0].header['EXPTIME'])
                         
                 process_frame(filename, datestart, exptime, imagedata, region, output)

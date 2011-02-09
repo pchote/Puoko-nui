@@ -11,15 +11,7 @@ import os
 import time
 import calendar
 import fnmatch
-import copy
 import sys
-import pyfits
-import numpy
-import scipy.signal
-import ds9
-import types
-import math
-import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
     
 def main():
