@@ -11,46 +11,11 @@ intensity of a selection of stars """
 import os
 import fnmatch
 import sys
+import ds9
 import pyfits
 import numpy
-import scipy.signal
-import ds9
 import types
 import math
-import matplotlib.mlab as mlab
-import matplotlib.pyplot as plt
-
-# Prompts the user for a region to search
-#   Takes a ds9 object to preview the region in
-#   Returns the x,y,r1,r2 coordinates of the region
-def prompt_region(d):
-    x = y = r1 = r2 = -1
-    done = False
-    first = True
-    msg = "Enter x,y,r1,r2: "
-    while done == False:
-        args = raw_input(msg).split(',')            
-        if len(args) != 4 and (first or args != ['']):
-            msg = "Enter x,y,r1,r2: "
-            continue;
-        
-        if args == ['']:
-            break;
-        
-        x = int(args[0])-1
-        y = int(args[1])-1
-        r1 = int(args[2])
-        r2 = int(args[3])
-        
-        d.set("regions deleteall")
-        d.set("regions command {circle %d %d %d}" % (x+1,y+1,r1))
-        d.set("regions command {circle %d %d %d #background}" % (x+1,y+1,r2))
-        
-        msg = "Enter x,y,r1,r2 or press enter to confirm: "
-        first = False
-        print x,y,r1,r2
-    
-    return x, y, r1, r2
 
 # Find the center of the star within the inner circle
 #   Takes the search annulus and imagedata
@@ -100,6 +65,7 @@ def calculate_background(x, y, r1, r2, imagedata):
                 mask[j,i] = 0
     
     masked = numpy.ma.masked_array(imagedata, mask=mask)
+    
     # Calculate the mode of the background
     bg = 3*numpy.mean(masked) - 2*numpy.ma.extras.median(masked)
     std = math.sqrt(numpy.mean(abs(masked - bg)**2))
@@ -256,9 +222,7 @@ def process_frame(filename, datestart, exptime, imagedata, region, output, d):
     x,y,r1,r2 = region
 
     bg, std = calculate_background(x, y, r1, r2, imagedata)
-    print "Background level: %f" % bg
-    print "Standard Deviation: %f" % std
-    
+
     # Compute improved x,y
     x,y = center_aperture(x, y, r1, bg, std, imagedata)
     d.set('crosshair %f %f' % (x+1,y+1))
@@ -277,36 +241,66 @@ def process_frame(filename, datestart, exptime, imagedata, region, output, d):
     
 def main():
     # First argument gives the dir containing images, second the regex of the files to process 
-    if len(sys.argv) >= 2:
+    if len(sys.argv) >= 1:
         os.chdir(sys.argv[1])
+        regions = []
+        pattern = ""
+        try:
+            config = open('config.dat', 'r')
+            for line in config.readlines():
+                if line[0] is '#':
+                    continue
+                if line[:8] == "Pattern:":
+                    pattern = line[9:-1]
+                if line[:7] == "Region:":
+                    regions.append(eval(line[8:]))
+        except IOError as e:
+            print e
+            return 1
+        
         files = os.listdir('.')
         first = True
         region = [-1,-1,-1,-1]
-        filtered = fnmatch.filter(files, sys.argv[2])
+        print "searching pattern: {0}".format(pattern)
+        filtered = fnmatch.filter(files, pattern)
         print "Found %d files" % len(filtered)
         
-        # Todo open an output file and write header, pass to process_frame
-        output = open('output.dat', 'w')
-        output.write('#Filenamem, Datestart, Exptime, Star - Sky (normalised), Sky (normalised)\n')
-        
-        for filename in filtered:
-            print filename
-            hdulist = pyfits.open(filename)
-            imagedata = hdulist[0].data
+        for i in range(0,len(regions),1):    
+            region = regions[i]
+            processed = []
+            try:
+                # Load existing data
+                output = open('data-{0}.dat'.format(i), 'r+')
+                for line in output.readlines():
+                    if line[0] is '#':
+                        continue
+                    filename, date, starttime, exptime, star, sky = line.split()
+                    processed.append(filename)
+            
+            except IOError:
+                output = open('data-{0}.dat'.format(i), 'w')
+                # Write a header line if the file is empty
+                output.write('#Region: {0}\n'.format(region))
+                output.write('#Filename, Datestart, Exptime, Star - Sky (normalised), Sky (normalised)\n')
+            
+            for filename in filtered:
+                # Check if file has been reduced
+                if filename in processed:
+                    continue
+                
+                print filename
+                hdulist = pyfits.open(filename)
+                imagedata = hdulist[0].data
 
-            datestart = hdulist[0].header['GPSTIME']
-            exptime = int(hdulist[0].header['EXPTIME'])
+                datestart = hdulist[0].header['GPSTIME']
+                exptime = int(hdulist[0].header['EXPTIME'])
             
-            d = ds9.ds9('rangahau')
-            d.set_np2arr(imagedata,dtype=numpy.int32)
+                d = ds9.ds9('rangahau')
+                d.set_np2arr(imagedata,dtype=numpy.int32)
             
-            # Promt the user for a region
-            if first:
-                region = prompt_region(d)
-                first = False
-            process_frame(filename, datestart, exptime, imagedata, region, output, d)
+                process_frame(filename, datestart, exptime, imagedata, region, output, d)
         
-            hdulist.close()
+                hdulist.close()
     else:
         print 'No filename specified'
 
