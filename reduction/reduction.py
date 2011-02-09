@@ -254,6 +254,7 @@ def main():
             return 1
         
         files = os.listdir('.')
+        files.sort()
         first = True
         region = [-1,-1,-1,-1]
         print "searching pattern: {0}".format(pattern)
@@ -283,6 +284,7 @@ def main():
             for filename in filtered:
                 # Check if file has been reduced
                 if filename in processed:
+                    total_files -= 1
                     continue
                 
                 current_file += 1
@@ -290,12 +292,22 @@ def main():
                 
                 hdulist = pyfits.open(filename)
                 imagedata = hdulist[0].data
-
-                datestart = hdulist[0].header['UTC-BEG'] if hdulist[0].header.has_key('UTC-BEG') else hdulist[0].header['GPSTIME']
+                if hdulist[0].header.has_key('UTC-BEG'):
+                    datestart = hdulist[0].header['UTC-BEG']
+                elif hdulist[0].header.has_key('GPSTIME'):
+                    datestart = hdulist[0].header['GPSTIME'] 
+                elif hdulist[0].header.has_key('UTC'):
+                    datestart = hdulist[0].header['UTC'][:23] 
+                else:
+                    raise Exception('No valid time header found')
+                    
                 exptime = int(hdulist[0].header['EXPTIME'])
-                        
-                process_frame(filename, datestart, exptime, imagedata, region, output)
-        
+                try:
+                    process_frame(filename, datestart, exptime, imagedata, region, output)
+                except Exception as e:
+                    print "Error processing frame: {0}\n Skipping\n".format(e)
+                    output.write('{0} {1} {2} {3:10f} {4:10f}\n'.format(filename, datestart, exptime, 0, 0))
+                    output.flush()
                 hdulist.close()
     else:
         print 'No filename specified'
