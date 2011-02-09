@@ -23,39 +23,51 @@ import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
     
 def main():
-    target = []
-    comparison = []
-    obstime = []
-    firstt = -1
-    f = open("output_target.dat", "r")
-    for line in f.readlines():
-        if line[0] is '#':
-            continue
+    
+    if len(sys.argv) >= 1:
+        os.chdir(sys.argv[1])
+        files = os.listdir('.')
+        x = []
+        data = []
         
-        filename, date, starttime, exptime, star, sky = line.split()
-        
-        t = time.strptime("{0} {1}".format(date,starttime), "%Y-%m-%d %H:%M:%S")
-        if (firstt == -1):
-            firstt = t
+        first = True
+        firstt = -1
+        for filename in fnmatch.filter(files, "data-*.dat"):
+            f = open(filename, "r")
+            temp = []
+            for line in f.readlines():
+                if line[0] is '#':
+                    continue
+                filename, date, starttime, exptime, star, sky = line.split()
+                temp.append(float(star))
+                if first is True:
+                    t = time.strptime("{0} {1}".format(date,starttime), "%Y-%m-%d %H:%M:%S")
+                    if (firstt == -1):
+                        firstt = t
+                    
+                    x.append(calendar.timegm(t) - calendar.timegm(firstt))
             
-        target.append(float(star))
-        obstime.append(calendar.timegm(t) - calendar.timegm(firstt))
-
-    f = open("output_comp.dat", "r")
-    for line in f.readlines():
-        if line[0] is '#':
-            continue
-        filename, date, starttime, exptime, star, sky = line.split()
-        comparison.append(float(star))
-    
-    display = []
-    for i in range(0,len(target),1):
-        display.append(20000*target[i]/comparison[i])
-    
-    plt.plot(obstime,display, 'bx')    
-    plt.plot(obstime,target,'gx')
-    plt.plot(obstime,comparison,'rx')
-    plt.show()
+            data.append(temp)
+            first = False
+        
+        for y in data:
+            plt.plot(x, y, 'x')
+       
+        plt.show()
+        
+        
+        # Plot the target divided by the average of the comparison
+        # Dirty hack
+        display = []
+        for i in range(0,len(data[0]),1):
+            div = 0
+            for j in range(1,len(data),1):
+                div += data[j][i]
+            div /= len(data)-1
+            display.append(data[0][i] / div)
+        # 
+        plt.plot(x, display, 'x')
+        plt.show()
 
 if __name__ == '__main__':
     main()

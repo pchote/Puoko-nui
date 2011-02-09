@@ -6,7 +6,7 @@
 
 
 """Online reduction configuration script for rangahau.
- Prompts the user for configuration details for a reduction session."""
+ Prompts the user for configuration details for a reduction session"""
 import os
 import fnmatch
 import sys
