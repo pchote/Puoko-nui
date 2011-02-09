@@ -266,8 +266,8 @@ GtkWidget *rangahau_status_panel(RangahauView *view)
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,0,1);
 	view->gpsstatus_label = gtk_label_new("");
-	gtk_misc_set_alignment(GTK_MISC(field), 0, 0.5);
-	gtk_table_attach_defaults(GTK_TABLE(table), field, 1,2,0,1);
+	gtk_misc_set_alignment(GTK_MISC(view->gpsstatus_label), 0, 0.5);
+	gtk_table_attach_defaults(GTK_TABLE(table), view->gpsstatus_label, 1,2,0,1);
 
 	field = gtk_label_new("GPS Time:");
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);

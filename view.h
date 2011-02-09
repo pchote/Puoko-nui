@@ -27,7 +27,7 @@ typedef struct
 	GtkWidget *display_checkbox;
 
 	/* Hardware panel */
-	GtkWidget *gpsstatus_label
+	GtkWidget *gpsstatus_label;
 	GtkWidget *gpstime_label;
 	GtkWidget *pctime_label;
 	GtkWidget *camerastatus_label;

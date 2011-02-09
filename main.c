@@ -90,7 +90,7 @@ void rangahau_save_frame(RangahauFrame *frame)
 
 	sprintf(gpstimebuf, "%02d:%02d:%02d.%03d", end.hours, end.minutes, end.seconds, end.milliseconds);
     fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
-	fits_update_key(fptr, TSTRING, "GPS-LOCK", &start.locked, "GPS time locked", &status);
+	fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
 
 	char timebuf[15];
 	time_t pcend = time(NULL);
@@ -107,7 +107,7 @@ void rangahau_save_frame(RangahauFrame *frame)
 
     /* Camera temperature */
     sprintf(timebuf, "%0.02f",(float)camera.temperature/100);
-	fits_update_key(fptr, TSTRING, "CAM-TEMP", (void *)timebuf, "Camera temperature", &status);
+	fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)timebuf, "CCD temperature at end of exposure in deg C", &status);
 
 	/* Write the frame data to the image */
 	fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);

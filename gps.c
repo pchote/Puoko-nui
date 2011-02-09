@@ -260,15 +260,16 @@ bool rangahau_gps_get_gpstime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTi
 		response = rangahau_gps_read(gps, timeoutMillis);
 		pthread_mutex_unlock(&gps->commLock);
 
-		if (response.type == GETGPSTIME && (response.error == NO_ERROR || response.error == UTC_ACCESS_ON_UPDATE))
+		if (response.type == GETGPSTIME && (response.error == NO_ERROR || response.error == GPS_TIME_NOT_LOCKED))
 		{
+            ret.locked = (response.error == NO_ERROR);
 			if (sscanf((const char *)response.data, "%d:%d:%d:%d:%d:%d:%d", &ret.year, &ret.month, &ret.day, &ret.hours, &ret.minutes, &ret.seconds, &ret.milliseconds) == 7)
 			{
 				*timestamp = ret;
 				return true;
 			}
-            timestamp.locked = (response.error == UTC_ACCESS_ON_UPDATE);
-			fprintf(stderr, "Malformed time string: %s",(char *)response.data);
+
+			fprintf(stderr, "Malformed time string: `%s`\n",(char *)response.data);
 		}
 	} while (response.error & UTC_ACCESS_ON_UPDATE);
 
@@ -293,16 +294,16 @@ bool rangahau_gps_get_synctime(RangahauGPS *gps, int timeoutMillis, RangahauGPST
 		rangahau_gps_send_command(gps, GETSYNCTIME);
 		response = rangahau_gps_read(gps, timeoutMillis);
 		pthread_mutex_unlock(&gps->commLock);
-		if (response.type == GETSYNCTIME && (response.error == NO_ERROR || response.error == EOF_ACCESS_ON_UPDATE))
+		if (response.type == GETSYNCTIME && (response.error == NO_ERROR || response.error == GPS_TIME_NOT_LOCKED))
 		{
+			ret.locked = (response.error == NO_ERROR);
 			if (sscanf((const char *)response.data, "%d:%d:%d:%d:%d:%d:%d", &ret.year, &ret.month, &ret.day, &ret.hours, &ret.minutes, &ret.seconds, &ret.milliseconds) == 7)
 			{
 				*timestamp = ret;
 				return true;
 			}
-			timestamp.locked = (response.error == EOF_ACCESS_ON_UPDATE);
             
-			fprintf(stderr, "Malformed time string: %s",(char *)response.data);
+			fprintf(stderr, "Malformed time string: `%s`\n",(char *)response.data);
 		}
 	} while (response.error & EOF_ACCESS_ON_UPDATE);
 
