@@ -11,7 +11,6 @@ intensity of a selection of stars """
 import os
 import fnmatch
 import sys
-import ds9
 import pyfits
 import numpy
 import types
@@ -218,17 +217,13 @@ def integrate_aperture(aperture, imagedata):
     return total
 
 
-def process_frame(filename, datestart, exptime, imagedata, region, output, d):
+def process_frame(filename, datestart, exptime, imagedata, region, output):
     x,y,r1,r2 = region
 
     bg, std = calculate_background(x, y, r1, r2, imagedata)
 
     # Compute improved x,y
     x,y = center_aperture(x, y, r1, bg, std, imagedata)
-    d.set('crosshair %f %f' % (x+1,y+1))
-    print x,y
-    d.set("regions deleteall")
-    d.set("regions command {circle %f %f %d}" % (x+1,y+1,r1))
 
     # Evaluate star and sky intensities, normalised to / 1s
     star_intensity = integrate_aperture([x,y,r1], imagedata) / exptime
@@ -236,8 +231,6 @@ def process_frame(filename, datestart, exptime, imagedata, region, output, d):
     
     output.write('{0} {1} {2} {3:10f} {4:10f}\n'.format(filename, datestart, exptime, star_intensity - sky_intensity, sky_intensity))
     output.flush()
-    print star_intensity, sky_intensity, star_intensity - sky_intensity
-    
     
 def main():
     # First argument gives the dir containing images, second the regex of the files to process 
@@ -265,6 +258,8 @@ def main():
         filtered = fnmatch.filter(files, pattern)
         print "Found %d files" % len(filtered)
         
+        current_file = 0
+        total_files = len(regions) * len(filtered)
         for i in range(0,len(regions),1):    
             region = regions[i]
             processed = []
@@ -288,17 +283,16 @@ def main():
                 if filename in processed:
                     continue
                 
-                print filename
+                current_file += 1
+                print "{1} / {2}: {0}".format(filename, current_file, total_files)
+                
                 hdulist = pyfits.open(filename)
                 imagedata = hdulist[0].data
 
                 datestart = hdulist[0].header['GPSTIME']
                 exptime = int(hdulist[0].header['EXPTIME'])
-            
-                d = ds9.ds9('rangahau')
-                d.set_np2arr(imagedata,dtype=numpy.int32)
-            
-                process_frame(filename, datestart, exptime, imagedata, region, output, d)
+                        
+                process_frame(filename, datestart, exptime, imagedata, region, output)
         
                 hdulist.close()
     else:
