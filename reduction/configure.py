@@ -61,6 +61,7 @@ def main():
         os.chdir(sys.argv[1])
         pattern = sys.argv[2]
         files = os.listdir('.')
+        files.sort()
         first = True
         region = [-1,-1,-1,-1]
         filtered = fnmatch.filter(files, pattern)

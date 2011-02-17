@@ -19,75 +19,56 @@ from Numeric import *
 def main():
     if len(sys.argv) >= 1:
         os.chdir(sys.argv[1])
-        files = os.listdir('.')
-        x = []
-        reltime = []
-        data = []
+        # Convert the filename column to zeros
+        data = numpy.loadtxt("data.dat", converters={-1: lambda s: 0.0})
+       
+        # first col is time, last col is filename.
+        numstars = (numpy.size(data, 1) - 2) / 2
 
-        files = fnmatch.filter(files, "data-*.dat")
+
+        # Plot the entire data set
+
+        # Extract star data
+        stardata = data[:,1:2*numstars+1:2]
+        time = data[:,0]
         
-        first = True
-        for filename in files:
-            f = open(filename, "r")
-            temp = []
-            for line in f.readlines():
-                if line[0] is '#':
-                    continue
-                filename, date, starttime, exptime, star, sky = line.split()
-                temp.append(float(star))
-                if first is True:
-                    t = time.strptime("{0} {1}".format(date,starttime), "%Y-%m-%d %H:%M:%S.%f")
-                    reltime.append(float(calendar.timegm(t))/60)
-                    x.append(calendar.timegm(t))
-            
-            data.append(temp)
-            first = False
         
-        for i in range(0,len(x),1):
-            reltime[i] = reltime[-1] - reltime[i]
-
-
+        xrange = (numpy.min(time), numpy.max(time))
+        yrange = (numpy.min(stardata), numpy.max(stardata))
+        
+        # Plot all data
         pgbeg("9/XSERVE",1,1)
 
-
-        # Plot a truncated data set
-        maxy = 0
-        for y in data:
-            maxy = max(maxy,max(y))
-
-        # Plot the target divided by the average of the comparison
-        display = numpy.empty([len(x)])
-        for i in range(0,len(data[0]),1):
-            div = 0
-            for j in range(1,len(data),1):
-                div += data[j][i]
-            div /= len(data)-1
-            display[i] = 0 if div < 1 else data[0][i] / div
+        pgsvp(0.075,0.95,0.55,0.9)
+        pgswin(xrange[0], xrange[1], yrange[0], yrange[1])
+        pgbox("bctn",0,0, "bctn",0,0)
+        pglab("Time (s)", "Absolute Counts (ADU / s)", "Total data")
+        for i in range(0,numpy.size(stardata, 1)):
+            pgsci(i+1)
+            pgpt(array(time), array(stardata[:,i]), 17)
 
 
-        mean = numpy.mean(display)
-        std = numpy.std(display)
 
-        # Show the last 15 minutes of data
-        pgsvp(0.075,0.95,0.5,0.9)
-        pgswin(0,15,0,maxy*1.1)
-        pgbox("bc",0,0, "bctn",0,0)
-        pglab("", "Absolute Counts", "Last 15 minutes")
-        for y in range(0,len(data),1):
-            pgsci(y+2)
-            pgpt(array(reltime), array(data[y]), 17)
+        # Select the data in the last 20 min
+        timelimit = 20
+        time2 = [(xrange[1] - t)/60 for t in time]
+        # Used only for filtering max/min
+        stardata2 = stardata[[i for i,t in enumerate(time2) if t < timelimit],:]
+        xrange2 = (0, timelimit)
+        yrange2 = (numpy.min(stardata2), numpy.max(stardata2))
 
-        mean = numpy.mean(display)
-        std = numpy.std(display)
-
+        # Plot last 15 min
         pgsci(1)
-        pgsvp(0.075,0.95,0.1,0.5)
-        pgswin(0,15,mean-3*std,mean+3*std)
-        pgbox("bcstn",0,0, "bctn",0,0)
-        pglab("Time passed (min)", "Target / Comparisons", "")
-        pgpt(array(reltime), array(display), 17)
+        pgsvp(0.075,0.95,0.1,0.45)
+        pgswin(xrange2[0], xrange2[1], yrange2[0], yrange2[1])
+        pgbox("bctn",0,0, "bctn",0,0)
+        pglab("Time passed (min)", "Absolute Counts (ADU / s)", "Total data")
+        for i in range(0,numpy.size(stardata, 1)):
+            pgsci(i+1)
+            pgpt(array(time2), array(stardata[:,i]), 17)
 
         pgend()
-
+        #print numstars
 if __name__ == '__main__':
     main()
+

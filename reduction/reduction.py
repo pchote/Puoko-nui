@@ -292,7 +292,7 @@ def main():
             else:
                 raise Exception('No valid time header found')
             
-            startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S"))
+            startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S.%f"))
             
             exptime = int(hdulist[0].header['EXPTIME'])
             data.write('{0} '.format(startdate - refdate))
