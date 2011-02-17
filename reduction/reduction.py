@@ -15,6 +15,9 @@ import pyfits
 import numpy
 import types
 import math
+import time
+import calendar
+
 
 # Find the center of the star within the inner circle
 #   Takes the search annulus and imagedata
@@ -219,7 +222,7 @@ def integrate_aperture(aperture, imagedata):
     return total
 
 
-def process_frame(filename, datestart, exptime, imagedata, region, output):
+def process_frame(filename, datestart, exptime, imagedata, region):
     x,y,r1,r2 = region
 
     bg, std = calculate_background(x, y, r1, r2, imagedata)
@@ -231,24 +234,30 @@ def process_frame(filename, datestart, exptime, imagedata, region, output):
     star_intensity = integrate_aperture([x,y,r1], imagedata) / exptime
     sky_intensity = bg*math.pi*r1*r1 / exptime
     
-    output.write('{0} {1} {2} {3:10f} {4:10f}\n'.format(filename, datestart, exptime, star_intensity - sky_intensity, sky_intensity))
-    output.flush()
+    return star_intensity - sky_intensity, sky_intensity
     
 def main():
     # First argument gives the dir containing images, second the regex of the files to process 
     if len(sys.argv) >= 1:
         os.chdir(sys.argv[1])
         regions = []
+        processed = []
         pattern = ""
         try:
-            config = open('config.dat', 'r')
-            for line in config.readlines():
-                if line[0] is '#':
+            data = open('data.dat', 'r+')
+            for line in data.readlines():
+                if line[:10] == "# Pattern:":
+                    pattern = line[11:-1]
+                elif line[:9] == "# Region:":
+                    regions.append(eval(line[10:]))
+                elif line[:12] == "# Startdate:":
+                    refdate = calendar.timegm(time.strptime(line[13:-1], "%Y-%m-%d %H:%M:%S"))
+                elif line[0] is '#':
                     continue
-                if line[:8] == "Pattern:":
-                    pattern = line[9:-1]
-                if line[:7] == "Region:":
-                    regions.append(eval(line[8:]))
+                else:
+                    # Assume that any other lines are reduced data files
+                    # Last element of the line is the filename
+                    processed.append(line.split()[-1])
         except IOError as e:
             print e
             return 1
@@ -256,59 +265,50 @@ def main():
         files = os.listdir('.')
         files.sort()
         first = True
-        region = [-1,-1,-1,-1]
         print "searching pattern: {0}".format(pattern)
         filtered = fnmatch.filter(files, pattern)
         print "Found %d files" % len(filtered)
         
         current_file = 0
-        total_files = len(regions) * len(filtered)
-        for i in range(0,len(regions),1):    
-            region = regions[i]
-            processed = []
-            try:
-                # Load existing data
-                output = open('data-{0}.dat'.format(i), 'r+')
-                for line in output.readlines():
-                    if line[0] is '#':
-                        continue
-                    filename, date, starttime, exptime, star, sky = line.split()
-                    processed.append(filename)
-            
-            except IOError:
-                output = open('data-{0}.dat'.format(i), 'w')
-                # Write a header line if the file is empty
-                output.write('#Region: {0}\n'.format(region))
-                output.write('#Filename, Datestart, Exptime, Star - Sky (normalised), Sky (normalised)\n')
-            
-            for filename in filtered:
-                # Check if file has been reduced
-                if filename in processed:
-                    total_files -= 1
-                    continue
-                
-                current_file += 1
-                print "{1} / {2}: {0}".format(filename, current_file, total_files)
-                
-                hdulist = pyfits.open(filename)
-                imagedata = hdulist[0].data
-                if hdulist[0].header.has_key('UTC-BEG'):
-                    datestart = hdulist[0].header['UTC-BEG']
-                elif hdulist[0].header.has_key('GPSTIME'):
-                    datestart = hdulist[0].header['GPSTIME'] 
-                elif hdulist[0].header.has_key('UTC'):
-                    datestart = hdulist[0].header['UTC'][:23] 
-                else:
-                    raise Exception('No valid time header found')
+        total_files = len(filtered)
                     
-                exptime = int(hdulist[0].header['EXPTIME'])
+        for filename in filtered:
+            current_file += 1
+            
+            # Check if file has been reduced
+            if filename in processed:
+                continue
+            
+            print "{1} / {2}: {0}".format(filename, current_file, total_files)
+            
+            hdulist = pyfits.open(filename)
+            imagedata = hdulist[0].data
+            if hdulist[0].header.has_key('UTC-BEG'):
+                datestart = hdulist[0].header['UTC-BEG']
+            elif hdulist[0].header.has_key('GPSTIME'):
+                datestart = hdulist[0].header['GPSTIME'] 
+            elif hdulist[0].header.has_key('UTC'):
+                datestart = hdulist[0].header['UTC'][:23] 
+            else:
+                raise Exception('No valid time header found')
+                
+            startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S"))
+            
+            exptime = int(hdulist[0].header['EXPTIME'])
+            data.write('{0} '.format(startdate - refdate))
+            
+            for region in regions:
                 try:
-                    process_frame(filename, datestart, exptime, imagedata, region, output)
+                    star, sky = process_frame(filename, datestart, exptime, imagedata, region)
+                    data.write('{0:10f} {1:10f} '.format(star, sky))
                 except Exception as e:
-                    print "Error processing frame: {0}\n Skipping\n".format(e)
-                    output.write('{0} {1} {2} {3:10f} {4:10f}\n'.format(filename, datestart, exptime, 0, 0))
-                    output.flush()
-                hdulist.close()
+                    print "Error processing frame: {0}\n".format(e)
+                    data.write('0 0 ')
+                
+            data.write('{0}\n'.format(filename))
+            data.flush()
+            hdulist.close()
+        data.close()
     else:
         print 'No filename specified'
 

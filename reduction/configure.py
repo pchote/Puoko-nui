@@ -68,9 +68,9 @@ def main():
         if filtered > 0:
             filename = filtered[0]
             # Todo open an output file and write header, pass to process_frame
-            output = open('config.dat', 'w')
-            output.write('# Online reduction config file\n')
-            output.write('Pattern: {0}\n'.format(pattern))
+            output = open('data.dat', 'w')
+            output.write('# Rangahau Online reduction output\n')
+            output.write('# Pattern: {0}\n'.format(pattern))
         
             print filename
             hdulist = pyfits.open(filename)
@@ -90,7 +90,18 @@ def main():
             
             # Write regions to config file
             for r in regions:
-                output.write('Region: {0}\n'.format(r))
+                output.write('# Region: {0}\n'.format(r))
+                
+            if hdulist[0].header.has_key('UTC-BEG'):
+                datestart = hdulist[0].header['UTC-BEG']
+            elif hdulist[0].header.has_key('GPSTIME'):
+                datestart = hdulist[0].header['GPSTIME'] 
+            elif hdulist[0].header.has_key('UTC'):
+                datestart = hdulist[0].header['UTC'][:23] 
+            else:
+                raise Exception('No valid time header found')
+            
+            output.write('# Startdate: {0}\n'.format(datestart))
             output.close()
             hdulist.close()
     else:
