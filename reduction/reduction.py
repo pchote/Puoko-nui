@@ -291,7 +291,7 @@ def main():
                 datestart = hdulist[0].header['UTC'][:23] 
             else:
                 raise Exception('No valid time header found')
-                
+            
             startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S"))
             
             exptime = int(hdulist[0].header['EXPTIME'])

@@ -116,6 +116,9 @@ void rangahau_save_frame(RangahauFrame *frame)
 
 	/* print out any error messages */
 	fits_report_error(stderr, status);
+    char cmd[PATH_MAX];
+    sprintf(cmd,"./frame_available.sh %s&",filepath);
+    system(cmd);
 }
 
 void rangahau_preview_frame(RangahauFrame *frame)
