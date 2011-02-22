@@ -161,10 +161,18 @@ void rangahau_preview_frame(RangahauFrame *frame)
 	free(fitsbuf);
 }
 
+bool first_frame = false;
 /* Called when the acquisition thread has downloaded a frame
  * Note: this runs in the acquisition thread *not* the main thread. */
 void rangahau_frame_downloaded_cb(RangahauFrame *frame)
 {
+	/* When starting a run, the first frame will not have a valid exposure time */
+	if (first_frame)
+    {
+        first_frame = false;
+        return;
+    }
+    
 	printf("Frame downloaded\n");
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox)))
 	{
@@ -201,6 +209,7 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 			rangahau_die("Error setting exposure time. Expected %d, was %d\n", exptime, buf);	
 		
 		printf("Set exposure time to %d\n", exptime);
+        first_frame = true;
 
 		/* Start acquisition */
 		camera.acquire_frames = TRUE;
