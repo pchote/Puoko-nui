@@ -73,27 +73,31 @@ void rangahau_gps_init(RangahauGPS *gps)
 		rangahau_die("device %s is already open @ %s:%d\n", gps->device->filename, __FILE__, __LINE__);
 
 	gps->context = ftdi_new();
+    if (gps->context == NULL)
+        rangahau_die("ftdi_new failed");
+
+
 	int status = ftdi_init(gps->context);
-	check_ftdi("ftdi_init() returned an error code", __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
 	// Prepare the device for use with libftdi library calls.
 	status = ftdi_usb_open_dev(gps->context, gps->device);
-	check_ftdi("ftdi_usb_open_dev() returned an error code", __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
 	//ftdi_enable_bitbang(pContext, 0xFF);
 
 	status = ftdi_set_baudrate(gps->context, 115200);
-	check_ftdi("ftdi_set_baudrate() returned an error code", __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
 	status = ftdi_set_line_property(gps->context, BITS_8, STOP_BIT_1, NONE);
-	check_ftdi("ftdi_set_line_property() returned an error code", __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
 	status = ftdi_setflowctrl(gps->context, SIO_DISABLE_FLOW_CTRL);
-	check_ftdi("ftdi_setflowctrl() returned an error code", __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
 	unsigned char latency = 1; // the latency in milliseconds before partially full bit buffers are sent.
 	status = ftdi_set_latency_timer(gps->context, latency);
-	check_ftdi("ftdi_set_latency_timer() returned an error code", __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 	pthread_mutex_unlock(&gps->commLock);
 }
 
