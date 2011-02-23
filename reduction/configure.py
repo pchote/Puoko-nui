@@ -94,7 +94,7 @@ def main():
                 output.write('# Region: {0}\n'.format(r))
                 
             if hdulist[0].header.has_key('UTC-BEG'):
-                datestart = hdulist[0].header['UTC-BEG']
+                datestart = hdulist[0].header['UTC-DATE'] + ' ' + hdulist[0].header['UTC-BEG']
             elif hdulist[0].header.has_key('GPSTIME'):
                 datestart = hdulist[0].header['GPSTIME'] 
             elif hdulist[0].header.has_key('UTC'):
