@@ -243,6 +243,7 @@ def main():
         regions = []
         processed = []
         pattern = ""
+        dark = []
         try:
             data = open('data.dat', 'r+')
             for line in data.readlines():
@@ -252,6 +253,10 @@ def main():
                     regions.append(eval(line[10:]))
                 elif line[:12] == "# Startdate:":
                     refdate = calendar.timegm(time.strptime(line[13:-1], "%Y-%m-%d %H:%M:%S"))
+                elif line[:15] == "# DarkTemplate:":
+                    darkhdu = pyfits.open(line[16:-1])
+                    dark = darkhdu[0].data
+                    darkhdu.close()
                 elif line[0] is '#':
                     continue
                 else:
@@ -297,6 +302,9 @@ def main():
             exptime = int(hdulist[0].header['EXPTIME'])
             data.write('{0} '.format(startdate - refdate))
             
+            if dark is not []:
+                imagedata -= dark
+
             for region in regions:
                 try:
                     star, sky = process_frame(filename, datestart, exptime, imagedata, region)

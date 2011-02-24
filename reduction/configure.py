@@ -14,6 +14,9 @@ import pyfits
 import numpy
 import ds9
 
+import matplotlib.mlab as mlab
+import matplotlib.pyplot as plt
+
 # Prompts the user for a region to search
 #   Takes a ds9 object to preview the region in
 #   Returns the x,y,r1,r2 coordinates of the region
@@ -55,11 +58,40 @@ def prompt_region(d, regions):
             return -1
     return x, y, r1, r2
 
+
+# Calculate an average dark frame in adu/s
+def create_dark(filepattern):
+    files = os.listdir('.')
+    files.sort()
+    if os.path.exists('master-dark.fits'):
+        return
+
+    print "Calculating master dark frame"
+
+    frames = fnmatch.filter(files, filepattern)
+    hdulist = pyfits.open(frames[0])
+    total = hdulist[0].data
+    hdulist.close()
+    for i in range(1,len(frames)):
+        hdulist = pyfits.open(frames[i])
+        total += hdulist[0].data
+        hdulist.close()
+    total /= len(frames)
+
+    hdu = pyfits.PrimaryHDU(total)
+    hdu.writeto('master-dark.fits')
+
 def main():
     # First argument gives the dir containing images, second the regex of the files to process 
     if len(sys.argv) >= 2:
         os.chdir(sys.argv[1])
         pattern = sys.argv[2]
+
+
+        # Create a master dark frame
+        darkpattern = sys.argv[3]
+        create_dark(darkpattern)
+        
         files = os.listdir('.')
         files.sort()
         first = True
@@ -67,14 +99,12 @@ def main():
         filtered = fnmatch.filter(files, pattern)
         print "Found %d files" % len(filtered)
         if filtered > 0:
-            filename = filtered[0]
-            # Todo open an output file and write header, pass to process_frame
             output = open('data.dat', 'w')
             output.write('# Rangahau Online reduction output\n')
             output.write('# Pattern: {0}\n'.format(pattern))
-        
-            print filename
-            hdulist = pyfits.open(filename)
+            output.write('# DarkTemplate: master-dark.fits\n')
+
+            hdulist = pyfits.open(filtered[0])
             imagedata = hdulist[0].data
         
             d = ds9.ds9('rangahau')
@@ -96,7 +126,7 @@ def main():
             if hdulist[0].header.has_key('UTC-BEG'):
                 datestart = hdulist[0].header['UTC-DATE'] + ' ' + hdulist[0].header['UTC-BEG']
             elif hdulist[0].header.has_key('GPSTIME'):
-                datestart = hdulist[0].header['GPSTIME'] 
+                datestart = hdulist[0].header['GPSTIME']
             elif hdulist[0].header.has_key('UTC'):
                 datestart = hdulist[0].header['UTC'][:23] 
             else:

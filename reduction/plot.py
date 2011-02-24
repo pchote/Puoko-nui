@@ -31,13 +31,15 @@ def main():
         # Extract star data
         stardata = data[:,1:2*numstars+1:2]
         time = data[:,0]
-        
+
+        device = sys.argv[2] if len(sys.argv) >= 3 else "9/XSERVE"
+       
         
         xrange = (numpy.min(time), numpy.max(time))
         yrange = (numpy.min(stardata), numpy.max(stardata))
         
         # Plot all data
-        pgbeg("9/XSERVE",1,1)
+        pgbeg(device,1,1)
 
         pgsvp(0.075,0.95,0.55,0.9)
         pgswin(xrange[0], xrange[1], yrange[0], yrange[1])
@@ -48,7 +50,14 @@ def main():
             pgpt(array(time), array(stardata[:,i]), 17)
 
 
+        #ratio = stardata[:,0]/stardata[:,1];
 
+        # Scale to the center of the range
+        #ratio *= 8000
+
+        #pgsci(7)
+        #pgpt(array(time), array(ratio), 17)
+        
         # Select the data in the last 20 min
         timelimit = 20
         time2 = [(xrange[1] - t)/60 for t in time]
@@ -57,7 +66,6 @@ def main():
         xrange2 = (0, timelimit)
         yrange2 = (numpy.min(stardata2), numpy.max(stardata2))
 
-        # Plot last 15 min
         pgsci(1)
         pgsvp(0.075,0.95,0.1,0.45)
         pgswin(xrange2[0], xrange2[1], yrange2[0], yrange2[1])
