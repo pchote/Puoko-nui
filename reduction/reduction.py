@@ -98,11 +98,11 @@ def quadratic(a, b, c):
 #   Assumes that there is only one intersection (one point inside, one outside)
 #   Returns (x,y) of the intersection
 # See logbook 07/02/11 for calculation workthrough
-def line_circle_intersection(c, p1, p2):
+def line_circle_intersection(c, p):
     # Line from p1 to p2
-    dp = p2[0] - p1[0], p2[1] - p1[1]
+    dp = p[1][0] - p[0][0], p[1][1] - p[0][1]
     # Line from c to p1
-    dc = p1[0] - c[0], p1[1] - c[1]
+    dc = p[0][0] - c[0], p[0][1] - c[1]
     
     # Polynomial coefficients
     a = dp[0]**2 + dp[1]**2
@@ -114,8 +114,7 @@ def line_circle_intersection(c, p1, p2):
 
     # The solution we want will be 0<=x<=1
     x = x1 if (x1 >= 0 and x1 <= 1) else x2
-    
-    return [p1[0]+x*dp[0], p1[1] + x*dp[1]]
+    return (p[0][0]+x*dp[0], p[0][1] + x*dp[1])
 
 # Calculate the area enclosed between a chord defined by p1 and p2 (both x,y)
 # and the edge of a circle c (x,y,r)
@@ -128,39 +127,36 @@ def chord_area(c, p1, p2):
 
 # Calculate the area of a polygon defined by a list of points
 #   Returns the area
-def polygon_area(p):
+def polygon_area(*args):
     a = 0
-    n = len(p)
+    n = len(args)
     for i in range(0,n,1):
-        a += p[(i-1)%n][0]*p[i][1] - p[i][0]*p[(i-1)%n][1]
+        a += args[(i-1)%n][0]*args[i][1] - args[i][0]*args[(i-1)%n][1]
     return abs(a/2)
 
 def integrate_pixel(i,j, aperture, imagedata):
     x = aperture[0]
     y = aperture[1]
     r1 = aperture[2]
-    
+        
     corners = [(0,0),(0,1),(1,1),(1,0)]
     # Calculate the corners that are inside the aperture
     hit = [c for c in corners if (i + c[0] - x)**2 + (j + c[1] - y)**2 <= r1*r1]
+    
     if len(hit) is 0:
         return 0
     
     if len(hit) is 1:
         # Find the vertex that is inside
         inside = corners.index(hit[0])
-        
         # Corner points
-        pbef = [i + corners[(inside-1)%4][0], j + corners[(inside-1)%4][1]]
-        pin = [i + corners[inside][0], j + corners[inside][1]]
-        paft = [i + corners[(inside+1)%4][0], j + corners[(inside+1)%4][1]]
-        
+        points = [(i + corners[k % 4][0], j + corners[k % 4][1]) for k in range(inside - 1, inside + 2, 1)]
         # Intersection points
-        x1 = line_circle_intersection(aperture, pbef, pin)
-        x2 = line_circle_intersection(aperture, pin, paft)
+        x1 = line_circle_intersection(aperture, points[0:2])
+        x2 = line_circle_intersection(aperture, points[1:3])
         
         # Area
-        return (polygon_area([x1, pin, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
+        return (polygon_area(x1, points[1], x2) + chord_area(aperture, x1, x2))*imagedata[j,i]
                     
     elif len(hit) is 2:
         # Find the vertex that is inside
@@ -170,18 +166,15 @@ def integrate_pixel(i,j, aperture, imagedata):
                 first = c
                 break
 
-        # Corner points
-        pbef = [i + corners[(first-1)%4][0], j + corners[(first-1)%4][1]]
-        p1 = [i + corners[first][0], j + corners[first][1]]
-        p2 = [i + corners[(first+1)%4][0], j + corners[(first+1)%4][1]]
-        paft = [i + corners[(first+2)%4][0], j + corners[(first+2)%4][1]]
+        # Corner points in image-space
+        points = [(i + corners[k % 4][0], j + corners[k % 4][1]) for k in range(first - 1, first + 3, 1)]
 
         # Intersection points
-        x1 = line_circle_intersection(aperture, pbef, p1)
-        x2 = line_circle_intersection(aperture, p2, paft)
+        x1 = line_circle_intersection(aperture, points[0:2])
+        x2 = line_circle_intersection(aperture, points[2:4])
 
         # Area
-        return (polygon_area([x1, p1, p2, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
+        return (polygon_area(x1, points[1], points[2], x2) + chord_area(aperture, x1, x2))*imagedata[j,i]
     
     elif len(hit) is 3:
         # Find the vertex that is outside
@@ -192,16 +185,14 @@ def integrate_pixel(i,j, aperture, imagedata):
                 break
 
         # Corner points
-        pbef = [i + corners[(outside-1)%4][0], j + corners[(outside-1)%4][1]]
-        pout = [i + corners[outside][0], j + corners[outside][1]]
-        paft = [i + corners[(outside+1)%4][0], j + corners[(outside+1)%4][1]]
+        points = [(i + corners[k % 4][0], j + corners[k % 4][1]) for k in range(outside - 1, outside + 2, 1)]
 
         # Intersection points
-        x1 = line_circle_intersection(aperture, pbef, pout)
-        x2 = line_circle_intersection(aperture, pout, paft)
+        x1 = line_circle_intersection(aperture, points[0:2])
+        x2 = line_circle_intersection(aperture, points[1:3])
 
         # Area
-        return (1 - polygon_area([x1, pout, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
+        return (1 - polygon_area(x1, points[1], x2) + chord_area(aperture, x1, x2))*imagedata[j,i]
                 
     elif len(hit) is 4:
         return imagedata[j,i]
