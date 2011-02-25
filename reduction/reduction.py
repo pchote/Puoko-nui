@@ -18,10 +18,19 @@ import math
 import time
 import calendar
 
+def print_timing(func):
+    def wrapper(*arg):
+        t1 = time.time()
+        res = func(*arg)
+        t2 = time.time()
+        print '%s took %0.3f ms' % (func.func_name, (t2-t1)*1000.0)
+        return res
+    return wrapper
 
 # Find the center of the star within the inner circle
 #   Takes the search annulus and imagedata
 #   Returns x,y coordinates for the star center
+@print_timing
 def center_aperture(x, y, r1, bg, std, imagedata):
     # Copy the data within the inside (circular) apeture
     # and threshold / subtract the background level
@@ -58,6 +67,7 @@ def center_aperture(x, y, r1, bg, std, imagedata):
 
 # Takes the search annulus and imagedata
 # Returns the background intensity plus standard deviation
+@print_timing
 def calculate_background(x, y, r1, r2, imagedata):
     mask = numpy.ones([2*r2, 2*r2])
     data = numpy.empty([2*r2, 2*r2])
@@ -125,100 +135,87 @@ def polygon_area(p):
         a += p[(i-1)%n][0]*p[i][1] - p[i][0]*p[(i-1)%n][1]
     return abs(a/2)
 
+def integrate_pixel(i,j, aperture, imagedata):
+    x = aperture[0]
+    y = aperture[1]
+    r1 = aperture[2]
+    
+    corners = [(0,0),(0,1),(1,1),(1,0)]
+    # Calculate the corners that are inside the aperture
+    hit = [c for c in corners if (i + c[0] - x)**2 + (j + c[1] - y)**2 <= r1*r1]
+    if len(hit) is 0:
+        return 0
+    
+    if len(hit) is 1:
+        # Find the vertex that is inside
+        inside = corners.index(hit[0])
+        
+        # Corner points
+        pbef = [i + corners[(inside-1)%4][0], j + corners[(inside-1)%4][1]]
+        pin = [i + corners[inside][0], j + corners[inside][1]]
+        paft = [i + corners[(inside+1)%4][0], j + corners[(inside+1)%4][1]]
+        
+        # Intersection points
+        x1 = line_circle_intersection(aperture, pbef, pin)
+        x2 = line_circle_intersection(aperture, pin, paft)
+        
+        # Area
+        return (polygon_area([x1, pin, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
+                    
+    elif len(hit) is 2:
+        # Find the vertex that is inside
+        first = 0
+        for c in range(0,4,1):
+            if corners[c] in hit and corners[(c+1)%4] in hit:
+                first = c
+                break
+
+        # Corner points
+        pbef = [i + corners[(first-1)%4][0], j + corners[(first-1)%4][1]]
+        p1 = [i + corners[first][0], j + corners[first][1]]
+        p2 = [i + corners[(first+1)%4][0], j + corners[(first+1)%4][1]]
+        paft = [i + corners[(first+2)%4][0], j + corners[(first+2)%4][1]]
+
+        # Intersection points
+        x1 = line_circle_intersection(aperture, pbef, p1)
+        x2 = line_circle_intersection(aperture, p2, paft)
+
+        # Area
+        return (polygon_area([x1, p1, p2, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
+    
+    elif len(hit) is 3:
+        # Find the vertex that is outside
+        outside = 0
+        for c in range(0,4,1):
+            if corners[c] not in hit:
+                outside = c
+                break
+
+        # Corner points
+        pbef = [i + corners[(outside-1)%4][0], j + corners[(outside-1)%4][1]]
+        pout = [i + corners[outside][0], j + corners[outside][1]]
+        paft = [i + corners[(outside+1)%4][0], j + corners[(outside+1)%4][1]]
+
+        # Intersection points
+        x1 = line_circle_intersection(aperture, pbef, pout)
+        x2 = line_circle_intersection(aperture, pout, paft)
+
+        # Area
+        return (1 - polygon_area([x1, pout, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
+                
+    elif len(hit) is 4:
+        return imagedata[j,i]
+
 # Integrates the flux within the specified aperture, 
 # accounting for partially covered pixels.
 #   Takes the aperture (x,y,r) and the image data (2d numpy array)
 #   Returns the contained flux (including background)
+@print_timing
 def integrate_aperture(aperture, imagedata):
     boxx = int(aperture[0])
     boxy = int(aperture[1])
-    boxr = int(aperture[2]) + 1
-    x = aperture[0]
-    y = aperture[1]
-    r1 = aperture[2]
-    total = 0
-    
-    for j in range(boxy-boxr,boxy+boxr,1):
-        for i in range(boxx-boxr,boxx+boxr,1):
-            # Test 4 corners to see how much of pixel is contained
-            #           TL    BL    BR    TR
-            corners = [[0,0],[0,1],[1,1],[1,0]]
-            hit = [False,False,False,False]
-            hit_count = 0
-            
-            for c in range(0,4,1):
-                ii = i + corners[c][0]
-                jj = j + corners[c][1]
-                if (ii-x)**2 + (jj-y)**2 <= r1*r1:
-                    hit[c] = True
-                    hit_count += 1
-            
-            if hit_count is 0:
-                continue
-            
-            if hit_count is 1:
-                # Find the vertex that is inside
-                inside = 0
-                for c in range(0,4,1):
-                    if hit[c] is True:
-                        inside = c
-                        break
-                
-                # Corner points
-                pbef = [i + corners[(inside-1)%4][0], j + corners[(inside-1)%4][1]]
-                pin = [i + corners[inside][0], j + corners[inside][1]]
-                paft = [i + corners[(inside+1)%4][0], j + corners[(inside+1)%4][1]]
-                
-                # Intersection points
-                x1 = line_circle_intersection([x,y,r1], pbef, pin)
-                x2 = line_circle_intersection([x,y,r1], pin, paft)
-                
-                # Area
-                total += (polygon_area([x1, pin, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
-                            
-            elif hit_count is 2:
-                # Find the vertex that is inside
-                first = 0
-                for c in range(0,4,1):
-                    if hit[c] is True and hit[(c+1)%4] is True:
-                        first = c
-                        break
-
-                # Corner points
-                pbef = [i + corners[(first-1)%4][0], j + corners[(first-1)%4][1]]
-                p1 = [i + corners[first][0], j + corners[first][1]]
-                p2 = [i + corners[(first+1)%4][0], j + corners[(first+1)%4][1]]
-                paft = [i + corners[(first+2)%4][0], j + corners[(first+2)%4][1]]
-
-                # Intersection points
-                x1 = line_circle_intersection([x,y,r1], pbef, p1)
-                x2 = line_circle_intersection([x,y,r1], p2, paft)
-
-                # Area
-                total += (polygon_area([x1, p1, p2, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
-            
-            elif hit_count is 3:
-                # Find the vertex that is outside
-                outside = 0
-                for c in range(0,4,1):
-                    if hit[c] is False:
-                        outside = c
-                        break
-
-                # Corner points
-                pbef = [i + corners[(outside-1)%4][0], j + corners[(outside-1)%4][1]]
-                pout = [i + corners[outside][0], j + corners[outside][1]]
-                paft = [i + corners[(outside+1)%4][0], j + corners[(outside+1)%4][1]]
-
-                # Intersection points
-                x1 = line_circle_intersection([x,y,r1], pbef, pout)
-                x2 = line_circle_intersection([x,y,r1], pout, paft)
-
-                # Area
-                total += (1 - polygon_area([x1, pout, x2]) + chord_area(aperture, x1, x2))*imagedata[j,i]
-                        
-            elif hit_count is 4:
-                total += imagedata[j,i]
+    boxr = int(aperture[2]) + 1    
+    total = sum([integrate_pixel(i,j, aperture, imagedata) for i in range(boxx-boxr,boxx+boxr,1) for j in range(boxy-boxr,boxy+boxr,1)])
     return total
 
 
@@ -243,7 +240,7 @@ def main():
         regions = []
         processed = []
         pattern = ""
-        dark = []
+        dark = -1
         try:
             data = open('data.dat', 'r+')
             for line in data.readlines():
@@ -297,12 +294,15 @@ def main():
             else:
                 raise Exception('No valid time header found')
             
-            startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S.%f"))
+            try:
+                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S.%f"))
+            except ValueError as e:
+                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S"))
             
             exptime = int(hdulist[0].header['EXPTIME'])
             data.write('{0} '.format(startdate - refdate))
             
-            if dark is not []:
+            if dark is not -1:
                 imagedata -= dark
 
             for region in regions:
