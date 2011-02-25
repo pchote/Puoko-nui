@@ -98,16 +98,16 @@ def quadratic(a, b, c):
 #   Assumes that there is only one intersection (one point inside, one outside)
 #   Returns (x,y) of the intersection
 # See logbook 07/02/11 for calculation workthrough
-def line_circle_intersection(c, p0, p1):
+def line_circle_intersection(x,y,r, p0, p1):
     # Line from p1 to p2
     dp = p1[0] - p0[0], p1[1] - p0[1]
     # Line from c to p1
-    dc = p0[0] - c[0], p0[1] - c[1]
+    dc = p0[0] - x, p0[1] - y
     
     # Polynomial coefficients
     a = dp[0]**2 + dp[1]**2
     b = 2*(dc[0]*dp[0] + dc[1]*dp[1])
-    c = dc[0]**2 + dc[1]**2 - c[2]**2
+    c = dc[0]**2 + dc[1]**2 - r**2
     
     # Solve for line parameter x.
     x1,x2 = quadratic(a,b,c)
@@ -116,11 +116,8 @@ def line_circle_intersection(c, p0, p1):
     x = x1 if (x1 >= 0 and x1 <= 1) else x2
     return (p0[0]+x*dp[0], p0[1] + x*dp[1])
 
-# Calculate the area enclosed between a chord defined by p1 and p2 (both x,y)
-# and the edge of a circle c (x,y,r)
-#   Returns the area
-def chord_area(c, p1, p2):
-    r = c[2]
+# Calculate the area inside a chord, defined by p1,p2 on the edge of a circle radius r
+def chord_area(p1, p2, r):
     # b is 0.5*the length of the chord defined by p1 and p2
     b = math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)/2
     return r*r*math.asin(b/r) - b*math.sqrt(r*r-b*b)
@@ -134,34 +131,36 @@ def polygon_area(*args):
         a += args[(i-1)%n][0]*args[i][1] - args[i][0]*args[(i-1)%n][1]
     return abs(a/2)
 
-def integrate_pixel(i,j, x,y,r , imagedata):
-    # Shift into coordinate system where pixel is at origin
-    a2 = (aperture[0]-i, aperture[1]-j, aperture[2])
-    corners = [(0,0),(0,1),(1,1),(1,0)]
-    
-    # Convenience function to get a corner, with indices that go outside the indexed range
-    def c(i):
-        return corners[i%4]
-    
+
+# Convenience function to get a corner, with indices that go outside the indexed range
+corners = [(0,0),(0,1),(1,1),(1,0)]
+def c(k):
+    return corners[k%4]
+
+# Calculate the intesection between the unit pixel (with TL corner at the origin)
+# and the aperture defined by x,y,r.
+#   Returns a number between 0 and 1 specifying the intersecting area
+def pixel_aperture_intesection(x,y,r):
     # Select the corners inside the aperture
-    hit = [cc for cc in corners if (cc[0] - a2[0])**2 + (cc[1] - a2[1])**2 <= a2[2]**2]
+    hit = [cc for cc in corners if (cc[0] - x)**2 + (cc[1] - y)**2 <= r**2]
+    
     count = len(hit)
     if count is 0:
         return 0
  
     elif count is 4:
-        return imagedata[j,i]
+        return 1
        
     elif count is 1:
         # Find the vertex that is inside
         inside = corners.index(hit[0])
         
         # Intersection points
-        x1 = line_circle_intersection(a2, c(inside - 1), c(inside))
-        x2 = line_circle_intersection(a2, c(inside), c(inside + 1))
+        x1 = line_circle_intersection(x,y,r, c(inside - 1), c(inside))
+        x2 = line_circle_intersection(x,y,r, c(inside), c(inside + 1))
         
         # Area
-        return (polygon_area(x1, c(inside), x2) + chord_area(a2, x1, x2))*imagedata[j,i]
+        return polygon_area(x1, c(inside), x2) + chord_area(x1, x2, r)
                     
     elif count is 2:
         # Find the vertex that is inside
@@ -172,11 +171,11 @@ def integrate_pixel(i,j, x,y,r , imagedata):
                 break
 
         # Intersection points
-        x1 = line_circle_intersection(a2, c(first-1), c(first))
-        x2 = line_circle_intersection(a2, c(first+1), c(first+2))
+        x1 = line_circle_intersection(x,y,r, c(first-1), c(first))
+        x2 = line_circle_intersection(x,y,r, c(first+1), c(first+2))
 
         # Area
-        return (polygon_area(x1, c(first), c(first+1), x2) + chord_area(a2, x1, x2))*imagedata[j,i]
+        return polygon_area(x1, c(first), c(first+1), x2) + chord_area(x1, x2, r)
     
     elif count is 3:
         # Find the vertex that is outside
@@ -187,11 +186,11 @@ def integrate_pixel(i,j, x,y,r , imagedata):
                 break
 
         # Intersection points
-        x1 = line_circle_intersection(a2, c(outside-1), c(outside))
-        x2 = line_circle_intersection(a2, c(outside), c(outside+1))
+        x1 = line_circle_intersection(x,y,r, c(outside-1), c(outside))
+        x2 = line_circle_intersection(x,y,r, c(outside), c(outside+1))
 
         # Area
-        return (1 - polygon_area(x1, c(outside), x2) + chord_area(a2, x1, x2))*imagedata[j,i]
+        return 1 - polygon_area(x1, c(outside), x2) + chord_area(x1, x2, r)
 
 # Integrates the flux within the specified aperture, 
 # accounting for partially covered pixels.
@@ -201,8 +200,11 @@ def integrate_pixel(i,j, x,y,r , imagedata):
 def integrate_aperture(aperture, imagedata):
     boxx = int(aperture[0])
     boxy = int(aperture[1])
-    boxr = int(aperture[2]) + 1    
-    total = sum([integrate_pixel(i,j, aperture, imagedata) for i in range(boxx-boxr,boxx+boxr,1) for j in range(boxy-boxr,boxy+boxr,1)])
+    boxr = int(aperture[2]) + 1
+    x = aperture[0]
+    y = aperture[1]
+    r = aperture[2]
+    total = sum([pixel_aperture_intesection(x-i, y-j, r)*imagedata[j,i] for i in range(boxx-boxr,boxx+boxr,1) for j in range(boxy-boxr,boxy+boxr,1)])
     return total
 
 
