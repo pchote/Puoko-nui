@@ -100,9 +100,9 @@ def quadratic(a, b, c):
 # See logbook 07/02/11 for calculation workthrough
 def line_circle_intersection(x,y,r, p0, p1):
     # Line from p1 to p2
-    dp = p1[0] - p0[0], p1[1] - p0[1]
+    dp = (p1[0] - p0[0], p1[1] - p0[1])
     # Line from c to p1
-    dc = p0[0] - x, p0[1] - y
+    dc = (p0[0] - x, p0[1] - y)
     
     # Polynomial coefficients
     a = dp[0]**2 + dp[1]**2
@@ -141,55 +141,46 @@ def c(k):
 # and the aperture defined by x,y,r.
 #   Returns a number between 0 and 1 specifying the intersecting area
 def pixel_aperture_intesection(x,y,r):
-    # Select the corners inside the aperture
-    hit = [cc for cc in corners if (cc[0] - x)**2 + (cc[1] - y)**2 <= r**2]
-    
+    # Test each corner of the pixel for intersection - record indices
+    hit = [k for k in range(0,4,1) if (corners[k][0] - x)**2 + (corners[k][1] - y)**2 <= r**2]
+        
     count = len(hit)
-    if count is 0:
+    if count == 0:
         return 0
  
-    elif count is 4:
+    elif count == 4:
         return 1
-       
-    elif count is 1:
-        # Find the vertex that is inside
-        inside = corners.index(hit[0])
-        
+    
+    elif count == 1:
         # Intersection points
-        x1 = line_circle_intersection(x,y,r, c(inside - 1), c(inside))
-        x2 = line_circle_intersection(x,y,r, c(inside), c(inside + 1))
+        x1 = line_circle_intersection(x,y,r, c(hit[0] - 1), c(hit[0]))
+        x2 = line_circle_intersection(x,y,r, c(hit[0]), c(hit[0] + 1))
         
-        # Area
-        return polygon_area(x1, c(inside), x2) + chord_area(x1, x2, r)
+        # Area is triangle + chord
+        return polygon_area(x1, c(hit[0]), x2) + chord_area(x1, x2, r)
                     
-    elif count is 2:
-        # Find the vertex that is inside
-        first = 0
-        for cc in range(0,4,1):
-            if corners[cc] in hit and corners[(cc+1)%4] in hit:
-                first = cc
-                break
+    elif count == 2:
+        # Find the first inside the aperture
+        first = hit[1] if hit[1] - hit[0] == 3 else hit[0]
 
         # Intersection points
         x1 = line_circle_intersection(x,y,r, c(first-1), c(first))
         x2 = line_circle_intersection(x,y,r, c(first+1), c(first+2))
 
-        # Area
+        # Area is a quadralateral + chord
         return polygon_area(x1, c(first), c(first+1), x2) + chord_area(x1, x2, r)
     
-    elif count is 3:
-        # Find the vertex that is outside
-        outside = 0
-        for cc in range(0,4,1):
-            if corners[cc] not in hit:
-                outside = cc
+    elif count == 3:
+        for k in range(0,4,1):
+            if k not in hit:
+                outside = k
                 break
-
+        
         # Intersection points
         x1 = line_circle_intersection(x,y,r, c(outside-1), c(outside))
         x2 = line_circle_intersection(x,y,r, c(outside), c(outside+1))
-
-        # Area
+        
+        # Area is square - triangle + chord
         return 1 - polygon_area(x1, c(outside), x2) + chord_area(x1, x2, r)
 
 # Integrates the flux within the specified aperture, 
