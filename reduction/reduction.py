@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2007-2010 The Authors (see AUTHORS)
+# Copyright 2010-2011 Paul Chote
 # This file is part of Rangahau, which is free software. It is made available
 # to you under the terms of version 3 of the GNU General Public License, as
 # published by the Free Software Foundation. For more information, see LICENSE.
@@ -300,5 +300,24 @@ def main():
     else:
         print 'No filename specified'
 
+def test_integration():
+    bg = numpy.ones([50,50])
+    
+    print 'area should be {0}'.format(math.pi*10*10)
+    print integrate_aperture([20,20,10], bg)
+    
+    for i in range(20,50,1):
+        for j in range(0,50,1):
+            bg[j,i] = 0
+    
+    print 'area should be {0}'.format(math.pi*10*10/2)
+    print integrate_aperture([20,20,10], bg)
+    
+    for j in range(20,50,1):
+        for i in range(0,50,1):
+            bg[j,i] = 0
+    
+    print 'area should be {0}'.format(math.pi*10*10/4)
+    print integrate_aperture([20,20,10], bg)
 if __name__ == '__main__':
     main()
