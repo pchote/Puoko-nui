@@ -6,8 +6,7 @@
 # published by the Free Software Foundation. For more information, see LICENSE.
 
 
-"""Online reduction script for rangahau. Processes photometric
-intensity of a selection of stars """
+"""Utility class for reducing photometric data"""
 import os
 import fnmatch
 import sys
@@ -39,7 +38,7 @@ def center_aperture(x, y, r1, bg, std, imagedata):
         for i in range(0,2*r1,1):
             xx = x - r1 + i
             yy = y - r1 + j
-            
+        
             d2 = (x-xx)**2 + (y-yy)**2
             if d2 < r1*r1 and imagedata[yy,xx] > bg + 3*std:
                 data[j,i] = imagedata[yy,xx] - bg
@@ -59,7 +58,7 @@ def center_aperture(x, y, r1, bg, std, imagedata):
     for i in range(0,2*r1,1):
         xc += i*xm[i]/tot
         yc += i*ym[i]/tot
-    
+
     # Convert back to image coords
     xc += x - r1
     yc += y - r1
@@ -77,9 +76,9 @@ def calculate_background(x, y, r1, r2, imagedata):
             d2 = (x-i)**2 + (y-j)**2
             if (d2 > r1*r1 and d2 < r2*r2):
                 mask[j-y+r2,i-x+r2] = 0
-    
+
     masked = numpy.ma.masked_array(data, mask=mask)
-    
+
     # Calculate the mode of the background
     bg = 3*numpy.mean(masked) - 2*numpy.ma.extras.median(masked)
     std = math.sqrt(numpy.mean(abs(masked - bg)**2))
@@ -103,12 +102,12 @@ def line_circle_intersection(x,y,r, p0, p1):
     dp = (p1[0] - p0[0], p1[1] - p0[1])
     # Line from c to p1
     dc = (p0[0] - x, p0[1] - y)
-    
+
     # Polynomial coefficients
     a = dp[0]**2 + dp[1]**2
     b = 2*(dc[0]*dp[0] + dc[1]*dp[1])
     c = dc[0]**2 + dc[1]**2 - r**2
-    
+
     # Solve for line parameter x.
     x1,x2 = quadratic(a,b,c)
 
@@ -143,22 +142,22 @@ def c(k):
 def pixel_aperture_intesection(x,y,r):
     # Test each corner of the pixel for intersection - record indices
     hit = [k for k in range(0,4,1) if (corners[k][0] - x)**2 + (corners[k][1] - y)**2 <= r**2]
-        
+    
     count = len(hit)
     if count == 0:
         return 0
- 
+
     elif count == 4:
         return 1
-    
+
     elif count == 1:
         # Intersection points
         x1 = line_circle_intersection(x,y,r, c(hit[0] - 1), c(hit[0]))
         x2 = line_circle_intersection(x,y,r, c(hit[0]), c(hit[0] + 1))
-        
+    
         # Area is triangle + chord
         return polygon_area(x1, c(hit[0]), x2) + chord_area(x1, x2, r)
-                    
+                
     elif count == 2:
         # Find the first inside the aperture
         first = hit[1] if hit[1] - hit[0] == 3 else hit[0]
@@ -169,17 +168,17 @@ def pixel_aperture_intesection(x,y,r):
 
         # Area is a quadralateral + chord
         return polygon_area(x1, c(first), c(first+1), x2) + chord_area(x1, x2, r)
-    
+
     elif count == 3:
         for k in range(0,4,1):
             if k not in hit:
                 outside = k
                 break
-        
+    
         # Intersection points
         x1 = line_circle_intersection(x,y,r, c(outside-1), c(outside))
         x2 = line_circle_intersection(x,y,r, c(outside), c(outside+1))
-        
+    
         # Area is square - triangle + chord
         return 1 - polygon_area(x1, c(outside), x2) + chord_area(x1, x2, r)
 
@@ -210,114 +209,69 @@ def process_frame(filename, datestart, exptime, imagedata, region):
     # Evaluate star and sky intensities, normalised to / 1s
     star_intensity = integrate_aperture([x,y,r1], imagedata) / exptime
     sky_intensity = bg*math.pi*r1*r1 / exptime
-    
+
     return star_intensity - sky_intensity, sky_intensity
-    
-def main():
-    # First argument gives the dir containing images, second the regex of the files to process 
-    if len(sys.argv) >= 1:
-        os.chdir(sys.argv[1])
-        regions = []
-        processed = []
-        pattern = ""
-        dark = -1
+
+# Prompts the user for a region to search
+#   Takes a ds9 object to preview the region in
+#   Returns the x,y,r1,r2 coordinates of the region
+def prompt_region(d, regions):
+    x = y = r1 = r2 = -1
+    done = False
+    first = True
+    msg = "Enter aperture coordinates x,y,r1,r2 or ctrl-d to finish: "
+    while done == False:
         try:
-            data = open('data.dat', 'r+')
-            for line in data.readlines():
-                if line[:10] == "# Pattern:":
-                    pattern = line[11:-1]
-                elif line[:9] == "# Region:":
-                    regions.append(eval(line[10:]))
-                elif line[:12] == "# Startdate:":
-                    refdate = calendar.timegm(time.strptime(line[13:-1], "%Y-%m-%d %H:%M:%S"))
-                elif line[:15] == "# DarkTemplate:":
-                    darkhdu = pyfits.open(line[16:-1])
-                    dark = darkhdu[0].data
-                    darkhdu.close()
-                elif line[0] is '#':
-                    continue
-                else:
-                    # Assume that any other lines are reduced data files
-                    # Last element of the line is the filename
-                    processed.append(line.split()[-1])
-        except IOError as e:
-            print e
-            return 1
-        
-        files = os.listdir('.')
-        files.sort()
-        first = True
-        print "searching pattern: {0}".format(pattern)
-        filtered = fnmatch.filter(files, pattern)
-        print "Found %d files" % len(filtered)
-        
-        current_file = 0
-        total_files = len(filtered)
-                    
-        for filename in filtered:
-            current_file += 1
-            
-            # Check if file has been reduced
-            if filename in processed:
-                continue
-            
-            print "{1} / {2}: {0}".format(filename, current_file, total_files)
-            
-            hdulist = pyfits.open(filename)
-            imagedata = hdulist[0].data
-            if hdulist[0].header.has_key('UTC-BEG'):
-                datestart = hdulist[0].header['UTC-DATE'] + ' ' + hdulist[0].header['UTC-BEG']
-            elif hdulist[0].header.has_key('GPSTIME'):
-                datestart = hdulist[0].header['GPSTIME'] 
-            elif hdulist[0].header.has_key('UTC'):
-                datestart = hdulist[0].header['UTC'][:23] 
-            else:
-                raise Exception('No valid time header found')
-            
-            try:
-                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S.%f"))
-            except ValueError as e:
-                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S"))
-            
-            exptime = int(hdulist[0].header['EXPTIME'])
-            data.write('{0} '.format(startdate - refdate))
-            
-            if dark is not -1:
-                imagedata -= dark
+            args = raw_input(msg).split(',')            
+            if len(args) != 4 and (first or args != ['']):
+                msg = "Enter aperture coordinates x,y,r1,r2: "
+                continue;
 
-            for region in regions:
-                try:
-                    star, sky = process_frame(filename, datestart, exptime, imagedata, region)
-                    data.write('{0:10f} {1:10f} '.format(star, sky))
-                except Exception as e:
-                    print "Error processing frame: {0}\n".format(e)
-                    data.write('0 0 ')
-                
-            data.write('{0}\n'.format(filename))
-            data.flush()
-            hdulist.close()
-        data.close()
-    else:
-        print 'No filename specified'
+            if args == ['']:
+                break;
 
-def test_integration():
-    bg = numpy.ones([50,50])
-    
-    print 'area should be {0}'.format(math.pi*10*10)
-    print integrate_aperture([20,20,10], bg)
-    
-    for i in range(20,50,1):
-        for j in range(0,50,1):
-            bg[j,i] = 0
-    
-    print 'area should be {0}'.format(math.pi*10*10/2)
-    print integrate_aperture([20,20,10], bg)
-    
-    for j in range(20,50,1):
-        for i in range(0,50,1):
-            bg[j,i] = 0
-    
-    print 'area should be {0}'.format(math.pi*10*10/4)
-    print integrate_aperture([20,20,10], bg)
-if __name__ == '__main__':
-    main()
+            x = int(args[0])-1
+            y = int(args[1])-1
+            r1 = int(args[2])
+            r2 = int(args[3])
+
+            d.set("regions deleteall")
+            # Existing region
+            for r in regions:
+                d.set("regions command {circle %d %d %d #color=blue}" % (r[0]+1,r[1]+1,r[2]))
+                d.set("regions command {circle %d %d %d #background color=blue}" % (r[0]+1,r[1]+1,r[3]))
+
+            # New region
+            d.set("regions command {circle %d %d %d}" % (x+1,y+1,r1))
+            d.set("regions command {circle %d %d %d #background}" % (x+1,y+1,r2))
+
+            msg = "Modify coordinates, or enter to confirm, or ctrl-d to finish: "
+            first = False
+        except (EOFError, KeyboardInterrupt):
+            # Print a newline
+            print
+            return -1
+    return x, y, r1, r2
+
+
+# Calculate an average dark frame in adu/s
+def create_dark(filepattern):
+    files = os.listdir('.')
+    files.sort()
+    if os.path.exists('master-dark.fits'):
+        return
+
+    print "Calculating master dark frame"
+
+    frames = fnmatch.filter(files, filepattern)
+    hdulist = pyfits.open(frames[0])
+    total = hdulist[0].data
+    hdulist.close()
+    for i in range(1,len(frames)):
+        hdulist = pyfits.open(frames[i])
+        total += hdulist[0].data
+        hdulist.close()
+    total /= len(frames)
+
+    hdu = pyfits.PrimaryHDU(total)
+    hdu.writeto('master-dark.fits')
