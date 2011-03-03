@@ -16,6 +16,8 @@ import calendar
 import reduction
 
 def main():
+    test2()
+    die
     # First argument gives the dir containing images, second the regex of the files to process 
     if len(sys.argv) >= 1:
         os.chdir(sys.argv[1])
@@ -101,6 +103,11 @@ def main():
         data.close()
     else:
         print 'No filename specified'
+
+def test2():
+    hdulist = pyfits.open("EC20058_0001.fit.gz")
+    print reduction.integrate_aperture([359.14096264375621, 748.35848584951259, 20], hdulist[0].data);
+
 
 def test_integration():
     bg = numpy.ones([50,50])
