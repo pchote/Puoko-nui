@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <math.h>
 #include <sys/time.h>
 #include <time.h>
@@ -16,6 +17,14 @@ typedef struct
     double x;
     double y;
 } double2;
+
+typedef struct
+{
+    double x;
+    double y;
+    double r1;
+    double r2;
+} region;
 
 typedef struct
 {
@@ -66,13 +75,15 @@ void framedata_free(framedata this)
 // Find the center of the star within the inner circle
 //   Takes the search circle and imagedata
 //   Returns x,y coordinates for the star center
-double2 center_aperture(double2 xy, double rr, double bg, double std, framedata *frame)
+double2 center_aperture(region reg, double2 bg2, framedata *frame)
 {
     // Round to the nearest pixel
-    int x = (int)xy.x;
-    int y = (int)xy.y;
-    int r = (int)rr;
-        
+    int x = (int)reg.x;
+    int y = (int)reg.y;
+    int r = (int)reg.r1;
+    double bg = bg2.x;
+    double std = bg2.y;
+    
     // Calculate x and y marginals (sum the image into 1d lines in x and y)
     double total = 0;
     double *xm = (double *)malloc(2*r*sizeof(double));
@@ -151,12 +162,12 @@ void quickSort(unsigned short *arr, int elements)
 }
 
 // Calculate the mode intensity and standard deviation within an annulus
-double2 calculate_background(double2 xy, double r1, double r2, framedata *frame)
+double2 calculate_background(region r, framedata *frame)
 {
-    int minx = floor(xy.x - r2);
-    int maxx = ceil(xy.x + r2);
-    int miny = floor(xy.y - r2);
-    int maxy = ceil(xy.y + r2);
+    int minx = floor(r.x - r.r2);
+    int maxx = ceil(r.x + r.r2);
+    int miny = floor(r.y - r.r2);
+    int maxy = ceil(r.y + r.r2);
     
     // Copy pixels into a flat list that can be sorted
     // Allocate enough space to store the entire region, but only copy pixels
@@ -166,8 +177,8 @@ double2 calculate_background(double2 xy, double r1, double r2, framedata *frame)
     for (int j = miny; j <= maxy; j++)
         for (int i = minx; i <= maxx; i++)
         {
-            double d2 = (xy.x-i)*(xy.x-i) + (xy.y-j)*(xy.y-j);
-            if (d2 > r1*r1 && d2 < r2*r2)
+            double d2 = (r.x-i)*(r.x-i) + (r.y-j)*(r.y-j);
+            if (d2 > r.r1*r.r1 && d2 < r.r2*r.r2)
                 data[n++] = frame->data[frame->cols*j + i];
         }    
     
@@ -337,56 +348,147 @@ double pixel_aperture_intesection(double x, double y, double r)
 // accounting for partially covered pixels.
 //   Takes the aperture (x,y,r) and the image data (2d numpy array)
 //   Returns the contained flux (including background)
-double integrate_aperture(double x, double y, double r, framedata *frame)
+double integrate_aperture(double2 xy, double r, framedata *frame)
 {
     double total = 0;
-    int bx = floor(x), by = floor(y), br = floor(r) + 1;
+    int bx = floor(xy.x), by = floor(xy.y), br = floor(r) + 1;
     for (int i = bx-br; i < bx+br; i++)
         for (int j = by-br; j < by+br; j++)
-            total += pixel_aperture_intesection(x-i, y-j, r)*frame->data[i + frame->cols*j];
+            total += pixel_aperture_intesection(xy.x-i, xy.y-j, r)*frame->data[i + frame->cols*j];
 
     return total;
 }
 
+void process_region(region r, framedata *frame, double exptime)
+{
+    double2 bg = calculate_background(r, frame);
+    printf("bg: %f std: %f\n", bg.x, bg.y);
+    double2 xy = center_aperture(r, bg, frame);
+    double star = integrate_aperture(xy,r.r1, frame) / exptime;
+    double sky = bg.x*M_PI*r.r1*r.r1 / exptime;
+    
+    double2 ret = {star - sky, sky};
+    printf("star: %f sky: %f\n", ret.x, ret.y);
+    //return ret;
+}
+
+int main2( int argc, char *argv[] )
+{
+    if (argc > 1)
+    {
+        chdir(argv[1]);
+        
+        // TODO: Try opening the data file
+        
+        // TODO: Get list of files in dir
+        
+        int current_file = 0;
+        int total_files = 0;
+        char *filename;
+        //foreach (file)
+        {
+            current_file++;
+            
+            //if (processed)
+            //    continue;
+            
+            printf("%d / %d: %s\n",current_file, total_files, filename);
+            
+            framedata frame = framedata_new(filename);
+            
+
+            
+            /*
+            hdulist = pyfits.open(filename)
+            imagedata = hdulist[0].data
+            if hdulist[0].header.has_key('UTC-BEG'):
+                datestart = hdulist[0].header['UTC-DATE'] + ' ' + hdulist[0].header['UTC-BEG']
+            elif hdulist[0].header.has_key('GPSTIME'):
+                datestart = hdulist[0].header['GPSTIME'] 
+            elif hdulist[0].header.has_key('UTC'):
+                datestart = hdulist[0].header['UTC'][:23] 
+            else:
+                raise Exception('No valid time header found')
+            
+            try:
+                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S.%f"))
+            except ValueError as e:
+                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S"))
+            
+            exptime = int(hdulist[0].header['EXPTIME'])
+            data.write('{0} '.format(startdate - refdate))
+            
+            if dark is not -1:
+                imagedata -= dark
+
+            for region in regions:
+                try:
+                    star, sky = reduction.process_frame(filename, datestart, exptime, imagedata, region)
+                    data.write('{0:10f} {1:10f} '.format(star, sky))
+                except Exception as e:
+                    print "Error processing frame: {0}\n".format(e)
+                    data.write('0 0 ')
+                
+            data.write('{0}\n'.format(filename))
+            data.flush()
+            */
+            framedata_free(frame);
+
+        }
+    }
+    return 0;
+}
+/*
+def main():
+    # First argument gives the dir containing images, second the regex of the files to process 
+    if len(sys.argv) >= 1:
+        os.chdir(sys.argv[1])
+        regions = []
+        processed = []
+        pattern = ""
+        dark = -1
+        try:
+            data = open('data.dat', 'r+')
+            for line in data.readlines():
+                if line[:10] == "# Pattern:":
+                    pattern = line[11:-1]
+                elif line[:9] == "# Region:":
+                    regions.append(eval(line[10:]))
+                elif line[:12] == "# Startdate:":
+                    refdate = calendar.timegm(time.strptime(line[13:-1], "%Y-%m-%d %H:%M:%S"))
+                elif line[:15] == "# DarkTemplate:":
+                    darkhdu = pyfits.open(line[16:-1])
+                    dark = darkhdu[0].data
+                    darkhdu.close()
+                elif line[0] is '#':
+                    continue
+                else:
+                    # Assume that any other lines are reduced data files
+                    # Last element of the line is the filename
+                    processed.append(line.split()[-1])
+        except IOError as e:
+            print e
+            return 1
+        
+        files = os.listdir('.')
+        files.sort()
+        first = True
+        print "searching pattern: {0}".format(pattern)
+        filtered = fnmatch.filter(files, pattern)
+        print "Found %d files" % len(filtered)
+        data.close()
+    else:
+        print 'No filename specified'
+*/
+
 int main( int argc, char *argv[] )
 {   
     char *filename = "EC20058_0001.fit.gz";
+    region r = {360, 750, 10, 20};
+    
     framedata frame = framedata_new(filename);
-
-    //for (int i = 0; i < 10; i++)
-    //    for (int j = 0; j < 10; j++) // j = row, i = col
-    //    printf("%d %d %d\n", i,j, frame.data[frame.cols*j + i]);
-    
-    double2 xy = {360, 750};
-    double r1 = 10, r2 = 20;
-    double2 bg = calculate_background(xy, r1, r2, &frame);
-    printf("bg: %f std: %f\n", bg.x, bg.y);
-    xy = center_aperture(xy, r1, bg.x, bg.y, &frame);
-    printf("(%f,%f)\n", xy.x, xy.y);
-
-    /*
-    
-    struct timeval starttime, endtime;
-    gettimeofday(&starttime, NULL);
-    double2 xy = {359, 748};
-    double2 bg = calculate_background(xy, 10, 20, &frame);
-    gettimeofday(&endtime, NULL);
-    
-    double t1=starttime.tv_sec+(starttime.tv_usec/1000000.0);
-    double t2=endtime.tv_sec+(endtime.tv_usec/1000000.0);
-
-    printf("bg: %f std: %f in %f ms\n", bg.x, bg.y, (t2-t1)*1000);
-    
-    time_t t = time(NULL);
-	gettimeofday(&starttime, NULL);
-    integrate_aperture(359.14096264375621, 748.35848584951259, 20, &frame);
-    gettimeofday(&endtime, NULL);
-    
-    t1=starttime.tv_sec+(starttime.tv_usec/1000000.0);
-    t2=endtime.tv_sec+(endtime.tv_usec/1000000.0);
-    
-    printf("total: %d in %f ms\n", time(NULL) - t, (t2-t1)*1000);
-    */
+    process_region(r, &frame, 1);
     framedata_free(frame);
+
 	return 0;
 }
