@@ -9,6 +9,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <time.h>
+#include <string.h>
 #include <fitsio.h>
 
 /* Represents an aquired frame */
@@ -34,9 +35,18 @@ typedef struct
     unsigned short *data;
 } framedata;
 
+
+typedef struct
+{
+    double star[3];
+    double sky[3];
+    int time;
+    char filename[64];
+} record;
+
 void error(const char *msg)
 {
-    printf("%s",msg);
+    printf("%s\n",msg);
     exit(1);
 }
 
@@ -62,6 +72,20 @@ framedata framedata_new(const char *filename)
         error("fits_read_pix failed");
 
     return this;
+}
+
+int framedata_has_header(framedata *this, const char *key)
+{
+    //hdulist[0].header.has_key('UTC-BEG'):
+    return FALSE;
+}
+
+int framedata_get_header_int(framedata *this, const char *key)
+{
+    int ret, status;
+    if (fits_read_key(this->_fptr, TINT, key, &ret, NULL, &status))
+        error("framedata_get_header_string failed");
+    return ret;
 }
 
 void framedata_free(framedata this)
@@ -114,7 +138,18 @@ double2 center_aperture(region reg, double2 bg2, framedata *frame)
             ym[j] += px;
             total += px;
         }
-    
+    /*
+    printf("total: %f\n",total);
+    printf("xm: { %f", xm[0]);
+    for (int i = 1; i < 2*r; i++)
+        printf(", %f", xm[i]);
+    printf("}\n");
+
+    printf("ym: { %f", ym[0]);
+    for (int i = 1; i < 2*r; i++)
+        printf(", %f", ym[i]);
+    printf("}\n");
+    */   
     // Calculate x and y moments
     double xc = 0;
     double yc = 0;
@@ -359,98 +394,58 @@ double integrate_aperture(double2 xy, double r, framedata *frame)
     return total;
 }
 
-void process_region(region r, framedata *frame, double exptime)
+double2 process_region(region r, framedata *frame, double exptime)
 {
     double2 bg = calculate_background(r, frame);
-    printf("bg: %f std: %f\n", bg.x, bg.y);
     double2 xy = center_aperture(r, bg, frame);
-    double star = integrate_aperture(xy,r.r1, frame) / exptime;
-    double sky = bg.x*M_PI*r.r1*r.r1 / exptime;
+    double2 ret = {0,0};
+    if (xy.x - r.r2 < 0 || xy.x + r.r2 > frame->cols || xy.y - r.r2 < 0 || xy.y + r.r2 > frame->rows)
+    {
+        fprintf(stderr, "Aperture outside chip - skipping\n");
+        return ret;
+    }
     
-    double2 ret = {star - sky, sky};
-    printf("star: %f sky: %f\n", ret.x, ret.y);
-    //return ret;
+    ret.y = bg.x*M_PI*r.r1*r.r1 / exptime;
+    ret.x = integrate_aperture(xy,r.r1, frame) / exptime - ret.y;
+
+    return ret;
 }
 
-int main2( int argc, char *argv[] )
+int main( int argc, char *argv[] )
 {
-    if (argc > 1)
+    if (argc > 2)
     {
+        char buf[PATH_MAX+8];
+
+        region regions[10];
+        int numregions = 0;
+    
+
+        region reg = {412, 351, 10, 20};
+        regions[numregions++] = reg;
+        reg.x = 117; reg.y = 460;
+        regions[numregions++] = reg;
+        reg.x = 162; reg.y = 41;
+        regions[numregions++] = reg;
+        
         chdir(argv[1]);
         
-        // TODO: Try opening the data file
+        FILE *data = fopen("data.dat", "r+");
         
-        // TODO: Get list of files in dir
-        
-        int current_file = 0;
-        int total_files = 0;
-        char *filename;
-        //foreach (file)
+                    
+        record records[10000];
+        int numrecords = 0;
+    
+    
+        // Read any existing config and data
+        while (fgets(buf, sizeof(buf)-1, data) != NULL)
         {
-            current_file++;
-            
-            //if (processed)
-            //    continue;
-            
-            printf("%d / %d: %s\n",current_file, total_files, filename);
-            
-            framedata frame = framedata_new(filename);
-            
-
-            
-            /*
-            hdulist = pyfits.open(filename)
-            imagedata = hdulist[0].data
-            if hdulist[0].header.has_key('UTC-BEG'):
-                datestart = hdulist[0].header['UTC-DATE'] + ' ' + hdulist[0].header['UTC-BEG']
-            elif hdulist[0].header.has_key('GPSTIME'):
-                datestart = hdulist[0].header['GPSTIME'] 
-            elif hdulist[0].header.has_key('UTC'):
-                datestart = hdulist[0].header['UTC'][:23] 
-            else:
-                raise Exception('No valid time header found')
-            
-            try:
-                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S.%f"))
-            except ValueError as e:
-                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S"))
-            
-            exptime = int(hdulist[0].header['EXPTIME'])
-            data.write('{0} '.format(startdate - refdate))
-            
-            if dark is not -1:
-                imagedata -= dark
-
-            for region in regions:
-                try:
-                    star, sky = reduction.process_frame(filename, datestart, exptime, imagedata, region)
-                    data.write('{0:10f} {1:10f} '.format(star, sky))
-                except Exception as e:
-                    print "Error processing frame: {0}\n".format(e)
-                    data.write('0 0 ')
+            // Ignore headers for now
+            if (buf[0] == '#')
+                continue;
                 
-            data.write('{0}\n'.format(filename))
-            data.flush()
-            */
-            framedata_free(frame);
-
-        }
-    }
-    return 0;
-}
-/*
-def main():
-    # First argument gives the dir containing images, second the regex of the files to process 
-    if len(sys.argv) >= 1:
-        os.chdir(sys.argv[1])
-        regions = []
-        processed = []
-        pattern = ""
-        dark = -1
-        try:
-            data = open('data.dat', 'r+')
-            for line in data.readlines():
-                if line[:10] == "# Pattern:":
+            /*
+            if line[:10] == "# Pattern:":
                     pattern = line[11:-1]
                 elif line[:9] == "# Region:":
                     regions.append(eval(line[10:]))
@@ -466,23 +461,97 @@ def main():
                     # Assume that any other lines are reduced data files
                     # Last element of the line is the filename
                     processed.append(line.split()[-1])
-        except IOError as e:
-            print e
-            return 1
-        
-        files = os.listdir('.')
-        files.sort()
-        first = True
-        print "searching pattern: {0}".format(pattern)
-        filtered = fnmatch.filter(files, pattern)
-        print "Found %d files" % len(filtered)
-        data.close()
-    else:
-        print 'No filename specified'
-*/
+            */
+            sscanf(buf, "%d %lf %lf %lf %lf %lf %lf %s\n",
+                &records[numrecords].time,
+                &records[numrecords].star[0],
+                &records[numrecords].sky[0],
+                &records[numrecords].star[1],
+                &records[numrecords].sky[1],
+                &records[numrecords].star[2],
+                &records[numrecords].sky[2],
+                records[numrecords].filename
+            );
+            numrecords++;
+        }
+                
+        // Iterate through the list of files matching the filepattern
+        sprintf(buf, "/bin/ls %s", argv[2]);
+        FILE *ls = popen(buf, "r");
+        if (ls == NULL)
+            error("failed to list directory");
 
-int main( int argc, char *argv[] )
-{   
+        while (fgets(buf, sizeof(buf)-1, ls) != NULL)
+        {
+            // Strip the newline character from the end of the filename
+            buf[strlen(buf)-1] = '\0';
+            
+            char *filename = buf;
+            printf("%s\n", filename);
+            
+            // Check whether the frame has been processed
+            int found = FALSE;
+            for (int i = 0; i < numrecords; i++)
+                if (strcmp(filename, records[numrecords].filename) == 0)
+                {
+                    found = TRUE;
+                    break;
+                }
+            if (found)
+                continue;
+                     
+            framedata frame = framedata_new(filename);
+            /*
+            if (framedata_has_header(&frame, "UTC-BEG"))
+                sprintf(buf, "%s %s", framedata_header(&frame, "UTC-DATE"), framedata_header(&frame, "UTC-BEG"));
+            else if (framedata_has_header(&frame, "GPSTIME"))
+                strncpy(buf, framedata_header(&frame, "GPSTIME"), 128);
+            else if (framedata_has_header(&frame, "UTC"))
+            {
+                strncpy(buf, framedata_header(&frame, "UTC"), 23);
+                buf[23] = '\0';
+            }
+            else
+                error("No valid time header found");
+            */
+
+            // TODO: calculate startdate
+            /*
+            try:
+                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S.%f"))
+            except ValueError as e:
+                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S"))
+            */
+            
+            // TODO: subtract master dark
+            /*
+            if dark is not -1:
+                imagedata -= dark
+            */
+            
+            // Process regions
+            int exptime = framedata_get_header_int(&frame, "EXPTIME");
+            
+            // TODO: calculate relative time
+            fprintf(data, "%d ", 0);
+            for (int i = 0; i < numregions; i++)
+            {
+                double2 ret = process_region(regions[i], &frame, exptime);
+                fprintf(data, "%f %f ", ret.x, ret.y);
+            }
+            fprintf(data, "%s\n", filename);
+            
+            framedata_free(frame);
+
+        }
+        pclose(ls);
+        fclose(data);
+    }
+    return 0;
+}
+
+int main2( int argc, char *argv[] )
+{
     char *filename = "EC20058_0001.fit.gz";
     region r = {360, 750, 10, 20};
     
