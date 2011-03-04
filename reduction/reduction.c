@@ -62,46 +62,63 @@ void framedata_free(framedata this)
     fits_close_file(this._fptr, &status);
 }
 
-/*
 
-# Find the center of the star within the inner circle
-#   Takes the search annulus and imagedata
-#   Returns x,y coordinates for the star center
-@print_timing
-def center_aperture(x, y, r1, bg, std, imagedata):
-    # Copy the data within the inside (circular) apeture
-    # and threshold / subtract the background level
-    data = numpy.empty([2*r1,2*r1])
-    for j in range(0,2*r1,1):
-        for i in range(0,2*r1,1):
-            xx = x - r1 + i
-            yy = y - r1 + j
+// Find the center of the star within the inner circle
+//   Takes the search circle and imagedata
+//   Returns x,y coordinates for the star center
+double2 center_aperture(double2 xy, double rr, double bg, double std, framedata *frame)
+{
+    // Round to the nearest pixel
+    int x = (int)xy.x;
+    int y = (int)xy.y;
+    int r = (int)rr;
         
-            d2 = (x-xx)**2 + (y-yy)**2
-            if d2 < r1*r1 and imagedata[yy,xx] > bg + 3*std:
-                data[j,i] = imagedata[yy,xx] - bg
-            else:
-                data[j,i] = 0
+    // Calculate x and y marginals (sum the image into 1d lines in x and y)
+    double total = 0;
+    double *xm = (double *)malloc(2*r*sizeof(double));
+    if (xm == NULL)
+        error("malloc failed");
+    for (int i = 0; i < 2*r; i++)
+        xm[i] = 0;
 
-    # Calculate the x and y marginals
-    # (collapse the image into a 1d line in each axis)
-    xm = data.sum(axis=0)
-    ym = data.sum(axis=1)
+    double *ym = (double *)malloc(2*r*sizeof(double));
+    if (ym == NULL)
+        error("malloc failed");
+    
+    for (int j = 0; j < 2*r; j++)
+        ym[j] = 0;
+        
+    for (int j = 0; j < 2*r; j++)
+        for (int i = 0; i < 2*r; i++)
+        {            
+            // Ignore points outside the circle
+            if ((i-r)*(i-r) + (j-r)*(j-r) > r*r)
+                continue;
 
-    # Total counts to normalize by
-    tot = xm.sum()
-
-    # Calculate x and y moments
-    xc,yc = 0,0
-    for i in range(0,2*r1,1):
-        xc += i*xm[i]/tot
-        yc += i*ym[i]/tot
-
-    # Convert back to image coords
-    xc += x - r1
-    yc += y - r1
-    return xc, yc
-*/
+            double px = frame->data[frame->cols*(y+j-r) + (x+i-r)] - bg;
+            if (fabs(px) < 3*std)
+                continue;
+            
+            xm[i] += px;
+            ym[j] += px;
+            total += px;
+        }
+    
+    // Calculate x and y moments
+    double xc = 0;
+    double yc = 0;
+    for (int i = 0; i < 2*r; i++)
+        xc += (double)i*xm[i] / total;
+    
+    for (int j = 0; j < 2*r; j++)
+        yc += (double)j*ym[j] / total;
+    
+    free(xm);
+    free(ym);
+    
+    double2 ret = {xc + x - r,yc + y - r};
+    return ret;
+}
 
 // Public domain code obtained from http://alienryderflex.com/quicksort/ @ 2011-03-04
 void quickSort(unsigned short *arr, int elements)
@@ -340,6 +357,15 @@ int main( int argc, char *argv[] )
     //    for (int j = 0; j < 10; j++) // j = row, i = col
     //    printf("%d %d %d\n", i,j, frame.data[frame.cols*j + i]);
     
+    double2 xy = {360, 750};
+    double r1 = 10, r2 = 20;
+    double2 bg = calculate_background(xy, r1, r2, &frame);
+    printf("bg: %f std: %f\n", bg.x, bg.y);
+    xy = center_aperture(xy, r1, bg.x, bg.y, &frame);
+    printf("(%f,%f)\n", xy.x, xy.y);
+
+    /*
+    
     struct timeval starttime, endtime;
     gettimeofday(&starttime, NULL);
     double2 xy = {359, 748};
@@ -360,7 +386,7 @@ int main( int argc, char *argv[] )
     t2=endtime.tv_sec+(endtime.tv_usec/1000000.0);
     
     printf("total: %d in %f ms\n", time(NULL) - t, (t2-t1)*1000);
-    
+    */
     framedata_free(frame);
 	return 0;
 }
