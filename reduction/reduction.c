@@ -82,7 +82,7 @@ int framedata_has_header(framedata *this, const char *key)
 
 int framedata_get_header_int(framedata *this, const char *key)
 {
-    int ret, status;
+    int ret, status = 0;
     if (fits_read_key(this->_fptr, TINT, key, &ret, NULL, &status))
         error("framedata_get_header_string failed");
     return ret;
@@ -435,6 +435,9 @@ int main( int argc, char *argv[] )
                     
         record records[10000];
         int numrecords = 0;
+        
+        char pattern[128];
+        pattern[0] = '\0';
     
     
         // Read any existing config and data
@@ -443,7 +446,9 @@ int main( int argc, char *argv[] )
             // Ignore headers for now
             if (buf[0] == '#')
                 continue;
-                
+            else if (!strncmp(buf,"# Pattern:", 10))
+                sscanf(buf, "# Pattern: %s\n", pattern);
+            
             /*
             if line[:10] == "# Pattern:":
                     pattern = line[11:-1]
@@ -474,6 +479,8 @@ int main( int argc, char *argv[] )
             );
             numrecords++;
         }
+        
+        printf("Pattern: `%s`\n",pattern);
                 
         // Iterate through the list of files matching the filepattern
         sprintf(buf, "/bin/ls %s", argv[2]);
@@ -485,18 +492,18 @@ int main( int argc, char *argv[] )
         {
             // Strip the newline character from the end of the filename
             buf[strlen(buf)-1] = '\0';
-            
             char *filename = buf;
-            printf("%s\n", filename);
             
             // Check whether the frame has been processed
             int found = FALSE;
             for (int i = 0; i < numrecords; i++)
-                if (strcmp(filename, records[numrecords].filename) == 0)
+                if (strcmp(filename, records[i].filename) == 0)
                 {
                     found = TRUE;
                     break;
                 }
+            printf("%s found %d\n", filename, found);
+            
             if (found)
                 continue;
                      
