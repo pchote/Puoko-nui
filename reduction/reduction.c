@@ -27,7 +27,7 @@ typedef struct
 
 void error(const char *msg)
 {
-    printf(msg);
+    printf("%s",msg);
     exit(1);
 }
 
@@ -60,6 +60,119 @@ void framedata_free(framedata this)
     int status;
     free(this.data);
     fits_close_file(this._fptr, &status);
+}
+
+/*
+
+# Find the center of the star within the inner circle
+#   Takes the search annulus and imagedata
+#   Returns x,y coordinates for the star center
+@print_timing
+def center_aperture(x, y, r1, bg, std, imagedata):
+    # Copy the data within the inside (circular) apeture
+    # and threshold / subtract the background level
+    data = numpy.empty([2*r1,2*r1])
+    for j in range(0,2*r1,1):
+        for i in range(0,2*r1,1):
+            xx = x - r1 + i
+            yy = y - r1 + j
+        
+            d2 = (x-xx)**2 + (y-yy)**2
+            if d2 < r1*r1 and imagedata[yy,xx] > bg + 3*std:
+                data[j,i] = imagedata[yy,xx] - bg
+            else:
+                data[j,i] = 0
+
+    # Calculate the x and y marginals
+    # (collapse the image into a 1d line in each axis)
+    xm = data.sum(axis=0)
+    ym = data.sum(axis=1)
+
+    # Total counts to normalize by
+    tot = xm.sum()
+
+    # Calculate x and y moments
+    xc,yc = 0,0
+    for i in range(0,2*r1,1):
+        xc += i*xm[i]/tot
+        yc += i*ym[i]/tot
+
+    # Convert back to image coords
+    xc += x - r1
+    yc += y - r1
+    return xc, yc
+*/
+
+// Public domain code obtained from http://alienryderflex.com/quicksort/ @ 2011-03-04
+void quickSort(unsigned short *arr, int elements)
+{
+    #define  MAX_LEVELS  1000
+    int piv, beg[MAX_LEVELS], end[MAX_LEVELS], i=0, L, R;
+    beg[0] = 0; end[0] = elements;
+    while (i >= 0)
+    {
+        L = beg[i]; R = end[i] - 1;
+        if (L < R)
+        {
+            piv=arr[L];
+            if (i==MAX_LEVELS-1)
+                error("quicksort required too many levels");
+
+            while (L<R)
+            {
+                while (arr[R] >= piv && L<R) R--; if (L < R) arr[L++] = arr[R];
+                while (arr[L] <= piv && L<R) L++; if (L < R) arr[R--] = arr[L];
+            }
+            arr[L] = piv;
+            beg[i + 1] = L + 1;
+            end[i + 1] = end[i];
+            end[i++] = L;
+        }
+        else
+            i--;
+    }
+}
+
+// Calculate the mode intensity and standard deviation within an annulus
+double2 calculate_background(double2 xy, double r1, double r2, framedata *frame)
+{
+    int minx = floor(xy.x - r2);
+    int maxx = ceil(xy.x + r2);
+    int miny = floor(xy.y - r2);
+    int maxy = ceil(xy.y + r2);
+    
+    // Copy pixels into a flat list that can be sorted
+    // Allocate enough space to store the entire region, but only copy pixels
+    // within the annulus.
+    unsigned short *data = (unsigned short *)malloc((maxy - miny + 1)*(maxx - minx + 1)*sizeof(unsigned short));
+    int n = 0;
+    for (int j = miny; j <= maxy; j++)
+        for (int i = minx; i <= maxx; i++)
+        {
+            double d2 = (xy.x-i)*(xy.x-i) + (xy.y-j)*(xy.y-j);
+            if (d2 > r1*r1 && d2 < r2*r2)
+                data[n++] = frame->data[frame->cols*j + i];
+        }    
+    
+    // Calculate mean
+    double mean = 0;
+    for (int i = 0; i < n; i++)
+        mean += data[i];
+    mean /= n;
+    
+    // Calculate median
+    quickSort(data, n);
+    double median = (data[n/2] + data[n/2+1])/2;
+
+    // Calculate standard deviation
+    double std = 0;
+    for (int i = 0; i < n; i++)
+        std += (data[i] - mean)*(data[i] - mean);
+    std = sqrt(std/n);
+    
+    free(data);
+    double2 ret = {3*mean - 2*median, std};
+    return ret;
 }
 
 // Finds the intersection point of the line defined by p1 and p2 (both x,y)
@@ -228,14 +341,25 @@ int main( int argc, char *argv[] )
     //    printf("%d %d %d\n", i,j, frame.data[frame.cols*j + i]);
     
     struct timeval starttime, endtime;
-	gettimeofday(&starttime, NULL);
-    double total = integrate_aperture(359.14096264375621, 748.35848584951259, 20, &frame);
+    gettimeofday(&starttime, NULL);
+    double2 xy = {359, 748};
+    double2 bg = calculate_background(xy, 10, 20, &frame);
     gettimeofday(&endtime, NULL);
     
     double t1=starttime.tv_sec+(starttime.tv_usec/1000000.0);
     double t2=endtime.tv_sec+(endtime.tv_usec/1000000.0);
 
-    printf("total: %f in %f ms\n", total, (t2-t1)*1000);
+    printf("bg: %f std: %f in %f ms\n", bg.x, bg.y, (t2-t1)*1000);
+    
+    time_t t = time(NULL);
+	gettimeofday(&starttime, NULL);
+    integrate_aperture(359.14096264375621, 748.35848584951259, 20, &frame);
+    gettimeofday(&endtime, NULL);
+    
+    t1=starttime.tv_sec+(starttime.tv_usec/1000000.0);
+    t2=endtime.tv_sec+(endtime.tv_usec/1000000.0);
+    
+    printf("total: %d in %f ms\n", time(NULL) - t, (t2-t1)*1000);
     
     framedata_free(frame);
 	return 0;
