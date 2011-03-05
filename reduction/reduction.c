@@ -77,16 +77,24 @@ framedata framedata_new(const char *filename)
 int framedata_has_header(framedata *this, const char *key)
 {
     //hdulist[0].header.has_key('UTC-BEG'):
-    return FALSE;
+    return TRUE;
 }
 
 int framedata_get_header_int(framedata *this, const char *key)
 {
     int ret, status = 0;
     if (fits_read_key(this->_fptr, TINT, key, &ret, NULL, &status))
-        error("framedata_get_header_string failed");
+        error("framedata_get_header_int failed");
     return ret;
 }
+
+void framedata_get_header_string(framedata *this, const char *key, char *ret)
+{
+    int status = 0;
+    if (fits_read_key(this->_fptr, TSTRING, key, ret, NULL, &status))
+        error("framedata_get_header_string failed");
+}
+
 
 void framedata_free(framedata this)
 {
@@ -138,18 +146,7 @@ double2 center_aperture(region reg, double2 bg2, framedata *frame)
             ym[j] += px;
             total += px;
         }
-    /*
-    printf("total: %f\n",total);
-    printf("xm: { %f", xm[0]);
-    for (int i = 1; i < 2*r; i++)
-        printf(", %f", xm[i]);
-    printf("}\n");
-
-    printf("ym: { %f", ym[0]);
-    for (int i = 1; i < 2*r; i++)
-        printf(", %f", ym[i]);
-    printf("}\n");
-    */   
+ 
     // Calculate x and y moments
     double xc = 0;
     double yc = 0;
@@ -413,61 +410,54 @@ double2 process_region(region r, framedata *frame, double exptime)
 
 int main( int argc, char *argv[] )
 {
-    if (argc > 2)
+    if (argc > 1)
     {
-        char buf[PATH_MAX+8];
-
         region regions[10];
         int numregions = 0;
-    
-
-        region reg = {412, 351, 10, 20};
-        regions[numregions++] = reg;
-        reg.x = 117; reg.y = 460;
-        regions[numregions++] = reg;
-        reg.x = 162; reg.y = 41;
-        regions[numregions++] = reg;
         
         chdir(argv[1]);
         
         FILE *data = fopen("data.dat", "r+");
-        
-                    
+              
         record records[10000];
         int numrecords = 0;
         
         char pattern[128];
         pattern[0] = '\0';
+        
+        char darktemplate[128];
+        darktemplate[0] = '\0';
     
-    
+        time_t start_time = 0;
+
+        char linebuf[1024];
         // Read any existing config and data
-        while (fgets(buf, sizeof(buf)-1, data) != NULL)
-        {
-            // Ignore headers for now
-            if (buf[0] == '#')
+        while (fgets(linebuf, sizeof(linebuf)-1, data) != NULL)
+        {            
+            if (!strncmp(linebuf,"# Pattern:", 10))
+                sscanf(linebuf, "# Pattern: %s\n", pattern);
+            else if (!strncmp(linebuf,"# DarkTemplate:", 15))
+                sscanf(linebuf, "# DarkTemplate: %s\n", pattern);
+            else if (!strncmp(linebuf,"# Region:", 9))
+            {
+                 sscanf(linebuf, "# Region: (%lf, %lf, %lf, %lf)\n",
+                    &regions[numregions].x,
+                    &regions[numregions].y,
+                    &regions[numregions].r1,
+                    &regions[numregions].r2
+                 );
+                numregions++;
+            }
+            else if (!strncmp(linebuf,"# ReferenceTime:", 16))
+            {
+                struct tm t;
+                strptime(linebuf, "# ReferenceTime: %Y-%m-%d %H:%M:%S\n", &t);
+                start_time = timegm(&t);
+            }
+            else if (linebuf[0] == '#')
                 continue;
-            else if (!strncmp(buf,"# Pattern:", 10))
-                sscanf(buf, "# Pattern: %s\n", pattern);
-            
-            /*
-            if line[:10] == "# Pattern:":
-                    pattern = line[11:-1]
-                elif line[:9] == "# Region:":
-                    regions.append(eval(line[10:]))
-                elif line[:12] == "# Startdate:":
-                    refdate = calendar.timegm(time.strptime(line[13:-1], "%Y-%m-%d %H:%M:%S"))
-                elif line[:15] == "# DarkTemplate:":
-                    darkhdu = pyfits.open(line[16:-1])
-                    dark = darkhdu[0].data
-                    darkhdu.close()
-                elif line[0] is '#':
-                    continue
-                else:
-                    # Assume that any other lines are reduced data files
-                    # Last element of the line is the filename
-                    processed.append(line.split()[-1])
-            */
-            sscanf(buf, "%d %lf %lf %lf %lf %lf %lf %s\n",
+
+            sscanf(linebuf, "%d %lf %lf %lf %lf %lf %lf %s\n",
                 &records[numrecords].time,
                 &records[numrecords].star[0],
                 &records[numrecords].sky[0],
@@ -481,18 +471,19 @@ int main( int argc, char *argv[] )
         }
         
         printf("Pattern: `%s`\n",pattern);
-                
+           
         // Iterate through the list of files matching the filepattern
-        sprintf(buf, "/bin/ls %s", argv[2]);
-        FILE *ls = popen(buf, "r");
+        char filenamebuf[PATH_MAX+8];
+        sprintf(filenamebuf, "/bin/ls %s", pattern);
+        FILE *ls = popen(filenamebuf, "r");
         if (ls == NULL)
             error("failed to list directory");
 
-        while (fgets(buf, sizeof(buf)-1, ls) != NULL)
+        while (fgets(filenamebuf, sizeof(filenamebuf)-1, ls) != NULL)
         {
             // Strip the newline character from the end of the filename
-            buf[strlen(buf)-1] = '\0';
-            char *filename = buf;
+            filenamebuf[strlen(filenamebuf)-1] = '\0';
+            char *filename = filenamebuf;
             
             // Check whether the frame has been processed
             int found = FALSE;
@@ -508,27 +499,38 @@ int main( int argc, char *argv[] )
                 continue;
                      
             framedata frame = framedata_new(filename);
-            /*
+            
+            // Calculate time at the middle of the exposure relative to ReferenceTime
+            double midtime = 0;
             if (framedata_has_header(&frame, "UTC-BEG"))
-                sprintf(buf, "%s %s", framedata_header(&frame, "UTC-DATE"), framedata_header(&frame, "UTC-BEG"));
-            else if (framedata_has_header(&frame, "GPSTIME"))
-                strncpy(buf, framedata_header(&frame, "GPSTIME"), 128);
-            else if (framedata_has_header(&frame, "UTC"))
             {
-                strncpy(buf, framedata_header(&frame, "UTC"), 23);
-                buf[23] = '\0';
+                char datebuf[128], timebuf[128], datetimebuf[257];
+                struct tm t;
+                framedata_get_header_string(&frame, "UTC-DATE", datebuf);
+                framedata_get_header_string(&frame, "UTC-BEG", timebuf);
+                
+                sprintf(datetimebuf, "%s %s", datebuf, timebuf);
+                strptime(datetimebuf, "%Y-%m-%d %H:%M:%S", &t);
+                time_t frame_time = timegm(&t);
+                double start = difftime(frame_time, start_time);
+                
+                framedata_get_header_string(&frame, "UTC-END", timebuf);
+                sprintf(datetimebuf, "%s %s", datebuf, timebuf);
+                strptime(datetimebuf, "%Y-%m-%d %H:%M:%S", &t);
+                frame_time = timegm(&t);
+                double end = difftime(frame_time, start_time);
+                
+                midtime = (start + end)/2;
             }
+            //else if (framedata_has_header(&frame, "GPSTIME"))
+            //{
+            //    strncpy(buf, framedata_get_header_string(&frame, "GPSTIME"), 128);
+            //}
             else
-                error("No valid time header found");
-            */
-
-            // TODO: calculate startdate
-            /*
-            try:
-                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S.%f"))
-            except ValueError as e:
-                startdate = calendar.timegm(time.strptime(datestart, "%Y-%m-%d %H:%M:%S"))
-            */
+            {
+                fprintf(stderr, "%s: no valid time header found - skipping\n", filename);
+                continue;
+            }
             
             // TODO: subtract master dark
             /*
@@ -539,8 +541,8 @@ int main( int argc, char *argv[] )
             // Process regions
             int exptime = framedata_get_header_int(&frame, "EXPTIME");
             
-            // TODO: calculate relative time
-            fprintf(data, "%d ", 0);
+
+            fprintf(data, "%f ", midtime);
             for (int i = 0; i < numregions; i++)
             {
                 double2 ret = process_region(regions[i], &frame, exptime);
@@ -555,16 +557,4 @@ int main( int argc, char *argv[] )
         fclose(data);
     }
     return 0;
-}
-
-int main2( int argc, char *argv[] )
-{
-    char *filename = "EC20058_0001.fit.gz";
-    region r = {360, 750, 10, 20};
-    
-    framedata frame = framedata_new(filename);
-    process_region(r, &frame, 1);
-    framedata_free(frame);
-
-	return 0;
 }
