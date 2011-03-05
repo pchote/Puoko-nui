@@ -74,19 +74,20 @@ framedata framedata_new(const char *filename)
     return this;
 }
 
-int framedata_has_header(framedata *this, const char *key)
-{
-    // TODO: Check
-    //hdulist[0].header.has_key('UTC-BEG'):
-    return TRUE;
-}
-
 int framedata_get_header_int(framedata *this, const char *key)
 {
     int ret, status = 0;
     if (fits_read_key(this->_fptr, TINT, key, &ret, NULL, &status))
         error("framedata_get_header_int failed");
     return ret;
+}
+
+int framedata_has_header_string(framedata *this, const char *key)
+{
+    int status = 0;
+    char buf[128];
+    fits_read_key(this->_fptr, TSTRING, key, &buf, NULL, &status);
+    return status != KEY_NO_EXIST;
 }
 
 void framedata_get_header_string(framedata *this, const char *key, char *ret)
@@ -504,9 +505,11 @@ int main( int argc, char *argv[] )
                      
             framedata frame = framedata_new(filename);
             
+            int exptime = framedata_get_header_int(&frame, "EXPTIME");
+
             // Calculate time at the middle of the exposure relative to ReferenceTime
             double midtime = 0;
-            if (framedata_has_header(&frame, "UTC-BEG"))
+            if (framedata_has_header_string(&frame, "UTC-BEG"))
             {
                 char datebuf[128], timebuf[128], datetimebuf[257];
                 struct tm t;
@@ -527,10 +530,16 @@ int main( int argc, char *argv[] )
                 midtime = (start + end)/2;
             }
             // TODO: Handle old frames
-            //else if (framedata_has_header(&frame, "GPSTIME"))
-            //{
-            //    strncpy(buf, framedata_get_header_string(&frame, "GPSTIME"), 128);
-            //}
+            else if (framedata_has_header_string(&frame, "GPSTIME"))
+            {
+                char datebuf[128];
+                struct tm t;
+                framedata_get_header_string(&frame, "GPSTIME", datebuf);
+                strptime(datebuf, "%Y-%m-%d %H:%M:%S", &t);
+                time_t frame_time = timegm(&t);
+
+                midtime = difftime(frame_time, start_time) + exptime/2;
+            }
             else
             {
                 fprintf(stderr, "%s: no valid time header found - skipping\n", filename);
@@ -545,9 +554,6 @@ int main( int argc, char *argv[] )
             }
             
             // Process targets
-            int exptime = framedata_get_header_int(&frame, "EXPTIME");
-            
-
             fprintf(data, "%f ", midtime);
             for (int i = 0; i < numtargets; i++)
             {
@@ -557,7 +563,6 @@ int main( int argc, char *argv[] )
             fprintf(data, "%s\n", filename);
             
             framedata_free(frame);
-
         }
         if (dark.data != NULL)
             framedata_free(dark);
