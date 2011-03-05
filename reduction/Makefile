@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -c -Wall -pedantic -Dlinux --std=c99
+CFLAGS = -g -c -Wall -pedantic -Dlinux --std=c99 -D_XOPEN_SOURCE -D_BSD_SOURCE
 LFLAGS = -lcfitsio
 
 SRC = reduction.c

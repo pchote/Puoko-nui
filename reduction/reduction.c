@@ -12,6 +12,12 @@
 #include <string.h>
 #include <fitsio.h>
 
+
+// Compatability tweaks
+#ifndef M_PI
+#define M_PI           3.14159265358979323846
+#endif
+
 /* Represents an aquired frame */
 typedef struct
 {
