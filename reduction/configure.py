@@ -21,14 +21,16 @@ import matplotlib.pyplot as plt
 
 def main():
     # First argument gives the dir containing images, second the regex of the files to process 
-    if len(sys.argv) >= 2:
+    if len(sys.argv) >= 3:
         os.chdir(sys.argv[1])
         pattern = sys.argv[2]
 
-
-        # Create a master dark frame
-        darkpattern = sys.argv[3]
-        reduction.create_dark(darkpattern)
+        darkpattern = None
+        print sys.argv
+        if len(sys.argv) >= 4:
+            # Create a master dark frame
+            darkpattern = sys.argv[3]
+            create_dark(darkpattern)
         
         files = os.listdir('.')
         files.sort()
@@ -40,7 +42,8 @@ def main():
             output = open('data.dat', 'w')
             output.write('# Rangahau Online reduction output\n')
             output.write('# Pattern: {0}\n'.format(pattern))
-            output.write('# DarkTemplate: master-dark.fits\n')
+            if darkpattern is not None:
+                output.write('# DarkTemplate: master-dark.fits\n')
 
             hdulist = pyfits.open(filtered[0])
             imagedata = hdulist[0].data
