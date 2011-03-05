@@ -30,7 +30,7 @@ def main():
         if len(sys.argv) >= 4:
             # Create a master dark frame
             darkpattern = sys.argv[3]
-            create_dark(darkpattern)
+            reduction.create_dark(darkpattern)
         
         files = os.listdir('.')
         files.sort()
