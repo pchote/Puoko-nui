@@ -25,7 +25,7 @@ typedef struct
     double y;
     double r1;
     double r2;
-} region;
+} target;
 
 typedef struct
 {
@@ -76,6 +76,7 @@ framedata framedata_new(const char *filename)
 
 int framedata_has_header(framedata *this, const char *key)
 {
+    // TODO: Check
     //hdulist[0].header.has_key('UTC-BEG'):
     return TRUE;
 }
@@ -107,7 +108,7 @@ void framedata_free(framedata this)
 // Find the center of the star within the inner circle
 //   Takes the search circle and imagedata
 //   Returns x,y coordinates for the star center
-double2 center_aperture(region reg, double2 bg2, framedata *frame)
+double2 center_aperture(target reg, double2 bg2, framedata *frame)
 {
     // Round to the nearest pixel
     int x = (int)reg.x;
@@ -194,7 +195,7 @@ void quickSort(unsigned short *arr, int elements)
 }
 
 // Calculate the mode intensity and standard deviation within an annulus
-double2 calculate_background(region r, framedata *frame)
+double2 calculate_background(target r, framedata *frame)
 {
     int minx = floor(r.x - r.r2);
     int maxx = ceil(r.x + r.r2);
@@ -202,7 +203,7 @@ double2 calculate_background(region r, framedata *frame)
     int maxy = ceil(r.y + r.r2);
     
     // Copy pixels into a flat list that can be sorted
-    // Allocate enough space to store the entire region, but only copy pixels
+    // Allocate enough space to store the entire target region, but only copy pixels
     // within the annulus.
     unsigned short *data = (unsigned short *)malloc((maxy - miny + 1)*(maxx - minx + 1)*sizeof(unsigned short));
     int n = 0;
@@ -391,7 +392,7 @@ double integrate_aperture(double2 xy, double r, framedata *frame)
     return total;
 }
 
-double2 process_region(region r, framedata *frame, double exptime)
+double2 process_target(target r, framedata *frame, double exptime)
 {
     double2 bg = calculate_background(r, frame);
     double2 xy = center_aperture(r, bg, frame);
@@ -412,8 +413,8 @@ int main( int argc, char *argv[] )
 {
     if (argc > 1)
     {
-        region regions[10];
-        int numregions = 0;
+        target targets[10];
+        int numtargets = 0;
         
         chdir(argv[1]);
         
@@ -424,12 +425,13 @@ int main( int argc, char *argv[] )
         
         char pattern[128];
         pattern[0] = '\0';
-        
-        char darktemplate[128];
-        darktemplate[0] = '\0';
     
         time_t start_time = 0;
-
+        
+        // Processed dark template
+        framedata dark;
+        dark.data = NULL;
+        
         char linebuf[1024];
         // Read any existing config and data
         while (fgets(linebuf, sizeof(linebuf)-1, data) != NULL)
@@ -437,16 +439,20 @@ int main( int argc, char *argv[] )
             if (!strncmp(linebuf,"# Pattern:", 10))
                 sscanf(linebuf, "# Pattern: %s\n", pattern);
             else if (!strncmp(linebuf,"# DarkTemplate:", 15))
-                sscanf(linebuf, "# DarkTemplate: %s\n", pattern);
-            else if (!strncmp(linebuf,"# Region:", 9))
             {
-                 sscanf(linebuf, "# Region: (%lf, %lf, %lf, %lf)\n",
-                    &regions[numregions].x,
-                    &regions[numregions].y,
-                    &regions[numregions].r1,
-                    &regions[numregions].r2
+                char darkbuf[128];
+                sscanf(linebuf, "# DarkTemplate: %s\n", darkbuf);
+                dark = framedata_new(darkbuf);
+            }
+            else if (!strncmp(linebuf,"# Target:", 9))
+            {
+                 sscanf(linebuf, "# Target: (%lf, %lf, %lf, %lf)\n",
+                    &targets[numtargets].x,
+                    &targets[numtargets].y,
+                    &targets[numtargets].r1,
+                    &targets[numtargets].r2
                  );
-                numregions++;
+                numtargets++;
             }
             else if (!strncmp(linebuf,"# ReferenceTime:", 16))
             {
@@ -469,9 +475,7 @@ int main( int argc, char *argv[] )
             );
             numrecords++;
         }
-        
-        printf("Pattern: `%s`\n",pattern);
-           
+                   
         // Iterate through the list of files matching the filepattern
         char filenamebuf[PATH_MAX+8];
         sprintf(filenamebuf, "/bin/ls %s", pattern);
@@ -486,16 +490,16 @@ int main( int argc, char *argv[] )
             char *filename = filenamebuf;
             
             // Check whether the frame has been processed
-            int found = FALSE;
+            int processed = FALSE;
             for (int i = 0; i < numrecords; i++)
                 if (strcmp(filename, records[i].filename) == 0)
                 {
-                    found = TRUE;
+                    processed = TRUE;
                     break;
                 }
-            printf("%s found %d\n", filename, found);
+            printf("%s: processed %d\n", filename, processed);
             
-            if (found)
+            if (processed)
                 continue;
                      
             framedata frame = framedata_new(filename);
@@ -522,6 +526,7 @@ int main( int argc, char *argv[] )
                 
                 midtime = (start + end)/2;
             }
+            // TODO: Handle old frames
             //else if (framedata_has_header(&frame, "GPSTIME"))
             //{
             //    strncpy(buf, framedata_get_header_string(&frame, "GPSTIME"), 128);
@@ -532,20 +537,21 @@ int main( int argc, char *argv[] )
                 continue;
             }
             
-            // TODO: subtract master dark
-            /*
-            if dark is not -1:
-                imagedata -= dark
-            */
+            // Subtract dark counts
+            if (dark.data != NULL)
+            {
+                printf("Found dark\n");
+                // TODO: Subtract dark
+            }
             
-            // Process regions
+            // Process targets
             int exptime = framedata_get_header_int(&frame, "EXPTIME");
             
 
             fprintf(data, "%f ", midtime);
-            for (int i = 0; i < numregions; i++)
+            for (int i = 0; i < numtargets; i++)
             {
-                double2 ret = process_region(regions[i], &frame, exptime);
+                double2 ret = process_target(targets[i], &frame, exptime);
                 fprintf(data, "%f %f ", ret.x, ret.y);
             }
             fprintf(data, "%s\n", filename);
@@ -553,6 +559,9 @@ int main( int argc, char *argv[] )
             framedata_free(frame);
 
         }
+        if (dark.data != NULL)
+            framedata_free(dark);
+        
         pclose(ls);
         fclose(data);
     }
