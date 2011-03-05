@@ -50,20 +50,22 @@ def main():
             pgpt(array(time), array(stardata[:,i]), 17)
 
 
-        #ratio = stardata[:,0]/stardata[:,1];
-
+        ratio = stardata[:,0]/stardata[:,2];
+	#print ratio
         # Scale to the center of the range
-        #ratio *= 8000
-
-        #pgsci(7)
-        #pgpt(array(time), array(ratio), 17)
+        ratio *= 2500
+	ratio -= 600
+	
+	#print ratio
+        pgsci(7)
+        pgpt(array(time), array(ratio), 17)
         
         # Select the data in the last 20 min
         timelimit = 20
         time2 = [(xrange[1] - t)/60 for t in time]
         # Used only for filtering max/min
         stardata2 = stardata[[i for i,t in enumerate(time2) if t < timelimit],:]
-        xrange2 = (0, timelimit)
+        xrange2 = (timelimit, 0)
         yrange2 = (numpy.min(stardata2), numpy.max(stardata2))
 
         pgsci(1)
