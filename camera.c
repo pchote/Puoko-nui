@@ -24,7 +24,7 @@ RangahauCamera rangahau_camera_new()
 	cam.status = INITIALISING;
 	cam.image_buffer = NULL;
 	cam.image_buffer_size = 0;
-	cam.binsize = 1;
+	cam.binsize = 2;
 	return cam;
 }
 
@@ -227,7 +227,7 @@ void *rangahau_camera_thread(void *_cam)
 		/* Retrieve frame data */
 		if (!cam->shutdown && frame_available(cam))
 		{
-			printf("Frame available\n");
+			printf("Frame available @ %d\n", time(NULL));
 			void_ptr camera_frame;
 			if (!pl_exp_get_oldest_frame(cam->handle, &camera_frame))
 				check_pvcam_error("Error retrieving oldest frame", __LINE__);
