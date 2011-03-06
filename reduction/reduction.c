@@ -38,7 +38,7 @@ typedef struct
     fitsfile *_fptr;
     int rows;
     int cols;
-    unsigned short *data;
+    int *data;
 } framedata;
 
 
@@ -46,7 +46,7 @@ typedef struct
 {
     double star[3];
     double sky[3];
-    int time;
+    double time;
     char filename[64];
 } record;
 
@@ -69,12 +69,12 @@ framedata framedata_new(const char *filename)
     if (status)
         error("querying NAXIS failed");
     
-    this.data = (unsigned short *)malloc(this.cols*this.rows*sizeof(unsigned short));
+    this.data = (int *)malloc(this.cols*this.rows*sizeof(int));
     if (this.data == NULL)
         error("malloc failed");
     
     long fpixel[2] = {1,1}; // Read the entire image
-    if (fits_read_pix(this._fptr, TUSHORT, fpixel, this.cols*this.rows, 0, this.data, NULL, &status))
+    if (fits_read_pix(this._fptr, TINT, fpixel, this.cols*this.rows, 0, this.data, NULL, &status))
         error("fits_read_pix failed");
 
     return this;
@@ -103,6 +103,14 @@ void framedata_get_header_string(framedata *this, const char *key, char *ret)
         error("framedata_get_header_string failed");
 }
 
+void framedata_subtract(framedata *this, framedata *other)
+{
+    if (this->cols != other->cols || this->rows != other->rows)
+        error("Attempting to subtract frame with different size");
+    
+    for (int i = 0; i < this->cols*this->rows; i++)
+        this->data[i] -= other->data[i];
+}
 
 void framedata_free(framedata this)
 {
@@ -172,7 +180,7 @@ double2 center_aperture(target reg, double2 bg2, framedata *frame)
 }
 
 // Public domain code obtained from http://alienryderflex.com/quicksort/ @ 2011-03-04
-void quickSort(unsigned short *arr, int elements)
+void quickSort(int *arr, int elements)
 {
     #define  MAX_LEVELS  1000
     int piv, beg[MAX_LEVELS], end[MAX_LEVELS], i=0, L, R;
@@ -212,7 +220,7 @@ double2 calculate_background(target r, framedata *frame)
     // Copy pixels into a flat list that can be sorted
     // Allocate enough space to store the entire target region, but only copy pixels
     // within the annulus.
-    unsigned short *data = (unsigned short *)malloc((maxy - miny + 1)*(maxx - minx + 1)*sizeof(unsigned short));
+    int *data = (int *)malloc((maxy - miny + 1)*(maxx - minx + 1)*sizeof(int));
     int n = 0;
     for (int j = miny; j <= maxy; j++)
         for (int i = minx; i <= maxx; i++)
@@ -237,6 +245,8 @@ double2 calculate_background(target r, framedata *frame)
     for (int i = 0; i < n; i++)
         std += (data[i] - mean)*(data[i] - mean);
     std = sqrt(std/n);
+    
+    //printf("mean: %f median: %f std: %f\n",mean,median,std);
     
     free(data);
     double2 ret = {3*mean - 2*median, std};
@@ -403,6 +413,8 @@ double2 process_target(target r, framedata *frame, double exptime)
 {
     double2 bg = calculate_background(r, frame);
     double2 xy = center_aperture(r, bg, frame);
+    
+    //printf("%f %f ; %f %f ; %f %f\n",bg.x,bg.y,r.x,r.y,xy.x,xy.y);
     double2 ret = {0,0};
     if (xy.x - r.r2 < 0 || xy.x + r.r2 > frame->cols || xy.y - r.r2 < 0 || xy.y + r.r2 > frame->rows)
     {
@@ -470,7 +482,7 @@ int main( int argc, char *argv[] )
             else if (linebuf[0] == '#')
                 continue;
 
-            sscanf(linebuf, "%d %lf %lf %lf %lf %lf %lf %s\n",
+            sscanf(linebuf, "%lf %lf %lf %lf %lf %lf %lf %s\n",
                 &records[numrecords].time,
                 &records[numrecords].star[0],
                 &records[numrecords].sky[0],
@@ -535,7 +547,7 @@ int main( int argc, char *argv[] )
                 
                 midtime = (start + end)/2;
             }
-            // TODO: Handle old frames
+            // Handle oldstyle frames
             else if (framedata_has_header_string(&frame, "GPSTIME"))
             {
                 char datebuf[128];
@@ -556,9 +568,27 @@ int main( int argc, char *argv[] )
             if (dark.data != NULL)
             {
                 printf("Found dark\n");
-                // TODO: Subtract dark
+                framedata_subtract(&frame, &dark);
             }
             
+            /*
+            fitsfile *fptr;
+        	int status = 0;
+            
+        	// Create a new fits file
+        	fits_create_file(&fptr, "test.fits", &status);
+
+        	// Create the primary array image (16-bit short integer pixels)
+        	long size[2] = { frame.cols, frame.rows };
+        	fits_create_img(fptr, LONG_IMG, 2, size, &status);
+
+
+            // Write the frame data to the image
+        	fits_write_img(fptr, TINT, 1, frame.cols*frame.rows, frame.data, &status);
+
+        	fits_close_file(fptr, &status);
+            */
+
             // Process targets
             fprintf(data, "%f ", midtime);
             for (int i = 0; i < numtargets; i++)
