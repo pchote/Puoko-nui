@@ -29,8 +29,9 @@ typedef struct
 {
     double x;
     double y;
-    double r1;
-    double r2;
+    double r;
+    double s1;
+    double s2;
 } target;
 
 typedef struct
@@ -128,7 +129,7 @@ double2 center_aperture(target reg, double2 bg2, framedata *frame)
     // Round to the nearest pixel
     int x = (int)reg.x;
     int y = (int)reg.y;
-    int r = (int)reg.r1;
+    int r = (int)reg.r;
     double bg = bg2.x;
     double std = bg2.y;
     
@@ -212,10 +213,10 @@ void quickSort(int *arr, int elements)
 // Calculate the mode intensity and standard deviation within an annulus
 double2 calculate_background(target r, framedata *frame)
 {
-    int minx = floor(r.x - r.r2);
-    int maxx = ceil(r.x + r.r2);
-    int miny = floor(r.y - r.r2);
-    int maxy = ceil(r.y + r.r2);
+    int minx = floor(r.x - r.s2);
+    int maxx = ceil(r.x + r.s2);
+    int miny = floor(r.y - r.s2);
+    int maxy = ceil(r.y + r.s2);
     
     // Copy pixels into a flat list that can be sorted
     // Allocate enough space to store the entire target region, but only copy pixels
@@ -226,7 +227,7 @@ double2 calculate_background(target r, framedata *frame)
         for (int i = minx; i <= maxx; i++)
         {
             double d2 = (r.x-i)*(r.x-i) + (r.y-j)*(r.y-j);
-            if (d2 > r.r1*r.r1 && d2 < r.r2*r.r2)
+            if (d2 > r.s1*r.s1 && d2 < r.s2*r.s2)
                 data[n++] = frame->data[frame->cols*j + i];
         }    
     
@@ -416,14 +417,14 @@ double2 process_target(target r, framedata *frame, double exptime)
     
     //printf("%f %f ; %f %f ; %f %f\n",bg.x,bg.y,r.x,r.y,xy.x,xy.y);
     double2 ret = {0,0};
-    if (xy.x - r.r2 < 0 || xy.x + r.r2 > frame->cols || xy.y - r.r2 < 0 || xy.y + r.r2 > frame->rows)
+    if (xy.x - r.s2 < 0 || xy.x + r.s2 > frame->cols || xy.y - r.s2 < 0 || xy.y + r.s2 > frame->rows)
     {
         fprintf(stderr, "Aperture outside chip - skipping\n");
         return ret;
     }
     
-    ret.y = bg.x*M_PI*r.r1*r.r1 / exptime;
-    ret.x = integrate_aperture(xy,r.r1, frame) / exptime - ret.y;
+    ret.y = bg.x*M_PI*r.r*r.r / exptime;
+    ret.x = integrate_aperture(xy,r.r, frame) / exptime - ret.y;
 
     return ret;
 }
@@ -465,11 +466,12 @@ int main( int argc, char *argv[] )
             }
             else if (!strncmp(linebuf,"# Target:", 9))
             {
-                 sscanf(linebuf, "# Target: (%lf, %lf, %lf, %lf)\n",
+                 sscanf(linebuf, "# Target: (%lf, %lf, %lf, %lf, %lf)\n",
                     &targets[numtargets].x,
                     &targets[numtargets].y,
-                    &targets[numtargets].r1,
-                    &targets[numtargets].r2
+                    &targets[numtargets].r,
+                    &targets[numtargets].s1,
+                    &targets[numtargets].s2
                  );
                 numtargets++;
             }
