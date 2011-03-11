@@ -1,6 +1,6 @@
 /*
 * Copyright 2010, 2011 Paul Chote
-* This file is part of Rangahau, which is free software. It is made available
+* This file is part of Puoko-nui, which is free software. It is made available
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
@@ -14,9 +14,9 @@
 #include "camera.h"
 
 /* TODO: Standardise on using rs_bool? - at least be consistent with TRUE/true/FALSE/false */
-RangahauCamera rangahau_camera_new()
+PNCamera pn_camera_new()
 {
-	RangahauCamera cam;
+	PNCamera cam;
 	cam.acquire_frames = FALSE;
 	cam.handle = -1;
 	cam.init_status = INIT_UNINITIALISED;
@@ -38,11 +38,11 @@ static void check_pvcam_error(const char * msg, int line)
 	pvmsg[0] = '\0';
 	pl_error_message(error, pvmsg);
 
-	rangahau_die("%s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);
+	pn_die("%s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);
 }
 
 
-static void shutdown(RangahauCamera *cam)
+static void shutdown(PNCamera *cam)
 {
 	cam->status = SHUTDOWN;
 
@@ -71,7 +71,7 @@ static void shutdown(RangahauCamera *cam)
 	}
 }
 
-static void initialise_camera(RangahauCamera *cam)
+static void initialise_camera(PNCamera *cam)
 {
 	if (!pl_pvcam_init())
 		check_pvcam_error("Could not initialise the PVCAM library (pl_pvcam_init)", __LINE__);
@@ -88,7 +88,7 @@ static void initialise_camera(RangahauCamera *cam)
 
 	printf("Found %d camera(s)\n", numCams);
 	if (numCams == 0)
-		rangahau_die("No cameras are available (pass --simulate to use simulated hardware).\n");
+		pn_die("No cameras are available (pass --simulate to use simulated hardware).\n");
 
 	/* Get the camera name (assume that we only have one camera) */
 	char cameraName[CAM_NAME_LEN];
@@ -139,7 +139,7 @@ static void initialise_camera(RangahauCamera *cam)
 	cam->init_status = INIT_OPEN;
 }
 
-static void initialise_acquisition(RangahauCamera *cam)
+static void initialise_acquisition(PNCamera *cam)
 {
 	printf("Starting acquisition run...\n");
 	if (!pl_get_param(cam->handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *)&cam->frame_width))
@@ -181,7 +181,7 @@ static void initialise_acquisition(RangahauCamera *cam)
 	cam->init_status = INIT_AQUIRING;
 }
 
-static rs_bool frame_available(RangahauCamera *cam)
+static rs_bool frame_available(PNCamera *cam)
 {
 	int16 status = READOUT_NOT_ACTIVE;
 	uns32 bytesStored = 0, numFilledBuffers = 0;
@@ -198,11 +198,11 @@ static rs_bool frame_available(RangahauCamera *cam)
  * PARAM_TEMP - get the camera temperature in degrees c * 100
  */
 
-void *rangahau_camera_thread(void *_cam)
+void *pn_camera_thread(void *_cam)
 {
-	RangahauCamera *cam = (RangahauCamera *)_cam;
+	PNCamera *cam = (PNCamera *)_cam;
 	if (cam == NULL)
-		rangahau_die("cam is null @ %s:%d\n", __FILE__, __LINE__);
+		pn_die("cam is null @ %s:%d\n", __FILE__, __LINE__);
 	
 	/* Open PVCAM and set the initial camera parameters */
 	if (!cam->shutdown)		
@@ -235,7 +235,7 @@ void *rangahau_camera_thread(void *_cam)
 			/* Do something with the frame data */
 			if (cam->acquire_frames)
 			{
-				RangahauFrame frame;			
+				PNFrame frame;			
 				frame.width = cam->frame_width;
 				frame.height = cam->frame_height;
 				frame.data = camera_frame;

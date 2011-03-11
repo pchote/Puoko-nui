@@ -1,6 +1,6 @@
 /*
 * Copyright 2010, 2011 Paul Chote
-* This file is part of Rangahau, which is free software. It is made available
+* This file is part of Puoko-nui, which is free software. It is made available
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
@@ -16,9 +16,9 @@
 typedef struct
 {
 	/* Pointers to hardware for gui updates */
-	RangahauCamera *camera;
-	RangahauGPS *gps;
-	RangahauPreferences *prefs;
+	PNCamera *camera;
+	PNGPS *gps;
+	PNPreferences *prefs;
 
 	GtkWidget *window;
 	/* Acquire panel */
@@ -45,12 +45,12 @@ typedef struct
 	GtkWidget *destination_btn;
 	GtkWidget *run_entry;
 	GtkWidget *frame_entry;
-} RangahauView;
+} PNView;
 
-void rangahau_init_gui(RangahauView *view, void (starstop_pressed_cb)(GtkWidget *, void *));
-void rangahau_set_camera_editable(RangahauView *view, gboolean editable);
+void pn_init_gui(PNView *view, void (starstop_pressed_cb)(GtkWidget *, void *));
+void pn_set_camera_editable(PNView *view, gboolean editable);
 
-void rangahau_update_camera_preferences(RangahauView *view);
-void rangahau_update_output_preferences(RangahauView *view);
+void pn_update_camera_preferences(PNView *view);
+void pn_update_output_preferences(PNView *view);
 #endif
 

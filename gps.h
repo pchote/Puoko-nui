@@ -1,6 +1,6 @@
 /*
 * Copyright 2010, 2011 Paul Chote
-* This file is part of Rangahau, which is free software. It is made available
+* This file is part of Puoko-nui, which is free software. It is made available
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
@@ -27,7 +27,7 @@ typedef enum
 	GETSYNCTIME = 0x25,
 	GETEXPOSURETIME = 0x24,
 	SETEXPOSURETIME = 0x44,
-} RangahauGPSRequest;
+} PNGPSRequest;
 
 /* GPS error types */
 typedef enum
@@ -40,16 +40,16 @@ typedef enum
 	PACKET_8FAB_LENGTH_WRONG = 1<<4,
 	GPS_TIME_NOT_LOCKED = 1<<5,
 	GPS_SERIAL_LOST = 1<<7
-} RangahauGPSError;
+} PNGPSError;
 
 /* Represents a response packet from the GPS */
 typedef struct
 {
-	RangahauGPSRequest type;
+	PNGPSRequest type;
 	unsigned char data[GPS_PACKET_LENGTH];
 	int datalength;	
 	unsigned char error;
-} RangahauGPSResponse;
+} PNGPSResponse;
 
 /* Represents a timestamp from the GPS */
 typedef struct
@@ -62,7 +62,7 @@ typedef struct
 	int seconds;
     int milliseconds;
     bool locked;
-} RangahauGPSTimestamp;
+} PNGPSTimestamp;
 
 /* Represents the GPS hardware */
 typedef struct
@@ -70,21 +70,21 @@ typedef struct
 	struct usb_device *device;
 	struct ftdi_context *context;
 	pthread_mutex_t commLock;
-} RangahauGPS;
+} PNGPS;
 
-RangahauGPS rangahau_gps_new();
-void rangahau_gps_free(RangahauGPS *gps);
-void rangahau_gps_init(RangahauGPS *gps);
-void rangahau_gps_uninit(RangahauGPS *gps);
+PNGPS pn_gps_new();
+void pn_gps_free(PNGPS *gps);
+void pn_gps_init(PNGPS *gps);
+void pn_gps_uninit(PNGPS *gps);
 
-bool rangahau_gps_send_command(RangahauGPS *gps, RangahauGPSRequest type);
-RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms);
+bool pn_gps_send_command(PNGPS *gps, PNGPSRequest type);
+PNGPSResponse pn_gps_read(PNGPS *gps, int timeoutms);
 
-bool ranaghau_gps_ping_device(RangahauGPS *gps);
-bool rangahau_gps_get_gpstime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTimestamp *timestamp);
-bool rangahau_gps_get_synctime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTimestamp *timestamp);
-bool rangahau_gps_get_exposetime(RangahauGPS *gps, int *outbuf);
-bool rangahau_gps_set_exposetime(RangahauGPS *gps, int exptime);
+bool ranaghau_gps_ping_device(PNGPS *gps);
+bool pn_gps_get_gpstime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp);
+bool pn_gps_get_synctime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp);
+bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf);
+bool pn_gps_set_exposetime(PNGPS *gps, int exptime);
 
-void rangahau_timestamp_subtract_seconds(RangahauGPSTimestamp *ts, int seconds);
+void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds);
 #endif

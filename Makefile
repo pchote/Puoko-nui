@@ -5,11 +5,11 @@ LFLAGS = -lcfitsio -lxpa -lpvcam -ldl -lpthread -lraw1394 -lftdi $(shell pkg-con
 SRC = main.c camera.c view.c gps.c preferences.c
 OBJ = $(SRC:.c=.o)
 
-rangahau: $(OBJ)
+puokonui: $(OBJ)
 	$(CC) $(LFLAGS) $(OBJ) libxpa.a -o $@
 
 clean:
-	-rm $(OBJ) rangahau
+	-rm $(OBJ) puokonui
 
 .SUFFIXES: .c
 .c.o:

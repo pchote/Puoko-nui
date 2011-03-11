@@ -1,6 +1,6 @@
 /*
 * Copyright 2010, 2011 Paul Chote
-* This file is part of Rangahau, which is free software. It is made available
+* This file is part of Puoko-nui, which is free software. It is made available
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
@@ -26,14 +26,14 @@ typedef enum
 	INITIALISING,
 	ACTIVE,
 	SHUTDOWN,
-} RangahauCameraStatus;
+} PNCameraStatus;
 
 typedef enum
 {
 	INIT_UNINITIALISED = 0,
 	INIT_OPEN = 1,
 	INIT_AQUIRING = 2
-} RangahauCameraInitStatus;
+} PNCameraInitStatus;
 
 /* Represents an aquired frame */
 typedef struct
@@ -41,7 +41,7 @@ typedef struct
 	uns16 width;
 	uns16 height;
 	uns16 *data; /* Pointer to the start of the frame data */
-} RangahauFrame;
+} PNFrame;
 
 
 /* Holds the state of a camera */
@@ -50,11 +50,11 @@ typedef struct
 	/* read/write */
 	uns16 binsize;
 	rs_bool acquire_frames;
-	void (*on_frame_available)(RangahauFrame *frame);
+	void (*on_frame_available)(PNFrame *frame);
 	rs_bool shutdown;
 
 	/* read only */
-	RangahauCameraStatus status;
+	PNCameraStatus status;
 	uns16 frame_width;
 	uns16 frame_height;
 	int16 temperature;
@@ -63,10 +63,10 @@ typedef struct
 	int16 handle;
 	void *image_buffer;
 	uns32 image_buffer_size;
-	RangahauCameraInitStatus init_status;
-} RangahauCamera;
+	PNCameraInitStatus init_status;
+} PNCamera;
 
-RangahauCamera rangahau_camera_new();
-void *rangahau_camera_thread(void *cam);
+PNCamera pn_camera_new();
+void *pn_camera_thread(void *cam);
 
 #endif

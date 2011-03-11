@@ -1,6 +1,6 @@
 /*
 * Copyright 2010, 2011 Paul Chote
-* This file is part of Rangahau, which is free software. It is made available
+* This file is part of Puoko-nui, which is free software. It is made available
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
@@ -18,18 +18,18 @@
 void check_ftdi(const char *message, char* file, int line, int status)
 {
 	if (status < 0)
-		rangahau_die("%s line %d : %s, status = %d\n", file, line, message, status);
+		pn_die("%s line %d : %s, status = %d\n", file, line, message, status);
 }
 
 
-void check_gps(RangahauGPS *gps, char *file, int line)
+void check_gps(PNGPS *gps, char *file, int line)
 {
 	if (gps == NULL)
-		rangahau_die("gps is null @ %s:%d\n", file, line);
+		pn_die("gps is null @ %s:%d\n", file, line);
 }
 
 /* Initialise a gps object with a valid usb device */
-RangahauGPS rangahau_gps_new()
+PNGPS pn_gps_new()
 {
 	struct ftdi_device_list* devices = NULL;
 	const int vendorId = 0x0403;  /* The USB vendor identifier for the FTDI company */
@@ -45,24 +45,24 @@ RangahauGPS rangahau_gps_new()
 	if (numDevices == 0)
 	{
   		ftdi_list_free(&devices);		
-		rangahau_die("No GPS available (pass --simulate to use simulated hardware).\n");
+		pn_die("No GPS available (pass --simulate to use simulated hardware).\n");
 	}
 
-	RangahauGPS ret;
+	PNGPS ret;
 	ret.device = devices->dev;
 	ret.context = NULL;
   	ftdi_list_free(&devices);
 	return ret;
 }
 
-void rangahau_gps_free(RangahauGPS *gps)
+void pn_gps_free(PNGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);
 	pthread_mutex_destroy(&gps->commLock);
 }
 
 /* Open the usb gps device and prepare it for reading/writing */
-void rangahau_gps_init(RangahauGPS *gps)
+void pn_gps_init(PNGPS *gps)
 {
 	pthread_mutex_init(&gps->commLock, NULL);
 	pthread_mutex_lock(&gps->commLock);
@@ -70,11 +70,11 @@ void rangahau_gps_init(RangahauGPS *gps)
 	printf("Opened FTDI device `%s`\n", gps->device->filename);
 
 	if (gps->context != NULL)
-		rangahau_die("device %s is already open @ %s:%d\n", gps->device->filename, __FILE__, __LINE__);
+		pn_die("device %s is already open @ %s:%d\n", gps->device->filename, __FILE__, __LINE__);
 
 	gps->context = ftdi_new();
     if (gps->context == NULL)
-        rangahau_die("ftdi_new failed");
+        pn_die("ftdi_new failed");
 
 
 	int status = ftdi_init(gps->context);
@@ -102,7 +102,7 @@ void rangahau_gps_init(RangahauGPS *gps)
 }
 
 /* Close the usb gps device */
-void rangahau_gps_uninit(RangahauGPS *gps)
+void pn_gps_uninit(PNGPS *gps)
 {
 	pthread_mutex_lock(&gps->commLock);	
 	check_gps(gps, __FILE__, __LINE__);
@@ -121,7 +121,7 @@ void rangahau_gps_uninit(RangahauGPS *gps)
 
 /* Send a command to the gps device
  * Returns false if the write failed */
-bool rangahau_gps_send_command(RangahauGPS *gps, RangahauGPSRequest type)
+bool pn_gps_send_command(PNGPS *gps, PNGPSRequest type)
 {
 	check_gps(gps, __FILE__, __LINE__);
 	unsigned char send[5] = {DLE, type, 0, DLE, ETX};
@@ -130,7 +130,7 @@ bool rangahau_gps_send_command(RangahauGPS *gps, RangahauGPSRequest type)
 
 /* Send a command to the gps device with a data payload
  * Returns false if the write failed */
-bool rangahau_gps_send_command_with_data(RangahauGPS *gps, RangahauGPSRequest type, const char data[], int numBytes)
+bool pn_gps_send_command_with_data(PNGPS *gps, PNGPSRequest type, const char data[], int numBytes)
 {
 	check_gps(gps, __FILE__, __LINE__);
 	
@@ -160,11 +160,11 @@ bool rangahau_gps_send_command_with_data(RangahauGPS *gps, RangahauGPSRequest ty
 /* Read the gps response to a command
  * Give up after a timeout of <timeout> ms.
  * Returns the number of bytes read */
-RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
+PNGPSResponse pn_gps_read(PNGPS *gps, int timeoutms)
 {
 	check_gps(gps, __FILE__, __LINE__);
 
-	RangahauGPSResponse response;
+	PNGPSResponse response;
 	response.type = 0;
 	response.error = REQUEST_TIMEOUT;
 	response.datalength = 0;
@@ -189,7 +189,7 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
 	{
 		int ret = ftdi_read_data(gps->context, recvbuf, GPS_PACKET_LENGTH);
 		if (ret < 0)
-			rangahau_die("Bad response from gps. return code 0x%x",ret);
+			pn_die("Bad response from gps. return code 0x%x",ret);
 
 		for (int i = 0; i < ret && recievedBytes < GPS_PACKET_LENGTH; i++)
 			totalbuf[recievedBytes++] = recvbuf[i];
@@ -200,7 +200,7 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
 			if (totalbuf[0] != DLE)
 			{
 				totalbuf[recievedBytes] = 0;
-				rangahau_die("Malformed packed: Expected 0x%02x, got 0x%02x.\nData: `%s`", DLE, totalbuf[0], totalbuf);
+				pn_die("Malformed packed: Expected 0x%02x, got 0x%02x.\nData: `%s`", DLE, totalbuf[0], totalbuf);
 			}
 			response.type = totalbuf[1];
 			response.error = totalbuf[2];
@@ -232,13 +232,13 @@ RangahauGPSResponse rangahau_gps_read(RangahauGPS *gps, int timeoutms)
 
 /* Ping the gps device
  * Returns false on error after printing the error to stderr */
-bool ranaghau_gps_ping_device(RangahauGPS *gps)
+bool ranaghau_gps_ping_device(PNGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);
 
 	pthread_mutex_lock(&gps->commLock);
-	rangahau_gps_send_command(gps, ECHO);
-	RangahauGPSResponse response = rangahau_gps_read(gps, 20);
+	pn_gps_send_command(gps, ECHO);
+	PNGPSResponse response = pn_gps_read(gps, 20);
 	pthread_mutex_unlock(&gps->commLock);
 
 	if (!(response.type == ECHO && response.error == NO_ERROR))
@@ -251,17 +251,17 @@ bool ranaghau_gps_ping_device(RangahauGPS *gps)
 
 /* Query the last gps pulse time
  * Returns false on error after printing the error to stderr */
-bool rangahau_gps_get_gpstime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTimestamp *timestamp)
+bool pn_gps_get_gpstime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp)
 {
 	check_gps(gps, __FILE__, __LINE__);
 	
-	RangahauGPSResponse response;
-	RangahauGPSTimestamp ret;
+	PNGPSResponse response;
+	PNGPSTimestamp ret;
 	do
 	{
 		pthread_mutex_lock(&gps->commLock);
-		rangahau_gps_send_command(gps, GETGPSTIME);
-		response = rangahau_gps_read(gps, timeoutMillis);
+		pn_gps_send_command(gps, GETGPSTIME);
+		response = pn_gps_read(gps, timeoutMillis);
 		pthread_mutex_unlock(&gps->commLock);
 
 		if (response.type == GETGPSTIME && (response.error == NO_ERROR || response.error == GPS_TIME_NOT_LOCKED))
@@ -286,17 +286,17 @@ bool rangahau_gps_get_gpstime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTi
 /* Query the last sync pulse time
  * outbuf is assumed to be of the correct length (>= 25)
  * Returns false on error after printing the error to stderr */
-bool rangahau_gps_get_synctime(RangahauGPS *gps, int timeoutMillis, RangahauGPSTimestamp *timestamp)
+bool pn_gps_get_synctime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp)
 {
 	check_gps(gps, __FILE__, __LINE__);
 	
-	RangahauGPSResponse response;
-	RangahauGPSTimestamp ret;
+	PNGPSResponse response;
+	PNGPSTimestamp ret;
 	do
 	{
 		pthread_mutex_lock(&gps->commLock);
-		rangahau_gps_send_command(gps, GETSYNCTIME);
-		response = rangahau_gps_read(gps, timeoutMillis);
+		pn_gps_send_command(gps, GETSYNCTIME);
+		response = pn_gps_read(gps, timeoutMillis);
 		pthread_mutex_unlock(&gps->commLock);
 		if (response.type == GETSYNCTIME && (response.error == NO_ERROR || response.error == GPS_TIME_NOT_LOCKED))
 		{
@@ -319,13 +319,13 @@ bool rangahau_gps_get_synctime(RangahauGPS *gps, int timeoutMillis, RangahauGPST
 
 /* Query the current exposure time
  * Returns false on error after printing the error to stderr */
-bool rangahau_gps_get_exposetime(RangahauGPS *gps, int *outbuf)
+bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf)
 {
 	check_gps(gps, __FILE__, __LINE__);
 
 	pthread_mutex_lock(&gps->commLock);
-	rangahau_gps_send_command(gps, GETEXPOSURETIME);
-	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
+	pn_gps_send_command(gps, GETEXPOSURETIME);
+	PNGPSResponse response = pn_gps_read(gps, 1000);
 	pthread_mutex_unlock(&gps->commLock);
 
 	if (!(response.type == GETEXPOSURETIME && response.error == NO_ERROR))
@@ -345,7 +345,7 @@ bool rangahau_gps_get_exposetime(RangahauGPS *gps, int *outbuf)
 
 /* Set the exposure time
  * Returns false on error after printing the error to stderr */
-bool rangahau_gps_set_exposetime(RangahauGPS *gps, int exptime)
+bool pn_gps_set_exposetime(PNGPS *gps, int exptime)
 {
 	check_gps(gps, __FILE__, __LINE__);
 	if (exptime < 0 || exptime > 9999)
@@ -359,8 +359,8 @@ bool rangahau_gps_set_exposetime(RangahauGPS *gps, int exptime)
 	sprintf(buf, "%04d",exptime);
 
 	pthread_mutex_lock(&gps->commLock);
-	rangahau_gps_send_command_with_data(gps, SETEXPOSURETIME, buf, 4);
-	RangahauGPSResponse response = rangahau_gps_read(gps, 1000);
+	pn_gps_send_command_with_data(gps, SETEXPOSURETIME, buf, 4);
+	PNGPSResponse response = pn_gps_read(gps, 1000);
 	pthread_mutex_unlock(&gps->commLock);
 
 	if (!(response.type == SETEXPOSURETIME && response.error == NO_ERROR))
@@ -374,7 +374,7 @@ bool rangahau_gps_set_exposetime(RangahauGPS *gps, int exptime)
 extern time_t timegm(struct tm *);
 
 // Subtract a number of seconds from a given timestamp
-void rangahau_timestamp_subtract_seconds(RangahauGPSTimestamp *ts, int seconds)
+void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds)
 {
 	/* Make use of the fact that mktime/timegm() normalizes time values to do
 	 * the conversion for us while handling rollover cases */

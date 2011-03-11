@@ -1,6 +1,6 @@
 /*
 * Copyright 2010, 2011 Paul Chote
-* This file is part of Rangahau, which is free software. It is made available
+* This file is part of Puoko-nui, which is free software. It is made available
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
@@ -21,13 +21,13 @@
 #include "gps.h"
 #include "preferences.h"
 
-RangahauView view;
-RangahauCamera camera;
-RangahauGPS gps;
-RangahauPreferences prefs;
+PNView view;
+PNCamera camera;
+PNGPS gps;
+PNPreferences prefs;
 
 /* Write frame data to a fits file */
-void rangahau_save_frame(RangahauFrame *frame)
+void pn_save_frame(PNFrame *frame)
 {
 	fitsfile *fptr;
 	int status = 0;
@@ -67,20 +67,20 @@ void rangahau_save_frame(RangahauFrame *frame)
 	fits_update_key(fptr, TSTRING, "OBSERVER", (void *)prefs.observers, "Observers", &status);
 	fits_update_key(fptr, TSTRING, "OBSERVAT", (void *)prefs.observatory, "Observatory", &status);
 	fits_update_key(fptr, TSTRING, "TELESCOP", (void *)prefs.telescope, "Telescope name", &status);
-	fits_update_key(fptr, TSTRING, "PROGRAM", "rangahau", "Data acquistion program", &status);
+	fits_update_key(fptr, TSTRING, "PROGRAM", "puoko-nui", "Data acquistion program", &status);
 	fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
 
-	RangahauGPSTimestamp end;
+	PNGPSTimestamp end;
 	char datebuf[15];
 	char gpstimebuf[15];
 
 	/* Get the synctime. Failure is not an option! */
-	while (!rangahau_gps_get_synctime(&gps, 2000, &end));
+	while (!pn_gps_get_synctime(&gps, 2000, &end));
 
 	/* synctime gives the *end* of the exposure. The start of the exposure
 	 * is found by subtracting the exposure time */
-	RangahauGPSTimestamp start = end;
-	rangahau_timestamp_subtract_seconds(&start, prefs.exposure_time);
+	PNGPSTimestamp start = end;
+	pn_timestamp_subtract_seconds(&start, prefs.exposure_time);
 
 	sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
 	fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
@@ -121,7 +121,7 @@ void rangahau_save_frame(RangahauFrame *frame)
     system(cmd);
 }
 
-void rangahau_preview_frame(RangahauFrame *frame)
+void pn_preview_frame(PNFrame *frame)
 {
 	fitsfile *fptr;
 	int status = 0;
@@ -134,7 +134,7 @@ void rangahau_preview_frame(RangahauFrame *frame)
 
 	/* Allocate a chunk of memory for the image */
 	if(!(fitsbuf = malloc(fitssize)))
-		rangahau_die("Error: couldn't allocate fitsbuf\n");
+		pn_die("Error: couldn't allocate fitsbuf\n");
 
 	/* Create a new fits file in memory */
 	fits_create_memfile(&fptr, &fitsbuf, &fitssize, 2880, realloc, &status);
@@ -164,7 +164,7 @@ void rangahau_preview_frame(RangahauFrame *frame)
 bool first_frame = false;
 /* Called when the acquisition thread has downloaded a frame
  * Note: this runs in the acquisition thread *not* the main thread. */
-void rangahau_frame_downloaded_cb(RangahauFrame *frame)
+void pn_frame_downloaded_cb(PNFrame *frame)
 {
 	/* When starting a run, the first frame will not have a valid exposure time */
 	if (first_frame)
@@ -176,16 +176,16 @@ void rangahau_frame_downloaded_cb(RangahauFrame *frame)
 	printf("Frame downloaded\n");
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox)))
 	{
-		rangahau_save_frame(frame);
+		pn_save_frame(frame);
 
 		/* Increment the next frame */
 		prefs.run_number++;
-		rangahau_save_preferences(&prefs, "preferences.dat");
+		pn_save_preferences(&prefs, "preferences.dat");
 	}
 
 	/* Display the frame in ds9 */
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.display_checkbox)))
-		rangahau_preview_frame(frame);
+		pn_preview_frame(frame);
 }
 
 /*
@@ -195,18 +195,18 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 {
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) 
 	{
-		rangahau_set_camera_editable(&view, FALSE);
-		rangahau_update_camera_preferences(&view);
+		pn_set_camera_editable(&view, FALSE);
+		pn_update_camera_preferences(&view);
 	
 		/* Set the exposure time */
 		int exptime = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
-		rangahau_gps_set_exposetime(&gps, exptime);
+		pn_gps_set_exposetime(&gps, exptime);
 		
 		/* Check that it was set correctly */		
 		int buf;
-		rangahau_gps_get_exposetime(&gps, &buf);
+		pn_gps_get_exposetime(&gps, &buf);
 		if (buf != exptime)
-			rangahau_die("Error setting exposure time. Expected %d, was %d\n", exptime, buf);	
+			pn_die("Error setting exposure time. Expected %d, was %d\n", exptime, buf);	
 		
 		printf("Set exposure time to %d\n", exptime);
         first_frame = true;
@@ -220,15 +220,15 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		/* Stop aquisition thread */
 		camera.acquire_frames = FALSE;
 		gtk_button_set_label(GTK_BUTTON(widget), "Start Acquisition");
-		rangahau_set_camera_editable(&view, TRUE);	
+		pn_set_camera_editable(&view, TRUE);	
     }
 }
 
 int main( int argc, char *argv[] )
 {
 	gtk_init(&argc, &argv);
-	rangahau_load_preferences(&prefs, "preferences.dat");
-	rangahau_save_preferences(&prefs, "preferences.dat");
+	pn_load_preferences(&prefs, "preferences.dat");
+	pn_save_preferences(&prefs, "preferences.dat");
 
 	/*	
 	boolean simulate = FALSE;
@@ -239,40 +239,40 @@ int main( int argc, char *argv[] )
 	*/
 
 	/* Initialise the gps */
-	gps = rangahau_gps_new();
-	rangahau_gps_init(&gps);
+	gps = pn_gps_new();
+	pn_gps_init(&gps);
 	view.gps = &gps;
 	view.prefs = &prefs;
 
 	/* Initialise the camera on its own thread */
-	camera = rangahau_camera_new();
-	camera.on_frame_available = rangahau_frame_downloaded_cb;
+	camera = pn_camera_new();
+	camera.on_frame_available = pn_frame_downloaded_cb;
 	pthread_t camera_thread;
-	pthread_create(&camera_thread, NULL, rangahau_camera_thread, (void *)&camera);
+	pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
 
 	/* Initialise the gui and start the event loop */
 	view.camera = &camera;
-	rangahau_init_gui(&view, startstop_pressed);
+	pn_init_gui(&view, startstop_pressed);
 	gtk_main();
 
 	/* Shutdown hardware cleanly before exiting */
-	rangahau_shutdown();
+	pn_shutdown();
 	void **retval = NULL;
 	pthread_join(camera_thread, retval);
 	return 0;
 }
 
-void rangahau_shutdown()
+void pn_shutdown()
 {
 	/* Camera shutdown is done in the camera thread */
 	camera.shutdown = TRUE;
 
 	/* Shutdown the gps */
-	rangahau_gps_uninit(&gps);
-	rangahau_gps_free(&gps);
+	pn_gps_uninit(&gps);
+	pn_gps_free(&gps);
 }
 
-void rangahau_die(const char * format, ...)
+void pn_die(const char * format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -280,6 +280,6 @@ void rangahau_die(const char * format, ...)
 	va_end(args);
 	fprintf(stderr, "\n");
 
-	rangahau_shutdown();
+	pn_shutdown();
 	exit(1);
 }

@@ -1,6 +1,6 @@
 /*
 * Copyright 2010, 2011 Paul Chote
-* This file is part of Rangahau, which is free software. It is made available
+* This file is part of Puoko-nui, which is free software. It is made available
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
@@ -25,7 +25,7 @@ typedef struct
 	char telescope[PREFERENCES_LENGTH];
 
 	int exposure_time;
-} RangahauPreferences;
+} PNPreferences;
 
 
 typedef enum
@@ -33,11 +33,11 @@ typedef enum
 	OBJECT_DARK,
 	OBJECT_FLAT,
 	OBJECT_TARGET
-} RangahauObjectType;
+} PNFrameType;
 
 
-void rangahau_load_preferences(RangahauPreferences *prefs, const char *path);
-void rangahau_save_preferences(RangahauPreferences *prefs, const char *path);
-void rangahau_set_preference_string(char *pref, const char *value);
-void rangahau_set_preference_path(char *pref, const char *value);
+void pn_load_preferences(PNPreferences *prefs, const char *path);
+void pn_save_preferences(PNPreferences *prefs, const char *path);
+void pn_set_preference_string(char *pref, const char *value);
+void pn_set_preference_path(char *pref, const char *value);
 #endif

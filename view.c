@@ -1,6 +1,6 @@
 /*
 * Copyright 2010, 2011 Paul Chote
-* This file is part of Rangahau, which is free software. It is made available
+* This file is part of Puoko-nui, which is free software. It is made available
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
@@ -20,13 +20,13 @@
 /* target type changed: hide or display the target name field */
 static void targettype_changed(GtkWidget *widget, gpointer data)
 {
-	RangahauView *view = (RangahauView *)data;	
+	PNView *view = (PNView *)data;	
 	gboolean visible = (gtk_combo_box_get_active(GTK_COMBO_BOX(view->target_combobox)) == OBJECT_TARGET);
 	gtk_widget_set_visible(view->target_entry, visible);
 }
 
 /* Called when the "save" checkbox is changed */
-void rangahau_set_output_editable(RangahauView *view, gboolean editable)
+void pn_set_output_editable(PNView *view, gboolean editable)
 {
 	/* Settings fields */
 	gtk_editable_set_editable(GTK_EDITABLE(view->observers_entry), editable);
@@ -47,44 +47,44 @@ void rangahau_set_output_editable(RangahauView *view, gboolean editable)
 
 static void save_changed(GtkWidget *widget, gpointer data)
 {
-	RangahauView *view = (RangahauView *)data;	
+	PNView *view = (PNView *)data;	
 	gboolean set = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view->save_checkbox));
-	rangahau_set_output_editable(view, !set);
+	pn_set_output_editable(view, !set);
 	if (set)
-		rangahau_update_output_preferences(view);
+		pn_update_output_preferences(view);
 }
 
-void rangahau_update_camera_preferences(RangahauView *view)
+void pn_update_camera_preferences(PNView *view)
 {
 	view->prefs->exposure_time = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view->exptime_entry));
-	rangahau_save_preferences(view->prefs, "preferences.dat");
+	pn_save_preferences(view->prefs, "preferences.dat");
 }
 
-void rangahau_update_output_preferences(RangahauView *view)
+void pn_update_output_preferences(PNView *view)
 {
-	rangahau_set_preference_string(view->prefs->output_directory,gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(view->destination_btn)));
-	rangahau_set_preference_string(view->prefs->run_prefix, gtk_entry_get_text(GTK_ENTRY(view->run_entry)));
+	pn_set_preference_string(view->prefs->output_directory,gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(view->destination_btn)));
+	pn_set_preference_string(view->prefs->run_prefix, gtk_entry_get_text(GTK_ENTRY(view->run_entry)));
 	view->prefs->run_number = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view->frame_entry));
 
 	view->prefs->object_type = gtk_combo_box_get_active(GTK_COMBO_BOX(view->target_combobox));
-	rangahau_set_preference_string(view->prefs->object_name, gtk_entry_get_text(GTK_ENTRY(view->target_entry)));
+	pn_set_preference_string(view->prefs->object_name, gtk_entry_get_text(GTK_ENTRY(view->target_entry)));
 
-	rangahau_set_preference_string(view->prefs->observers, gtk_entry_get_text(GTK_ENTRY(view->observers_entry)));
-	rangahau_set_preference_string(view->prefs->observatory, gtk_entry_get_text(GTK_ENTRY(view->observatory_entry)));
-	rangahau_set_preference_string(view->prefs->telescope, gtk_entry_get_text(GTK_ENTRY(view->telescope_entry)));
-	rangahau_save_preferences(view->prefs, "preferences.dat");
+	pn_set_preference_string(view->prefs->observers, gtk_entry_get_text(GTK_ENTRY(view->observers_entry)));
+	pn_set_preference_string(view->prefs->observatory, gtk_entry_get_text(GTK_ENTRY(view->observatory_entry)));
+	pn_set_preference_string(view->prefs->telescope, gtk_entry_get_text(GTK_ENTRY(view->telescope_entry)));
+	pn_save_preferences(view->prefs, "preferences.dat");
 }
 
 
 /* Called when the startstop button is pressed to enable or disable the camera fields */
-void rangahau_set_camera_editable(RangahauView *view, gboolean editable)
+void pn_set_camera_editable(PNView *view, gboolean editable)
 {
 	gtk_editable_set_editable(GTK_EDITABLE(view->exptime_entry), editable);
 	gtk_widget_set_sensitive(view->exptime_entry, editable);
 }
 
 /* Return a GtkWidget containing the settings panel */
-GtkWidget *rangahau_output_panel(RangahauView *view)
+GtkWidget *pn_output_panel(PNView *view)
 {
 	/* Frame around the panel */
 	GtkWidget *frame = gtk_frame_new("Output");
@@ -194,7 +194,7 @@ GtkWidget *rangahau_output_panel(RangahauView *view)
 }
 
 /* Return a GtkWidget containing the camera panel */
-GtkWidget *rangahau_camera_panel(RangahauView *view, void (startstop_pressed_cb)(GtkWidget *, void *))
+GtkWidget *pn_camera_panel(PNView *view, void (startstop_pressed_cb)(GtkWidget *, void *))
 {
 	/* Frame around the panel */
 	GtkWidget *frame = gtk_frame_new("Camera");
@@ -251,7 +251,7 @@ GtkWidget *rangahau_camera_panel(RangahauView *view, void (startstop_pressed_cb)
 }
 
 /* Return a GtkWidget containing the status panel */
-GtkWidget *rangahau_status_panel(RangahauView *view)
+GtkWidget *pn_status_panel(PNView *view)
 {
 	GtkWidget *frame = gtk_frame_new("GPS Timer");
 	GtkWidget *table = gtk_table_new(2,3,FALSE);
@@ -287,7 +287,7 @@ GtkWidget *rangahau_status_panel(RangahauView *view)
 }
 
 /* Return a GtkWidget containing the save settings panel */
-GtkWidget *rangahau_save_panel(RangahauView *view)
+GtkWidget *pn_save_panel(PNView *view)
 {
 	GtkWidget *frame = gtk_frame_new("Output");
 	GtkWidget *box = gtk_hbox_new(FALSE, 5);
@@ -345,7 +345,7 @@ GtkWidget *rangahau_save_panel(RangahauView *view)
 /* update the various information fields */
 gboolean update_gui_cb(gpointer data)
 {
-	RangahauView *view = (RangahauView *)data;
+	PNView *view = (PNView *)data;
 
 	/* Frame number */
 	if (!gtk_editable_get_editable(GTK_EDITABLE(view->frame_entry)))
@@ -360,8 +360,8 @@ gboolean update_gui_cb(gpointer data)
 	/* GPS time */
 	char *gpstime = "Unavailable";
 	char gpsbuf[30];
-	RangahauGPSTimestamp ts;
-	if (rangahau_gps_get_gpstime(view->gps, 500, &ts))
+	PNGPSTimestamp ts;
+	if (pn_gps_get_gpstime(view->gps, 500, &ts))
 	{
 		sprintf(gpsbuf, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
 		gpstime = gpsbuf;
@@ -402,13 +402,13 @@ gboolean update_gui_cb(gpointer data)
 	return TRUE;
 }
 
-void rangahau_init_gui(RangahauView *view, void (startstop_pressed_cb)(GtkWidget *, void *))
+void pn_init_gui(PNView *view, void (startstop_pressed_cb)(GtkWidget *, void *))
 {
 	/* Main window */
 	view->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_widget_set_size_request (GTK_WIDGET(view->window), 627, 280);
 	gtk_window_set_resizable(GTK_WINDOW(view->window), FALSE);
-	gtk_window_set_title(GTK_WINDOW(view->window), "Rangahau Data Acquisition System");
+	gtk_window_set_title(GTK_WINDOW(view->window), "Puoko-nui Acquisition Control");
 	gtk_container_set_border_width(GTK_CONTAINER(view->window), 5);
 
 	g_signal_connect(view->window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
@@ -424,14 +424,14 @@ void rangahau_init_gui(RangahauView *view, void (startstop_pressed_cb)(GtkWidget
 	/* top row */
 	GtkWidget *topbox = gtk_hbox_new(FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), topbox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(topbox), rangahau_output_panel(view), FALSE, FALSE, 5);
+	gtk_box_pack_start(GTK_BOX(topbox), pn_output_panel(view), FALSE, FALSE, 5);
 
 
 	/* bottom row */
 	GtkWidget *bottombox = gtk_hbox_new(FALSE, 0);
 	gtk_box_pack_end(GTK_BOX(vbox), bottombox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(bottombox), rangahau_status_panel(view), FALSE, FALSE, 5);
-	gtk_box_pack_end(GTK_BOX(bottombox), rangahau_camera_panel(view, startstop_pressed_cb), FALSE, FALSE, 5);
+	gtk_box_pack_start(GTK_BOX(bottombox), pn_status_panel(view), FALSE, FALSE, 5);
+	gtk_box_pack_end(GTK_BOX(bottombox), pn_camera_panel(view, startstop_pressed_cb), FALSE, FALSE, 5);
 	
 	/* Update the gui at 10Hz */
 	g_timeout_add(100, update_gui_cb, view);

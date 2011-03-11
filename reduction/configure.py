@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # Copyright 2010-2011 Paul Chote
-# This file is part of Rangahau, which is free software. It is made available
+# This file is part of Puoko-nui, which is free software. It is made available
 # to you under the terms of version 3 of the GNU General Public License, as
 # published by the Free Software Foundation. For more information, see LICENSE.
 
 
-"""Online reduction configuration script for rangahau.
+"""Online reduction configuration script for Puoko-nui.
  Prompts the user for configuration details for a reduction session"""
 import os
 import fnmatch
@@ -40,7 +40,7 @@ def main():
         print "Found %d files" % len(filtered)
         if filtered > 0:
             output = open('data.dat', 'w')
-            output.write('# Rangahau Online reduction output\n')
+            output.write('# Puoko-nui Online reduction output\n')
             output.write('# Pattern: {0}\n'.format(pattern))
             if darkpattern is not None:
                 output.write('# DarkTemplate: master-dark.fits\n')
@@ -48,7 +48,7 @@ def main():
             hdulist = pyfits.open(filtered[0])
             imagedata = hdulist[0].data
         
-            d = ds9.ds9('rangahau')
+            d = ds9.ds9('puoko-nui')
             d.set_np2arr(imagedata,dtype=numpy.int32)
         
             regions = []
@@ -62,18 +62,18 @@ def main():
             
             # Write regions to config file
             for r in regions:
-                output.write('# Region: {0}\n'.format(r))
+                output.write('# Target: {0}\n'.format(r))
                 
             if hdulist[0].header.has_key('UTC-BEG'):
                 datestart = hdulist[0].header['UTC-DATE'] + ' ' + hdulist[0].header['UTC-BEG']
             elif hdulist[0].header.has_key('GPSTIME'):
                 datestart = hdulist[0].header['GPSTIME']
             elif hdulist[0].header.has_key('UTC'):
-                datestart = hdulist[0].header['UTC'][:23] 
+                datestart = hdulist[0].header['UTC'][:19] 
             else:
                 raise Exception('No valid time header found')
             
-            output.write('# Startdate: {0}\n'.format(datestart))
+            output.write('# ReferenceTime: {0}\n'.format(datestart))
             output.close()
             hdulist.close()
     else:
