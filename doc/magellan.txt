@@ -1,0 +1,54 @@
+==============================================
+Driving the Magellan GPS.
+==============================================
+
+A serial data connection to the Magellan can be made from ubuntu by installing the Minicom package
+	sudo apt-get install minicom
+
+Minicom needs to be configured to listen on the COM port:
+	sudo minicom -s
+
+Select "Serial port setup" with the arrow keys and hit enter to select it.
+Set "Serial Device" to /dev/ttsy0, and "Bps/Par/Bits" to 9600 8N1.
+Press Return to return to the main menu.
+Save the settings by selecting "Save setup as dfl".
+Press escape to dismiss the menu, and minicom will open a connection to the Magellan.
+
+The terminal will now display the data recieved from the Magellan as it comes in.
+Depending on how it is currently configured, you may see a continual stream of data, or nothing.
+The unit doesn't send any data down the serial connection by default, you must first tell it what to send. On the other hand, if it was last connected to the dos Magellan OEM program, it may be displaying a lot of redundant information.
+
+To configure the unit, create a text file containing the following lines (they will be explained below):
+$PMGLI,00,A00,2,A
+$PMGLI,00,H00,2,A
+$PMGLI,00,B00,0
+$PMGLI,00,B02,0
+$PMGLI,00,E00,0
+$PMGLI,00,G00,0
+$PMGLI,00,F02,0
+
+In minicom, press ctrl-A then Y and select the text file by highlighting it, pressing space, then enter. This sends the above commands to the Magellan.
+
+`$PMGLI,00,A00,2,A' tells the unit to send the time and date once every second in ascii mode.
+`$PMGLI,00,H00,2,A' tells the unit to send status information once every second in ascii mode.
+
+The remaining lines tells the unit to disable sending the other information that the Magellan OEM program sets by default.
+The meanings of each can be found on page 5-1 of the Magellan user guide.
+
+The unit will now send two data strings every second.
+
+	$GPZDA,hhmmss,dd,mm,yyyy,*pp
+This gives time information in the form hhmmss,day,month,year (explained on page 4-1 of the user guide). The *pp is a parity byte (found by XORing the payload bytes - everything between the $ and *)
+
+	$PMGLH,00,xx.x,xx,x,x,x,x,a,x,x,b*pp
+This gives two useful pieces of information (explained on page 4-9 & 2-3 of the user guide).
+	a: set to 1 if a valid fix hasn't been found in the last 15 seconds, otherwise 0.
+	b: unit status (described in chapter 2 of the user guide). 
+		1: Not enough satellites to calculate a fix
+		2: Searching the sky for satellites
+		3: Collecting almanac data
+		4: Collecting ephemeris data
+		5: Aquiring fix
+		6: Normal operation
+
+
