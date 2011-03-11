@@ -1,15 +1,15 @@
 CC = gcc
 CFLAGS = -g -c -Wall -pedantic -Dlinux --std=c99 -D_XOPEN_SOURCE -D_BSD_SOURCE
-LFLAGS = -lcfitsio
+LFLAGS = -lcfitsio -arch x86_64
 
-SRC = reduction.c
+SRC = reduce.c framedata.c reduction.c
 OBJ = $(SRC:.c=.o)
 
 reduction: $(OBJ)
 	$(CC) $(LFLAGS) $(OBJ) -o $@
 
 clean:
-	-rm $(OBJ) reduction
+	-rm $(OBJ) reduction reduction.o framedata.o
 
 .SUFFIXES: .c
 .c.o:
