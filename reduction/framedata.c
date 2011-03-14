@@ -69,6 +69,15 @@ void framedata_subtract(framedata *this, framedata *other)
         this->data[i] -= other->data[i];
 }
 
+void framedata_add(framedata *this, framedata *other)
+{
+    if (this->cols != other->cols || this->rows != other->rows)
+        error("Attempting to add frame with different size");
+    
+    for (int i = 0; i < this->cols*this->rows; i++)
+        this->data[i] += other->data[i];
+}
+
 void framedata_free(framedata this)
 {
     int status;
