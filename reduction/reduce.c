@@ -11,13 +11,14 @@
 #include <time.h>
 #include <string.h>
 #include <fitsio.h>
+#include <libgen.h>
 
 #include "framedata.h"
 #include "reduction.h"
 
-
 double2 process_target(target r, framedata *frame, double exptime)
 {
+    double2 ret = {0,0};
     double2 bg, xy;
     target last;
     int n = 0;
@@ -27,24 +28,24 @@ double2 process_target(target r, framedata *frame, double exptime)
         last = r;
         bg = calculate_background(r, frame);
         xy = center_aperture(r, bg, frame);
-        printf("%d: (%f,%f) -> (%f,%f)\n", n, r.x, r.y, xy.x, xy.y);
+        //printf("%d: (%f,%f) -> (%f,%f) [%f,%f]\n", n, r.x, r.y, xy.x, xy.y, bg.x, bg.y);
 
         r.x = (int)xy.x;
         r.y = (int)xy.y;
+        
+        if (r.x - r.r < 0 || r.x + r.r >= frame->cols || r.y - r.r < 0 || r.y + r.r >= frame->rows)
+        {
+            fprintf(stderr, "Aperture outside chip - skipping\n");
+            return ret;
+        }
     } while (++n < 10 && (xy.x-last.x)*(xy.x-last.x) + (xy.y-last.y)*(xy.y-last.y) >= 25);
-    double2 ret = {0,0};
+    
     if (n >= 10)
     {
         printf("Aperture centering did not converge - skipping\n");
         return ret;
     }
-    
-    if (r.x - r.r < 0 || r.x + r.r > frame->cols || r.y - r.r < 0 || r.y + r.r > frame->rows)
-    {
-        fprintf(stderr, "Aperture outside chip - skipping\n");
-        return ret;
-    }
-    
+
     ret.y = bg.x*M_PI*r.r*r.r / exptime;
     ret.x = integrate_aperture(xy,r.r, frame) / exptime - ret.y;
 
@@ -58,16 +59,16 @@ int main( int argc, char *argv[] )
         target targets[10];
         int numtargets = 0;
         
-        chdir(argv[1]);
-        
-        FILE *data = fopen("data.dat", "r+");
+        // change into the data file dir so # Framepath: is correct
+        chdir(dirname(argv[1]));
+        FILE *data = fopen(basename(argv[1]), "r+");
               
         record records[10000];
         int numrecords = 0;
         
         char pattern[128];
         pattern[0] = '\0';
-    
+        
         time_t start_time = 0;
         
         // Processed dark template
@@ -78,12 +79,19 @@ int main( int argc, char *argv[] )
         // Read any existing config and data
         while (fgets(linebuf, sizeof(linebuf)-1, data) != NULL)
         {            
-            if (!strncmp(linebuf,"# Pattern:", 10))
-                sscanf(linebuf, "# Pattern: %s\n", pattern);
+            if (!strncmp(linebuf,"# FramePattern:", 15))
+                sscanf(linebuf, "# FramePattern: %s\n", pattern);
+            else if (!strncmp(linebuf,"# FrameDir:", 11))
+            {
+                char datadir[PATH_MAX];
+                sscanf(linebuf, "# FrameDir: %s\n", datadir);
+                chdir(datadir);
+            }
             else if (!strncmp(linebuf,"# DarkTemplate:", 15))
             {
                 char darkbuf[128];
                 sscanf(linebuf, "# DarkTemplate: %s\n", darkbuf);
+                
                 dark = framedata_new(darkbuf);
             }
             else if (!strncmp(linebuf,"# Target:", 9))
@@ -118,7 +126,7 @@ int main( int argc, char *argv[] )
             );
             numrecords++;
         }
-                   
+                
         // Iterate through the list of files matching the filepattern
         char filenamebuf[PATH_MAX+8];
         sprintf(filenamebuf, "/bin/ls %s", pattern);
@@ -131,7 +139,7 @@ int main( int argc, char *argv[] )
             // Strip the newline character from the end of the filename
             filenamebuf[strlen(filenamebuf)-1] = '\0';
             char *filename = filenamebuf;
-            
+
             // Check whether the frame has been processed
             int processed = FALSE;
             for (int i = 0; i < numrecords; i++)
@@ -190,29 +198,8 @@ int main( int argc, char *argv[] )
             
             // Subtract dark counts
             if (dark.data != NULL)
-            {
-                printf("Found dark\n");
                 framedata_subtract(&frame, &dark);
-            }
             
-            /*
-            fitsfile *fptr;
-        	int status = 0;
-            
-        	// Create a new fits file
-        	fits_create_file(&fptr, "test.fits", &status);
-
-        	// Create the primary array image (16-bit short integer pixels)
-        	long size[2] = { frame.cols, frame.rows };
-        	fits_create_img(fptr, LONG_IMG, 2, size, &status);
-
-
-            // Write the frame data to the image
-        	fits_write_img(fptr, TINT, 1, frame.cols*frame.rows, frame.data, &status);
-
-        	fits_close_file(fptr, &status);
-            */
-
             // Process targets
             fprintf(data, "%f ", midtime);
             for (int i = 0; i < numtargets; i++)
