@@ -18,12 +18,28 @@
 
 double2 process_target(target r, framedata *frame, double exptime)
 {
-    double2 bg = calculate_background(r, frame);
-    double2 xy = center_aperture(r, bg, frame);
-    
-    //printf("%f %f ; %f %f ; %f %f\n",bg.x,bg.y,r.x,r.y,xy.x,xy.y);
+    double2 bg, xy;
+    target last;
+    int n = 0;
+    // Iterate until we move less than 5px, or reach 10 iterations
+    do
+    {
+        last = r;
+        bg = calculate_background(r, frame);
+        xy = center_aperture(r, bg, frame);
+        printf("%d: (%f,%f) -> (%f,%f)\n", n, r.x, r.y, xy.x, xy.y);
+
+        r.x = (int)xy.x;
+        r.y = (int)xy.y;
+    } while (++n < 10 && (xy.x-last.x)*(xy.x-last.x) + (xy.y-last.y)*(xy.y-last.y) >= 25);
     double2 ret = {0,0};
-    if (xy.x - r.s2 < 0 || xy.x + r.s2 > frame->cols || xy.y - r.s2 < 0 || xy.y + r.s2 > frame->rows)
+    if (n >= 10)
+    {
+        printf("Aperture centering did not converge - skipping\n");
+        return ret;
+    }
+    
+    if (r.x - r.r < 0 || r.x + r.r > frame->cols || r.y - r.r < 0 || r.y + r.r > frame->rows)
     {
         fprintf(stderr, "Aperture outside chip - skipping\n");
         return ret;

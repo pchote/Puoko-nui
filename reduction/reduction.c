@@ -107,10 +107,10 @@ static void quickSort(int *arr, int elements)
 // Calculate the mode intensity and standard deviation within an annulus
 double2 calculate_background(target r, framedata *frame)
 {
-    int minx = floor(r.x - r.s2);
-    int maxx = ceil(r.x + r.s2);
-    int miny = floor(r.y - r.s2);
-    int maxy = ceil(r.y + r.s2);
+    int minx = fmax(floor(r.x - r.s2), 0);
+    int maxx = fmin(ceil(r.x + r.s2), frame->cols);
+    int miny = fmax(floor(r.y - r.s2), 0);
+    int maxy = fmin(ceil(r.y + r.s2), frame->rows);
     
     // Copy pixels into a flat list that can be sorted
     // Allocate enough space to store the entire target region, but only copy pixels
