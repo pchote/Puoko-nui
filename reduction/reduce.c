@@ -28,7 +28,7 @@ double2 process_target(target r, framedata *frame, double exptime)
         last = r;
         bg = calculate_background(r, frame);
         xy = center_aperture(r, bg, frame);
-        //printf("%d: (%f,%f) -> (%f,%f) [%f,%f]\n", n, r.x, r.y, xy.x, xy.y, bg.x, bg.y);
+        printf("%d: (%f,%f) -> (%f,%f) [%f,%f]\n", n, r.x, r.y, xy.x, xy.y, bg.x, bg.y);
 
         r.x = (int)xy.x;
         r.y = (int)xy.y;
@@ -114,7 +114,7 @@ int main( int argc, char *argv[] )
             else if (linebuf[0] == '#')
                 continue;
 
-            sscanf(linebuf, "%lf %lf %lf %lf %lf %lf %lf %s\n",
+            sscanf(linebuf, "%lf %lf %lf %lf %lf %lf %lf %lf %s\n",
                 &records[numrecords].time,
                 &records[numrecords].star[0],
                 &records[numrecords].sky[0],
@@ -122,6 +122,7 @@ int main( int argc, char *argv[] )
                 &records[numrecords].sky[1],
                 &records[numrecords].star[2],
                 &records[numrecords].sky[2],
+                &records[numrecords].ratio,
                 records[numrecords].filename
             );
             numrecords++;
@@ -202,12 +203,17 @@ int main( int argc, char *argv[] )
             
             // Process targets
             fprintf(data, "%f ", midtime);
-            for (int i = 0; i < numtargets; i++)
+            double2 target = process_target(targets[0], &frame, exptime);
+            fprintf(data, "%f %f ", target.x, target.y);
+            double comparison = 0;
+            for (int i = 1; i < numtargets; i++)
             {
                 double2 ret = process_target(targets[i], &frame, exptime);
+                comparison += ret.x;
                 fprintf(data, "%f %f ", ret.x, ret.y);
             }
-            fprintf(data, "%s\n", filename);
+            
+            fprintf(data, "%f %s\n", target.x / comparison, filename);
             
             framedata_free(frame);
         }

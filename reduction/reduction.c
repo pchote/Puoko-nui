@@ -57,7 +57,18 @@ double2 center_aperture(target reg, double2 bg2, framedata *frame)
             ym[j] += px;
             total += px;
         }
- 
+/*
+    printf("total: %f\n",total);
+    printf("xm: { %f", xm[0]);
+    for (int i = 1; i < 2*r; i++)
+        printf(", %f", xm[i]);
+    printf("}\n");
+
+    printf("ym: { %f", ym[0]);
+    for (int i = 1; i < 2*r; i++)
+        printf(", %f", ym[i]);
+    printf("}\n");
+*/
     // Calculate x and y moments
     double xc = 0;
     double yc = 0;
@@ -77,7 +88,7 @@ double2 center_aperture(target reg, double2 bg2, framedata *frame)
 // Public domain code obtained from http://alienryderflex.com/quicksort/ @ 2011-03-04
 static void quickSort(int *arr, int elements)
 {
-    #define  MAX_LEVELS  1000
+    #define MAX_LEVELS 1000
     int piv, beg[MAX_LEVELS], end[MAX_LEVELS], i=0, L, R;
     beg[0] = 0; end[0] = elements;
     while (i >= 0)

@@ -36,6 +36,7 @@ typedef struct
     double star[3];
     double sky[3];
     double time;
+    double ratio;
     char filename[64];
 } record;
 
