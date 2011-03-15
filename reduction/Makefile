@@ -8,15 +8,15 @@ ROBJ = $(RSRC:.c=.o)
 FSRC = frameadd.c framedata.c
 FOBJ = $(FSRC:.c=.o)
 
-all: reduction frameadd
+all: reduction frametool
 reduction: $(ROBJ)
 	$(CC) $(LFLAGS) $(ROBJ) -o $@
 
-frameadd: $(FOBJ)
+frametool: $(FOBJ)
 	$(CC) $(LFLAGS) $(FOBJ) -o $@
 
 clean:
-	-rm $(OBJ) reduction frameadd reduction.o framedata.o reduce.o frameadd.o
+	-rm $(OBJ) reduction frametool reduction.o framedata.o reduce.o frameadd.o
 
 .SUFFIXES: .c
 .c.o:

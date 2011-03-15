@@ -15,17 +15,32 @@
 #include "framedata.h"
 #include "reduction.h"
 
+typedef enum 
+{
+    ADD,
+    AVERAGE
+} Mode;
+
 int main( int argc, char *argv[] )
 {
-    // First arg gives the file to take the metadata from
+    // First arg gives the mode (add / avg)
+    // Second arg gives the file to take the metadata from
     // Last arg gives the file to save to
     
-    if (argc > 2)
-    {
-        printf("Opening file %s\n", argv[1]);
-        framedata base = framedata_new(argv[1]);
+    if (argc > 3)
+    {        
+        printf("Opening file %s\n", argv[2]);
+        framedata base = framedata_new(argv[2]);
         
-        for (int i = 2; i < argc-1; i++)
+        Mode mode;
+        if (strncmp(argv[1], "add",3) == 0)
+            mode = ADD;
+        else if(strncmp(argv[1], "avg",3) == 0)
+            mode = AVERAGE;
+        else
+            error("Invalid mode");
+        
+        for (int i = 3; i < argc-1; i++)
         {
             printf("Adding file %s\n", argv[i]);
             framedata other = framedata_new(argv[i]);
@@ -33,12 +48,18 @@ int main( int argc, char *argv[] )
             framedata_free(other);
         }
         
+        if (mode == AVERAGE)
+        {
+            for (int i = 0; i < base.cols*base.rows; i++)
+                base.data[i] /= argc - 3;
+        }
+        
         fitsfile *out;
     	int status = 0;
     	
     	// Create a new fits file
         char outbuf[2048];
-        sprintf(outbuf, "!%s(%s)", argv[argc-1], argv[1]);
+        sprintf(outbuf, "!%s(%s)", argv[argc-1], argv[2]);
     	fits_create_file(&out, outbuf, &status);
 
         // Write the frame data to the image
@@ -53,5 +74,7 @@ int main( int argc, char *argv[] )
 
         framedata_free(base);
     }
+    else
+        error("Invalid args");
     return 0;
 }
