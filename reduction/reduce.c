@@ -59,10 +59,18 @@ int main( int argc, char *argv[] )
         target targets[10];
         int numtargets = 0;
         
-        // change into the data file dir so # Framepath: is correct
-        chdir(dirname(argv[1]));
-        FILE *data = fopen(basename(argv[1]), "r+");
-              
+        // basename and dirname may modify underlying memory
+        char dirbuf[PATH_MAX];
+        char namebuf[PATH_MAX];
+        strncpy(dirbuf, argv[1], sizeof(dirbuf));
+        strncpy(namebuf, argv[1], sizeof(namebuf));
+        
+        // change into the data file dir so FrameDir: is correct
+        chdir(dirname(dirbuf));
+        FILE *data = fopen(basename(namebuf), "r+");
+        if (data == NULL)
+            error("Error opening data file");
+        
         record records[10000];
         int numrecords = 0;
         
