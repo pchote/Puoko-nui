@@ -18,7 +18,8 @@
 typedef enum 
 {
     ADD,
-    AVERAGE
+    AVERAGE,
+    DIVIDE,
 } Mode;
 
 int main( int argc, char *argv[] )
@@ -37,21 +38,30 @@ int main( int argc, char *argv[] )
             mode = ADD;
         else if(strncmp(argv[1], "avg",3) == 0)
             mode = AVERAGE;
+        else if(strncmp(argv[1], "divide",6) == 0)
+            mode = DIVIDE; 
         else
             error("Invalid mode");
         
-        for (int i = 3; i < argc-1; i++)
+        if (mode == DIVIDE)
         {
-            printf("Adding file %s\n", argv[i]);
-            framedata other = framedata_new(argv[i]);
-            framedata_add(&base, &other);
-            framedata_free(other);
+            framedata_divide(&base, atoi(argv[3]));
         }
-        
-        if (mode == AVERAGE)
+        else
         {
-            for (int i = 0; i < base.cols*base.rows; i++)
-                base.data[i] /= argc - 3;
+            for (int i = 3; i < argc-1; i++)
+            {
+                printf("Adding file %s\n", argv[i]);
+                framedata other = framedata_new(argv[i]);
+                framedata_add(&base, &other);
+                framedata_free(other);
+            }
+            
+            if (mode == AVERAGE)
+            {
+                for (int i = 0; i < base.cols*base.rows; i++)
+                    base.data[i] /= argc - 3;
+            }
         }
         
         fitsfile *out;

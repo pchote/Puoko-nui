@@ -28,6 +28,7 @@ int framedata_has_header_string(framedata *this, const char *key);
 void framedata_get_header_string(framedata *this, const char *key, char *ret);
 void framedata_subtract(framedata *this, framedata *other);
 void framedata_add(framedata *this, framedata *other);
+void framedata_divide(framedata *this, int div);
 void framedata_free(framedata this);
 
 #endif

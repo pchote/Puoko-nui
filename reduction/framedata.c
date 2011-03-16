@@ -78,6 +78,12 @@ void framedata_add(framedata *this, framedata *other)
         this->data[i] += other->data[i];
 }
 
+void framedata_divide(framedata *this, int div)
+{
+    for (int i = 0; i < this->cols*this->rows; i++)
+        this->data[i] /= div;
+}
+
 void framedata_free(framedata this)
 {
     int status;
