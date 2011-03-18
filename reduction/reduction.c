@@ -86,7 +86,7 @@ double2 center_aperture(target reg, double2 bg2, framedata *frame)
 }
 
 // Public domain code obtained from http://alienryderflex.com/quicksort/ @ 2011-03-04
-static void quickSort(int *arr, int elements)
+void quickSort(int *arr, int elements)
 {
     #define MAX_LEVELS 1000
     int piv, beg[MAX_LEVELS], end[MAX_LEVELS], i=0, L, R;

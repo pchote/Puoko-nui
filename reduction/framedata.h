@@ -12,16 +12,24 @@
 
 void error(const char *msg);
 
+typedef enum
+{
+    FRAMEDATA_INT,
+    FRAMEDATA_DBL
+} framedata_type;
+
 typedef struct
 {
     fitsfile *_fptr;
     int rows;
     int cols;
+    framedata_type dtype;
     int *data;
+    double *dbl_data;
 } framedata;
 
 
-framedata framedata_new(const char *filename);
+framedata framedata_new(const char *filename, framedata_type dtype);
 int framedata_get_header_int(framedata *this, const char *key);
 int framedata_has_header_string(framedata *this, const char *key);
 int framedata_has_header_string(framedata *this, const char *key);

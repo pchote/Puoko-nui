@@ -5,7 +5,7 @@ LFLAGS = -lcfitsio
 RSRC = reduce.c framedata.c reduction.c
 ROBJ = $(RSRC:.c=.o)
 
-FSRC = frameadd.c framedata.c
+FSRC = frameadd.c framedata.c reduction.c
 FOBJ = $(FSRC:.c=.o)
 
 all: reduction frametool

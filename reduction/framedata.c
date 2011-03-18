@@ -13,7 +13,8 @@ void error(const char *msg)
     exit(1);
 }
 
-framedata framedata_new(const char *filename)
+
+framedata framedata_new(const char *filename, framedata_type dtype)
 {
     framedata this;
 	int status = 0;
@@ -31,9 +32,12 @@ framedata framedata_new(const char *filename)
         error("malloc failed");
     
     long fpixel[2] = {1,1}; // Read the entire image
-    if (fits_read_pix(this._fptr, TINT, fpixel, this.cols*this.rows, 0, this.data, NULL, &status))
+    
+    if (dtype == FRAMEDATA_INT && fits_read_pix(this._fptr, TINT, fpixel, this.cols*this.rows, 0, this.data, NULL, &status))
         error("fits_read_pix failed");
-
+    
+    else if (dtype == FRAMEDATA_DBL && fits_read_pix(this._fptr, TDOUBLE, fpixel, this.cols*this.rows, 0, this.dbl_data, NULL, &status))
+        error("fits_read_pix failed");
     return this;
 }
 
