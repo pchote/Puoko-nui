@@ -18,7 +18,9 @@
 typedef enum 
 {
     ADD,
+    SUBTRACT,
     AVERAGE,
+    MULTIPLY,
     DIVIDE,
 } Mode;
 
@@ -36,8 +38,12 @@ int main( int argc, char *argv[] )
         Mode mode;
         if (strncmp(argv[1], "add",3) == 0)
             mode = ADD;
+        else if (strncmp(argv[1], "subtract",7) == 0)
+            mode = SUBTRACT;
         else if(strncmp(argv[1], "avg",3) == 0)
             mode = AVERAGE;
+        else if(strncmp(argv[1], "multiply",8) == 0)
+            mode = MULTIPLY; 
         else if(strncmp(argv[1], "divide",6) == 0)
             mode = DIVIDE; 
         else
@@ -47,13 +53,20 @@ int main( int argc, char *argv[] )
         {
             framedata_divide(&base, atoi(argv[3]));
         }
-        else
+        else if (mode == MULTIPLY)
+        {
+            framedata_multiply(&base, atoi(argv[3]));
+        }
+        else // add, subtract, average
         {
             for (int i = 3; i < argc-1; i++)
             {
                 printf("Adding file %s\n", argv[i]);
                 framedata other = framedata_new(argv[i]);
-                framedata_add(&base, &other);
+                if (mode == SUBTRACT)
+                    framedata_subtract(&base, &other);
+                else
+                    framedata_add(&base, &other);
                 framedata_free(other);
             }
             
