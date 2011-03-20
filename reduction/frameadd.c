@@ -24,19 +24,27 @@ typedef enum
     DIVIDE,
 } Mode;
 
+int compare_double(const void *a, const void *b)
+{
+    const double *da = (const double *)a;
+    const double *db = (const double *)b;
+    
+    return (*da > *db) - (*da < *db);
+}
+
 // TODO: FRAMEDATA_DBL is a giant hack -- FIX
 void load_reject_minmax( const char **frames, int numFrames, int rows, int cols, int rejectHigh, int rejectLow, double *outFrame, void (*preprocess_func)(framedata*, void*), void *preprocess_data)
 {   
     // Load all the flat field frames into a big int array interleaved by pixel value:
     // so big[0] = flat0[0,0], big[1] = flat1[0,0] ... big[numFrames] = flat0[0,1] etc
-    int *big = (int *)malloc(numFrames*cols*rows*sizeof(int));
+    double *big = (double *)malloc(numFrames*cols*rows*sizeof(double));
     for( int i = 0; i < numFrames; i++)
     {
         framedata f = framedata_new(frames[i], FRAMEDATA_DBL);
         
         // Preprocess the frame
         preprocess_func(&f, preprocess_data);
-        
+
         for (int j = 0; j < rows*cols; j++)
             big[numFrames*j+i] = f.dbl_data[j];
         
@@ -46,7 +54,8 @@ void load_reject_minmax( const char **frames, int numFrames, int rows, int cols,
     // Loop over the pixels, sorting the values from each image into increasing order
     for (int j = 0; j < rows*cols; j++)
     {
-        quickSort(big + numFrames*j, numFrames);
+        //quickSort_dbl(big + numFrames*j, numFrames);
+        qsort(big + numFrames*j, numFrames, sizeof(double), compare_double);
         
         // then average the non-rejected pixels into the output array
         outFrame[j] = 0;
@@ -57,17 +66,47 @@ void load_reject_minmax( const char **frames, int numFrames, int rows, int cols,
     free(big);
 }
 
-
-void normalize_flat(framedata *frame, void *data)
+// Subtracts the dark count, then normalizes the frame to average to unity
+// (not that we actually care about the total photometric counts)
+void normalize_flat(framedata *flat, void *data)
 {
     framedata *dark = (framedata *)data;
     
-    // Subtract the correctly normalized dark frame
+    if (dark->dtype != FRAMEDATA_DBL || flat->dtype != FRAMEDATA_DBL)
+        error("normalize_flat frames must be type DBL");
     
-    // Calculate the mean and std deviation
+    if (dark->rows != flat->rows || dark->cols != flat->rows)
+        error("normalize_flat frames must have same size");
+    
+    int flatexp = framedata_get_header_int(flat, "EXPTIME");
+    int darkexp = framedata_get_header_int(dark, "EXPTIME");
+    int n = flat->rows*flat->cols;
+    
+    // Calculate mean
+    double mean = 0;
+    for (int i = 0; i < n; i++)
+    {
+        flat->dbl_data[i] -= flatexp*1.0/darkexp*dark->dbl_data[i];
+        mean += flat->dbl_data[i];
+    }
+    mean /= n;
+
+    // Calculate standard deviation
+    double std = 0;
+    for (int i = 0; i < n; i++)
+        std += (flat->dbl_data[i] - mean)*(flat->dbl_data[i] - mean);
+    std = sqrt(std/n);
     
     // Recalculate the mean, excluding outliers at 3 sigma
-    
+    double mean_new = 0;
+    for (int i = 0; i < n; i++)
+        if (fabs(flat->dbl_data[i] - mean) < 3*std)
+            mean_new += flat->dbl_data[i];
+    mean_new /= n;
+
+    // Normalize flat to unity counts
+    for (int i = 0; i < n; i++)
+        flat->dbl_data[i] /= mean_new;
 }
 
 int create_flat()
@@ -110,33 +149,39 @@ int create_flat()
     
     double *flat = (double *)malloc(512*512*sizeof(double));
     
+    framedata dark = framedata_new("dark-0706.fits.gz", FRAMEDATA_DBL);
+    
     // Load the flat frames, discarding the 5 outermost pixels for each
-    load_reject_minmax( frames, 32, 512, 512, 5, 5, flat, &normalize_flat, NULL);
+    load_reject_minmax( frames, 32, 512, 512, 5, 5, flat, &normalize_flat, (void *)&dark);
     
+    framedata_free(dark);
     
-    /*
-    printf("Loading dark %s\n", masterDark);
-    framedata dark = framedata_new(masterDark);
-    int rows = dark.rows;
-    int cols = dark.cols;
+    // Create a new fits file
+    fitsfile *out;
+    int status = 0;
+    char outbuf[2048];
+    sprintf(outbuf, "!%s(%s)", "out.fits.gz", frames[0]);
+    fits_create_file(&out, "!out.fits.gz", &status);
     
+    /* Create the primary array image (16-bit short integer pixels */
+	long size[2] = { 512, 512 };
+	fits_create_img(out, DOUBLE_IMG, 2, size, &status);
     
-    char filenamebuf[PATH_MAX+8];
-    sprintf(filenamebuf, "/bin/ls %s", pattern);
-    FILE *ls = popen(filenamebuf, "r");
-    if (ls == NULL)
-        error("failed to list directory");
+    framedata testframe = framedata_new("ec-darksubtracted.fits.gz", FRAMEDATA_DBL);
     
-    while (fgets(filenamebuf, sizeof(filenamebuf)-1, ls) != NULL)
+    for (int i = 0; i < 512*512; i++)
+        flat[i] = testframe.dbl_data[i]/flat[i];
+    
+    // Write the frame data to the image
+    if (fits_write_img(out, TDOUBLE, 1, 512*512, flat, &status))
     {
-        // Strip the newline character from the end of the filename
-        filenamebuf[strlen(filenamebuf)-1] = '\0';
-        char *filename = filenamebuf;
-        
-        printf("Opening %s\n", filename);
-        framedata frame = framedata_new(filename);
-    }
-    */
+        printf("status: %d\n", status);
+        error("fits_write_img failed");
+    }    
+    
+    fits_close_file(out, &status);
+    free(flat);
+
     return 0;
 }
 

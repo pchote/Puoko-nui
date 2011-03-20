@@ -27,17 +27,32 @@ framedata framedata_new(const char *filename, framedata_type dtype)
     if (status)
         error("querying NAXIS failed");
     
-    this.data = (int *)malloc(this.cols*this.rows*sizeof(int));
-    if (this.data == NULL)
-        error("malloc failed");
+    
     
     long fpixel[2] = {1,1}; // Read the entire image
     
-    if (dtype == FRAMEDATA_INT && fits_read_pix(this._fptr, TINT, fpixel, this.cols*this.rows, 0, this.data, NULL, &status))
-        error("fits_read_pix failed");
+    this.dtype = dtype;
+    if (dtype == FRAMEDATA_INT)
+    {
+        this.dbl_data = NULL;
+        this.data = (int *)malloc(this.cols*this.rows*sizeof(int));
+        if (this.data == NULL)
+            error("malloc failed");
+        
+        if (fits_read_pix(this._fptr, TINT, fpixel, this.cols*this.rows, 0, this.data, NULL, &status))
+            error("fits_read_pix failed");
+    }
     
-    else if (dtype == FRAMEDATA_DBL && fits_read_pix(this._fptr, TDOUBLE, fpixel, this.cols*this.rows, 0, this.dbl_data, NULL, &status))
-        error("fits_read_pix failed");
+    else if (dtype == FRAMEDATA_DBL)
+    {
+        this.data = NULL;
+        this.dbl_data = (double *)malloc(this.cols*this.rows*sizeof(double));
+        if (this.dbl_data == NULL)
+            error("malloc failed");
+        
+        if (fits_read_pix(this._fptr, TDOUBLE, fpixel, this.cols*this.rows, 0, this.dbl_data, NULL, &status))
+            error("fits_read_pix failed");
+    }
     return this;
 }
 
