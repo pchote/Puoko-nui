@@ -24,48 +24,6 @@ typedef enum
     DIVIDE,
 } Mode;
 
-static int compare_double(const void *a, const void *b)
-{
-    const double *da = (const double *)a;
-    const double *db = (const double *)b;
-    
-    return (*da > *db) - (*da < *db);
-}
-
-// TODO: FRAMEDATA_DBL is a giant hack -- FIX
-void load_reject_minmax( const char **frames, int numFrames, int rows, int cols, int rejectHigh, int rejectLow, double *outFrame, void (*preprocess_func)(framedata*, void*), void *preprocess_data)
-{   
-    // Load all the flat field frames into a big int array interleaved by pixel value:
-    // so big[0] = flat0[0,0], big[1] = flat1[0,0] ... big[numFrames] = flat0[0,1] etc
-    double *big = (double *)malloc(numFrames*cols*rows*sizeof(double));
-    for( int i = 0; i < numFrames; i++)
-    {
-        framedata f = framedata_new(frames[i], FRAMEDATA_DBL);
-        
-        // Preprocess the frame
-        preprocess_func(&f, preprocess_data);
-
-        for (int j = 0; j < rows*cols; j++)
-            big[numFrames*j+i] = f.dbl_data[j];
-        
-        framedata_free(f);
-    }
-    
-    // Loop over the pixels, sorting the values from each image into increasing order
-    for (int j = 0; j < rows*cols; j++)
-    {
-        //quickSort_dbl(big + numFrames*j, numFrames);
-        qsort(big + numFrames*j, numFrames, sizeof(double), compare_double);
-        
-        // then average the non-rejected pixels into the output array
-        outFrame[j] = 0;
-        for (int i = rejectLow; i < numFrames - rejectHigh; i++)
-            outFrame[j] += big[numFrames*j + i];
-        outFrame[j] /= (numFrames - rejectHigh - rejectLow);
-    }
-    free(big);
-}
-
 // Subtracts the dark count, then normalizes the frame to average to unity
 // (not that we actually care about the total photometric counts)
 void normalize_flat(framedata *flat, void *data)
@@ -109,50 +67,27 @@ void normalize_flat(framedata *flat, void *data)
         flat->dbl_data[i] /= mean_new;
 }
 
-int create_flat()
+#define MAX_FRAMES 100
+// Create a flat field frame from the frames listed by the command `flatcmd',
+// rejecting `minmax' highest and lowest pixels, with the dark frame `masterdark'
+// saved to the file named `outname'
+// Example: `frametool create-flat "/bin/ls dome-*.fits.gz" 5 master-dark.fits.gz master-dome.fits.gz`
+int create_flat(const char *flatcmd, int minmax, const char *masterdark, const char *outname)
 {
-    const char *frames[32] = 
-    {
-        "dome-0000.fits.gz",
-        "dome-0001.fits.gz",
-        "dome-0002.fits.gz",
-        "dome-0003.fits.gz",
-        "dome-0004.fits.gz",
-        "dome-0005.fits.gz",
-        "dome-0006.fits.gz",
-        "dome-0007.fits.gz",
-        "dome-0008.fits.gz",
-        "dome-0009.fits.gz",
-        "dome-0010.fits.gz",
-        "dome-0011.fits.gz",
-        "dome-0012.fits.gz",
-        "dome-0013.fits.gz",
-        "dome-0014.fits.gz",
-        "dome-0015.fits.gz",
-        "dome-0016.fits.gz",
-        "dome-0017.fits.gz",
-        "dome-0018.fits.gz",
-        "dome-0019.fits.gz",
-        "dome-0020.fits.gz",
-        "dome-0021.fits.gz",
-        "dome-0022.fits.gz",
-        "dome-0023.fits.gz",
-        "dome-0024.fits.gz",
-        "dome-0025.fits.gz",
-        "dome-0026.fits.gz",
-        "dome-0027.fits.gz",
-        "dome-0028.fits.gz",
-        "dome-0029.fits.gz",
-        "dome-0030.fits.gz",
-        "dome-0031.fits.gz"
-    };
+    char **frames = (char **)malloc(MAX_FRAMES*sizeof(char*));
+    for (int i = 0; i < MAX_FRAMES; i++)
+        frames[i] = (char *)malloc(PATH_MAX*sizeof(char));
     
+    int numflats = get_matching_files(flatcmd, frames, PATH_MAX, MAX_FRAMES);
+    if (numflats < 2*minmax)
+        error("Insufficient frames. %d found, %d will be discarded", numflats, 2*minmax);
+
     double *flat = (double *)malloc(512*512*sizeof(double));
     
-    framedata dark = framedata_new("master-dark.fits.gz", FRAMEDATA_DBL);
+    framedata dark = framedata_new(masterdark, FRAMEDATA_DBL);
     
     // Load the flat frames, discarding the 5 outermost pixels for each
-    load_reject_minmax( frames, 32, 512, 512, 5, 5, flat, normalize_flat, (void *)&dark);
+    load_reject_minmax( (const char **)frames, 32, 512, 512, 5, 5, flat, normalize_flat, (void *)&dark);
     
     framedata_free(dark);
     
@@ -160,27 +95,23 @@ int create_flat()
     fitsfile *out;
     int status = 0;
     char outbuf[2048];
-    sprintf(outbuf, "!%s(%s)", "out.fits.gz", frames[0]);
-    fits_create_file(&out, "!out.fits.gz", &status);
+    sprintf(outbuf, "!%s", outname);
+    fits_create_file(&out, outbuf, &status);
     
     /* Create the primary array image (16-bit short integer pixels */
 	long size[2] = { 512, 512 };
 	fits_create_img(out, DOUBLE_IMG, 2, size, &status);
     
-    //framedata testframe = framedata_new("ec-darksubtracted.fits.gz", FRAMEDATA_DBL);
-    
-    //for (int i = 0; i < 512*512; i++)
-    //    flat[i] = testframe.dbl_data[i]/flat[i];
-    
     // Write the frame data to the image
     if (fits_write_img(out, TDOUBLE, 1, 512*512, flat, &status))
-    {
-        printf("status: %d\n", status);
-        error("fits_write_img failed");
-    }    
+        error("fits_write_img failed with status %d", status);
     
     fits_close_file(out, &status);
     free(flat);
+    
+    for (int i = 0; i < MAX_FRAMES; i++)
+        free(frames[i]);
+    free(frames);
 
     return 0;
 }
@@ -190,13 +121,15 @@ int main( int argc, char *argv[] )
     // First arg gives the mode (add / avg)
     // Second arg gives the file to take the metadata from
     // Last arg gives the file to save to
-    create_flat();
-    return 0;
     
     if (argc > 3)
     {                
-        printf("Opening file %s\n", argv[2]);
-        framedata base = framedata_new(argv[2], FRAMEDATA_INT);
+
+        if (argc == 6 && strncmp(argv[1], "create-flat", 11) == 0)
+        {
+            create_flat(argv[2], atoi(argv[3]), argv[4], argv[5]);
+            return 0;
+        }
         
         Mode mode;
         if (strncmp(argv[1], "add",3) == 0)
@@ -211,6 +144,10 @@ int main( int argc, char *argv[] )
             mode = DIVIDE; 
         else
             error("Invalid mode");
+        
+        printf("Opening file %s\n", argv[2]);
+        framedata base = framedata_new(argv[2], FRAMEDATA_INT);
+        
         
         if (mode == DIVIDE)
         {

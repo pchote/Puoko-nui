@@ -43,4 +43,5 @@ typedef struct
 double2 center_aperture(target reg, double2 bg2, framedata *frame);
 double2 calculate_background(target r, framedata *frame);
 double integrate_aperture(double2 xy, double r, framedata *frame);
+int get_matching_files(const char *cmd, char **files, int len, int numFiles);
 #endif
