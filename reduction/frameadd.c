@@ -71,7 +71,6 @@ void normalize_flat(framedata *flat, void *data)
 // Create a flat field frame from the frames listed by the command `flatcmd',
 // rejecting `minmax' highest and lowest pixels, with the dark frame `masterdark'
 // saved to the file named `outname'
-// Example: `frametool create-flat "/bin/ls dome-*.fits.gz" 5 master-dark.fits.gz master-dome.fits.gz`
 int create_flat(const char *flatcmd, int minmax, const char *masterdark, const char *outname)
 {
     char **frames = (char **)malloc(MAX_FRAMES*sizeof(char*));
@@ -85,10 +84,9 @@ int create_flat(const char *flatcmd, int minmax, const char *masterdark, const c
     double *flat = (double *)malloc(512*512*sizeof(double));
     
     framedata dark = framedata_new(masterdark, FRAMEDATA_DBL);
-    
+        
     // Load the flat frames, discarding the 5 outermost pixels for each
-    load_reject_minmax( (const char **)frames, 32, 512, 512, 5, 5, flat, normalize_flat, (void *)&dark);
-    
+    load_reject_minmax( (const char **)frames, numflats, dark.rows, dark.cols, minmax, minmax, flat, normalize_flat, (void *)&dark);
     framedata_free(dark);
     
     // Create a new fits file
@@ -116,6 +114,55 @@ int create_flat(const char *flatcmd, int minmax, const char *masterdark, const c
     return 0;
 }
 
+void do_nothing(framedata *flat, void *data) {}
+int create_dark(const char *darkcmd, int minmax, const char *outname)
+{
+    char **frames = (char **)malloc(MAX_FRAMES*sizeof(char*));
+    for (int i = 0; i < MAX_FRAMES; i++)
+        frames[i] = (char *)malloc(PATH_MAX*sizeof(char));
+    
+    int numdarks = get_matching_files(darkcmd, frames, PATH_MAX, MAX_FRAMES);
+    if (numdarks < 2*minmax)
+        error("Insufficient frames. %d found, at least %d are required", numdarks, 2*minmax);
+    
+    framedata base = framedata_new(frames[0], FRAMEDATA_INT);
+    int exptime = framedata_get_header_int(&base, "EXPTIME");
+    double *dark = (double *)malloc(base.rows*base.cols*sizeof(double));
+    
+
+    // Load the flat frames, discarding the 5 outermost pixels for each
+    load_reject_minmax( (const char **)frames, numdarks, base.rows, base.cols, minmax, minmax, dark, do_nothing, NULL);
+    
+    // Create a new fits file
+    fitsfile *out;
+    int status = 0;
+    char outbuf[2048];
+    sprintf(outbuf, "!%s", outname);
+    
+    fits_create_file(&out, outbuf, &status);
+    
+    /* Create the primary array image (16-bit short integer pixels */
+	long size[2] = { 512, 512 };
+	fits_create_img(out, DOUBLE_IMG, 2, size, &status);
+    
+    fits_update_key(out, TINT, "EXPTIME", &exptime, "Actual integration time (sec)", &status);
+    
+    // Write the frame data to the image
+    if (fits_write_img(out, TDOUBLE, 1, base.rows*base.cols, dark, &status))
+        error("fits_write_img failed with status %d", status);
+
+    fits_close_file(out, &status);
+    free(dark);
+    
+    framedata_free(base);
+
+    for (int i = 0; i < MAX_FRAMES; i++)
+        free(frames[i]);
+    free(frames);
+    
+    return 0;
+}
+
 int main( int argc, char *argv[] )
 {
     // First arg gives the mode (add / avg)
@@ -124,10 +171,17 @@ int main( int argc, char *argv[] )
     
     if (argc > 3)
     {                
-
+        // Example: `frametool create-flat "/bin/ls dome-*.fits.gz" 5 master-dark.fits.gz master-dome.fits.gz`
         if (argc == 6 && strncmp(argv[1], "create-flat", 11) == 0)
         {
             create_flat(argv[2], atoi(argv[3]), argv[4], argv[5]);
+            return 0;
+        }
+        
+        // Example: `frametool create-dark "/bin/ls dark-*.fits.gz" 5 master-dark.fits.gz`
+        if (argc == 5 && strncmp(argv[1], "create-dark", 11) == 0)
+        {
+            create_dark(argv[2], atoi(argv[3]), argv[4]);
             return 0;
         }
         
