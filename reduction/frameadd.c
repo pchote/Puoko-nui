@@ -171,17 +171,58 @@ int main( int argc, char *argv[] )
     
     if (argc > 3)
     {                
-        // Example: `frametool create-flat "/bin/ls dome-*.fits.gz" 5 master-dark.fits.gz master-dome.fits.gz`
+        // `frametool create-flat "/bin/ls dome-*.fits.gz" 5 master-dark.fits.gz master-dome.fits.gz`
         if (argc == 6 && strncmp(argv[1], "create-flat", 11) == 0)
         {
             create_flat(argv[2], atoi(argv[3]), argv[4], argv[5]);
             return 0;
         }
         
-        // Example: `frametool create-dark "/bin/ls dark-*.fits.gz" 5 master-dark.fits.gz`
+        // `frametool create-dark "/bin/ls dark-*.fits.gz" 5 master-dark.fits.gz`
         if (argc == 5 && strncmp(argv[1], "create-dark", 11) == 0)
         {
             create_dark(argv[2], atoi(argv[3]), argv[4]);
+            return 0;
+        }
+        // `frametool reduce rawframe.fits.gz master-dark.fits.gz master-flat.fits.gz reduced.fits.gz`
+        if (argc == 6 && strncmp(argv[1], "reduce", 6) == 0)
+        {
+            framedata base = framedata_new(argv[2], FRAMEDATA_DBL);
+            framedata dark = framedata_new(argv[3], FRAMEDATA_DBL);
+            framedata flat = framedata_new(argv[4], FRAMEDATA_DBL);
+            // Subtract dark counts
+            if (dark.dbl_data != NULL)
+                framedata_subtract(&base, &dark);
+            
+            // Flat field image
+            if (flat.dbl_data != NULL)
+                framedata_divide(&base, &flat);
+            
+            // Create a new fits file           
+            fitsfile *out;
+            int status = 0;
+            char outbuf[2048];
+            sprintf(outbuf, "!%s", argv[5]);            
+            fits_create_file(&out, outbuf, &status);
+            
+            
+            for (int i = 0; i < base.rows*base.cols; i++)
+                printf("%f\n",base.dbl_data[i]);
+            
+            /* Create the primary array image (16-bit short integer pixels */
+            long size[2] = { 512, 512 };
+            fits_create_img(out, DOUBLE_IMG, 2, size, &status);
+                        
+            // Write the frame data to the image
+            if (fits_write_img(out, TDOUBLE, 1, base.rows*base.cols, base.dbl_data, &status))
+                error("fits_write_img failed with status %d", status);
+            
+            fits_close_file(out, &status);
+
+            
+            
+            printf("Saved to %s\n", argv[argc-1]);
+
             return 0;
         }
         

@@ -52,6 +52,7 @@ double2 process_target(target r, framedata *frame, double exptime)
     return ret;
 }
 
+#define MAX_OBS 10000
 int main( int argc, char *argv[] )
 {
     if (argc > 1)
@@ -71,7 +72,7 @@ int main( int argc, char *argv[] )
         if (data == NULL)
             error("Error opening data file");
         
-        record records[10000];
+        record records[MAX_OBS];
         int numrecords = 0;
         
         char pattern[128];
