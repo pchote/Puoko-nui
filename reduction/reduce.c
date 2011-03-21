@@ -22,7 +22,7 @@ double2 process_target(target r, framedata *frame, double exptime)
     double2 bg, xy;
     target last;
     int n = 0;
-    // Iterate until we move less than 5px, or reach 10 iterations
+    // Iterate until we move less than 2px, or reach 10 iterations
     do
     {
         last = r;
@@ -38,7 +38,7 @@ double2 process_target(target r, framedata *frame, double exptime)
             fprintf(stderr, "Aperture outside chip - skipping\n");
             return ret;
         }
-    } while (++n < 10 && (xy.x-last.x)*(xy.x-last.x) + (xy.y-last.y)*(xy.y-last.y) >= 25);
+    } while (++n < 10 && (xy.x-last.x)*(xy.x-last.x) + (xy.y-last.y)*(xy.y-last.y) >= 4);
     
     if (n >= 10)
     {
@@ -82,6 +82,10 @@ int main( int argc, char *argv[] )
         // Processed dark template
         framedata dark;
         dark.data = NULL;
+        dark.dbl_data = NULL;
+
+        framedata flat;
+        flat.dbl_data = NULL;
         
         char linebuf[1024];
         // Read any existing config and data
@@ -100,7 +104,14 @@ int main( int argc, char *argv[] )
                 char darkbuf[128];
                 sscanf(linebuf, "# DarkTemplate: %s\n", darkbuf);
                 
-                dark = framedata_new(darkbuf);
+                dark = framedata_new(darkbuf, FRAMEDATA_DBL);
+            }
+            else if (!strncmp(linebuf,"# FlatTemplate:", 15))
+            {
+                char flatbuf[128];
+                sscanf(linebuf, "# FlatTemplate: %s\n", flatbuf);
+                
+                flat = framedata_new(flatbuf, FRAMEDATA_DBL);
             }
             else if (!strncmp(linebuf,"# Target:", 9))
             {
@@ -162,7 +173,7 @@ int main( int argc, char *argv[] )
             if (processed)
                 continue;
                      
-            framedata frame = framedata_new(filename);
+            framedata frame = framedata_new(filename, FRAMEDATA_DBL);
             
             int exptime = framedata_get_header_int(&frame, "EXPTIME");
 
@@ -206,8 +217,12 @@ int main( int argc, char *argv[] )
             }
             
             // Subtract dark counts
-            if (dark.data != NULL)
+            if (dark.dbl_data != NULL)
                 framedata_subtract(&frame, &dark);
+            
+            // Flat field image
+            if (flat.dbl_data != NULL)
+                framedata_divide(&frame, &flat);
             
             // Process targets
             fprintf(data, "%f ", midtime);

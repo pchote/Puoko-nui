@@ -10,8 +10,7 @@
 #ifndef FRAMEDATA_H
 #define FRAMEDATA_H
 
-void error(const char *msg);
-
+void error(const char * format, ...);
 typedef enum
 {
     FRAMEDATA_INT,
@@ -38,7 +37,8 @@ void framedata_subtract(framedata *this, framedata *other);
 void framedata_add(framedata *this, framedata *other);
 void framedata_subtract(framedata *this, framedata *other);
 void framedata_multiply(framedata *this, int div);
-void framedata_divide(framedata *this, int div);
+void framedata_divide_const(framedata *this, int div);
+void framedata_divide(framedata *this, framedata *div);
 void framedata_free(framedata this);
 
 #endif

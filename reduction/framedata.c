@@ -6,20 +6,24 @@
 */
 
 #include "framedata.h"
+#include <stdarg.h>
 
-void error(const char *msg)
+void error(const char * format, ...)
 {
-    printf("%s\n",msg);
+	va_list args;
+	va_start(args, format);
+	vfprintf(stderr, format, args);
+	va_end(args);
+	fprintf(stderr, "\n");
     exit(1);
 }
-
 
 framedata framedata_new(const char *filename, framedata_type dtype)
 {
     framedata this;
 	int status = 0;
     if (fits_open_image(&this._fptr, filename, READONLY, &status))
-        error("fits_open_image failed");
+        error("fits_open_image failed: %s", filename);
     
     // Query the image size
     fits_read_key(this._fptr, TINT, "NAXIS1", &this.cols, NULL, &status);
@@ -84,8 +88,14 @@ void framedata_subtract(framedata *this, framedata *other)
     if (this->cols != other->cols || this->rows != other->rows)
         error("Attempting to subtract frame with different size");
     
-    for (int i = 0; i < this->cols*this->rows; i++)
-        this->data[i] -= other->data[i];
+    if (this->dtype == FRAMEDATA_INT)
+        for (int i = 0; i < this->cols*this->rows; i++)
+            this->data[i] -= other->data[i];
+    else if (this->dtype == FRAMEDATA_DBL)
+        for (int i = 0; i < this->cols*this->rows; i++)
+            this->dbl_data[i] -= other->dbl_data[i];
+    else 
+        error("Unknown datatype");
 }
 
 void framedata_add(framedata *this, framedata *other)
@@ -93,25 +103,58 @@ void framedata_add(framedata *this, framedata *other)
     if (this->cols != other->cols || this->rows != other->rows)
         error("Attempting to add frame with different size");
     
-    for (int i = 0; i < this->cols*this->rows; i++)
-        this->data[i] += other->data[i];
+    if (this->dtype == FRAMEDATA_INT)
+        for (int i = 0; i < this->cols*this->rows; i++)
+            this->data[i] += other->data[i];
+    else if (this->dtype == FRAMEDATA_DBL)
+        for (int i = 0; i < this->cols*this->rows; i++)
+            this->dbl_data[i] += other->dbl_data[i];
+    else 
+        error("Unknown datatype");
 }
 
 void framedata_multiply(framedata *this, int mul)
 {
-    for (int i = 0; i < this->cols*this->rows; i++)
-        this->data[i] *= mul;
+    if (this->dtype == FRAMEDATA_INT)
+        for (int i = 0; i < this->cols*this->rows; i++)
+            this->data[i] *= mul;
+    else if (this->dtype == FRAMEDATA_DBL)
+        for (int i = 0; i < this->cols*this->rows; i++)
+            this->dbl_data[i] *= mul;
+    else 
+        error("Unknown datatype");
 }
 
-void framedata_divide(framedata *this, int div)
+void framedata_divide_const(framedata *this, int div)
 {
-    for (int i = 0; i < this->cols*this->rows; i++)
-        this->data[i] /= div;
+    if (this->dtype == FRAMEDATA_INT)
+        for (int i = 0; i < this->cols*this->rows; i++)
+            this->data[i] /= div;
+    else if (this->dtype == FRAMEDATA_DBL)
+        for (int i = 0; i < this->cols*this->rows; i++)
+            this->dbl_data[i] /= div;
+    else 
+        error("Unknown datatype");
+}
+
+void framedata_divide(framedata *this, framedata *div)
+{
+    if (this->dtype == FRAMEDATA_INT)
+        for (int i = 0; i < this->cols*this->rows; i++)
+            this->data[i] /= div->data[i];
+    else if (this->dtype == FRAMEDATA_DBL)
+        for (int i = 0; i < this->cols*this->rows; i++)
+            this->dbl_data[i] /=  div->dbl_data[i];
+    else 
+        error("Unknown datatype");
 }
 
 void framedata_free(framedata this)
 {
     int status;
-    free(this.data);
+    if (this.data)
+        free(this.data);
+    if (this.dbl_data)
+        free(this.dbl_data);
     fits_close_file(this._fptr, &status);
 }

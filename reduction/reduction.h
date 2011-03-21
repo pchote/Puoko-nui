@@ -43,6 +43,4 @@ typedef struct
 double2 center_aperture(target reg, double2 bg2, framedata *frame);
 double2 calculate_background(target r, framedata *frame);
 double integrate_aperture(double2 xy, double r, framedata *frame);
-void quickSort(int *arr, int elements);
-void quickSort_dbl(double *arr, int elements);
 #endif

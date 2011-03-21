@@ -49,7 +49,7 @@ double2 center_aperture(target reg, double2 bg2, framedata *frame)
             if ((i-r)*(i-r) + (j-r)*(j-r) > r*r)
                 continue;
 
-            double px = frame->data[frame->cols*(y+j-r) + (x+i-r)] - bg;
+            double px = frame->dbl_data[frame->cols*(y+j-r) + (x+i-r)] - bg;
             if (fabs(px) < 3*std)
                 continue;
             
@@ -85,63 +85,13 @@ double2 center_aperture(target reg, double2 bg2, framedata *frame)
     return ret;
 }
 
-// Public domain code obtained from http://alienryderflex.com/quicksort/ @ 2011-03-04
-void quickSort(int *arr, int elements)
-{
-    #define MAX_LEVELS 1000
-    int piv, beg[MAX_LEVELS], end[MAX_LEVELS], i=0, L, R;
-    beg[0] = 0; end[0] = elements;
-    while (i >= 0)
-    {
-        L = beg[i]; R = end[i] - 1;
-        if (L < R)
-        {
-            piv=arr[L];
-            if (i==MAX_LEVELS-1)
-                error("quicksort required too many levels");
 
-            while (L<R)
-            {
-                while (arr[R] >= piv && L<R) R--; if (L < R) arr[L++] = arr[R];
-                while (arr[L] <= piv && L<R) L++; if (L < R) arr[R--] = arr[L];
-            }
-            arr[L] = piv;
-            beg[i + 1] = L + 1;
-            end[i + 1] = end[i];
-            end[i++] = L;
-        }
-        else
-            i--;
-    }
-}
-void quickSort_dbl(double *arr, int elements)
+int compare_double(const void *a, const void *b)
 {
-#define MAX_LEVELS 1000
-    double piv;
-    int beg[MAX_LEVELS], end[MAX_LEVELS], i=0, L, R;
-    beg[0] = 0; end[0] = elements;
-    while (i >= 0)
-    {
-        L = beg[i]; R = end[i] - 1;
-        if (L < R)
-        {
-            piv=arr[L];
-            if (i==MAX_LEVELS-1)
-                error("quicksort required too many levels");
-            
-            while (L<R)
-            {
-                while (arr[R] >= piv && L<R) R--; if (L < R) arr[L++] = arr[R];
-                while (arr[L] <= piv && L<R) L++; if (L < R) arr[R--] = arr[L];
-            }
-            arr[L] = piv;
-            beg[i + 1] = L + 1;
-            end[i + 1] = end[i];
-            end[i++] = L;
-        }
-        else
-            i--;
-    }
+    const double *da = (const double *)a;
+    const double *db = (const double *)b;
+    
+    return (*da > *db) - (*da < *db);
 }
 
 // Calculate the mode intensity and standard deviation within an annulus
@@ -155,14 +105,14 @@ double2 calculate_background(target r, framedata *frame)
     // Copy pixels into a flat list that can be sorted
     // Allocate enough space to store the entire target region, but only copy pixels
     // within the annulus.
-    int *data = (int *)malloc((maxy - miny + 1)*(maxx - minx + 1)*sizeof(int));
+    double *data = (double *)malloc((maxy - miny + 1)*(maxx - minx + 1)*sizeof(double));
     int n = 0;
     for (int j = miny; j <= maxy; j++)
         for (int i = minx; i <= maxx; i++)
         {
             double d2 = (r.x-i)*(r.x-i) + (r.y-j)*(r.y-j);
             if (d2 > r.s1*r.s1 && d2 < r.s2*r.s2)
-                data[n++] = frame->data[frame->cols*j + i];
+                data[n++] = frame->dbl_data[frame->cols*j + i];
         }    
     
     // Calculate mean
@@ -172,7 +122,7 @@ double2 calculate_background(target r, framedata *frame)
     mean /= n;
     
     // Calculate median
-    quickSort(data, n);
+    qsort(data, n, sizeof(double), compare_double);
     double median = (data[n/2] + data[n/2+1])/2;
 
     // Calculate standard deviation
@@ -339,7 +289,7 @@ double integrate_aperture(double2 xy, double r, framedata *frame)
     int bx = floor(xy.x), by = floor(xy.y), br = floor(r) + 1;
     for (int i = bx-br; i < bx+br; i++)
         for (int j = by-br; j < by+br; j++)
-            total += pixel_aperture_intesection(xy.x-i, xy.y-j, r)*frame->data[i + frame->cols*j];
+            total += pixel_aperture_intesection(xy.x-i, xy.y-j, r)*frame->dbl_data[i + frame->cols*j];
 
     return total;
 }

@@ -24,7 +24,7 @@ typedef enum
     DIVIDE,
 } Mode;
 
-int compare_double(const void *a, const void *b)
+static int compare_double(const void *a, const void *b)
 {
     const double *da = (const double *)a;
     const double *db = (const double *)b;
@@ -149,10 +149,10 @@ int create_flat()
     
     double *flat = (double *)malloc(512*512*sizeof(double));
     
-    framedata dark = framedata_new("dark-0706.fits.gz", FRAMEDATA_DBL);
+    framedata dark = framedata_new("master-dark.fits.gz", FRAMEDATA_DBL);
     
     // Load the flat frames, discarding the 5 outermost pixels for each
-    load_reject_minmax( frames, 32, 512, 512, 5, 5, flat, &normalize_flat, (void *)&dark);
+    load_reject_minmax( frames, 32, 512, 512, 5, 5, flat, normalize_flat, (void *)&dark);
     
     framedata_free(dark);
     
@@ -167,10 +167,10 @@ int create_flat()
 	long size[2] = { 512, 512 };
 	fits_create_img(out, DOUBLE_IMG, 2, size, &status);
     
-    framedata testframe = framedata_new("ec-darksubtracted.fits.gz", FRAMEDATA_DBL);
+    //framedata testframe = framedata_new("ec-darksubtracted.fits.gz", FRAMEDATA_DBL);
     
-    for (int i = 0; i < 512*512; i++)
-        flat[i] = testframe.dbl_data[i]/flat[i];
+    //for (int i = 0; i < 512*512; i++)
+    //    flat[i] = testframe.dbl_data[i]/flat[i];
     
     // Write the frame data to the image
     if (fits_write_img(out, TDOUBLE, 1, 512*512, flat, &status))
@@ -214,7 +214,7 @@ int main( int argc, char *argv[] )
         
         if (mode == DIVIDE)
         {
-            framedata_divide(&base, atoi(argv[3]));
+            framedata_divide_const(&base, atoi(argv[3]));
         }
         else if (mode == MULTIPLY)
         {
