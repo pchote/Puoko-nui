@@ -25,6 +25,7 @@ PNCamera pn_camera_new()
 	cam.image_buffer = NULL;
 	cam.image_buffer_size = 0;
 	cam.binsize = 2;
+    cam.shutdown = FALSE;
 	return cam;
 }
 
@@ -45,6 +46,11 @@ static void check_pvcam_error(const char * msg, int line)
 static void shutdown(PNCamera *cam)
 {
 	cam->status = SHUTDOWN;
+    if (cam->handle == SIMULATED)
+    {
+		free(cam->image_buffer);
+        return; // nothing more is required
+    }
 
 	/* Note: We cannot use check_pvcam_error here! */
 	if (cam->init_status >= INIT_AQUIRING)
@@ -71,9 +77,17 @@ static void shutdown(PNCamera *cam)
 	}
 }
 
+
+static void initialise_simulated_camera(PNCamera *cam)
+{
+    cam->handle = SIMULATED;
+    printf("Initialising simulated camera\n");
+    cam->init_status = INIT_OPEN;
+}
+
 static void initialise_camera(PNCamera *cam)
 {
-	if (!pl_pvcam_init())
+    if (!pl_pvcam_init())
 		check_pvcam_error("Could not initialise the PVCAM library (pl_pvcam_init)", __LINE__);
 	
 	uns16 pversion;
@@ -141,6 +155,21 @@ static void initialise_camera(PNCamera *cam)
 
 static void initialise_acquisition(PNCamera *cam)
 {
+    if (cam->handle == SIMULATED)
+    {
+        cam->frame_height = 512;
+	    cam->frame_width = 512;
+        cam->simulated_frame_available = FALSE;
+
+        // Create a buffer to write a simulated frame to
+	    cam->image_buffer_size = 512*512*2;
+	    cam->image_buffer = (uns16*)malloc( cam->image_buffer_size );
+
+        printf("Simulated acquisition run started\n");
+	    cam->init_status = INIT_AQUIRING;
+        return;
+    }
+
 	printf("Starting acquisition run...\n");
 	if (!pl_get_param(cam->handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *)&cam->frame_width))
 		check_pvcam_error("Error querying camera width", __LINE__);
@@ -183,7 +212,12 @@ static void initialise_acquisition(PNCamera *cam)
 
 static rs_bool frame_available(PNCamera *cam)
 {
-	int16 status = READOUT_NOT_ACTIVE;
+	if (cam->handle == SIMULATED)
+    {
+        return cam->simulated_frame_available;
+    }
+    
+    int16 status = READOUT_NOT_ACTIVE;
 	uns32 bytesStored = 0, numFilledBuffers = 0;
 	if (!pl_exp_check_cont_status(cam->handle, &status, &bytesStored, &numFilledBuffers))
 		check_pvcam_error("Error querying camera status", __LINE__);
@@ -191,29 +225,33 @@ static rs_bool frame_available(PNCamera *cam)
 	return (status == FRAME_AVAILABLE);
 }
 
-/* TODO: Things to implement?
- *
- * PARAM_CCS_STATUS - query camera status
- * PARAM_SHTR_OPEN_MODE = OPEN_NO_CHANGE - tells the camera to never send any shutter signals (use instead of setting shutter time to 0?
- * PARAM_TEMP - get the camera temperature in degrees c * 100
- */
-
 void *pn_camera_thread(void *_cam)
 {
-	PNCamera *cam = (PNCamera *)_cam;
+
+	rs_bool simulated = TRUE;
+    PNCamera *cam = (PNCamera *)_cam;
 	if (cam == NULL)
 		pn_die("cam is null @ %s:%d\n", __FILE__, __LINE__);
-	
+
+//pn_die("here\n");	
 	/* Open PVCAM and set the initial camera parameters */
 	if (!cam->shutdown)		
-		initialise_camera(cam);
+	{
+	
+        if (!simulated) initialise_camera(cam);
+        else initialise_simulated_camera(cam);
+    }
 
 	/* Start a continuous acquisition sequence into a circular buffer */
 	if (!cam->shutdown)	
 		initialise_acquisition(cam);
 	
 	/* Set initial temperature */
-	pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );
+    if (cam->handle == SIMULATED)
+        cam->temperature = 0;
+    else
+	    pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );
+
 	/* Poll the camera for frames at 10Hz for frames
 	 * and at ~0.2Hz for temperature */
 	cam->status = ACTIVE;
@@ -227,9 +265,11 @@ void *pn_camera_thread(void *_cam)
 		/* Retrieve frame data */
 		if (!cam->shutdown && frame_available(cam))
 		{
-			printf("Frame available @ %d\n", time(NULL));
+			printf("Frame available @ %d\n", (int)time(NULL));
 			void_ptr camera_frame;
-			if (!pl_exp_get_oldest_frame(cam->handle, &camera_frame))
+            if (cam->handle == SIMULATED)
+                camera_frame = cam->image_buffer;
+            else if (!pl_exp_get_oldest_frame(cam->handle, &camera_frame))
 				check_pvcam_error("Error retrieving oldest frame", __LINE__);
 
 			/* Do something with the frame data */
@@ -243,12 +283,12 @@ void *pn_camera_thread(void *_cam)
 			}
 
 			/* Unlock the frame buffer for reuse */
-			if (!pl_exp_unlock_oldest_frame(cam->handle))
+			if (cam->handle != SIMULATED && !pl_exp_unlock_oldest_frame(cam->handle))
 				check_pvcam_error("Error unlocking oldest frame", __LINE__);
 		}
 
 		/* Query camera temperature */
-		if (!cam->shutdown && temp_ticks >= 50)
+		if (cam->handle != SIMULATED && !cam->shutdown && temp_ticks >= 50)
 		{
 			temp_ticks = 0;
 			pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );

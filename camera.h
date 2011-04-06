@@ -43,6 +43,7 @@ typedef struct
 	uns16 *data; /* Pointer to the start of the frame data */
 } PNFrame;
 
+#define SIMULATED -10
 
 /* Holds the state of a camera */
 typedef struct
@@ -64,6 +65,7 @@ typedef struct
 	void *image_buffer;
 	uns32 image_buffer_size;
 	PNCameraInitStatus init_status;
+    rs_bool simulated_frame_available;
 } PNCamera;
 
 PNCamera pn_camera_new();
