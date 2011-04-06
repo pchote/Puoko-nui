@@ -417,11 +417,16 @@ void *pn_gps_thread(void *_gps)
 	if (gps == NULL)
 		pn_die("gps is null @ %s:%d\n", __FILE__, __LINE__);
 
-	unsigned char recvbuf[GPS_PACKET_LENGTH];
-	unsigned char totalbuf[GPS_PACKET_LENGTH];
-	int recievedBytes = 0;
-	int parsedBytes = 0;
+    // Store recieved bytes in a 256 byte circular buffer indexed
+    // by unsigned char. This ensures the correct circular behavior on over/underflow
+	unsigned char recvbuf[256];
+	unsigned char totalbuf[256];
+	unsigned char writeIndex = 0;
+	unsigned char readIndex = 0;
     rs_bool synced = FALSE;
+
+    unsigned char gps_packet[256];
+    unsigned char gps_packet_length = 0;
 
 	/* Initialise the gps */
 	if (!gps->shutdown)
@@ -436,56 +441,73 @@ void *pn_gps_thread(void *_gps)
 	    int ret = ftdi_read_data(gps->context, recvbuf, GPS_PACKET_LENGTH);
 	    if (ret < 0)
 		    pn_die("Bad response from gps. return code 0x%x",ret);
-
+        
         // TODO: Copy recieved bytes into storage buffer
         // if not synced, run through buffer and try to sync
         // if still not synced, reset buffer to zero and wait for next data
         // otherwise check for the end of the frame and then parse data
-        for (int i = 0; i < ret && recievedBytes < GPS_PACKET_LENGTH; i++)
-		    totalbuf[recievedBytes++] = recvbuf[i];
+
+        // Copy recieved bytes into the buffer
+        for (int i = 0; i < ret; i++)
+            totalbuf[writeIndex++] = recvbuf[i];
 
         // Sync to the start of a data frame
-        for (int i = 3; !synced && i < ret; i++)
+        for (; !synced && readIndex != writeIndex; readIndex++)
         {
-            if (recvbuf[i] != DLE &&
-                recvbuf[i-1] == DLE &&
-                recvbuf[i-2] == ETX &&
-                recvbuf[i-3] == DLE)
+            if (totalbuf[readIndex] != DLE &&
+                totalbuf[readIndex-1] == DLE &&
+                totalbuf[readIndex-2] == ETX &&
+                totalbuf[readIndex-3] == DLE)
+            {
+                synced = TRUE;
+                readIndex -= 1;
+                break;
+            }
         }
-        /*
-	    for (int i = 0; i < ret && recievedBytes < GPS_PACKET_LENGTH; i++)
-		    totalbuf[recievedBytes++] = recvbuf[i];
 
-	    / * Parse the packet header * /
-	    if (parsedBytes == 0 && recievedBytes > 2)
-	    {
-		    if (totalbuf[0] != DLE)
-		    {
-			    totalbuf[recievedBytes] = 0;
-			    pn_die("Malformed packed: Expected 0x%02x, got 0x%02x.\nData: `%s`", DLE, totalbuf[0], totalbuf);
-		    }
-		    response.type = totalbuf[1];
-		    response.error = totalbuf[2];
-		    parsedBytes += 3;
-	    }
+        // Haven't synced - wait for more data
+        if (!synced)
+            continue;
 
-	    / * Need at least 2 bytes available to parse the payload
-	     * so that we can strip padding bytes * /
-	    while (recievedBytes - parsedBytes >= 2)
-	    {
-		    / * Reached the end of the packet * /
-		    if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == ETX)
-			    return response;
+        
+        // Copy data from storage buffer into parsing buffer and strip padding
+        for (; readIndex != writeIndex; readIndex++)
+        {
+            // Strip DLE padding byte while being careful
+            // about repeated 'real' DLE's in the data
+            if (totalbuf[readIndex] == DLE && totalbuf[readIndex-1] == DLE)
+                readIndex++;
 
-		    / * Found a padding byte - strip it from the payload * /			
-		    if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == DLE)
-			    parsedBytes++;
-		
-		    / * Add byte to data bucket and shift terminator * /
-		    response.data[response.datalength++] = totalbuf[parsedBytes++];
-		    response.data[response.datalength] = 0;		
-	    }
-        */
+            gps_packet[gps_packet_length++] = totalbuf[readIndex];
+
+            // Format:
+            // <DLE> <data length> <type> <data 0> ... <data length-1> <checksum> <DLE> <ETX>
+
+            rs_bool reset = FALSE;
+            // Reached the end of the packet
+            if (gps_packet_length > 2 && gps_packet_length == gps_packet[1] + 6)
+            {
+                // Check checksum
+                printf("Received packet (length %d): ", gps_packet_length);
+                for (unsigned char i = 0; i < gps_packet[1] + 6; i++)
+                    printf("0x%02x ", gps_packet[i]);
+                printf("\n");
+
+                // Reset for next packet
+                reset = TRUE;
+            }
+
+            // Something went wrong
+            if (gps_packet_length >= 255)
+                reset = TRUE;
+    
+            if (reset)
+            {
+                synced = FALSE;
+                gps_packet_length = 0;
+                break;
+            }
+        }
     }
 
 	/* Close the gps */	
