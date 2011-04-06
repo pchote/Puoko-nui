@@ -238,9 +238,12 @@ int main( int argc, char *argv[] )
 			simulate = TRUE;
 	*/
 
-	/* Initialise the gps */
+	/* Initialise the gps on its own thread*/
 	gps = pn_gps_new();
-	pn_gps_init(&gps);
+	pthread_t gps_thread;
+	pthread_create(&gps_thread, NULL, pn_gps_thread, (void *)&gps);
+
+	//pn_gps_init(&gps);
 	view.gps = &gps;
 	view.prefs = &prefs;
 
@@ -259,17 +262,15 @@ int main( int argc, char *argv[] )
 	pn_shutdown();
 	void **retval = NULL;
 	pthread_join(camera_thread, retval);
+    pthread_join(gps_thread, retval);
 	return 0;
 }
 
 void pn_shutdown()
 {
-	/* Camera shutdown is done in the camera thread */
+	/* Camera/gps shutdown is done in their own threads */
 	camera.shutdown = TRUE;
-
-	/* Shutdown the gps */
-	pn_gps_uninit(&gps);
-	pn_gps_free(&gps);
+    gps.shutdown = TRUE;
 }
 
 void pn_die(const char * format, ...)

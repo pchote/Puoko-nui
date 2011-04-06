@@ -7,7 +7,7 @@
 
 #include <stdbool.h>
 #include <pthread.h>
-
+#include <master.h>
 #ifndef GPS_H
 #define GPS_H
 
@@ -70,6 +70,7 @@ typedef struct
 	struct usb_device *device;
 	struct ftdi_context *context;
 	pthread_mutex_t commLock;
+    rs_bool shutdown;
 } PNGPS;
 
 PNGPS pn_gps_new();
@@ -87,4 +88,6 @@ bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf);
 bool pn_gps_set_exposetime(PNGPS *gps, int exptime);
 
 void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds);
+
+void *pn_gps_thread(void *_gps);
 #endif

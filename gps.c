@@ -51,6 +51,7 @@ PNGPS pn_gps_new()
 	PNGPS ret;
 	ret.device = devices->dev;
 	ret.context = NULL;
+    ret.shutdown = FALSE;
   	ftdi_list_free(&devices);
 	return ret;
 }
@@ -234,7 +235,8 @@ PNGPSResponse pn_gps_read(PNGPS *gps, int timeoutms)
  * Returns false on error after printing the error to stderr */
 bool ranaghau_gps_ping_device(PNGPS *gps)
 {
-	check_gps(gps, __FILE__, __LINE__);
+	/*
+    check_gps(gps, __FILE__, __LINE__);
 
 	pthread_mutex_lock(&gps->commLock);
 	pn_gps_send_command(gps, ECHO);
@@ -246,6 +248,7 @@ bool ranaghau_gps_ping_device(PNGPS *gps)
 		fprintf(stderr, "ping failed (error 0x%02x)\n", response.error);
 		return false;
 	}
+    */
 	return true;
 }
 
@@ -253,7 +256,8 @@ bool ranaghau_gps_ping_device(PNGPS *gps)
  * Returns false on error after printing the error to stderr */
 bool pn_gps_get_gpstime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp)
 {
-	check_gps(gps, __FILE__, __LINE__);
+    /*	
+    check_gps(gps, __FILE__, __LINE__);
 	
 	PNGPSResponse response;
 	PNGPSTimestamp ret;
@@ -281,6 +285,11 @@ bool pn_gps_get_gpstime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp
 		fprintf(stderr, "gettime failed (error 0x%02x)\n", response.error);
 
 	return false;
+    */
+    PNGPSTimestamp ret;
+	sscanf("1234:12:12:12:34:56:000", "%d:%d:%d:%d:%d:%d:%d", &ret.year, &ret.month, &ret.day, &ret.hours, &ret.minutes, &ret.seconds, &ret.milliseconds);
+    *timestamp = ret;
+    return true;
 }
 
 /* Query the last sync pulse time
@@ -288,7 +297,8 @@ bool pn_gps_get_gpstime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp
  * Returns false on error after printing the error to stderr */
 bool pn_gps_get_synctime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp)
 {
-	check_gps(gps, __FILE__, __LINE__);
+    /*	
+    check_gps(gps, __FILE__, __LINE__);
 	
 	PNGPSResponse response;
 	PNGPSTimestamp ret;
@@ -315,12 +325,19 @@ bool pn_gps_get_synctime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestam
 		fprintf(stderr, "synctime failed (error 0x%02x)\n", response.error);
 
 	return false;
+    */
+    PNGPSTimestamp ret;
+	sscanf("1234:12:12:12:34:56:000", "%d:%d:%d:%d:%d:%d:%d", &ret.year, &ret.month, &ret.day, &ret.hours, &ret.minutes, &ret.seconds, &ret.milliseconds);
+    *timestamp = ret;
+    return true;
 }
 
+int _temp_exptime = 0;
 /* Query the current exposure time
  * Returns false on error after printing the error to stderr */
 bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf)
 {
+/*
 	check_gps(gps, __FILE__, __LINE__);
 
 	pthread_mutex_lock(&gps->commLock);
@@ -334,12 +351,14 @@ bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf)
 		return false;
 	}
 
-	/* Parse the response */
+	/ * Parse the response * /
 	if (sscanf((char *)response.data, "%d", outbuf) != 1)
 	{
 		fprintf(stderr,"Error parsing exposetime: `%s`\n", response.data);
 		return false;
 	}
+*/
+    *outbuf = _temp_exptime;
 	return true;
 }
 
@@ -347,14 +366,15 @@ bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf)
  * Returns false on error after printing the error to stderr */
 bool pn_gps_set_exposetime(PNGPS *gps, int exptime)
 {
-	check_gps(gps, __FILE__, __LINE__);
+/*	
+    check_gps(gps, __FILE__, __LINE__);
 	if (exptime < 0 || exptime > 9999)
 	{
 		fprintf(stderr, "Exposure time `%d` is not between 0 and 9999\n", exptime);
 		return false;
 	}
 
-	/* gps expects exptime to be a 4 character ascii string */
+	/ * gps expects exptime to be a 4 character ascii string * /
 	char buf[5];
 	sprintf(buf, "%04d",exptime);
 
@@ -368,6 +388,8 @@ bool pn_gps_set_exposetime(PNGPS *gps, int exptime)
 		fprintf(stderr,"setexposetime failed (error 0x%02x)\n", response.error);
 		return false;
 	}
+*/
+    _temp_exptime = exptime;
 	return true;
 }
 
@@ -387,4 +409,88 @@ void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds)
 	ts->day = a.tm_mday;
 	ts->month = a.tm_mon;
 	ts->year = a.tm_year + 1900;
+}
+
+void *pn_gps_thread(void *_gps)
+{
+    PNGPS *gps = (PNGPS *)_gps;
+	if (gps == NULL)
+		pn_die("gps is null @ %s:%d\n", __FILE__, __LINE__);
+
+	unsigned char recvbuf[GPS_PACKET_LENGTH];
+	unsigned char totalbuf[GPS_PACKET_LENGTH];
+	int recievedBytes = 0;
+	int parsedBytes = 0;
+    rs_bool synced = FALSE;
+
+	/* Initialise the gps */
+	if (!gps->shutdown)
+        pn_gps_init(gps);
+	
+    // TODO: Loop while !shutdown parsing data
+	struct timespec wait = {0,1e8};
+    while (!gps->shutdown)
+	{
+		nanosleep(&wait, NULL);
+
+	    int ret = ftdi_read_data(gps->context, recvbuf, GPS_PACKET_LENGTH);
+	    if (ret < 0)
+		    pn_die("Bad response from gps. return code 0x%x",ret);
+
+        // TODO: Copy recieved bytes into storage buffer
+        // if not synced, run through buffer and try to sync
+        // if still not synced, reset buffer to zero and wait for next data
+        // otherwise check for the end of the frame and then parse data
+        for (int i = 0; i < ret && recievedBytes < GPS_PACKET_LENGTH; i++)
+		    totalbuf[recievedBytes++] = recvbuf[i];
+
+        // Sync to the start of a data frame
+        for (int i = 3; !synced && i < ret; i++)
+        {
+            if (recvbuf[i] != DLE &&
+                recvbuf[i-1] == DLE &&
+                recvbuf[i-2] == ETX &&
+                recvbuf[i-3] == DLE)
+        }
+        /*
+	    for (int i = 0; i < ret && recievedBytes < GPS_PACKET_LENGTH; i++)
+		    totalbuf[recievedBytes++] = recvbuf[i];
+
+	    / * Parse the packet header * /
+	    if (parsedBytes == 0 && recievedBytes > 2)
+	    {
+		    if (totalbuf[0] != DLE)
+		    {
+			    totalbuf[recievedBytes] = 0;
+			    pn_die("Malformed packed: Expected 0x%02x, got 0x%02x.\nData: `%s`", DLE, totalbuf[0], totalbuf);
+		    }
+		    response.type = totalbuf[1];
+		    response.error = totalbuf[2];
+		    parsedBytes += 3;
+	    }
+
+	    / * Need at least 2 bytes available to parse the payload
+	     * so that we can strip padding bytes * /
+	    while (recievedBytes - parsedBytes >= 2)
+	    {
+		    / * Reached the end of the packet * /
+		    if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == ETX)
+			    return response;
+
+		    / * Found a padding byte - strip it from the payload * /			
+		    if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == DLE)
+			    parsedBytes++;
+		
+		    / * Add byte to data bucket and shift terminator * /
+		    response.data[response.datalength++] = totalbuf[parsedBytes++];
+		    response.data[response.datalength] = 0;		
+	    }
+        */
+    }
+
+	/* Close the gps */	
+	pn_gps_uninit(gps);
+	pn_gps_free(gps);
+
+	pthread_exit(NULL);
 }

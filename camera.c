@@ -227,13 +227,11 @@ static rs_bool frame_available(PNCamera *cam)
 
 void *pn_camera_thread(void *_cam)
 {
-
 	rs_bool simulated = TRUE;
     PNCamera *cam = (PNCamera *)_cam;
 	if (cam == NULL)
 		pn_die("cam is null @ %s:%d\n", __FILE__, __LINE__);
 
-//pn_die("here\n");	
 	/* Open PVCAM and set the initial camera parameters */
 	if (!cam->shutdown)		
 	{
