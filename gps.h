@@ -26,28 +26,6 @@ typedef enum
 	EXPOSURE = 0xA4,
 } PNGPSRequest;
 
-/* GPS error types */
-typedef enum
-{
-	REQUEST_TIMEOUT = 0,
-	NO_ERROR = 1<<0,
-	PACKET_ID_INVALID = 1<<1,
-	UTC_ACCESS_ON_UPDATE = 1<<2,
-	EOF_ACCESS_ON_UPDATE = 1<<3,
-	PACKET_8FAB_LENGTH_WRONG = 1<<4,
-	GPS_TIME_NOT_LOCKED = 1<<5,
-	GPS_SERIAL_LOST = 1<<7
-} PNGPSError;
-
-/* Represents a response packet from the GPS */
-typedef struct
-{
-	PNGPSRequest type;
-	unsigned char data[256];
-	int datalength;	
-	unsigned char error;
-} PNGPSResponse;
-
 /* Represents a timestamp from the GPS */
 typedef struct
 {
@@ -66,7 +44,6 @@ typedef struct
 {
 	struct usb_device *device;
 	struct ftdi_context *context;
-	pthread_mutex_t commLock;
     rs_bool shutdown;
 } PNGPS;
 
@@ -75,11 +52,7 @@ void pn_gps_free(PNGPS *gps);
 void pn_gps_init(PNGPS *gps);
 void pn_gps_uninit(PNGPS *gps);
 
-bool pn_gps_send_command(PNGPS *gps, PNGPSRequest type);
-PNGPSResponse pn_gps_read(PNGPS *gps, int timeoutms);
-
 bool ranaghau_gps_ping_device(PNGPS *gps);
-bool pn_gps_get_gpstime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp);
 bool pn_gps_get_synctime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp);
 bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf);
 bool pn_gps_set_exposetime(PNGPS *gps, int exptime);
