@@ -16,17 +16,14 @@
 /* End of text byte */
 #define ETX 0x03
 
-/* Maximum gps packet length */
-#define GPS_PACKET_LENGTH 255
 
 /* GPS command types */
 typedef enum
 {
-	ECHO = 0x01,
-	GETGPSTIME = 0x23,
-	GETSYNCTIME = 0x25,
-	GETEXPOSURETIME = 0x24,
-	SETEXPOSURETIME = 0x44,
+	CURRENTTIME = 0xA1,
+	DOWNLOADTIME = 0xA2,
+	DEBUG = 0xA3,
+	EXPOSURE = 0xA4,
 } PNGPSRequest;
 
 /* GPS error types */
@@ -46,7 +43,7 @@ typedef enum
 typedef struct
 {
 	PNGPSRequest type;
-	unsigned char data[GPS_PACKET_LENGTH];
+	unsigned char data[256];
 	int datalength;	
 	unsigned char error;
 } PNGPSResponse;

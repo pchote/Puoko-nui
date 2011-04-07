@@ -133,6 +133,7 @@ bool pn_gps_send_command(PNGPS *gps, PNGPSRequest type)
  * Returns false if the write failed */
 bool pn_gps_send_command_with_data(PNGPS *gps, PNGPSRequest type, const char data[], int numBytes)
 {
+/*
 	check_gps(gps, __FILE__, __LINE__);
 	
 	int length = 0;
@@ -143,7 +144,7 @@ bool pn_gps_send_command_with_data(PNGPS *gps, PNGPSRequest type, const char dat
 	for (int i = 0; i < numBytes; i++)
 	{
 		send[length++] = data[i];
-		/* Add a padding byte if necessary */
+		/ * Add a padding byte if necessary * /
 		if (data[i] == DLE)
 			send[length++] = DLE;
 	}
@@ -156,6 +157,8 @@ bool pn_gps_send_command_with_data(PNGPS *gps, PNGPSRequest type, const char dat
 
 	// Send the request
 	return (ftdi_write_data(gps->context, send, length) == length);
+*/
+    return TRUE;
 }
 
 /* Read the gps response to a command
@@ -163,6 +166,13 @@ bool pn_gps_send_command_with_data(PNGPS *gps, PNGPSRequest type, const char dat
  * Returns the number of bytes read */
 PNGPSResponse pn_gps_read(PNGPS *gps, int timeoutms)
 {
+	PNGPSResponse response;
+	response.type = 0;
+	response.error = REQUEST_TIMEOUT;
+	response.datalength = 0;
+	response.data[0] = (int)NULL;	
+    return response;
+/*
 	check_gps(gps, __FILE__, __LINE__);
 
 	PNGPSResponse response;
@@ -178,13 +188,13 @@ PNGPSResponse pn_gps_read(PNGPS *gps, int timeoutms)
 	struct timeval curtime;
 	gettimeofday(&curtime, NULL);
 
-	/* Calculate timeout time */
+	/ * Calculate timeout time * /
 	long int tus = curtime.tv_usec + 1000*timeoutms;
 	struct timeval timeout;
 	timeout.tv_sec = curtime.tv_sec + tus / 1000000;
 	timeout.tv_usec = curtime.tv_usec + tus % 1000000;
 
-	/* Poll for data until we reach the end of the packet, or timeout */
+	/ * Poll for data until we reach the end of the packet, or timeout * /
 	while (curtime.tv_sec < timeout.tv_sec ||
 		(curtime.tv_sec == timeout.tv_sec && curtime.tv_usec < timeout.tv_usec))
 	{
@@ -195,7 +205,7 @@ PNGPSResponse pn_gps_read(PNGPS *gps, int timeoutms)
 		for (int i = 0; i < ret && recievedBytes < GPS_PACKET_LENGTH; i++)
 			totalbuf[recievedBytes++] = recvbuf[i];
 
-		/* Parse the packet header */
+		/ * Parse the packet header * /
 		if (parsedBytes == 0 && recievedBytes > 2)
 		{
 			if (totalbuf[0] != DLE)
@@ -208,19 +218,19 @@ PNGPSResponse pn_gps_read(PNGPS *gps, int timeoutms)
 			parsedBytes += 3;
 		}
 
-		/* Need at least 2 bytes available to parse the payload
-		 * so that we can strip padding bytes */
+		/ * Need at least 2 bytes available to parse the payload
+		 * so that we can strip padding bytes * /
 		while (recievedBytes - parsedBytes >= 2)
 		{
-			/* Reached the end of the packet */
+			/ * Reached the end of the packet * /
 			if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == ETX)
 				return response;
 
-			/* Found a padding byte - strip it from the payload */			
+			/ * Found a padding byte - strip it from the payload * /			
 			if (totalbuf[parsedBytes] == DLE && totalbuf[parsedBytes + 1] == DLE)
 				parsedBytes++;
 			
-			/* Add byte to data bucket and shift terminator */
+			/ * Add byte to data bucket and shift terminator * /
 			response.data[response.datalength++] = totalbuf[parsedBytes++];
 			response.data[response.datalength] = 0;		
 		}
@@ -229,6 +239,7 @@ PNGPSResponse pn_gps_read(PNGPS *gps, int timeoutms)
 
 	printf("gps request timed out after %dms. Have data `%s`\n", timeoutms, response.data);
 	return response;
+    */
 }
 
 /* Ping the gps device
@@ -411,6 +422,14 @@ void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds)
 	ts->year = a.tm_year + 1900;
 }
 
+static unsigned char checksum(unsigned char *data, unsigned char length)
+{
+    unsigned char csm = data[0];
+    for (unsigned char i = 1; i < length; i++)
+        csm ^= data[i];
+    return csm;
+}
+
 void *pn_gps_thread(void *_gps)
 {
     PNGPS *gps = (PNGPS *)_gps;
@@ -438,15 +457,10 @@ void *pn_gps_thread(void *_gps)
 	{
 		nanosleep(&wait, NULL);
 
-	    int ret = ftdi_read_data(gps->context, recvbuf, GPS_PACKET_LENGTH);
+	    int ret = ftdi_read_data(gps->context, recvbuf, 256);
 	    if (ret < 0)
 		    pn_die("Bad response from gps. return code 0x%x",ret);
         
-        // TODO: Copy recieved bytes into storage buffer
-        // if not synced, run through buffer and try to sync
-        // if still not synced, reset buffer to zero and wait for next data
-        // otherwise check for the end of the frame and then parse data
-
         // Copy recieved bytes into the buffer
         for (int i = 0; i < ret; i++)
             totalbuf[writeIndex++] = recvbuf[i];
@@ -487,13 +501,41 @@ void *pn_gps_thread(void *_gps)
             // Reached the end of the packet
             if (gps_packet_length > 2 && gps_packet_length == gps_packet[1] + 6)
             {
-                // Check checksum
-                printf("Received packet (length %d): ", gps_packet_length);
-                for (unsigned char i = 0; i < gps_packet[1] + 6; i++)
-                    printf("0x%02x ", gps_packet[i]);
-                printf("\n");
+                // Validate frame checksum
+                if (checksum(&gps_packet[3], gps_packet[1]) == gps_packet[gps_packet_length - 3])
+                {
+                    // Parse data packet
+                    switch(gps_packet[2])
+                    {
+                        case CURRENTTIME:
+                            printf("Time: %04d-%02d-%02d %02d:%02d:%02d (%03d:%d)\n", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
+                                                                      gps_packet[7],   // Month
+                                                                      gps_packet[6],   // Day
+                                                                      gps_packet[3],   // Hour
+                                                                      gps_packet[4],   // Minute
+                                                                      gps_packet[5],   // Second
+                                                                      gps_packet[11],  // Exptime remaining
+                                                                      gps_packet[10]); // Locked
+                        break;
+                        case DOWNLOADTIME:
+                            printf("Download: %04d-%02d-%02d %02d:%02d:%02d (%d)\n", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
+                                                                      gps_packet[7],   // Month
+                                                                      gps_packet[6],   // Day
+                                                                      gps_packet[3],   // Hour
+                                                                      gps_packet[4],   // Minute
+                                                                      gps_packet[5],   // Second
+                                                                      gps_packet[10]); // Locked
+                        break;
+                        case DEBUG:
 
-                // Reset for next packet
+                        break;
+                        case EXPOSURE:
+
+                        break;
+                    }
+                }
+
+                // Reset for next frame
                 reset = TRUE;
             }
 
