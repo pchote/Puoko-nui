@@ -5,7 +5,6 @@
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
 
-#include <stdbool.h>
 #include <pthread.h>
 #include <master.h>
 #ifndef GPS_H
@@ -36,7 +35,9 @@ typedef struct
 	int minutes;
 	int seconds;
     int milliseconds;
-    bool locked;
+    rs_bool locked;
+    int remaining_exposure; // for current time
+    rs_bool valid; // true before initialisation and if the download time has been used
 } PNGPSTimestamp;
 
 /* Represents the GPS hardware */
@@ -45,6 +46,10 @@ typedef struct
 	struct usb_device *device;
 	struct ftdi_context *context;
     rs_bool shutdown;
+    PNGPSTimestamp current_timestamp;
+    pthread_mutex_t currenttime_mutex;
+    PNGPSTimestamp download_timestamp;
+    pthread_mutex_t downloadtime_mutex;
 } PNGPS;
 
 PNGPS pn_gps_new();
@@ -52,10 +57,8 @@ void pn_gps_free(PNGPS *gps);
 void pn_gps_init(PNGPS *gps);
 void pn_gps_uninit(PNGPS *gps);
 
-bool ranaghau_gps_ping_device(PNGPS *gps);
-bool pn_gps_get_synctime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp);
-bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf);
-bool pn_gps_set_exposetime(PNGPS *gps, int exptime);
+rs_bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf);
+rs_bool pn_gps_set_exposetime(PNGPS *gps, int exptime);
 
 void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds);
 

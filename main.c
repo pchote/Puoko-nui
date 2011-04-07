@@ -70,13 +70,17 @@ void pn_save_frame(PNFrame *frame)
 	fits_update_key(fptr, TSTRING, "PROGRAM", "puoko-nui", "Data acquistion program", &status);
 	fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
 
-	PNGPSTimestamp end;
+
 	char datebuf[15];
 	char gpstimebuf[15];
 
-	/* Get the synctime. Failure is not an option! */
-	while (!pn_gps_get_synctime(&gps, 2000, &end));
-
+    /* Get the last download pulse time from the gps */
+    pthread_mutex_lock(&gps.downloadtime_mutex);
+    PNGPSTimestamp end = gps.download_timestamp;
+    rs_bool was_valid = end.valid;
+    gps.download_timestamp.valid = FALSE;
+    pthread_mutex_unlock(&gps.downloadtime_mutex);
+	
 	/* synctime gives the *end* of the exposure. The start of the exposure
 	 * is found by subtracting the exposure time */
 	PNGPSTimestamp start = end;
@@ -91,6 +95,12 @@ void pn_save_frame(PNFrame *frame)
 	sprintf(gpstimebuf, "%02d:%02d:%02d.%03d", end.hours, end.minutes, end.seconds, end.milliseconds);
     fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
 	fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
+
+    /* The timestamp may not be valid (spurious downloads, etc) */
+    if (!was_valid)
+	    fits_update_key(fptr, TLOGICAL, "GPS-VALID", &was_valid, "GPS timestamp has been used already", &status);
+
+    
 
 	char timebuf[15];
 	time_t pcend = time(NULL);
@@ -161,7 +171,7 @@ void pn_preview_frame(PNFrame *frame)
 	free(fitsbuf);
 }
 
-bool first_frame = false;
+rs_bool first_frame = FALSE;
 /* Called when the acquisition thread has downloaded a frame
  * Note: this runs in the acquisition thread *not* the main thread. */
 void pn_frame_downloaded_cb(PNFrame *frame)
@@ -169,7 +179,7 @@ void pn_frame_downloaded_cb(PNFrame *frame)
 	/* When starting a run, the first frame will not have a valid exposure time */
 	if (first_frame)
     {
-        first_frame = false;
+        first_frame = FALSE;
         return;
     }
     
@@ -209,7 +219,7 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 			pn_die("Error setting exposure time. Expected %d, was %d\n", exptime, buf);	
 		
 		printf("Set exposure time to %d\n", exptime);
-        first_frame = true;
+        first_frame = TRUE;
 
 		/* Start acquisition */
 		camera.acquire_frames = TRUE;

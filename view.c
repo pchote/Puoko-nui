@@ -361,17 +361,20 @@ gboolean update_gui_cb(gpointer data)
 	char *gpstime = "Unavailable";
 	char gpsbuf[30];
 
-    // TODO: take mutex
-    PNGPSTimestamp ts;// = XXX;
-    // release mutex
-	/*
-	if (pn_gps_get_gpstime(view->gps, 500, &ts))
+    pthread_mutex_lock(&view->gps->currenttime_mutex);
+    PNGPSTimestamp ts = view->gps->current_timestamp;
+    pthread_mutex_unlock(&view->gps->currenttime_mutex);
+	
+	if (ts.valid)
 	{
 		sprintf(gpsbuf, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
 		gpstime = gpsbuf;
-	}*/
+	}
+
 	gtk_label_set_label(GTK_LABEL(view->gpstime_label), gpstime);
-    gtk_label_set_label(GTK_LABEL(view->gpsstatus_label), ts.locked ? "Locked" : "Unlocked");
+
+    sprintf(gpsbuf, "[%03d]       %s", ts.remaining_exposure, ts.locked ? "Locked" : "Unlocked");
+    gtk_label_set_label(GTK_LABEL(view->gpsstatus_label), gpsbuf);
     
 	/* Camera status */
 	char *label;

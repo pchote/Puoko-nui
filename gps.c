@@ -50,20 +50,29 @@ PNGPS pn_gps_new()
 
 	PNGPS ret;
 	ret.device = devices->dev;
+  	ftdi_list_free(&devices);
+
 	ret.context = NULL;
     ret.shutdown = FALSE;
-  	ftdi_list_free(&devices);
+    ret.current_timestamp.valid = FALSE;
+    ret.current_timestamp.valid = FALSE;
+
 	return ret;
 }
 
 void pn_gps_free(PNGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);
+    pthread_mutex_destroy(&gps->currenttime_mutex);
+    pthread_mutex_destroy(&gps->downloadtime_mutex);
 }
 
 /* Open the usb gps device and prepare it for reading/writing */
 void pn_gps_init(PNGPS *gps)
 {
+	pthread_mutex_init(&gps->currenttime_mutex, NULL);
+    pthread_mutex_init(&gps->downloadtime_mutex, NULL);
+
 	check_gps(gps, __FILE__, __LINE__);	
 	printf("Opened FTDI device `%s`\n", gps->device->filename);
 
@@ -114,32 +123,21 @@ void pn_gps_uninit(PNGPS *gps)
 	gps->context = NULL;
 }
 
-/* Query the last sync pulse time
- * outbuf is assumed to be of the correct length (>= 25)
- * Returns false on error after printing the error to stderr */
-bool pn_gps_get_synctime(PNGPS *gps, int timeoutMillis, PNGPSTimestamp *timestamp)
-{
-    PNGPSTimestamp ret;
-	sscanf("1234:12:12:12:34:56:000", "%d:%d:%d:%d:%d:%d:%d", &ret.year, &ret.month, &ret.day, &ret.hours, &ret.minutes, &ret.seconds, &ret.milliseconds);
-    *timestamp = ret;
-    return true;
-}
-
 int _temp_exptime = 0;
 /* Query the current exposure time
  * Returns false on error after printing the error to stderr */
-bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf)
+rs_bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf)
 {
     *outbuf = _temp_exptime;
-	return true;
+	return TRUE;
 }
 
 /* Set the exposure time
  * Returns false on error after printing the error to stderr */
-bool pn_gps_set_exposetime(PNGPS *gps, int exptime)
+rs_bool pn_gps_set_exposetime(PNGPS *gps, int exptime)
 {
     _temp_exptime = exptime;
-	return true;
+	return TRUE;
 }
 
 extern time_t timegm(struct tm *);
@@ -189,7 +187,7 @@ void *pn_gps_thread(void *_gps)
 	if (!gps->shutdown)
         pn_gps_init(gps);
 	
-    // TODO: Loop while !shutdown parsing data
+    // Loop until shutdown, parsing incoming data
 	struct timespec wait = {0,1e8};
     while (!gps->shutdown)
 	{
@@ -246,6 +244,19 @@ void *pn_gps_thread(void *_gps)
                     switch(gps_packet[2])
                     {
                         case CURRENTTIME:
+	                        pthread_mutex_lock(&gps->currenttime_mutex);
+                            gps->current_timestamp.year = (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00);
+                            gps->current_timestamp.month = gps_packet[7];
+                            gps->current_timestamp.day = gps_packet[6];
+                            gps->current_timestamp.hours = gps_packet[3];
+                            gps->current_timestamp.minutes = gps_packet[4];
+                            gps->current_timestamp.seconds = gps_packet[5];
+                            gps->current_timestamp.locked = gps_packet[10];
+                            gps->current_timestamp.remaining_exposure = gps_packet[11];
+                            gps->current_timestamp.valid = TRUE;
+
+                            pthread_mutex_unlock(&gps->currenttime_mutex);
+/*
                             printf("Time: %04d-%02d-%02d %02d:%02d:%02d (%03d:%d)\n", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
                                                                       gps_packet[7],   // Month
                                                                       gps_packet[6],   // Day
@@ -254,8 +265,19 @@ void *pn_gps_thread(void *_gps)
                                                                       gps_packet[5],   // Second
                                                                       gps_packet[11],  // Exptime remaining
                                                                       gps_packet[10]); // Locked
+*/
                         break;
                         case DOWNLOADTIME:
+                            pthread_mutex_lock(&gps->downloadtime_mutex);
+                            gps->download_timestamp.year = (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00);
+                            gps->download_timestamp.month = gps_packet[7];
+                            gps->download_timestamp.day = gps_packet[6];
+                            gps->download_timestamp.hours = gps_packet[3];
+                            gps->download_timestamp.minutes = gps_packet[4];
+                            gps->download_timestamp.seconds = gps_packet[5];
+                            gps->download_timestamp.locked = gps_packet[10];
+                            gps->download_timestamp.valid = TRUE;
+                            pthread_mutex_unlock(&gps->downloadtime_mutex);
                             printf("Download: %04d-%02d-%02d %02d:%02d:%02d (%d)\n", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
                                                                       gps_packet[7],   // Month
                                                                       gps_packet[6],   // Day
