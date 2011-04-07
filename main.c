@@ -198,6 +198,12 @@ void pn_frame_downloaded_cb(PNFrame *frame)
 		pn_preview_frame(frame);
 }
 
+void simulate_camera_download()
+{
+    if (camera.handle == SIMULATED)
+        camera.simulated_frame_available = TRUE;
+}
+
 /*
  * Start or stop acquiring frames in response to user input
  */

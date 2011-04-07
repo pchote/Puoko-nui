@@ -285,6 +285,9 @@ void *pn_gps_thread(void *_gps)
                                                                       gps_packet[4],   // Minute
                                                                       gps_packet[5],   // Second
                                                                       gps_packet[10]); // Locked
+
+                            // TODO: Fire a simulated camera download
+                            simulate_camera_download();
                         break;
                         case DEBUG:
 

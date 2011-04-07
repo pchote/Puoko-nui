@@ -281,7 +281,9 @@ void *pn_camera_thread(void *_cam)
 			}
 
 			/* Unlock the frame buffer for reuse */
-			if (cam->handle != SIMULATED && !pl_exp_unlock_oldest_frame(cam->handle))
+            if (cam->handle == SIMULATED)
+                cam->simulated_frame_available = FALSE;
+			else if (!pl_exp_unlock_oldest_frame(cam->handle))
 				check_pvcam_error("Error unlocking oldest frame", __LINE__);
 		}
 
