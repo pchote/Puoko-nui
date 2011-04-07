@@ -290,7 +290,8 @@ void *pn_gps_thread(void *_gps)
                             simulate_camera_download();
                         break;
                         case DEBUG:
-
+                            gps_packet[gps_packet[1]+3] = '\0';
+                            printf("GPS Debug: `%s`\n", &gps_packet[3]);
                         break;
                         case EXPOSURE:
 
