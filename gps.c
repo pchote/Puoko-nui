@@ -123,21 +123,10 @@ void pn_gps_uninit(PNGPS *gps)
 	gps->context = NULL;
 }
 
-int _temp_exptime = 0;
-/* Query the current exposure time
- * Returns false on error after printing the error to stderr */
-rs_bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf)
+/* Set the exposure time */
+void pn_gps_set_exposetime(PNGPS *gps, int exptime)
 {
-    *outbuf = _temp_exptime;
-	return TRUE;
-}
-
-/* Set the exposure time
- * Returns false on error after printing the error to stderr */
-rs_bool pn_gps_set_exposetime(PNGPS *gps, int exptime)
-{
-    _temp_exptime = exptime;
-	return TRUE;
+    printf("Setting exposure time to %d\n",exptime);
 }
 
 extern time_t timegm(struct tm *);
@@ -219,7 +208,6 @@ void *pn_gps_thread(void *_gps)
         if (!synced)
             continue;
 
-        
         // Copy data from storage buffer into parsing buffer and strip padding
         for (; readIndex != writeIndex; readIndex++)
         {

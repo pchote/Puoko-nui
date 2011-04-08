@@ -214,13 +214,7 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		/* Set the exposure time */
 		int exptime = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
 		pn_gps_set_exposetime(&gps, exptime);
-		
-		/* Check that it was set correctly */		
-		int buf;
-		pn_gps_get_exposetime(&gps, &buf);
-		if (buf != exptime)
-			pn_die("Error setting exposure time. Expected %d, was %d\n", exptime, buf);	
-		
+
 		printf("Set exposure time to %d\n", exptime);
         first_frame = TRUE;
 
@@ -230,8 +224,9 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 	}
 	else
 	{
-		/* Stop aquisition thread */
+		/* Stop aquisition */
 		camera.desired_mode = IDLE;
+		pn_gps_set_exposetime(&gps, 0);
 		gtk_button_set_label(GTK_BUTTON(widget), "Start Acquisition");
 		pn_set_camera_editable(&view, TRUE);	
     }
@@ -278,8 +273,15 @@ int main( int argc, char *argv[] )
 	return 0;
 }
 
+rs_bool closing = FALSE;
 void pn_shutdown()
 {
+    // Only die once - pvcam errors while shutting
+    // down the camera can cause loops
+    if (closing)
+        return;
+    closing = TRUE;
+
 	/* camera and gps shutdown are done in their own threads */
     camera.desired_mode = SHUTDOWN;
     gps.shutdown = TRUE;

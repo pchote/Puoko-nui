@@ -56,9 +56,7 @@ PNGPS pn_gps_new();
 void pn_gps_free(PNGPS *gps);
 void pn_gps_init(PNGPS *gps);
 void pn_gps_uninit(PNGPS *gps);
-
-rs_bool pn_gps_get_exposetime(PNGPS *gps, int *outbuf);
-rs_bool pn_gps_set_exposetime(PNGPS *gps, int exptime);
+void pn_gps_set_exposetime(PNGPS *gps, int exptime);
 
 void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds);
 
