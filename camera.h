@@ -31,7 +31,7 @@ typedef enum
 	ACQUIRING,
     ACQUIRE_STOP,
 	SHUTDOWN,
-} PNCameraStatus;
+} PNCameraMode;
 
 /* Represents an aquired frame */
 typedef struct
@@ -49,25 +49,21 @@ typedef struct
 	/* read/write */
 	uns16 binsize;
 	void (*on_frame_available)(PNFrame *frame);
+    PNCameraMode desired_mode;
 
 	/* read only */
-	PNCameraStatus status;
+	PNCameraMode mode;
 	uns16 frame_width;
 	uns16 frame_height;
 	int16 temperature;
 
 	/* internal use only */
-    pthread_mutex_t status_mutex;
-    pthread_t acquisition_thread;
 	int16 handle;
 	void *image_buffer;
 	uns32 image_buffer_size;
-	rs_bool shutdown;
     rs_bool simulated_frame_available;
 } PNCamera;
 
 PNCamera pn_camera_new();
-void *pn_camera_initialisation_thread(void *cam);
-void *pn_camera_acquisition_thread(void *cam);
-void pn_camera_shutdown(PNCamera *cam);
+void *pn_camera_thread(void *_cam);
 #endif

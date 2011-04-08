@@ -221,11 +221,7 @@ GtkWidget *pn_camera_panel(PNView *view, void (startstop_pressed_cb)(GtkWidget *
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,1,2);
 
 	view->cameratemp_label = gtk_label_new("");
-	gtk_table_attach_defaults(GTK_TABLE(table), view->cameratemp_label, 1,2,1,2);
-
-	field = gtk_label_new("°C");
-	gtk_table_attach_defaults(GTK_TABLE(table), field, 2,3,1,2);
-	gtk_misc_set_alignment(GTK_MISC(field), 0, 0.5);
+	gtk_table_attach_defaults(GTK_TABLE(table), view->cameratemp_label, 1,3,1,2);
 
 	/* Exposure time */
 	field = gtk_label_new("Exp. Time:");
@@ -378,37 +374,38 @@ gboolean update_gui_cb(gpointer data)
     
 	/* Camera status */
 	char *label;
-	switch(view->camera->status)
+	switch(view->camera->mode)
 	{
 		default:		
 		case INITIALISING:
+		case ACQUIRE_START:
+		case ACQUIRE_STOP:
 			label = "Initialising";
 		break;
 		case IDLE:
 			label = "Idle";
 		break;
-		case ACQUIRE_START:
-		case ACQUIRE_STOP:
-			label = "Thinking...";
-		break;
 		case ACQUIRING:
 			label = "Acquiring";
+        break;
+		case SHUTDOWN:
+			label = "Closing";
 		break;
 	}
 	gtk_label_set_label(GTK_LABEL(view->camerastatus_label), label);
 	
 	/* Camera temperature */
 	char temp[10];
-	if (view->camera->status == ACQUIRING)
-		sprintf(temp, "%0.02f",(float)view->camera->temperature/100);
+	if (view->camera->mode == ACQUIRING || view->camera->mode == IDLE)
+		sprintf(temp, "%0.02f °C",(float)view->camera->temperature/100);
 	else
-		strcpy(temp, "XXX");
+		strcpy(temp, "Unknown");
 	gtk_label_set_label(GTK_LABEL(view->cameratemp_label), temp);
 	
 	/* Can't start/stop acquisition if the camera is initialising */
-	boolean initialising = (view->camera->status == INITIALISING);
-	if (initialising == gtk_widget_get_sensitive(view->startstop_btn))
-		gtk_widget_set_sensitive(view->startstop_btn, !initialising);
+	gboolean startstop_active = (view->camera->mode == IDLE || view->camera->mode == ACQUIRING);
+	if (startstop_active != gtk_widget_get_sensitive(view->startstop_btn))
+		gtk_widget_set_sensitive(view->startstop_btn, startstop_active);
 
 	return TRUE;
 }

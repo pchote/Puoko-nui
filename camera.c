@@ -13,26 +13,17 @@
 #include "common.h"
 #include "camera.h"
 
-/* TODO: Standardise on using rs_bool? - at least be consistent with TRUE/true/FALSE/false */
 PNCamera pn_camera_new()
 {
 	PNCamera cam;
 	cam.handle = -1;
-	cam.status = UNINITIALISED;
+	cam.mode = UNINITIALISED;
+	cam.desired_mode = UNINITIALISED;
 	cam.image_buffer = NULL;
 	cam.image_buffer_size = 0;
 	cam.binsize = 2;
-    cam.shutdown = FALSE;
-
-    cam.acquisition_thread = -1;
-    pthread_mutex_init(&cam.status_mutex, NULL);
+    cam.temperature = 0;
 	return cam;
-}
-
-// TODO: Use this
-void pn_camera_free(PNCamera *cam)
-{
-    pthread_mutex_destroy(&cam->status_mutex);
 }
 
 static void check_pvcam_error(const char * msg, int line)
@@ -48,40 +39,10 @@ static void check_pvcam_error(const char * msg, int line)
 	pn_die("%s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);
 }
 
-
-void pn_camera_shutdown(PNCamera *cam)
-{
-    if (cam->handle == SIMULATED)
-    {
-		free(cam->image_buffer);
-    }
-    else
-    {
-        // TODO: Be careful about shutting down while downloading
-        /* Stop acquiring frames */
-        void **retval = NULL;
-        if (cam->status == ACQUIRING)
-        {
-            pthread_mutex_lock(&cam->status_mutex);        
-            cam->status = ACQUIRE_STOP;
-            pthread_mutex_unlock(&cam->status_mutex);
-
-            pthread_join(cam->acquisition_thread, retval);
-        }
-
-	    /* Close the PVCAM lib (which in turn closes the camera) */
-	    if (!pl_pvcam_uninit())
-		    fprintf(stderr,"Error uninitialising PVCAM\n");
-	    printf("PVCAM uninitialised\n");
-    }
-}
-
 static rs_bool frame_available(PNCamera *cam)
 {
 	if (cam->handle == SIMULATED)
-    {
         return cam->simulated_frame_available;
-    }
     
     int16 status = READOUT_NOT_ACTIVE;
 	uns32 bytesStored = 0, numFilledBuffers = 0;
@@ -91,27 +52,18 @@ static rs_bool frame_available(PNCamera *cam)
 	return (status == FRAME_AVAILABLE);
 }
 
-void *pn_camera_initialisation_thread(void *_cam)
+static void initialise(PNCamera *cam, rs_bool simulated)
 {
-    rs_bool simulated = TRUE;
-    PNCamera *cam = (PNCamera *)_cam;
-	if (cam == NULL)
-		pn_die("cam is null @ %s:%d\n", __FILE__, __LINE__);
-
-	/* Open PVCAM and set the initial camera parameters */
     if (simulated)
     {
         cam->handle = SIMULATED;
         printf("Initialising simulated camera\n");
-
-        pthread_mutex_lock(&cam->status_mutex);  
-        cam->status = IDLE;
-        pthread_mutex_unlock(&cam->status_mutex);  
+        sleep(2);
+        printf("Camera initialised\n");
     }
     else
     {
-        pthread_mutex_lock(&cam->status_mutex);  
-        cam->status = INITIALISING;
+        cam->mode = INITIALISING;
         
         if (!pl_pvcam_init())
 		    check_pvcam_error("Could not initialise the PVCAM library (pl_pvcam_init)", __LINE__);
@@ -176,37 +128,14 @@ void *pn_camera_initialisation_thread(void *_cam)
 		    check_pvcam_error("Cannot open the camera as there was a problem setting the readout mode (pl_set_param[MAKE_FRAME_TRANSFER])", __LINE__);
 
 	    printf("Camera initialised\n");
-
-        cam->status = IDLE;
-        pthread_mutex_unlock(&cam->status_mutex);
     }
-
-	pthread_exit(NULL);
+    cam->mode = IDLE;
 }
 
-void pn_camera_start_acquisition(PNCamera *cam)
+static void start_acquiring(PNCamera *cam)
 {
-    if (cam->acquisition_thread != -1)
-        pn_die("cam->acquisition_thread is not null @ %s:%d\n", __FILE__, __LINE__);
-
-    pthread_create(&cam->acquisition_thread, NULL, pn_camera_acquisition_thread, cam);
-}
-
-void *pn_camera_acquisition_thread(void *_cam)
-{
-    PNCamera *cam = (PNCamera *)_cam;
-	struct timespec wait = {0,1e8};
-	if (cam == NULL)
-		pn_die("cam is null @ %s:%d\n", __FILE__, __LINE__);
-
-    if (cam->status != IDLE)
-        pn_die("cam is not ready @ %s:%d\n", __FILE__, __LINE__);
-
-    pthread_mutex_lock(&cam->status_mutex);  
-    cam->status = ACQUIRE_START;
-    pthread_mutex_unlock(&cam->status_mutex);
-
-	/* Initialise the acquisition sequence */
+    cam->mode = ACQUIRE_START;
+    /* Initialise the acquisition sequence */
     if (cam->handle == SIMULATED)
     {
         cam->frame_height = 512;
@@ -216,10 +145,8 @@ void *pn_camera_acquisition_thread(void *_cam)
         // Create a buffer to write a simulated frame to
         cam->image_buffer_size = 512*512*2;
         cam->image_buffer = (uns16*)malloc( cam->image_buffer_size );
-
+        sleep(2);
         printf("Simulated acquisition run started\n");
-
-        cam->temperature = 0;
     }
     else
     {
@@ -263,79 +190,98 @@ void *pn_camera_acquisition_thread(void *_cam)
         
         /* Get initial temperature */
         pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );
-    }    
+    }
+    cam->mode = ACQUIRING;
+}
 
-    if (cam->status == ACQUIRE_START)
+static void stop_acquiring(PNCamera *cam)
+{
+    cam->mode = ACQUIRE_STOP;    
+    /* Finish the acquisition sequence */
+    if (cam->handle != SIMULATED)
     {
-        pthread_mutex_lock(&cam->status_mutex);  
-        cam->status = ACQUIRING;
-        pthread_mutex_unlock(&cam->status_mutex);
+	    if (!pl_exp_stop_cont(cam->handle, CCS_HALT))
+		    fprintf(stderr,"Error stopping sequence\n");
 
-	    /* Poll the camera for frames at 10Hz for frames
-	     * and at ~0.2Hz for temperature */
-	    uns32 temp_ticks = 0;
-	    while (cam->status == ACQUIRING)
+	    if (!pl_exp_finish_seq(cam->handle, cam->image_buffer, 0))
+		    fprintf(stderr,"Error finishing sequence\n");
+
+	    if (!pl_exp_uninit_seq())
+		    fprintf(stderr,"Error uninitialising sequence\n");
+    }
+    else
+        sleep(2);
+    free(cam->image_buffer);
+    printf("Acquisition sequence uninitialised\n");
+    cam->mode = IDLE;
+}
+
+void *pn_camera_thread(void *_cam)
+{
+    rs_bool simulated = TRUE;
+    PNCamera *cam = (PNCamera *)_cam;
+	if (cam == NULL)
+		pn_die("cam is null @ %s:%d\n", __FILE__, __LINE__);
+
+    /* Initialize the camera */
+    initialise(cam, simulated);
+
+    /* Loop and respond to user commands */
+    cam->desired_mode = IDLE;
+	struct timespec wait = {0,1e8};
+    int temp_ticks = 0;
+    while (cam->desired_mode != SHUTDOWN)
+    {
+        // Start/stop acquisition
+        if (cam->desired_mode == ACQUIRING && cam->mode == IDLE)
+            start_acquiring(cam);
+        else if (cam->desired_mode == IDLE && cam->mode == ACQUIRING)
+            stop_acquiring(cam);
+        
+        // Check for new frame
+        if (cam->mode == ACQUIRING && frame_available(cam))
+        {
+            printf("Frame available @ %d\n", (int)time(NULL));
+		    void_ptr camera_frame;
+            if (cam->handle == SIMULATED)
+                camera_frame = cam->image_buffer;
+            else if (!pl_exp_get_oldest_frame(cam->handle, &camera_frame))
+			    check_pvcam_error("Error retrieving oldest frame", __LINE__);
+
+		    /* Do something with the frame data */
+		    PNFrame frame;			
+		    frame.width = cam->frame_width;
+		    frame.height = cam->frame_height;
+		    frame.data = camera_frame;
+		    cam->on_frame_available(&frame);
+
+		    /* Unlock the frame buffer for reuse */
+            if (cam->handle == SIMULATED)
+                cam->simulated_frame_available = FALSE;
+		    else if (!pl_exp_unlock_oldest_frame(cam->handle))
+			    check_pvcam_error("Error unlocking oldest frame", __LINE__);
+        }
+
+        // Check temperature
+	    if (cam->handle != SIMULATED && ++temp_ticks >= 50)
 	    {
-		    while (cam->status == ACQUIRING && ++temp_ticks <= 50 && !frame_available(cam))
-			    nanosleep(&wait, NULL);
-
-            if (cam->status != ACQUIRING)
-                break;
-
-		    /* Retrieve frame data */
-		    if (frame_available(cam))
-		    {
-			    printf("Frame available @ %d\n", (int)time(NULL));
-			    void_ptr camera_frame;
-                if (cam->handle == SIMULATED)
-                    camera_frame = cam->image_buffer;
-                else if (!pl_exp_get_oldest_frame(cam->handle, &camera_frame))
-				    check_pvcam_error("Error retrieving oldest frame", __LINE__);
-
-			    /* Do something with the frame data */
-			    PNFrame frame;			
-			    frame.width = cam->frame_width;
-			    frame.height = cam->frame_height;
-			    frame.data = camera_frame;
-			    cam->on_frame_available(&frame);
-		
-
-			    /* Unlock the frame buffer for reuse */
-                if (cam->handle == SIMULATED)
-                    cam->simulated_frame_available = FALSE;
-			    else if (!pl_exp_unlock_oldest_frame(cam->handle))
-				    check_pvcam_error("Error unlocking oldest frame", __LINE__);
-		    }
-
-		    /* Query camera temperature */
-		    if (cam->handle != SIMULATED && temp_ticks >= 50)
-		    {
-			    temp_ticks = 0;
-			    pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );
-		    }
+		    temp_ticks = 0;
+		    pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );
 	    }
+        nanosleep(&wait, NULL);
+    }
 
-	    /* Finish the acquisition sequence */
-	    if (cam->handle != SIMULATED)
-	    {
-		    if (!pl_exp_stop_cont(cam->handle, CCS_HALT))
-			    fprintf(stderr,"Error stopping sequence\n");
+    /* Shutdown camera */
+    if (cam->mode == ACQUIRING)
+        stop_acquiring(cam);
 
-		    if (!pl_exp_finish_seq(cam->handle, cam->image_buffer, 0))
-			    fprintf(stderr,"Error finishing sequence\n");
-
-		    if (!pl_exp_uninit_seq())
-			    fprintf(stderr,"Error uninitialising sequence\n");
-	
-		    free(cam->image_buffer);
-		    printf("Acquisition sequence uninitialised\n");
-	    }
-	}
-
-    pthread_mutex_lock(&cam->status_mutex);  
-    cam->status = IDLE;
-    pthread_mutex_unlock(&cam->status_mutex);
-
+    /* Close the PVCAM lib (which in turn closes the camera) */
+    if (cam->handle != SIMULATED && cam->mode == IDLE)
+    {	
+        if (!pl_pvcam_uninit())
+	        fprintf(stderr,"Error uninitialising PVCAM\n");
+	    printf("PVCAM uninitialised\n");
+    }
 	pthread_exit(NULL);
 }
 

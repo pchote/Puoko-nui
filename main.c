@@ -70,7 +70,6 @@ void pn_save_frame(PNFrame *frame)
 	fits_update_key(fptr, TSTRING, "PROGRAM", "puoko-nui", "Data acquistion program", &status);
 	fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
 
-
 	char datebuf[15];
 	char gpstimebuf[15];
 
@@ -99,8 +98,6 @@ void pn_save_frame(PNFrame *frame)
     /* The timestamp may not be valid (spurious downloads, etc) */
     if (!was_valid)
 	    fits_update_key(fptr, TLOGICAL, "GPS-VALID", &was_valid, "GPS timestamp has been used already", &status);
-
-    
 
 	char timebuf[15];
 	time_t pcend = time(NULL);
@@ -228,19 +225,20 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
         first_frame = TRUE;
 
 		/* Start acquisition */
-
-        // TODO
+        camera.desired_mode = ACQUIRING;
 		gtk_button_set_label(GTK_BUTTON(widget), "Stop Acquisition");
 	}
 	else
 	{
 		/* Stop aquisition thread */
-		// TODO
+		camera.desired_mode = IDLE;
 		gtk_button_set_label(GTK_BUTTON(widget), "Start Acquisition");
 		pn_set_camera_editable(&view, TRUE);	
     }
 }
 
+pthread_t gps_thread;
+pthread_t camera_thread;
 int main( int argc, char *argv[] )
 {
 	gtk_init(&argc, &argv);
@@ -257,7 +255,7 @@ int main( int argc, char *argv[] )
 
 	/* Initialise the gps on its own thread*/
 	gps = pn_gps_new();
-	pthread_t gps_thread;
+
 	pthread_create(&gps_thread, NULL, pn_gps_thread, (void *)&gps);
 
 	view.gps = &gps;
@@ -267,8 +265,8 @@ int main( int argc, char *argv[] )
 	camera = pn_camera_new();
 	camera.on_frame_available = pn_frame_downloaded_cb;
 
-	pthread_t camera_init_thread;
-	pthread_create(&camera_init_thread, NULL, pn_camera_initialisation_thread, (void *)&camera);
+
+	pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
 
 	/* Initialise the gui and start the event loop */
 	view.camera = &camera;
@@ -277,17 +275,18 @@ int main( int argc, char *argv[] )
 
 	/* Shutdown hardware cleanly before exiting */
 	pn_shutdown();
-	void **retval = NULL;
-	pthread_join(camera_init_thread, retval);
-    pthread_join(gps_thread, retval);
 	return 0;
 }
 
 void pn_shutdown()
 {
-    pn_camera_shutdown(&camera);
-	/* gps shutdown is done in its own thread */
+	/* camera and gps shutdown are done in their own threads */
+    camera.desired_mode = SHUTDOWN;
     gps.shutdown = TRUE;
+
+	void **retval = NULL;
+	pthread_join(camera_thread, retval);
+    pthread_join(gps_thread, retval);
 }
 
 void pn_die(const char * format, ...)
