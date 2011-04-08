@@ -56,7 +56,7 @@ PNGPS pn_gps_new()
     ret.shutdown = FALSE;
     ret.current_timestamp.valid = FALSE;
     ret.current_timestamp.valid = FALSE;
-
+    ret.send_length = 0;
 	return ret;
 }
 
@@ -65,15 +65,18 @@ void pn_gps_free(PNGPS *gps)
 	check_gps(gps, __FILE__, __LINE__);
     pthread_mutex_destroy(&gps->currenttime_mutex);
     pthread_mutex_destroy(&gps->downloadtime_mutex);
+    pthread_mutex_destroy(&gps->sendbuffer_mutex);
 }
 
 /* Open the usb gps device and prepare it for reading/writing */
 void pn_gps_init(PNGPS *gps)
 {
+	check_gps(gps, __FILE__, __LINE__);	
 	pthread_mutex_init(&gps->currenttime_mutex, NULL);
     pthread_mutex_init(&gps->downloadtime_mutex, NULL);
+    pthread_mutex_init(&gps->sendbuffer_mutex, NULL);
 
-	check_gps(gps, __FILE__, __LINE__);	
+
 	printf("Opened FTDI device `%s`\n", gps->device->filename);
 
 	if (gps->context != NULL)
@@ -123,10 +126,47 @@ void pn_gps_uninit(PNGPS *gps)
 	gps->context = NULL;
 }
 
+static unsigned char checksum(unsigned char *data, unsigned char length)
+{
+    unsigned char csm = data[0];
+    for (unsigned char i = 1; i < length; i++)
+        csm ^= data[i];
+    return csm;
+}
+
+static void queue_send_byte(PNGPS *gps, unsigned char b)
+{
+    // Hard-loop until the send buffer empties
+    // Should never happen in normal operation
+    while (gps->send_length >= 255);
+
+    pthread_mutex_lock(&gps->sendbuffer_mutex);
+    gps->send_buffer[gps->send_length++] = b;
+    pthread_mutex_unlock(&gps->sendbuffer_mutex);
+}
+
+static void queue_data(PNGPS *gps, unsigned char type, unsigned char *data, unsigned char length)
+{
+    queue_send_byte(gps, DLE);
+    queue_send_byte(gps, length);
+    queue_send_byte(gps, type);
+    for (unsigned char i = 0; i < length; i++)
+    {
+        queue_send_byte(gps, data[i]);
+        if (data[i] == DLE)
+            queue_send_byte(gps, DLE);
+    }
+    queue_send_byte(gps, checksum(data,length));
+    queue_send_byte(gps, DLE);
+    queue_send_byte(gps, ETX);
+}
+
+
 /* Set the exposure time */
-void pn_gps_set_exposetime(PNGPS *gps, int exptime)
+void pn_gps_set_exposetime(PNGPS *gps, unsigned char exptime)
 {
     printf("Setting exposure time to %d\n",exptime);
+    queue_data(gps, EXPOSURE, &exptime, 1);
 }
 
 extern time_t timegm(struct tm *);
@@ -147,13 +187,6 @@ void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds)
 	ts->year = a.tm_year + 1900;
 }
 
-static unsigned char checksum(unsigned char *data, unsigned char length)
-{
-    unsigned char csm = data[0];
-    for (unsigned char i = 1; i < length; i++)
-        csm ^= data[i];
-    return csm;
-}
 
 void *pn_gps_thread(void *_gps)
 {
@@ -182,6 +215,17 @@ void *pn_gps_thread(void *_gps)
 	{
 		nanosleep(&wait, NULL);
 
+        // Send any data in the send buffer
+        pthread_mutex_lock(&gps->sendbuffer_mutex);
+        if (gps->send_length > 0)
+        {
+	        if (ftdi_write_data(gps->context, gps->send_buffer, gps->send_length) != gps->send_length)
+                printf("Error sending send buffer");
+            gps->send_length = 0;
+        }
+        pthread_mutex_unlock(&gps->sendbuffer_mutex);
+        
+        // Grab any data accumulated by the usb driver
 	    int ret = ftdi_read_data(gps->context, recvbuf, 256);
 	    if (ret < 0)
 		    pn_die("Bad response from gps. return code 0x%x",ret);
@@ -193,8 +237,10 @@ void *pn_gps_thread(void *_gps)
         // Sync to the start of a data frame
         for (; !synced && readIndex != writeIndex; readIndex++)
         {
-            if (totalbuf[readIndex] != DLE &&
+            if (// Start of new packet
+                totalbuf[readIndex] != DLE &&
                 totalbuf[readIndex-1] == DLE &&
+                // End of previous packet
                 totalbuf[readIndex-2] == ETX &&
                 totalbuf[readIndex-3] == DLE)
             {

@@ -50,13 +50,17 @@ typedef struct
     pthread_mutex_t currenttime_mutex;
     PNGPSTimestamp download_timestamp;
     pthread_mutex_t downloadtime_mutex;
+
+    unsigned char send_buffer[256];
+    unsigned char send_length;
+    pthread_mutex_t sendbuffer_mutex;
 } PNGPS;
 
 PNGPS pn_gps_new();
 void pn_gps_free(PNGPS *gps);
 void pn_gps_init(PNGPS *gps);
 void pn_gps_uninit(PNGPS *gps);
-void pn_gps_set_exposetime(PNGPS *gps, int exptime);
+void pn_gps_set_exposetime(PNGPS *gps, unsigned char exptime);
 
 void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds);
 
