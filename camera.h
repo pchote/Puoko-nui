@@ -7,6 +7,7 @@
 
 #include <master.h>
 #include <pvcam.h>
+#include <pthread.h>
 
 #ifndef CAMERA_H
 #define CAMERA_H
@@ -23,17 +24,14 @@ enum ForceReadOut {
 /* Represents the current state of the camera */
 typedef enum
 {
+    UNINITIALISED,
 	INITIALISING,
-	ACTIVE,
+    IDLE,
+    ACQUIRE_START,
+	ACQUIRING,
+    ACQUIRE_STOP,
 	SHUTDOWN,
 } PNCameraStatus;
-
-typedef enum
-{
-	INIT_UNINITIALISED = 0,
-	INIT_OPEN = 1,
-	INIT_AQUIRING = 2
-} PNCameraInitStatus;
 
 /* Represents an aquired frame */
 typedef struct
@@ -50,9 +48,7 @@ typedef struct
 {
 	/* read/write */
 	uns16 binsize;
-	rs_bool acquire_frames;
 	void (*on_frame_available)(PNFrame *frame);
-	rs_bool shutdown;
 
 	/* read only */
 	PNCameraStatus status;
@@ -61,14 +57,17 @@ typedef struct
 	int16 temperature;
 
 	/* internal use only */
+    pthread_mutex_t status_mutex;
+    pthread_t acquisition_thread;
 	int16 handle;
 	void *image_buffer;
 	uns32 image_buffer_size;
-	PNCameraInitStatus init_status;
+	rs_bool shutdown;
     rs_bool simulated_frame_available;
 } PNCamera;
 
 PNCamera pn_camera_new();
-void *pn_camera_thread(void *cam);
-
+void *pn_camera_initialisation_thread(void *cam);
+void *pn_camera_acquisition_thread(void *cam);
+void pn_camera_shutdown(PNCamera *cam);
 #endif

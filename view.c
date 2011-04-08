@@ -384,18 +384,22 @@ gboolean update_gui_cb(gpointer data)
 		case INITIALISING:
 			label = "Initialising";
 		break;
-		case ACTIVE:
-			label = "Active";
+		case IDLE:
+			label = "Idle";
 		break;
-		case SHUTDOWN:
-			label = "Closing";
+		case ACQUIRE_START:
+		case ACQUIRE_STOP:
+			label = "Thinking...";
+		break;
+		case ACQUIRING:
+			label = "Acquiring";
 		break;
 	}
 	gtk_label_set_label(GTK_LABEL(view->camerastatus_label), label);
 	
 	/* Camera temperature */
 	char temp[10];
-	if (view->camera->status == ACTIVE)
+	if (view->camera->status == ACQUIRING)
 		sprintf(temp, "%0.02f",(float)view->camera->temperature/100);
 	else
 		strcpy(temp, "XXX");

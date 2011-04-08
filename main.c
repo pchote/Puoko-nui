@@ -228,13 +228,14 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
         first_frame = TRUE;
 
 		/* Start acquisition */
-		camera.acquire_frames = TRUE;
+
+        // TODO
 		gtk_button_set_label(GTK_BUTTON(widget), "Stop Acquisition");
 	}
 	else
 	{
 		/* Stop aquisition thread */
-		camera.acquire_frames = FALSE;
+		// TODO
 		gtk_button_set_label(GTK_BUTTON(widget), "Start Acquisition");
 		pn_set_camera_editable(&view, TRUE);	
     }
@@ -259,15 +260,15 @@ int main( int argc, char *argv[] )
 	pthread_t gps_thread;
 	pthread_create(&gps_thread, NULL, pn_gps_thread, (void *)&gps);
 
-	//pn_gps_init(&gps);
 	view.gps = &gps;
 	view.prefs = &prefs;
 
 	/* Initialise the camera on its own thread */
 	camera = pn_camera_new();
 	camera.on_frame_available = pn_frame_downloaded_cb;
-	pthread_t camera_thread;
-	pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
+
+	pthread_t camera_init_thread;
+	pthread_create(&camera_init_thread, NULL, pn_camera_initialisation_thread, (void *)&camera);
 
 	/* Initialise the gui and start the event loop */
 	view.camera = &camera;
@@ -277,15 +278,15 @@ int main( int argc, char *argv[] )
 	/* Shutdown hardware cleanly before exiting */
 	pn_shutdown();
 	void **retval = NULL;
-	pthread_join(camera_thread, retval);
+	pthread_join(camera_init_thread, retval);
     pthread_join(gps_thread, retval);
 	return 0;
 }
 
 void pn_shutdown()
 {
-	/* Camera/gps shutdown is done in their own threads */
-	camera.shutdown = TRUE;
+    pn_camera_shutdown(&camera);
+	/* gps shutdown is done in its own thread */
     gps.shutdown = TRUE;
 }
 
