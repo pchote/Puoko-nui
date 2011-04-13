@@ -207,8 +207,13 @@ void *pn_gps_thread(void *_gps)
 
 	/* Initialise the gps */
 	if (!gps->shutdown)
+    {
         pn_gps_init(gps);
-	
+        // Send 2 exptime=0 packets - the first will be ignored and used for syncing
+        pn_gps_set_exposetime(gps, 0);
+        pn_gps_set_exposetime(gps, 0);
+    }
+
     // Loop until shutdown, parsing incoming data
 	struct timespec wait = {0,1e8};
     while (!gps->shutdown)
