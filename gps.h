@@ -21,8 +21,9 @@ typedef enum
 {
 	CURRENTTIME = 0xA1,
 	DOWNLOADTIME = 0xA2,
-	DEBUG = 0xA3,
+	DEBUG_STRING = 0xA3,
 	EXPOSURE = 0xA4,
+    DEBUG_RAW = 0xA5,
 } PNGPSRequest;
 
 /* Represents a timestamp from the GPS */

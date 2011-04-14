@@ -244,10 +244,10 @@ void *pn_gps_thread(void *_gps)
         {
             if (// Start of new packet
                 totalbuf[readIndex] != DLE &&
-                totalbuf[readIndex-1] == DLE &&
+                totalbuf[(unsigned char)(readIndex-1)] == DLE &&
                 // End of previous packet
-                totalbuf[readIndex-2] == ETX &&
-                totalbuf[readIndex-3] == DLE)
+                totalbuf[(unsigned char)(readIndex-2)] == ETX &&
+                totalbuf[(unsigned char)(readIndex-3)] == DLE)
             {
                 synced = TRUE;
                 readIndex -= 1;
@@ -328,13 +328,21 @@ void *pn_gps_thread(void *_gps)
                             // TODO: Fire a simulated camera download
                             simulate_camera_download();
                         break;
-                        case DEBUG:
+                        case DEBUG_STRING:
                             gps_packet[gps_packet[1]+3] = '\0';
                             printf("GPS Debug: `%s`\n", &gps_packet[3]);
                         break;
                         case EXPOSURE:
-
+                            printf("GPS Exposure: ");
                         break;
+                        case DEBUG_RAW:
+                            printf("GPS Debug: ");
+                            for (unsigned char i = 0; i < gps_packet[1]; i++)
+                                printf("0x%02x ", gps_packet[3+i]);
+                            printf("\n");
+                        break;
+                        default:
+                            printf("Unknown packet\n");
                     }
                 }
 
@@ -344,8 +352,10 @@ void *pn_gps_thread(void *_gps)
 
             // Something went wrong
             if (gps_packet_length >= 255)
+            {
+                printf("Packet length overrun\n");                
                 reset = TRUE;
-    
+            }    
             if (reset)
             {
                 synced = FALSE;
