@@ -232,36 +232,42 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
     }
 }
 
-pthread_t gps_thread = NULL;
-pthread_t camera_thread = NULL;
+static pthread_t gps_thread;
+static rs_bool gps_thread_initialized = FALSE;
+static pthread_t camera_thread;
+static rs_bool camera_thread_initialized = FALSE;
+
 int main( int argc, char *argv[] )
 {
 	gtk_init(&argc, &argv);
 	pn_load_preferences(&prefs, "preferences.dat");
 	pn_save_preferences(&prefs, "preferences.dat");
 
-	/*	
-	boolean simulate = FALSE;
-	/ * Parse the commandline args * /
+	boolean simulate_camera = FALSE;
+	// Parse the commandline args
 	for (int i = 0; i < argc; i++)
-		if (strcmp(argv[i], "--simulate") == 0)
-			simulate = TRUE;
-	*/
+		if (strcmp(argv[i], "--simulate-camera") == 0)
+			simulate_camera = TRUE;
 
 	/* Initialise the gps on its own thread*/
 	gps = pn_gps_new();
 
 	pthread_create(&gps_thread, NULL, pn_gps_thread, (void *)&gps);
+    gps_thread_initialized = TRUE;
 
 	view.gps = &gps;
 	view.prefs = &prefs;
 
 	/* Initialise the camera on its own thread */
 	camera = pn_camera_new();
+    if (simulate_camera)
+        camera.handle = SIMULATED;
+
 	camera.on_frame_available = pn_frame_downloaded_cb;
 
 
 	pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
+    camera_thread_initialized = TRUE;
 
 	/* Initialise the gui and start the event loop */
 	view.camera = &camera;
@@ -287,9 +293,9 @@ void pn_shutdown()
     gps.shutdown = TRUE;
 
 	void **retval = NULL;
-    if (camera_thread != NULL)
+    if (camera_thread_initialized)
 	    pthread_join(camera_thread, retval);
-    if (gps_thread != NULL)
+    if (gps_thread_initialized)
         pthread_join(gps_thread, retval);
 }
 

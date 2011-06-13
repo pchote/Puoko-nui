@@ -80,7 +80,7 @@ static void initialise(PNCamera *cam, rs_bool simulated)
 
 	    printf("Found %d camera(s)\n", numCams);
 	    if (numCams == 0)
-		    pn_die("No cameras are available (pass --simulate to use simulated hardware).\n");
+		    pn_die("No cameras are available (pass --simulate-camera to use simulated hardware).\n");
 
 	    /* Get the camera name (assume that we only have one camera) */
 	    char cameraName[CAM_NAME_LEN];
@@ -218,13 +218,12 @@ static void stop_acquiring(PNCamera *cam)
 
 void *pn_camera_thread(void *_cam)
 {
-    rs_bool simulated = TRUE;
     PNCamera *cam = (PNCamera *)_cam;
 	if (cam == NULL)
 		pn_die("cam is null @ %s:%d\n", __FILE__, __LINE__);
 
     /* Initialize the camera */
-    initialise(cam, simulated);
+    initialise(cam, cam->handle == SIMULATED);
 
     /* Loop and respond to user commands */
     cam->desired_mode = IDLE;
