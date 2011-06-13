@@ -228,7 +228,7 @@ GtkWidget *pn_camera_panel(PNView *view, void (startstop_pressed_cb)(GtkWidget *
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 0,1,2,3);
 
-	view->exptime_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(view->prefs->exposure_time, 2, 10000, 1, 10, 0), 0, 0);
+	view->exptime_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(view->prefs->exposure_time, 2, 255, 1, 10, 0), 0, 0);
 	gtk_table_attach_defaults(GTK_TABLE(table), view->exptime_entry, 1,2,2,3);
 	gtk_entry_set_width_chars(GTK_ENTRY(view->exptime_entry), 3);
 	field = gtk_label_new("s");
