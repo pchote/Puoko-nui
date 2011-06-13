@@ -232,8 +232,8 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
     }
 }
 
-pthread_t gps_thread;
-pthread_t camera_thread;
+pthread_t gps_thread = NULL;
+pthread_t camera_thread = NULL;
 int main( int argc, char *argv[] )
 {
 	gtk_init(&argc, &argv);
@@ -287,8 +287,10 @@ void pn_shutdown()
     gps.shutdown = TRUE;
 
 	void **retval = NULL;
-	pthread_join(camera_thread, retval);
-    pthread_join(gps_thread, retval);
+    if (camera_thread != NULL)
+	    pthread_join(camera_thread, retval);
+    if (gps_thread != NULL)
+        pthread_join(gps_thread, retval);
 }
 
 void pn_die(const char * format, ...)

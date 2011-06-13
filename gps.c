@@ -44,8 +44,8 @@ PNGPS pn_gps_new()
 	/* Assume that the first device is the gps unit */
 	if (numDevices == 0)
 	{
-  		ftdi_list_free(&devices);		
-		pn_die("No GPS available (pass --simulate to use simulated hardware).\n");
+  		ftdi_list_free(&devices);
+		pn_die("GPS unit unavailable\n");
 	}
 
 	PNGPS ret;
@@ -75,7 +75,6 @@ void pn_gps_init(PNGPS *gps)
 	pthread_mutex_init(&gps->currenttime_mutex, NULL);
     pthread_mutex_init(&gps->downloadtime_mutex, NULL);
     pthread_mutex_init(&gps->sendbuffer_mutex, NULL);
-
 
 	printf("Opened FTDI device `%s`\n", gps->device->filename);
 
@@ -325,7 +324,7 @@ void *pn_gps_thread(void *_gps)
                                                                       gps_packet[5],   // Second
                                                                       gps_packet[10]); // Locked
 
-                            // TODO: Fire a simulated camera download
+                            // Trigger a fake download if the camera is simulated
                             simulate_camera_download();
                         break;
                         case DEBUG_STRING:
