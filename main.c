@@ -243,11 +243,18 @@ int main( int argc, char *argv[] )
 	pn_load_preferences(&prefs, "preferences.dat");
 	pn_save_preferences(&prefs, "preferences.dat");
 
-	boolean simulate_camera = FALSE;
+	rs_bool simulate_camera = FALSE;
+    rs_bool disable_pixel_binning = FALSE;
+
 	// Parse the commandline args
 	for (int i = 0; i < argc; i++)
-		if (strcmp(argv[i], "--simulate-camera") == 0)
+	{
+    	if (strcmp(argv[i], "--simulate-camera") == 0)
 			simulate_camera = TRUE;
+
+        if (strcmp(argv[i], "--disable-binning") == 0)
+			disable_pixel_binning = TRUE;
+    }
 
 	/* Initialise the gps on its own thread*/
 	gps = pn_gps_new();
@@ -263,8 +270,10 @@ int main( int argc, char *argv[] )
     if (simulate_camera)
         camera.handle = SIMULATED;
 
-	camera.on_frame_available = pn_frame_downloaded_cb;
+    if (disable_pixel_binning)
+        camera.binsize = 1;
 
+	camera.on_frame_available = pn_frame_downloaded_cb;
 
 	pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
     camera_thread_initialized = TRUE;

@@ -157,6 +157,8 @@ static void start_acquiring(PNCamera *cam)
         if (!pl_get_param(cam->handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *)&cam->frame_height))
 	        check_pvcam_error("Error querying camera height", __LINE__);
 
+        printf("Pixel binning factor: %d\n", cam->binsize);
+
         rgn_type region;
         region.s1 = 0;                   /* x start ('serial' direction) */
         region.s2 = cam->frame_width-1;  /* x end */
