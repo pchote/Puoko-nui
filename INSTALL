@@ -1,0 +1,11 @@
+Ubuntu 10.04:
+
+Install packages: libgtk2.0-dev libcfitsio3-dev libxt-dev libftdi-dev libraw1394-dev
+Install pvcam (in pvcam subdir)
+Build and install rspiusb kernel module (in pvcam/rspiusb subdir)
+modprobe rspiusb
+Update system udev to allow puokonui to run without root priviledges (in udev subdir)
+Download and install ds9 from http://hea-www.harvard.edu/RD/ds9/
+Download xpa source from http://hea-www.harvard.edu/RD/xpa/, build and install
+copy libxpa.a to puoko-nui source dir
+make
