@@ -26,6 +26,25 @@ PNCamera camera;
 PNGPS gps;
 PNPreferences prefs;
 
+/* A quick and dirty method for opening ds9
+ * Beware of race conditions: it will take some time
+ * between calling this, and ds9 actually being available */
+static void launch_ds9()
+{
+    char *names[1];
+    char *errs[1];
+    int valid = XPAAccess(NULL, "Puoko-nui", NULL, NULL, names, errs, 1);
+    if (errs[0] != NULL)
+    {
+        valid = 0;
+        free(errs[0]);
+    }
+    if (names[0]) free(names[0]);
+
+    if (!valid)
+        system("ds9 -title Puoko-nui&");
+}
+
 /* Write frame data to a fits file */
 void pn_save_frame(PNFrame *frame)
 {
@@ -163,7 +182,8 @@ void pn_preview_frame(PNFrame *frame)
 	if (status)
 		fits_report_error(stderr, status);
 	else /* Tell ds9 to draw the new image via XPA */
-		XPASet(NULL, "ds9", "fits", NULL, fitsbuf, fitssize, NULL, NULL, 1);
+		if (0 == XPASet(NULL, "Puoko-nui", "fits", NULL, fitsbuf, fitssize, NULL, NULL, 1))
+            launch_ds9(); // Launch a new instance of ds9 to be available for the next frame
 	
 	free(fitsbuf);
 }
@@ -239,7 +259,8 @@ static rs_bool camera_thread_initialized = FALSE;
 
 int main( int argc, char *argv[] )
 {
-	gtk_init(&argc, &argv);
+    launch_ds9();	
+    gtk_init(&argc, &argv);
 	pn_load_preferences(&prefs, "preferences.dat");
 	pn_save_preferences(&prefs, "preferences.dat");
 
