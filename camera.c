@@ -198,7 +198,8 @@ static void start_acquiring(PNCamera *cam)
 
 static void stop_acquiring(PNCamera *cam)
 {
-    cam->mode = ACQUIRE_STOP;    
+    cam->mode = ACQUIRE_STOP;
+    sleep(1);
     /* Finish the acquisition sequence */
     if (cam->handle != SIMULATED)
     {
