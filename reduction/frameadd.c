@@ -24,6 +24,29 @@ typedef enum
     DIVIDE,
 } Mode;
 
+// Report mean and standard deviation of counts across the frame
+void report_stddev(char *filename)
+{
+    framedata frame = framedata_new(filename, FRAMEDATA_DBL);
+    // Calculate mean
+    double mean = 0;
+    int n = frame.rows*frame.cols;
+    for (int i = 0; i < n; i++)
+    {
+        mean += frame.dbl_data[i];
+    }
+    mean /= n;
+
+    // Calculate standard deviation
+    double std = 0;
+    for (int i = 0; i < n; i++)
+        std += (frame.dbl_data[i] - mean)*(frame.dbl_data[i] - mean);
+    std = sqrt(std/n);
+    
+    printf("%s Mean: %f Stddev: %f\n", filename, mean, std);
+    framedata_free(frame);
+}
+
 // Subtracts the dark count, then normalizes the frame to average to unity
 // (not that we actually care about the total photometric counts)
 void normalize_flat(framedata *flat, void *data)
@@ -169,8 +192,15 @@ int main( int argc, char *argv[] )
     // Second arg gives the file to take the metadata from
     // Last arg gives the file to save to
     
-    if (argc > 3)
-    {                
+    if (argc > 2)
+    {
+        // `frametool report-stddev frame.fits.gz`
+        if (argc == 3 && strncmp(argv[1], "report-stddev", 13) == 0)
+        {
+            report_stddev(argv[2]);
+            return 0;
+        }
+
         // `frametool create-flat "/bin/ls dome-*.fits.gz" 5 master-dark.fits.gz master-dome.fits.gz`
         if (argc == 6 && strncmp(argv[1], "create-flat", 11) == 0)
         {
