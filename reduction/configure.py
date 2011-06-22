@@ -15,10 +15,6 @@ import numpy
 import ds9
 import reduction
 
-import matplotlib.mlab as mlab
-import matplotlib.pyplot as plt
-
-
 def main():
     # First argument gives the dir containing images, second the regex of the files to process 
     if len(sys.argv) >= 3:
