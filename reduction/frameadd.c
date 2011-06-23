@@ -43,7 +43,7 @@ void report_stddev(char *filename)
         std += (frame.dbl_data[i] - mean)*(frame.dbl_data[i] - mean);
     std = sqrt(std/n);
     
-    printf("%s Mean: %f Stddev: %f\n", filename, mean, std);
+    printf("%s Mean: %f Stddev: %f (%f%%)\n", filename, mean, std, std / mean);
     framedata_free(frame);
 }
 
