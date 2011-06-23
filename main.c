@@ -107,10 +107,10 @@ void pn_save_frame(PNFrame *frame)
 	sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
 	fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
 
-	sprintf(gpstimebuf, "%02d:%02d:%02d.%03d", start.hours, start.minutes, start.seconds, start.milliseconds);
+	sprintf(gpstimebuf, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
 	fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
 
-	sprintf(gpstimebuf, "%02d:%02d:%02d.%03d", end.hours, end.minutes, end.seconds, end.milliseconds);
+	sprintf(gpstimebuf, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
     fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
 	fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
 

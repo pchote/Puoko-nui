@@ -35,7 +35,6 @@ typedef struct
 	int hours;
 	int minutes;
 	int seconds;
-    int milliseconds;
     rs_bool locked;
     int remaining_exposure; // for current time
     rs_bool valid; // true before initialisation and if the download time has been used
