@@ -15,6 +15,8 @@
 #include "common.h"
 #include "gps.h"
 
+extern void simulate_camera_download();
+
 void check_ftdi(const char *message, char* file, int line, int status)
 {
 	if (status < 0)
