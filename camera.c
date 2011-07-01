@@ -108,25 +108,40 @@ static void initialise(PNCamera *cam, rs_bool simulated)
 
 	    /* Check camera status */
 	    if (!pl_cam_get_diags(cam->handle))
-		    check_pvcam_error("Cannot open the camera as diagnostics check indicated problem (pl_cam_get_diags)", __LINE__);
+		    check_pvcam_error("Camera failed diagnostic checks", __LINE__);
 
 	    /* Set camera parameters */
 	    uns16 shtr = 0;
 	    if (!pl_set_param(cam->handle, PARAM_SHTR_CLOSE_DELAY, (void*) &shtr))
-		    check_pvcam_error("Cannot open the camera as there was a problem setting the shutter close delay (pl_set_param[PARAM_SHTR_CLOSE_DELAY])", __LINE__);
+		    check_pvcam_error("Error setting PARAM_SHTR_CLOSE_DELAY]", __LINE__);
 
 	    int param = OUTPUT_NOT_SCAN;
 	    if (!pl_set_param(cam->handle, PARAM_LOGIC_OUTPUT, (void*) &param))
-		    check_pvcam_error("Cannot open the camera as there was a problem setting the logic output (pl_set_param[OUTPUT_NOT_SCAN])", __LINE__);
+		    check_pvcam_error("Error setting OUTPUT_NOT_SCAN", __LINE__);
 
+        /* Trigger on positive edge of the download pulse */
 	    param = EDGE_TRIG_POS;
 	    if (!pl_set_param(cam->handle, PARAM_EDGE_TRIGGER, (void*) &param))
-		    check_pvcam_error("Cannot open the camera as there was a problem setting the edge trigger (pl_set_param[PARAM_EDGE_TRIGGER])", __LINE__);
+		    check_pvcam_error("Error setting PARAM_EDGE_TRIGGER", __LINE__);
        
+        /* Use custom frame-transfer readout mode */
 	    param = MAKE_FRAME_TRANSFER;
 	    if (!pl_set_param(cam->handle, PARAM_FORCE_READOUT_MODE, (void*) &param))
-		    check_pvcam_error("Cannot open the camera as there was a problem setting the readout mode (pl_set_param[MAKE_FRAME_TRANSFER])", __LINE__);
+		    check_pvcam_error("Error setting PARAM_FORCE_READOUT_MODE", __LINE__);
+        
+        /* Set temperature */
+        param = -5000; // -50 deg C
+	    //param = -4000; // -40 deg C
+        //param = 0; // 0 deg C
+	    if (!pl_set_param(cam->handle, PARAM_TEMP_SETPOINT, (void*) &param))
+		    check_pvcam_error("Error setting PARAM_TEMP_SETPOINT", __LINE__);
 
+        /* Set readout speed */
+        param = 0; // 100kHz
+        //param = 1; // 1Mhz
+        if (!pl_set_param(cam->handle, PARAM_SPDTAB_INDEX, (void*) &param))
+		    check_pvcam_error("Error setting PARAM_SPDTAB_INDEX", __LINE__);
+        
 	    printf("Camera initialised\n");
     }
     cam->mode = IDLE;
@@ -199,7 +214,7 @@ static void start_acquiring(PNCamera *cam)
 static void stop_acquiring(PNCamera *cam)
 {
     cam->mode = ACQUIRE_STOP;
-    sleep(1);
+    sleep(4);
     /* Finish the acquisition sequence */
     if (cam->handle != SIMULATED)
     {
