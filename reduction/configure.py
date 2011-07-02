@@ -16,18 +16,11 @@ import ds9
 import reduction
 
 def main():
-    # First argument gives the dir containing images, second the regex of the files to process 
-    if len(sys.argv) >= 3:
-        os.chdir(sys.argv[1])
-        pattern = sys.argv[2]
+    # configure.py <data filename> <frame dir> <frame pattern> [<dark frame> <flat frame>]
+    if len(sys.argv) >= 4:
+        os.chdir(sys.argv[2])
+        pattern = sys.argv[3]
 
-        darkpattern = None
-        print sys.argv
-        if len(sys.argv) >= 4:
-            # Create a master dark frame
-            darkpattern = sys.argv[3]
-            reduction.create_dark(darkpattern)
-        
         files = os.listdir('.')
         files.sort()
         first = True
@@ -35,12 +28,14 @@ def main():
         filtered = fnmatch.filter(files, pattern)
         print "Found %d files" % len(filtered)
         if filtered > 0:
-            output = open('data.dat', 'w')
+            output = open(sys.argv[1], 'w')
             output.write('# Puoko-nui Online reduction output\n')
-            output.write('# Pattern: {0}\n'.format(pattern))
-            if darkpattern is not None:
-                output.write('# DarkTemplate: master-dark.fits\n')
-
+            output.write('# FrameDir: {0}\n'.format(sys.argv[1]))
+            output.write('# FramePattern: {0}\n'.format(pattern))
+            if len(sys.argv) >= 5:
+                output.write('# DarkTemplate: {0}\n'.format(sys.argv[4]))
+            if len(sys.argv) >= 6:
+                output.write('# FlatTemplate: {0}\n'.format(sys.argv[5]))
             hdulist = pyfits.open(filtered[0])
             imagedata = hdulist[0].data
         
