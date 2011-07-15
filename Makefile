@@ -6,7 +6,7 @@ SRC = main.c camera.c view.c gps.c preferences.c
 OBJ = $(SRC:.c=.o)
 
 puokonui: $(OBJ)
-	$(CC) $(LFLAGS) $(OBJ) libxpa.a -o $@
+	$(CC) -o $@ $(OBJ) $(LFLAGS)
 
 clean:
 	-rm $(OBJ) puokonui
