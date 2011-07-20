@@ -218,7 +218,16 @@ static void stop_acquiring(PNCamera *cam)
     /* Finish the acquisition sequence */
     if (cam->handle != SIMULATED)
     {
-	    if (!pl_exp_stop_cont(cam->handle, CCS_HALT))
+        // Clear any buffered frames
+        while (frame_available(cam))
+        {
+            void_ptr camera_frame;
+            pl_exp_get_oldest_frame(cam->handle, &camera_frame);
+		    pl_exp_unlock_oldest_frame(cam->handle);
+            printf("Discarding buffered frame\n");
+        }
+
+        if (!pl_exp_stop_cont(cam->handle, CCS_HALT))
 		    fprintf(stderr,"Error stopping sequence\n");
 
 	    if (!pl_exp_finish_seq(cam->handle, cam->image_buffer, 0))
