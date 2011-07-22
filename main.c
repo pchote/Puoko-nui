@@ -52,12 +52,17 @@ void pn_save_frame(PNFrame *frame)
 	int status = 0;
 
 	char filepath[PATH_MAX];
-	/* Append a ! to the filepath to force overwriting of existing files */
-	sprintf(filepath, "!%s/%s-%04d.fits.gz", prefs.output_directory, prefs.run_prefix, prefs.run_number);
+
+	/* Saving will fail if a file with the same name already exists */
+	sprintf(filepath, "%s/%s-%04d.fits.gz", prefs.output_directory, prefs.run_prefix, prefs.run_number);
 	printf("Saving frame %s\n", filepath);
 	
 	/* Create a new fits file */
-	fits_create_file(&fptr, filepath, &status);
+	if (fits_create_file(&fptr, filepath, &status))
+    {
+        fprintf(stderr, "Unable to save file. fitsio error %d\n", status);
+        return;
+    }
 
 	/* Create the primary array image (16-bit short integer pixels */
 	long size[2] = { frame->width, frame->height };
