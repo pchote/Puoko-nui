@@ -31,8 +31,24 @@ void check_gps(PNGPS *gps, char *file, int line)
 }
 
 /* Initialise a gps object with a valid usb device */
-PNGPS pn_gps_new()
+PNGPS pn_gps_new(rs_bool simulate)
 {
+	PNGPS ret;
+	ret.context = NULL;
+    ret.shutdown = FALSE;
+    ret.current_timestamp.valid = FALSE;
+    ret.current_timestamp.valid = FALSE;
+    ret.send_length = 0;
+    ret.simulated = FALSE;
+
+    if (simulate)
+    {
+        ret.simulated = TRUE;
+        ret.simulated_remaining = ret.simulated_exptime = 0;
+        ret.simulated_unixtime = time(NULL);
+        return ret;
+    }
+
 	struct ftdi_device_list* devices = NULL;
 	const int vendorId = 0x0403;  /* The USB vendor identifier for the FTDI company */
 	const int productId = 0x6001; /* USB product identifier for the FT232 device */
@@ -50,15 +66,8 @@ PNGPS pn_gps_new()
 		pn_die("GPS unit unavailable\n");
 	}
 
-	PNGPS ret;
 	ret.device = devices->dev;
   	ftdi_list_free(&devices);
-
-	ret.context = NULL;
-    ret.shutdown = FALSE;
-    ret.current_timestamp.valid = FALSE;
-    ret.current_timestamp.valid = FALSE;
-    ret.send_length = 0;
 	return ret;
 }
 
@@ -78,6 +87,11 @@ void pn_gps_init(PNGPS *gps)
     pthread_mutex_init(&gps->downloadtime_mutex, NULL);
     pthread_mutex_init(&gps->sendbuffer_mutex, NULL);
 
+    if (gps->simulated)
+    {
+        printf("Simulating GPS\n");
+        return;
+    }
 	printf("Opened FTDI device `%s`\n", gps->device->filename);
 
 	if (gps->context != NULL)
@@ -115,6 +129,12 @@ void pn_gps_init(PNGPS *gps)
 void pn_gps_uninit(PNGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);
+    if (gps->simulated)
+    {
+        printf("Closing simulated GPS\n");
+        return;
+    }
+
 	printf("Closing device %s\n", gps->device->filename);
 	if (gps->context == NULL)
 		printf("device %s is already closed @ %s:%d\n", gps->device->filename, __FILE__, __LINE__);
@@ -167,7 +187,10 @@ static void queue_data(PNGPS *gps, unsigned char type, unsigned char *data, unsi
 void pn_gps_set_exposetime(PNGPS *gps, unsigned char exptime)
 {
     printf("Setting exposure time to %d\n",exptime);
-    queue_data(gps, EXPOSURE, &exptime, 1);
+    if (gps->simulated)
+        gps->simulated_remaining = gps->simulated_exptime = exptime;
+    else
+        queue_data(gps, EXPOSURE, &exptime, 1);
 }
 
 extern time_t timegm(struct tm *);
@@ -220,6 +243,59 @@ void *pn_gps_thread(void *_gps)
     while (!gps->shutdown)
 	{
 		nanosleep(&wait, NULL);
+
+        if (gps->simulated)
+        {
+            time_t curunixtime = time(NULL);
+            if (curunixtime != gps->simulated_unixtime)
+            {
+                struct tm *t = localtime(&curunixtime);
+                if (gps->simulated_exptime > 0)
+                    gps->simulated_remaining -= (int)(curunixtime - gps->simulated_unixtime);
+
+                // Will behave badly if remaining < 0, but this should never happen
+                if (gps->simulated_remaining <= 0 && gps->simulated_exptime > 0)
+                {
+                    gps->simulated_remaining = gps->simulated_exptime;
+                    pthread_mutex_lock(&gps->downloadtime_mutex);
+                    gps->download_timestamp.year = t->tm_year + 1900;
+                    gps->download_timestamp.month = t->tm_mon;
+                    gps->download_timestamp.day = t->tm_wday;
+                    gps->download_timestamp.hours = t->tm_hour;
+                    gps->download_timestamp.minutes = t->tm_min;
+                    gps->download_timestamp.seconds = t->tm_sec;
+                    gps->download_timestamp.locked = 1;
+                    gps->download_timestamp.remaining_exposure = 0;
+                    gps->download_timestamp.valid = TRUE;
+                    printf("Simulated Download: %04d-%02d-%02d %02d:%02d:%02d (%d)\n",
+                           gps->download_timestamp.year, // Year
+                           gps->download_timestamp.month,   // Month
+                           gps->download_timestamp.day,   // Day
+                           gps->download_timestamp.hours,   // Hour
+                           gps->download_timestamp.minutes,   // Minute
+                           gps->download_timestamp.seconds,   // Second
+                           gps->download_timestamp.locked); // Locked
+                    pthread_mutex_unlock(&gps->downloadtime_mutex);
+
+                    simulate_camera_download();
+                }
+
+                pthread_mutex_lock(&gps->currenttime_mutex);
+                gps->current_timestamp.year = t->tm_year + 1900;
+                gps->current_timestamp.month = t->tm_mon;
+                gps->current_timestamp.day = t->tm_wday;
+                gps->current_timestamp.hours = t->tm_hour;
+                gps->current_timestamp.minutes = t->tm_min;
+                gps->current_timestamp.seconds = t->tm_sec;
+                gps->current_timestamp.locked = 1;
+                gps->current_timestamp.remaining_exposure = gps->simulated_remaining;
+                gps->current_timestamp.valid = TRUE;
+                pthread_mutex_unlock(&gps->currenttime_mutex);
+
+                gps->simulated_unixtime = curunixtime;
+            }
+            continue;
+        }
 
         // Send any data in the send buffer
         pthread_mutex_lock(&gps->sendbuffer_mutex);

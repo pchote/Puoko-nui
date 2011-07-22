@@ -5,6 +5,7 @@
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
 
+#include <time.h>
 #include <pthread.h>
 #include <master.h>
 #ifndef GPS_H
@@ -43,6 +44,11 @@ typedef struct
 /* Represents the GPS hardware */
 typedef struct
 {
+    rs_bool simulated;
+    int simulated_exptime;
+    int simulated_remaining;
+    time_t simulated_unixtime;
+
 	struct usb_device *device;
 	struct ftdi_context *context;
     rs_bool shutdown;
@@ -56,7 +62,7 @@ typedef struct
     pthread_mutex_t sendbuffer_mutex;
 } PNGPS;
 
-PNGPS pn_gps_new();
+PNGPS pn_gps_new(rs_bool simulated);
 void pn_gps_free(PNGPS *gps);
 void pn_gps_init(PNGPS *gps);
 void pn_gps_uninit(PNGPS *gps);
