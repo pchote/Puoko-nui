@@ -23,6 +23,10 @@ static void targettype_changed(GtkWidget *widget, gpointer data)
 	PNView *view = (PNView *)data;	
 	gboolean visible = (gtk_combo_box_get_active(GTK_COMBO_BOX(view->target_combobox)) == OBJECT_TARGET);
 	gtk_widget_set_visible(view->target_entry, visible);
+    gtk_widget_set_visible(view->target_countdown, !visible);
+    gtk_widget_set_visible(view->target_countdown_label, !visible);
+
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(view->target_countdown), view->prefs->calibration_default_framecount);
 }
 
 /* Called when the "save" checkbox is changed */
@@ -43,6 +47,8 @@ void pn_set_output_editable(PNView *view, gboolean editable)
 	gtk_widget_set_sensitive(view->run_entry, editable);
 	gtk_editable_set_editable(GTK_EDITABLE(view->frame_entry), editable);
 	gtk_widget_set_sensitive(view->frame_entry, editable);
+    gtk_editable_set_editable(GTK_EDITABLE(view->target_countdown), editable);
+	gtk_widget_set_sensitive(view->target_countdown, editable);
 }
 
 static void save_changed(GtkWidget *widget, gpointer data)
@@ -64,7 +70,7 @@ void pn_update_output_preferences(PNView *view)
 {
 	pn_set_preference_string(view->prefs->output_directory,gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(view->destination_btn)));
 	pn_set_preference_string(view->prefs->run_prefix, gtk_entry_get_text(GTK_ENTRY(view->run_entry)));
-	view->prefs->run_number = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view->frame_entry));
+    view->prefs->run_number = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view->frame_entry));
 
 	view->prefs->object_type = gtk_combo_box_get_active(GTK_COMBO_BOX(view->target_combobox));
 	pn_set_preference_string(view->prefs->object_name, gtk_entry_get_text(GTK_ENTRY(view->target_entry)));
@@ -145,6 +151,15 @@ GtkWidget *pn_output_panel(PNView *view)
 
 	gtk_table_attach_defaults(GTK_TABLE(table), object,  3,4,1,2);
 
+    view->target_countdown = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(view->prefs->calibration_remaining_framecount, 0 , 100, 1, 10, 0), 0, 0);
+	gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(view->target_countdown), TRUE);
+	gtk_entry_set_width_chars(GTK_ENTRY(view->target_countdown), 3);
+	gtk_box_pack_end(GTK_BOX(object), view->target_countdown, FALSE, FALSE, 0);
+
+    view->target_countdown_label = gtk_label_new("Count:");
+	gtk_misc_set_alignment(GTK_MISC(view->target_countdown_label), 1.0, 0.5);
+	gtk_box_pack_end(GTK_BOX(object), view->target_countdown_label, FALSE, FALSE, 5);
+
 	/* Output directory */
 	field = gtk_label_new("Directory:");
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
@@ -156,7 +171,7 @@ GtkWidget *pn_output_panel(PNView *view)
 	gtk_table_attach_defaults(GTK_TABLE(table), view->destination_btn, 1,2,2,3);
 
 	/* Output file */
-	field = gtk_label_new("File:");
+	field = gtk_label_new("File1:");
 	gtk_misc_set_alignment(GTK_MISC(field), 1.0, 0.5);
 	gtk_table_attach_defaults(GTK_TABLE(table), field, 2,3,2,3);
 
@@ -381,7 +396,6 @@ void pn_init_gui(PNView *view, void (startstop_pressed_cb)(GtkWidget *, void *))
 	gtk_box_pack_start(GTK_BOX(vbox), topbox, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(topbox), pn_output_panel(view), FALSE, FALSE, 5);
 
-
 	/* bottom row */
 	GtkWidget *bottombox = gtk_hbox_new(FALSE, 0);
 	gtk_box_pack_end(GTK_BOX(vbox), bottombox, FALSE, FALSE, 0);
@@ -394,6 +408,7 @@ void pn_init_gui(PNView *view, void (startstop_pressed_cb)(GtkWidget *, void *))
 	/* Display and run */
 	gtk_widget_show_all(view->window);
     gtk_widget_set_visible(view->target_entry, view->prefs->object_type == OBJECT_TARGET);
-
+    gtk_widget_set_visible(view->target_countdown, view->prefs->object_type != OBJECT_TARGET);
+    gtk_widget_set_visible(view->target_countdown_label, view->prefs->object_type != OBJECT_TARGET);
 }
 

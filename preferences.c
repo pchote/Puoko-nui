@@ -18,7 +18,7 @@ void pn_load_preferences(PNPreferences *prefs, const char *path)
 		fprintf(stderr, "Could not open `%s`. Initialising with default settings\n", path);
 		pn_set_preference_string(prefs->observatory, "MJUO");
 		pn_set_preference_string(prefs->telescope, "MJUO 1-meter");
-		pn_set_preference_string(prefs->observers, "DJS");
+		pn_set_preference_string(prefs->observers, "DJS, PC");
 		prefs->object_type = OBJECT_TARGET;
 		pn_set_preference_string(prefs->object_name, "ec20058");
 
@@ -27,6 +27,9 @@ void pn_load_preferences(PNPreferences *prefs, const char *path)
 		prefs->run_number = 0;
 
 		prefs->exposure_time = 5;
+
+        prefs->calibration_default_framecount = 30;
+        prefs->calibration_remaining_framecount = 30;
 	}
 	else
 	{	

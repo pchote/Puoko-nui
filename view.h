@@ -39,6 +39,8 @@ typedef struct
 	GtkWidget *telescope_entry;
 	GtkWidget *target_combobox;
 	GtkWidget *target_entry;
+    GtkWidget *target_countdown;
+    GtkWidget *target_countdown_label;
 	GtkWidget *exptime_entry;
 
 	/* Destination panel */

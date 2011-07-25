@@ -25,6 +25,8 @@ typedef struct
 	char telescope[PREFERENCES_LENGTH];
 
 	int exposure_time;
+    int calibration_default_framecount;
+    int calibration_remaining_framecount;
 } PNPreferences;
 
 

@@ -205,18 +205,40 @@ void pn_frame_downloaded_cb(PNFrame *frame)
         return;
     }
     
+    gdk_threads_enter();
+    gboolean preview = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.display_checkbox));
+    gboolean save = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox));
+    gdk_threads_leave();
+
 	printf("Frame downloaded\n");
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox)))
+	if (save)
 	{
 		pn_save_frame(frame);
 
 		/* Increment the next frame */
 		prefs.run_number++;
 		pn_save_preferences(&prefs, "preferences.dat");
+
+        gdk_threads_enter();
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(view.frame_entry), prefs.run_number);
+
+        /* Decrement the calibration frame count */
+        if (prefs.object_type != OBJECT_TARGET)
+        {
+            int remaining = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.target_countdown));
+            if (--remaining <= 0)
+            {
+                gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view.save_checkbox), FALSE);
+                remaining = 0;
+            }
+            gtk_spin_button_set_value(GTK_SPIN_BUTTON(view.target_countdown), remaining);
+        }
+        gdk_flush();
+        gdk_threads_leave();
 	}
 
 	/* Display the frame in ds9 */
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.display_checkbox)))
+	if (preview)
 		pn_preview_frame(frame);
 }
 
@@ -268,6 +290,9 @@ int main( int argc, char *argv[] )
 	pn_load_preferences(&prefs, "preferences.dat");
 	pn_save_preferences(&prefs, "preferences.dat");
 
+    g_thread_init(NULL);
+    gdk_threads_init();
+    gdk_threads_enter();
     gtk_init(&argc, &argv);
 
 	rs_bool simulate_camera = FALSE;
@@ -313,6 +338,7 @@ int main( int argc, char *argv[] )
 	view.camera = &camera;
 	pn_init_gui(&view, startstop_pressed);
 	gtk_main();
+    gdk_threads_leave();
 
 	/* Shutdown hardware cleanly before exiting */
 	pn_shutdown();
