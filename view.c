@@ -282,70 +282,17 @@ GtkWidget *pn_status_panel(PNView *view)
 	return frame;
 }
 
-/* Return a GtkWidget containing the save settings panel */
-GtkWidget *pn_save_panel(PNView *view)
-{
-	GtkWidget *frame = gtk_frame_new("Output");
-	GtkWidget *box = gtk_hbox_new(FALSE, 5);
-	gtk_container_add(GTK_CONTAINER(frame), box);
-	gtk_container_set_border_width(GTK_CONTAINER(box), 0);
-
-	GtkWidget *align = gtk_alignment_new(0,0.5,0,0);
-	gtk_box_pack_start(GTK_BOX(box), align, FALSE, FALSE, 5);
-	GtkWidget *path = gtk_hbox_new(FALSE, 0);
-	gtk_container_add(GTK_CONTAINER(align), path);
-
-	GtkWidget *item = gtk_label_new("Directory:");
-	gtk_box_pack_start(GTK_BOX(path), item, FALSE, FALSE, 5);
-
-	view->destination_btn = gtk_file_chooser_button_new("Select output directory",
-                                        GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
-	gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(view->destination_btn), "/home/sullivan/Desktop");
-	gtk_file_chooser_button_set_width_chars(GTK_FILE_CHOOSER_BUTTON(view->destination_btn), 30);	
-	gtk_box_pack_start(GTK_BOX(path), view->destination_btn, FALSE, FALSE, 0);
-
-	item = gtk_label_new("File:");
-	gtk_box_pack_start(GTK_BOX(path), item, FALSE, FALSE, 5);
-
-	view->run_entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(view->run_entry), "run");
-	gtk_entry_set_width_chars(GTK_ENTRY(view->run_entry), 7);
-	gtk_box_pack_start(GTK_BOX(path), view->run_entry, FALSE, FALSE, 0);
-
-	item = gtk_label_new("-");
-	gtk_box_pack_start(GTK_BOX(path), item, FALSE, FALSE, 0);
-
-	view->frame_entry = gtk_spin_button_new((GtkAdjustment *)gtk_adjustment_new(0, 0, 100000, 1, 10, 0), 0, 0);
-	gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(view->frame_entry), TRUE);
-	gtk_entry_set_width_chars(GTK_ENTRY(view->frame_entry), 4);
-	gtk_box_pack_start(GTK_BOX(path), view->frame_entry, FALSE, FALSE, 0);
-
-	item = gtk_label_new(".fits.gz");
-	gtk_box_pack_start(GTK_BOX(path), item, FALSE, FALSE, 0);
-
-	/* Display and view checkboxes */
-	GtkWidget *box2 = gtk_vbox_new(FALSE, 5);
-	gtk_box_pack_start(GTK_BOX(box), box2, FALSE, FALSE, 0);
-
-	view->save_checkbox = gtk_check_button_new_with_label ("Save");
-	gtk_box_pack_start(GTK_BOX(box2), view->save_checkbox, TRUE, TRUE, 0);
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view->save_checkbox), FALSE);
-
-	view->display_checkbox = gtk_check_button_new_with_label("Preview");
-	gtk_box_pack_start(GTK_BOX(box2), view->display_checkbox, TRUE, TRUE, 0);
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view->display_checkbox), TRUE);
-    
-	return frame;
-}
-
 /* update the various information fields */
 gboolean update_gui_cb(gpointer data)
 {
 	PNView *view = (PNView *)data;
 
-	/* Frame number */
-	if (!gtk_editable_get_editable(GTK_EDITABLE(view->frame_entry)))
-		gtk_spin_button_set_value(GTK_SPIN_BUTTON(view->frame_entry), view->prefs->run_number);
+    /* Save frame editability */
+    int canSave = TRUE;
+    if (view->prefs->object_type != OBJECT_TARGET)
+        canSave = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view->target_countdown)) > 0;
+
+    gtk_widget_set_sensitive(view->save_checkbox, canSave);
 
 	/* PC time */	
 	char strtime[30];
