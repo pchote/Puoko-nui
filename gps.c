@@ -249,7 +249,7 @@ void *pn_gps_thread(void *_gps)
             time_t curunixtime = time(NULL);
             if (curunixtime != gps->simulated_unixtime)
             {
-                struct tm *t = localtime(&curunixtime);
+                struct tm *t = gmtime(&curunixtime);
                 if (gps->simulated_exptime > 0)
                     gps->simulated_remaining -= (int)(curunixtime - gps->simulated_unixtime);
 
