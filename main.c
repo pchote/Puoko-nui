@@ -175,9 +175,16 @@ void pn_preview_frame(PNFrame *frame)
 	fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
 	/* Write frame data to the OBJECT header for ds9 to display */
+    pthread_mutex_lock(&gps.downloadtime_mutex);
+    PNGPSTimestamp end = gps.download_timestamp;
+    pthread_mutex_unlock(&gps.downloadtime_mutex);
+
 	char buf[128];
-	sprintf(buf, "Exposure @ %d", (int)time(NULL));
-	fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
+    sprintf(buf, "Exposure ending %04d-%02d-%02d %02d:%02d:%02d",
+            end.year, end.month, end.day,
+            end.hours, end.minutes, end.seconds);
+
+    fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
 
 	/* Write the frame data to the image */
 	fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
