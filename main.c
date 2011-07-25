@@ -265,9 +265,10 @@ static rs_bool camera_thread_initialized = FALSE;
 int main( int argc, char *argv[] )
 {
     launch_ds9();	
-    gtk_init(&argc, &argv);
 	pn_load_preferences(&prefs, "preferences.dat");
 	pn_save_preferences(&prefs, "preferences.dat");
+
+    gtk_init(&argc, &argv);
 
 	rs_bool simulate_camera = FALSE;
     rs_bool simulate_gps = FALSE;

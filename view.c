@@ -446,5 +446,7 @@ void pn_init_gui(PNView *view, void (startstop_pressed_cb)(GtkWidget *, void *))
 
 	/* Display and run */
 	gtk_widget_show_all(view->window);
+    gtk_widget_set_visible(view->target_entry, view->prefs->object_type == OBJECT_TARGET);
+
 }
 
