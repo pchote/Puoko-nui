@@ -18,7 +18,7 @@ PNCamera pn_camera_new()
 	PNCamera cam;
 	cam.handle = -1;
 	cam.mode = UNINITIALISED;
-	cam.desired_mode = UNINITIALISED;
+	cam.desired_mode = IDLE;
 	cam.image_buffer = NULL;
 	cam.image_buffer_size = 0;
 	cam.binsize = 2;
@@ -253,7 +253,6 @@ void *pn_camera_thread(void *_cam)
     initialise(cam, cam->handle == SIMULATED);
 
     /* Loop and respond to user commands */
-    cam->desired_mode = IDLE;
 	struct timespec wait = {0,1e8};
     int temp_ticks = 0;
     while (cam->desired_mode != SHUTDOWN)
