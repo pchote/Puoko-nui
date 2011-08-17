@@ -120,7 +120,7 @@ static void initialise(PNCamera *cam, rs_bool simulated)
 		    check_pvcam_error("Error setting OUTPUT_NOT_SCAN", __LINE__);
 
         /* Trigger on positive edge of the download pulse */
-	    param = EDGE_TRIG_POS;
+	    param = EDGE_TRIG_NEG;
 	    if (!pl_set_param(cam->handle, PARAM_EDGE_TRIGGER, (void*) &param))
 		    check_pvcam_error("Error setting PARAM_EDGE_TRIGGER", __LINE__);
        
