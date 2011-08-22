@@ -23,8 +23,10 @@ typedef enum
 	CURRENTTIME = 0xA1,
 	DOWNLOADTIME = 0xA2,
 	DEBUG_STRING = 0xA3,
-	EXPOSURE = 0xA4,
     DEBUG_RAW = 0xA5,
+    START_EXPOSURE = 0xA6,
+    STOP_EXPOSURE = 0xA7,
+    RESET = 0xA8
 } PNGPSRequest;
 
 /* Represents a timestamp from the GPS */
@@ -66,7 +68,9 @@ PNGPS pn_gps_new(rs_bool simulated);
 void pn_gps_free(PNGPS *gps);
 void pn_gps_init(PNGPS *gps);
 void pn_gps_uninit(PNGPS *gps);
-void pn_gps_set_exposetime(PNGPS *gps, unsigned char exptime);
+void pn_gps_start_exposure(PNGPS *gps, unsigned char exptime);
+void pn_gps_stop_exposure();
+void pn_gps_ping(PNGPS *gps);
 
 void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds);
 

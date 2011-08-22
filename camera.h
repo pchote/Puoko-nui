@@ -29,6 +29,7 @@ typedef enum
     IDLE,
     ACQUIRE_START,
 	ACQUIRING,
+    ACQUIRE_WAIT,
     ACQUIRE_STOP,
 	SHUTDOWN,
 } PNCameraMode;

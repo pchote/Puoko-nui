@@ -184,13 +184,34 @@ static void queue_data(PNGPS *gps, unsigned char type, unsigned char *data, unsi
 
 
 /* Set the exposure time */
-void pn_gps_set_exposetime(PNGPS *gps, unsigned char exptime)
+void pn_gps_start_exposure(PNGPS *gps, unsigned char exptime)
 {
-    printf("Setting exposure time to %d\n",exptime);
+    printf("Starting exposure @ %ds\n",exptime);
     if (gps->simulated)
         gps->simulated_remaining = gps->simulated_exptime = exptime;
     else
-        queue_data(gps, EXPOSURE, &exptime, 1);
+        queue_data(gps, START_EXPOSURE, &exptime, 1);
+}
+
+extern void shutdown_camera();
+
+void pn_gps_stop_exposure(PNGPS *gps)
+{
+    printf("Stopping exposure\n");
+    unsigned char unused = 0;
+    if (gps->simulated)
+    {
+        shutdown_camera();
+    }
+    else
+        queue_data(gps, STOP_EXPOSURE, &unused, 1);
+}
+
+void pn_gps_reset(PNGPS *gps)
+{
+    unsigned char unused = 0;
+    if (!gps->simulated)
+        queue_data(gps, RESET, &unused, 1);
 }
 
 extern time_t timegm(struct tm *);
@@ -210,7 +231,6 @@ void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds)
 	ts->month = a.tm_mon;
 	ts->year = a.tm_year + 1900;
 }
-
 
 void *pn_gps_thread(void *_gps)
 {
@@ -233,9 +253,10 @@ void *pn_gps_thread(void *_gps)
 	if (!gps->shutdown)
     {
         pn_gps_init(gps);
-        // Send 2 exptime=0 packets - the first will be ignored and used for syncing
-        pn_gps_set_exposetime(gps, 0);
-        pn_gps_set_exposetime(gps, 0);
+
+        // Ping the gps twice - the first will be ignored and used for syncing
+        pn_gps_reset(gps);
+        pn_gps_reset(gps);
     }
 
     // Loop until shutdown, parsing incoming data
@@ -409,14 +430,15 @@ void *pn_gps_thread(void *_gps)
                             gps_packet[gps_packet[1]+3] = '\0';
                             printf("GPS Debug: `%s`\n", &gps_packet[3]);
                         break;
-                        case EXPOSURE:
-                            printf("GPS Exposure: ");
-                        break;
                         case DEBUG_RAW:
                             printf("GPS Debug: ");
                             for (unsigned char i = 0; i < gps_packet[1]; i++)
                                 printf("0x%02x ", gps_packet[3+i]);
                             printf("\n");
+                        break;
+                        case STOP_EXPOSURE:
+                            printf("Timer reports safe to shutdown camera\n");
+                            shutdown_camera();
                         break;
                         default:
                             printf("Unknown packet\n");

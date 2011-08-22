@@ -214,7 +214,6 @@ static void start_acquiring(PNCamera *cam)
 static void stop_acquiring(PNCamera *cam)
 {
     cam->mode = ACQUIRE_STOP;
-    sleep(4);
     /* Finish the acquisition sequence */
     if (cam->handle != SIMULATED)
     {
@@ -236,8 +235,7 @@ static void stop_acquiring(PNCamera *cam)
 	    if (!pl_exp_uninit_seq())
 		    fprintf(stderr,"Error uninitialising sequence\n");
     }
-    else
-        sleep(2);
+
     free(cam->image_buffer);
     printf("Acquisition sequence uninitialised\n");
     cam->mode = IDLE;
@@ -260,7 +258,11 @@ void *pn_camera_thread(void *_cam)
         // Start/stop acquisition
         if (cam->desired_mode == ACQUIRING && cam->mode == IDLE)
             start_acquiring(cam);
-        else if (cam->desired_mode == IDLE && cam->mode == ACQUIRING)
+
+        if (cam->desired_mode == ACQUIRE_WAIT && cam->mode == ACQUIRING)
+            cam->mode = ACQUIRE_WAIT;
+
+        if (cam->desired_mode == IDLE && cam->mode == ACQUIRE_WAIT)
             stop_acquiring(cam);
         
         // Check for new frame
