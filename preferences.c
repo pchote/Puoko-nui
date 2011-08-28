@@ -8,14 +8,14 @@
 #include <stdio.h>
 #include <string.h>
 #include "preferences.h"
-#include "view.h"
+#include "common.h"
 
 void pn_load_preferences(PNPreferences *prefs, const char *path)
 {
 	FILE *fp = fopen(path, "r");
 	if (!fp)
 	{
-		fprintf(stderr, "Could not open `%s`. Initialising with default settings\n", path);
+		pn_log("Could not open `%s`. Initialising with default settings", path);
 		pn_set_preference_string(prefs->observatory, "MJUO");
 		pn_set_preference_string(prefs->telescope, "MJUO 1-meter");
 		pn_set_preference_string(prefs->observers, "DJS, PC");

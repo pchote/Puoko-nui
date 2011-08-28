@@ -57,13 +57,13 @@ PNGPS pn_gps_new(rs_bool simulate)
 	int numDevices = ftdi_usb_find_all(NULL, &devices, vendorId, productId);
 	check_ftdi("ftdi_usb_find_all() returned an error code", __FILE__, __LINE__, numDevices);
 	
-	printf("Found %d FTDI device(s)\n", numDevices);
+	pn_log("Found %d FTDI device(s)", numDevices);
 
 	/* Assume that the first device is the gps unit */
 	if (numDevices == 0)
 	{
   		ftdi_list_free(&devices);
-		pn_die("GPS unit unavailable\n");
+		pn_die("GPS unit unavailable");
 	}
 
 	ret.device = devices->dev;
@@ -89,13 +89,13 @@ void pn_gps_init(PNGPS *gps)
 
     if (gps->simulated)
     {
-        printf("Simulating GPS\n");
+        pn_log("Simulating GPS");
         return;
     }
-	printf("Opened FTDI device `%s`\n", gps->device->filename);
+	pn_log("Opened FTDI device `%s`", gps->device->filename);
 
 	if (gps->context != NULL)
-		pn_die("device %s is already open @ %s:%d\n", gps->device->filename, __FILE__, __LINE__);
+		pn_die("device %s is already open @ %s:%d", gps->device->filename, __FILE__, __LINE__);
 
 	gps->context = ftdi_new();
     if (gps->context == NULL)
@@ -131,13 +131,13 @@ void pn_gps_uninit(PNGPS *gps)
 	check_gps(gps, __FILE__, __LINE__);
     if (gps->simulated)
     {
-        printf("Closing simulated GPS\n");
+        pn_log("Closing simulated GPS");
         return;
     }
 
-	printf("Closing device %s\n", gps->device->filename);
+	pn_log("Closing device %s", gps->device->filename);
 	if (gps->context == NULL)
-		printf("device %s is already closed @ %s:%d\n", gps->device->filename, __FILE__, __LINE__);
+		pn_log("device %s is already closed @ %s:%d", gps->device->filename, __FILE__, __LINE__);
 
 	int status = ftdi_usb_close(gps->context);
 	check_ftdi("ftdi_usb_close() returned an error code", __FILE__, __LINE__, status);
@@ -186,7 +186,7 @@ static void queue_data(PNGPS *gps, unsigned char type, unsigned char *data, unsi
 /* Set the exposure time */
 void pn_gps_start_exposure(PNGPS *gps, unsigned char exptime)
 {
-    printf("Starting exposure @ %ds\n",exptime);
+    pn_log("Starting exposure @ %ds",exptime);
     if (gps->simulated)
         gps->simulated_remaining = gps->simulated_exptime = exptime;
     else
@@ -197,7 +197,7 @@ extern void shutdown_camera();
 
 void pn_gps_stop_exposure(PNGPS *gps)
 {
-    printf("Stopping exposure\n");
+    pn_log("Stopping exposure");
     unsigned char unused = 0;
     if (gps->simulated)
     {
@@ -288,7 +288,7 @@ void *pn_gps_thread(void *_gps)
                     gps->download_timestamp.locked = 1;
                     gps->download_timestamp.remaining_exposure = 0;
                     gps->download_timestamp.valid = TRUE;
-                    printf("Simulated Download: %04d-%02d-%02d %02d:%02d:%02d (%d)\n",
+                    pn_log("Simulated Download: %04d-%02d-%02d %02d:%02d:%02d (%d)",
                            gps->download_timestamp.year, // Year
                            gps->download_timestamp.month,   // Month
                            gps->download_timestamp.day,   // Day
@@ -323,7 +323,7 @@ void *pn_gps_thread(void *_gps)
         if (gps->send_length > 0)
         {
 	        if (ftdi_write_data(gps->context, gps->send_buffer, gps->send_length) != gps->send_length)
-                printf("Error sending send buffer");
+                pn_log("Error sending send buffer");
             gps->send_length = 0;
         }
         pthread_mutex_unlock(&gps->sendbuffer_mutex);
@@ -394,7 +394,7 @@ void *pn_gps_thread(void *_gps)
 
                             pthread_mutex_unlock(&gps->currenttime_mutex);
 /*
-                            printf("Time: %04d-%02d-%02d %02d:%02d:%02d (%03d:%d)\n", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
+                            pn_log("Time: %04d-%02d-%02d %02d:%02d:%02d (%03d:%d)", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
                                                                       gps_packet[7],   // Month
                                                                       gps_packet[6],   // Day
                                                                       gps_packet[3],   // Hour
@@ -415,7 +415,7 @@ void *pn_gps_thread(void *_gps)
                             gps->download_timestamp.locked = gps_packet[10];
                             gps->download_timestamp.valid = TRUE;
                             pthread_mutex_unlock(&gps->downloadtime_mutex);
-                            printf("Download: %04d-%02d-%02d %02d:%02d:%02d (%d)\n", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
+                            pn_log("Download: %04d-%02d-%02d %02d:%02d:%02d (%d)", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
                                                                       gps_packet[7],   // Month
                                                                       gps_packet[6],   // Day
                                                                       gps_packet[3],   // Hour
@@ -428,20 +428,19 @@ void *pn_gps_thread(void *_gps)
                         break;
                         case DEBUG_STRING:
                             gps_packet[gps_packet[1]+3] = '\0';
-                            printf("GPS Debug: `%s`\n", &gps_packet[3]);
+                            pn_log("GPS Debug: `%s`", &gps_packet[3]);
                         break;
                         case DEBUG_RAW:
-                            printf("GPS Debug: ");
+                            pn_log("GPS Debug: ");
                             for (unsigned char i = 0; i < gps_packet[1]; i++)
-                                printf("0x%02x ", gps_packet[3+i]);
-                            printf("\n");
+                                pn_log("0x%02x ", gps_packet[3+i]);
                         break;
                         case STOP_EXPOSURE:
-                            printf("Timer reports safe to shutdown camera\n");
+                            pn_log("Timer reports safe to shutdown camera");
                             shutdown_camera();
                         break;
                         default:
-                            printf("Unknown packet\n");
+                            pn_log("Unknown packet");
                     }
                 }
 
@@ -452,7 +451,7 @@ void *pn_gps_thread(void *_gps)
             // Something went wrong
             if (gps_packet_length >= 255)
             {
-                printf("Packet length overrun\n");                
+                pn_log("Packet length overrun\n");
                 reset = TRUE;
             }    
             if (reset)

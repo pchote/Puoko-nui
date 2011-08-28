@@ -57,9 +57,9 @@ static void initialise(PNCamera *cam, rs_bool simulated)
     if (simulated)
     {
         cam->handle = SIMULATED;
-        printf("Initialising simulated camera\n");
+        pn_log("Initialising simulated camera");
         sleep(2);
-        printf("Camera initialised\n");
+        pn_log("Camera initialised");
     }
     else
     {
@@ -72,15 +72,15 @@ static void initialise(PNCamera *cam, rs_bool simulated)
 	    if (!pl_pvcam_get_ver(&pversion))
 		    check_pvcam_error("Cannot query pvcam version", __LINE__);
 
-	    printf("PVCAM Version %d.%d.%d (0x%x) initialised\n",pversion>>8, (pversion & 0x00F0)>>4, pversion & 0x000F, pversion);
+	    pn_log("PVCAM Version %d.%d.%d (0x%x) initialised",pversion>>8, (pversion & 0x00F0)>>4, pversion & 0x000F, pversion);
 
 	    int16 numCams = 0;
 	    if (!pl_cam_get_total(&numCams))
 		    check_pvcam_error("Cannot query the number of cameras (pl_cam_get_total)", __LINE__);
 
-	    printf("Found %d camera(s)\n", numCams);
+	    pn_log("Found %d camera(s)", numCams);
 	    if (numCams == 0)
-		    pn_die("No cameras are available (pass --simulate-camera to use simulated hardware).\n");
+		    pn_die("No cameras are available (pass --simulate-camera to use simulated hardware).");
 
 	    /* Get the camera name (assume that we only have one camera) */
 	    char cameraName[CAM_NAME_LEN];
@@ -104,7 +104,7 @@ static void initialise(PNCamera *cam, rs_bool simulated)
 			    check_pvcam_error("Error querying camera fw version", __LINE__);
 		    sprintf(fwver_buf, "%d.%d (0x%x)", fwver >> 8, fwver & 0x00FF, fwver);
 	    }
-	    printf("Opened camera `%s`: Firmware version %s\n", cameraName, fwver_buf);
+	    pn_log("Opened camera `%s`: Firmware version %s", cameraName, fwver_buf);
 
 	    /* Check camera status */
 	    if (!pl_cam_get_diags(cam->handle))
@@ -142,7 +142,7 @@ static void initialise(PNCamera *cam, rs_bool simulated)
         if (!pl_set_param(cam->handle, PARAM_SPDTAB_INDEX, (void*) &param))
 		    check_pvcam_error("Error setting PARAM_SPDTAB_INDEX", __LINE__);
         
-	    printf("Camera initialised\n");
+	    pn_log("Camera initialised");
     }
     cam->mode = IDLE;
 }
@@ -161,18 +161,18 @@ static void start_acquiring(PNCamera *cam)
         cam->image_buffer_size = 512*512*2;
         cam->image_buffer = (uns16*)malloc( cam->image_buffer_size );
         sleep(2);
-        printf("Simulated acquisition run started\n");
+        pn_log("Simulated acquisition run started");
     }
     else
     {
-        printf("Starting acquisition run...\n");
+        pn_log("Starting acquisition run...");
         if (!pl_get_param(cam->handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *)&cam->frame_width))
 	        check_pvcam_error("Error querying camera width", __LINE__);
 
         if (!pl_get_param(cam->handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *)&cam->frame_height))
 	        check_pvcam_error("Error querying camera height", __LINE__);
 
-        printf("Pixel binning factor: %d\n", cam->binsize);
+        pn_log("Pixel binning factor: %d", cam->binsize);
 
         rgn_type region;
         region.s1 = 0;                   /* x start ('serial' direction) */
@@ -203,7 +203,7 @@ static void start_acquiring(PNCamera *cam)
         if (!pl_exp_start_cont(cam->handle, cam->image_buffer, cam->image_buffer_size))
 	        check_pvcam_error("pl_exp_start_cont failed", __LINE__);
 
-        printf("Acquisition run started\n");
+        pn_log("Acquisition run started");
         
         /* Get initial temperature */
         pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );
@@ -223,21 +223,21 @@ static void stop_acquiring(PNCamera *cam)
             void_ptr camera_frame;
             pl_exp_get_oldest_frame(cam->handle, &camera_frame);
 		    pl_exp_unlock_oldest_frame(cam->handle);
-            printf("Discarding buffered frame\n");
+            pn_log("Discarding buffered frame");
         }
 
         if (!pl_exp_stop_cont(cam->handle, CCS_HALT))
-		    fprintf(stderr,"Error stopping sequence\n");
+		    pn_log("Error stopping sequence");
 
 	    if (!pl_exp_finish_seq(cam->handle, cam->image_buffer, 0))
-		    fprintf(stderr,"Error finishing sequence\n");
+		    pn_log("Error finishing sequence");
 
 	    if (!pl_exp_uninit_seq())
-		    fprintf(stderr,"Error uninitialising sequence\n");
+		    pn_log("Error uninitialising sequence");
     }
 
     free(cam->image_buffer);
-    printf("Acquisition sequence uninitialised\n");
+    pn_log("Acquisition sequence uninitialised");
     cam->mode = IDLE;
 }
 
@@ -268,7 +268,7 @@ void *pn_camera_thread(void *_cam)
         // Check for new frame
         if (cam->mode == ACQUIRING && frame_available(cam))
         {
-            printf("Frame available @ %d\n", (int)time(NULL));
+            pn_log("Frame available @ %d", (int)time(NULL));
 		    void_ptr camera_frame;
             if (cam->handle == SIMULATED)
                 camera_frame = cam->image_buffer;
@@ -306,8 +306,8 @@ void *pn_camera_thread(void *_cam)
     if (cam->handle != SIMULATED && cam->mode == IDLE)
     {	
         if (!pl_pvcam_uninit())
-	        fprintf(stderr,"Error uninitialising PVCAM\n");
-	    printf("PVCAM uninitialised\n");
+	        pn_log("Error uninitialising PVCAM");
+	    pn_log("PVCAM uninitialised");
     }
 	pthread_exit(NULL);
 }

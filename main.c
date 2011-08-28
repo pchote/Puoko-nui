@@ -55,12 +55,12 @@ void pn_save_frame(PNFrame *frame)
 
 	/* Saving will fail if a file with the same name already exists */
 	sprintf(filepath, "%s/%s-%04d.fits.gz", prefs.output_directory, prefs.run_prefix, prefs.run_number);
-	printf("Saving frame %s\n", filepath);
+	pn_log("Saving frame %s", filepath);
 	
 	/* Create a new fits file */
 	if (fits_create_file(&fptr, filepath, &status))
     {
-        fprintf(stderr, "Unable to save file. fitsio error %d\n", status);
+        pn_log("Unable to save file. fitsio error %d", status);
         return;
     }
 
@@ -217,7 +217,7 @@ void pn_frame_downloaded_cb(PNFrame *frame)
     gboolean save = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox));
     gdk_threads_leave();
 
-	printf("Frame downloaded\n");
+	pn_log("Frame downloaded");
 	if (save)
 	{
 		pn_save_frame(frame);
@@ -229,7 +229,7 @@ void pn_frame_downloaded_cb(PNFrame *frame)
         gdk_threads_enter();
         gtk_spin_button_set_value(GTK_SPIN_BUTTON(view.frame_entry), prefs.run_number);
 
-        /* Decrement the calibration frame count */
+        // Decrement the calibration frame count
         if (prefs.object_type != OBJECT_TARGET)
         {
             int remaining = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.target_countdown));
@@ -266,18 +266,18 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
 		pn_update_camera_preferences(&view);
         pn_set_camera_editable(&view, FALSE);
 	
-		/* Set the exposure time */
+		// Set the exposure time
 		int exptime = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
 		pn_gps_start_exposure(&gps, exptime);
         first_frame = TRUE;
 
-		/* Start acquisition */
+		// Start acquisition
         camera.desired_mode = ACQUIRING;
 		gtk_button_set_label(GTK_BUTTON(widget), "Stop Acquisition");
 	}
 	else
 	{
-		/* Stop acquisition */
+		// Stop acquisition
         gtk_button_set_label(GTK_BUTTON(view.startstop_btn), "Start Acquisition");
         pn_set_camera_editable(&view, TRUE);
         camera.desired_mode = ACQUIRE_WAIT;
@@ -386,4 +386,13 @@ void pn_die(const char * format, ...)
 
 	pn_shutdown();
 	exit(1);
+}
+
+void pn_log(const char * format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	vfprintf(stdout, format, args);
+	va_end(args);
+	fprintf(stdout, "\n");
 }
