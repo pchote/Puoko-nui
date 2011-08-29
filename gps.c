@@ -41,6 +41,10 @@ PNGPS pn_gps_new(rs_bool simulate)
     ret.send_length = 0;
     ret.simulated = FALSE;
 
+	pthread_mutex_init(&ret.currenttime_mutex, NULL);
+    pthread_mutex_init(&ret.downloadtime_mutex, NULL);
+    pthread_mutex_init(&ret.sendbuffer_mutex, NULL);
+
     if (simulate)
     {
         ret.simulated = TRUE;
@@ -83,9 +87,6 @@ void pn_gps_free(PNGPS *gps)
 void pn_gps_init(PNGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);	
-	pthread_mutex_init(&gps->currenttime_mutex, NULL);
-    pthread_mutex_init(&gps->downloadtime_mutex, NULL);
-    pthread_mutex_init(&gps->sendbuffer_mutex, NULL);
 
     if (gps->simulated)
     {

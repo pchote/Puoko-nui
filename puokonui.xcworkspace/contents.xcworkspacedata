@@ -34,4 +34,10 @@
    <FileRef
       location = "group:view.h">
    </FileRef>
+   <FileRef
+      location = "group:ui.c">
+   </FileRef>
+   <FileRef
+      location = "group:ui.h">
+   </FileRef>
 </Workspace>

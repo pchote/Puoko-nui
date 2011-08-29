@@ -1,8 +1,8 @@
 CC = gcc
-CFLAGS = -g -c -Wall -pedantic -Dlinux --std=c99 -Ipvcam -D_POSIX_C_SOURCE=199309L $(shell pkg-config --cflags gtk+-2.0)
-LFLAGS = -lcfitsio -lxpa -lpvcam -ldl -lpthread -lraw1394 -lftdi $(shell pkg-config --libs gtk+-2.0)
+CFLAGS = -g -c -Wall -pedantic -Dlinux --std=c99 -Ipvcam -D_POSIX_C_SOURCE=199309L
+LFLAGS = -lncurses -lcfitsio -lxpa -lpvcam -ldl -lpthread -lraw1394 -lftdi
 
-SRC = main.c camera.c view.c gps.c preferences.c
+SRC = main.c camera.c gps.c preferences.c ui.c
 OBJ = $(SRC:.c=.o)
 
 puokonui: $(OBJ)

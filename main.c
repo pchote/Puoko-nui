@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <gtk/gtk.h>
 #include <time.h>
 #include <sys/time.h>
 #include <pthread.h>
@@ -17,12 +16,11 @@
 #include <sys/select.h>
 #include <xpa.h>
 #include "common.h"
-#include "view.h"
 #include "camera.h"
 #include "gps.h"
 #include "preferences.h"
+#include "ui.h"
 
-PNView view;
 PNCamera camera;
 PNGPS gps;
 PNPreferences prefs;
@@ -212,13 +210,17 @@ void pn_frame_downloaded_cb(PNFrame *frame)
         first_frame = FALSE;
         return;
     }
-    
+    /*
     gdk_threads_enter();
     gboolean preview = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.display_checkbox));
     gboolean save = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox));
     gdk_threads_leave();
+    */
+    int preview = 1;
+    int save = 0;
 
 	pn_log("Frame downloaded");
+
 	if (save)
 	{
 		pn_save_frame(frame);
@@ -227,6 +229,7 @@ void pn_frame_downloaded_cb(PNFrame *frame)
 		prefs.run_number++;
 		pn_save_preferences(&prefs, "preferences.dat");
 
+/*
         gdk_threads_enter();
         gtk_spin_button_set_value(GTK_SPIN_BUTTON(view.frame_entry), prefs.run_number);
 
@@ -243,6 +246,7 @@ void pn_frame_downloaded_cb(PNFrame *frame)
         }
         gdk_flush();
         gdk_threads_leave();
+*/
 	}
 
 	/* Display the frame in ds9 */
@@ -259,9 +263,9 @@ void simulate_camera_download()
 /*
  * Start or stop acquiring frames in response to user input
  */
+/*
 static void startstop_pressed(GtkWidget *widget, gpointer data)
 {
-
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) 
 	{
 		pn_update_camera_preferences(&view);
@@ -285,6 +289,7 @@ static void startstop_pressed(GtkWidget *widget, gpointer data)
         pn_gps_stop_exposure(&gps);
     }
 }
+*/
 
 void shutdown_camera()
 {
@@ -309,11 +314,6 @@ int main( int argc, char *argv[] )
 	pn_load_preferences(&prefs, "preferences.dat");
 	pn_save_preferences(&prefs, "preferences.dat");
 
-    g_thread_init(NULL);
-    gdk_threads_init();
-    gdk_threads_enter();
-    gtk_init(&argc, &argv);
-
 	rs_bool simulate_camera = FALSE;
     rs_bool simulate_gps = FALSE;
     rs_bool disable_pixel_binning = FALSE;
@@ -337,9 +337,6 @@ int main( int argc, char *argv[] )
 	pthread_create(&gps_thread, NULL, pn_gps_thread, (void *)&gps);
     gps_thread_initialized = TRUE;
 
-	view.gps = &gps;
-	view.prefs = &prefs;
-
 	/* Initialise the camera on its own thread */
 	camera = pn_camera_new();
     if (simulate_camera)
@@ -353,11 +350,8 @@ int main( int argc, char *argv[] )
 	pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
     camera_thread_initialized = TRUE;
 
-	/* Initialise the gui and start the event loop */
-	view.camera = &camera;
-	pn_init_gui(&view, startstop_pressed);
-	gtk_main();
-    gdk_threads_leave();
+	// Initialise the gui and wait for it to exit
+    pn_ui_run(&gps, &camera, &prefs);
 
 	/* Shutdown hardware cleanly before exiting */
 	pn_shutdown();
@@ -383,6 +377,7 @@ void pn_shutdown()
     if (gps_thread_initialized)
         pthread_join(gps_thread, retval);
 
+    pn_ui_shutdown();
     fclose(logFile);
 }
 
