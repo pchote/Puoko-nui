@@ -3,3 +3,8 @@ rangahau
 pvcam/rspiusb/*
 libxpa.a
 preferences.dat
+._*
+.DS_Store
+puokonui.xcworkspace/xcuserdata/*
+*.log
+puokonui
