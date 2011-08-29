@@ -295,8 +295,15 @@ static rs_bool gps_thread_initialized = FALSE;
 static pthread_t camera_thread;
 static rs_bool camera_thread_initialized = FALSE;
 
+FILE *logFile;
 int main( int argc, char *argv[] )
 {
+    // Open the log file for writing
+    time_t start = time(NULL);
+    char namebuf[32];
+    strftime(namebuf, 32, "%Y%m%d-%H%M%S.log", gmtime(&start));
+    logFile = fopen(namebuf, "w");
+
     launch_ds9();	
 	pn_load_preferences(&prefs, "preferences.dat");
 	pn_save_preferences(&prefs, "preferences.dat");
@@ -374,6 +381,8 @@ void pn_shutdown()
 	    pthread_join(camera_thread, retval);
     if (gps_thread_initialized)
         pthread_join(gps_thread, retval);
+
+    fclose(logFile);
 }
 
 void pn_die(const char * format, ...)
@@ -392,7 +401,7 @@ void pn_log(const char * format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	vfprintf(stdout, format, args);
+	vfprintf(logFile, format, args);
 	va_end(args);
-	fprintf(stdout, "\n");
+	fprintf(logFile, "\n");
 }
