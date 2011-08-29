@@ -20,14 +20,14 @@ extern void simulate_camera_download();
 void check_ftdi(const char *message, char* file, int line, int status)
 {
 	if (status < 0)
-		pn_die("%s line %d : %s, status = %d\n", file, line, message, status);
+		pn_die("FATAL: %s line %d : %s, status = %d\n", file, line, message, status);
 }
 
 
 void check_gps(PNGPS *gps, char *file, int line)
 {
 	if (gps == NULL)
-		pn_die("gps is null @ %s:%d\n", file, line);
+		pn_die("FATAL: gps is null @ %s:%d\n", file, line);
 }
 
 /* Initialise a gps object with a valid usb device */
@@ -63,7 +63,7 @@ PNGPS pn_gps_new(rs_bool simulate)
 	if (numDevices == 0)
 	{
   		ftdi_list_free(&devices);
-		pn_die("GPS unit unavailable");
+		pn_die("FATAL: GPS unit unavailable");
 	}
 
 	ret.device = devices->dev;
@@ -95,11 +95,11 @@ void pn_gps_init(PNGPS *gps)
 	pn_log("Opened FTDI device `%s`", gps->device->filename);
 
 	if (gps->context != NULL)
-		pn_die("device %s is already open @ %s:%d", gps->device->filename, __FILE__, __LINE__);
+		pn_die("FATAL: device %s is already open @ %s:%d", gps->device->filename, __FILE__, __LINE__);
 
 	gps->context = ftdi_new();
     if (gps->context == NULL)
-        pn_die("ftdi_new failed");
+        pn_die("FATAL: ftdi_new failed");
 
 
 	int status = ftdi_init(gps->context);
@@ -236,7 +236,7 @@ void *pn_gps_thread(void *_gps)
 {
     PNGPS *gps = (PNGPS *)_gps;
 	if (gps == NULL)
-		pn_die("gps is null @ %s:%d\n", __FILE__, __LINE__);
+		pn_die("FATAL: gps is null @ %s:%d\n", __FILE__, __LINE__);
 
     // Store recieved bytes in a 256 byte circular buffer indexed
     // by unsigned char. This ensures the correct circular behavior on over/underflow
@@ -331,7 +331,7 @@ void *pn_gps_thread(void *_gps)
         // Grab any data accumulated by the usb driver
 	    int ret = ftdi_read_data(gps->context, recvbuf, 256);
 	    if (ret < 0)
-		    pn_die("Bad response from gps. return code 0x%x",ret);
+		    pn_die("FATAL: Bad response from gps. return code 0x%x",ret);
         
         // Copy recieved bytes into the buffer
         for (int i = 0; i < ret; i++)

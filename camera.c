@@ -36,7 +36,7 @@ static void check_pvcam_error(const char * msg, int line)
 	pvmsg[0] = '\0';
 	pl_error_message(error, pvmsg);
 
-	pn_die("%s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);
+	pn_die("FATAL: %s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);
 }
 
 static rs_bool frame_available(PNCamera *cam)
@@ -80,7 +80,7 @@ static void initialise(PNCamera *cam, rs_bool simulated)
 
 	    pn_log("Found %d camera(s)", numCams);
 	    if (numCams == 0)
-		    pn_die("No cameras are available (pass --simulate-camera to use simulated hardware).");
+		    pn_die("FATAL: No cameras are available (pass --simulate-camera to use simulated hardware).");
 
 	    /* Get the camera name (assume that we only have one camera) */
 	    char cameraName[CAM_NAME_LEN];
@@ -245,7 +245,7 @@ void *pn_camera_thread(void *_cam)
 {
     PNCamera *cam = (PNCamera *)_cam;
 	if (cam == NULL)
-		pn_die("cam is null @ %s:%d\n", __FILE__, __LINE__);
+		pn_die("FATAL: cam is null @ %s:%d\n", __FILE__, __LINE__);
 
     /* Initialize the camera */
     initialise(cam, cam->handle == SIMULATED);

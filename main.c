@@ -166,7 +166,7 @@ void pn_preview_frame(PNFrame *frame)
 
 	/* Allocate a chunk of memory for the image */
 	if(!(fitsbuf = malloc(fitssize)))
-		pn_die("Error: couldn't allocate fitsbuf\n");
+		pn_die("FATAL: couldn't allocate fitsbuf\n");
 
 	/* Create a new fits file in memory */
 	fits_create_memfile(&fptr, &fitsbuf, &fitssize, 2880, realloc, &status);
@@ -386,19 +386,8 @@ void pn_shutdown()
     fclose(logFile);
 }
 
-void pn_die(const char * format, ...)
-{
-	va_list args;
-	va_start(args, format);
-	vfprintf(stderr, format, args);
-	va_end(args);
-	fprintf(stderr, "\n");
 
-	pn_shutdown();
-	exit(1);
-}
-
-void pn_log(const char * format, ...)
+static void pn_log_inner(const char * format, va_list args)
 {
     // Log time
     struct timeval tv;
@@ -410,9 +399,25 @@ void pn_log(const char * format, ...)
     fprintf(logFile, "[%s.%03ld] ", timebuf, tv.tv_usec / 1000);
 
     // Log message
+	vfprintf(logFile, format, args);
+	fprintf(logFile, "\n");
+}
+
+void pn_die(const char * format, ...)
+{
 	va_list args;
 	va_start(args, format);
-	vfprintf(logFile, format, args);
+    pn_log_inner(format, args);
 	va_end(args);
-	fprintf(logFile, "\n");
+
+	pn_shutdown();
+	exit(1);
+}
+
+void pn_log(const char * format, ...)
+{
+	va_list args;
+	va_start(args, format);
+    pn_log_inner(format, args);
+	va_end(args);
 }
