@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <gtk/gtk.h>
 #include <time.h>
+#include <sys/time.h>
 #include <pthread.h>
 #include <fitsio.h>
 #include <string.h>
@@ -399,6 +400,16 @@ void pn_die(const char * format, ...)
 
 void pn_log(const char * format, ...)
 {
+    // Log time
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    struct tm* ptm = gmtime(&tv.tv_sec);
+    char timebuf[9];
+    strftime(timebuf, 9, "%H:%M:%S", ptm);
+    fprintf(logFile, "[%s.%03ld] ", timebuf, tv.tv_usec / 1000);
+
+    // Log message
 	va_list args;
 	va_start(args, format);
 	vfprintf(logFile, format, args);
