@@ -38,7 +38,7 @@ static WINDOW *create_time_panel()
     int w = 33;
     int h = 6;
     
-    WINDOW *win = newwin(h,w,y,x);
+    WINDOW *win = subwin(stdscr, h, w, y, x);
     box(win, 0, 0);
     
     char *title = " Timer Information ";
@@ -92,7 +92,7 @@ static WINDOW *create_camera_panel()
     int w = 33;
     int h = 4;
     
-    WINDOW *win = newwin(h,w,y,x);
+    WINDOW *win = subwin(stdscr, h, w, y, x);
     box(win, 0, 0);
     
     char *title = " Camera Information ";
@@ -151,7 +151,7 @@ static WINDOW *create_acquisition_panel()
     int w = 33;
     int h = 5;
     
-    WINDOW *win = newwin(h,w,y,x);
+    WINDOW *win = subwin(stdscr, h, w, y, x);
     box(win, 0, 0);
     
     char *title = " Acquisition ";
@@ -192,7 +192,7 @@ static WINDOW *create_metadata_panel()
     int w = 33;
     int h = 6;
     
-    WINDOW *win = newwin(h,w,y,x);
+    WINDOW *win = subwin(stdscr, h, w, y, x);
     box(win, 0, 0);
     
     char *title = " Metadata ";
@@ -237,7 +237,7 @@ static WINDOW *create_log_panel()
     int y = 0;
     int w = col - 34;
     int h = row - 3;
-    return newwin(h,w,y,x);
+    return subwin(stdscr, h, w, y, x);
 }
 
 static void update_log_panel()
@@ -285,7 +285,7 @@ static WINDOW *create_command_panel()
     int y = row-2;
     int w = col;
     int h = 2;
-    return newwin(h,w,y,x);
+    return subwin(stdscr, h, w, y, x);
 }
 
 static void print_command_option(WINDOW *w, int indent, char *hotkey, char *format, ...)
@@ -337,9 +337,12 @@ void quit_handler()
 
 void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 {
+    // Catch ^C
     signal(SIGINT, quit_handler);
+
     initscr();
     noecho();
+    cbreak();
 
     time_panel = create_time_panel();
     camera_panel = create_camera_panel();
@@ -350,15 +353,35 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 
     update_log_panel();
     update_command_panel();
+
+    // prevent getch from blocking
+    nodelay(stdscr, TRUE);
+
     for (;;)
     {
         if (should_quit)
             break;
 
+        int ch;
+        while ((ch = getch()) != ERR)
+        {
+            char buf[128];
+
+            switch (ch)
+            {
+                default:
+                    sprintf(buf, "Pressed %c", ch);
+                    add_log_line(buf);
+                    update_log_panel();
+                break;
+            }
+        }
+
         update_time_panel(gps);
         update_camera_panel(camera);
         update_metadata_panel(prefs);
         update_acquisition_panel(prefs);
+
         sleep(1);
     }
 }
