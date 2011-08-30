@@ -63,7 +63,6 @@ typedef const boolean PV_PTR_DECL boolean_const_ptr;
   #define TRUE   PV_OK        /* TRUE  == 1                                  */
 #endif
 
-#define BIG_ENDIAN    FALSE /* TRUE for Motorola byte order, FALSE for Intel */
 #define CAM_NAME_LEN     32 /* Max length of a cam name (includes null term) */
 
 /************************ PVCAM-Specific Definitions *************************/
