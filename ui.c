@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <ncurses.h>
 
 #include "ui.h"
@@ -28,6 +29,7 @@ static unsigned char log_position;
 
 static int exposing = FALSE;
 static int saving = FALSE;
+static int should_quit = FALSE;
 
 static WINDOW *create_time_panel()
 {
@@ -328,8 +330,14 @@ static void update_command_panel()
     wrefresh(command_panel);
 }
 
+void quit_handler()
+{
+    should_quit = TRUE;
+}
+
 void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 {
+    signal(SIGINT, quit_handler);
     initscr();
     noecho();
 
@@ -344,6 +352,9 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
     update_command_panel();
     for (;;)
     {
+        if (should_quit)
+            break;
+
         update_time_panel(gps);
         update_camera_panel(camera);
         update_metadata_panel(prefs);
