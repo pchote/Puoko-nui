@@ -22,6 +22,13 @@ WINDOW *command_panel;
 WINDOW *metadata_panel;
 WINDOW *log_panel;
 
+// A circular buffer for storing log messages
+static char *log_messages[256];
+static unsigned char log_position;
+
+static int exposing = FALSE;
+static int saving = FALSE;
+
 static WINDOW *create_time_panel()
 {
     int x = 0;
@@ -140,7 +147,7 @@ static WINDOW *create_acquisition_panel()
     int x = 0;
     int y = 16;
     int w = 33;
-    int h = 6;
+    int h = 5;
     
     WINDOW *win = newwin(h,w,y,x);
     box(win, 0, 0);
@@ -149,17 +156,13 @@ static WINDOW *create_acquisition_panel()
     mvwprintw(win, 0, (w-strlen(title))/2, title);
     mvwprintw(win, 1, 2, "Exposure:");
     mvwprintw(win, 2, 2, "    Type:");
-    mvwprintw(win, 3, 2, " Preview:");
-    mvwprintw(win, 4, 2, "    Save:");
+    mvwprintw(win, 3, 2, "    Save:");
     
     return win;
 }
 
 static void update_acquisition_panel(PNPreferences *prefs)
 {
-    int saving = 0;
-    int preview = 1;
-    
     char *type;
     switch (prefs->object_type)
     {
@@ -175,8 +178,7 @@ static void update_acquisition_panel(PNPreferences *prefs)
     }
 	mvwprintw(acquisition_panel, 1, 12, "%d seconds     ", prefs->exposure_time);
 	mvwprintw(acquisition_panel, 2, 12, type);
-	mvwprintw(acquisition_panel, 3, 12, preview ? "On " : "Off");
-	mvwprintw(acquisition_panel, 4, 12, saving ? "On " : "Off");
+	mvwprintw(acquisition_panel, 3, 12, saving ? "On " : "Off");
     
 	wrefresh(acquisition_panel);
 }
@@ -223,28 +225,6 @@ static void update_metadata_panel(PNPreferences *prefs)
     
 	wrefresh(metadata_panel);
 }
-
-static WINDOW *create_command_panel()
-{
-    int row,col;
-    getmaxyx(stdscr,row,col);
-    
-    int x = 0;
-    int y = row-2;
-    int w = col;
-    int h = 2;
-    
-    WINDOW *win = newwin(h,w,y,x);
-    mvwhline(win, 0, 0, 0, col);
-    mvwprintw(win, 1, 1, "F1 Do Something");
-    wrefresh(win);
-
-    return win;
-}
-
-// A circular buffer for storing log messages
-static char *log_messages[256];
-static unsigned char log_position;
 
 static WINDOW *create_log_panel()
 {
@@ -293,6 +273,61 @@ void add_log_line(char *msg)
     log_messages[log_position] = strdup(msg);
 }
 
+
+static WINDOW *create_command_panel()
+{
+    int row, col;
+    getmaxyx(stdscr, row, col);
+
+    int x = 0;
+    int y = row-2;
+    int w = col;
+    int h = 2;
+    return newwin(h,w,y,x);
+}
+
+static void print_command_option(WINDOW *w, int indent, char *hotkey, char *format, ...)
+{
+    if (indent)
+        waddstr(w, "  ");
+
+    wattron(w, A_STANDOUT);
+    waddstr(w, hotkey);
+    wattroff(w, A_STANDOUT);
+    waddstr(w, " ");
+
+    va_list args;
+	va_start(args, format);
+    vwprintw(w, format, args);
+	va_end(args);
+}
+
+static void update_command_panel()
+{
+    int row,col;
+    getmaxyx(stdscr,row,col);
+    wclear(command_panel);
+    mvwhline(command_panel, 0, 0, 0, col);
+
+    // Acquire toggle
+    wmove(command_panel, 1, 0);
+    print_command_option(command_panel, FALSE, "^A", "Acquire", exposing ? "Stop " : "");
+
+    // Save toggle
+    print_command_option(command_panel, TRUE, "^S", "%s Saving", saving ? "Stop" : "Start");
+
+    // Display parameter panel
+    if (!saving)
+        print_command_option(command_panel, TRUE, "^P", "Edit Parameters");
+
+    // Display exposure panel
+    if (!exposing)
+        print_command_option(command_panel, TRUE, "^E", "Set Exposure");
+
+    print_command_option(command_panel, TRUE, "^C", "Quit");
+    wrefresh(command_panel);
+}
+
 void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 {
     initscr();
@@ -306,7 +341,7 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
     log_panel = create_log_panel();
 
     update_log_panel();
-
+    update_command_panel();
     for (;;)
     {
         update_time_panel(gps);
