@@ -6,6 +6,7 @@
 */
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
@@ -309,6 +310,7 @@ int main( int argc, char *argv[] )
     char namebuf[32];
     strftime(namebuf, 32, "%Y%m%d-%H%M%S.log", gmtime(&start));
     logFile = fopen(namebuf, "w");
+    init_log_gui();
 
     launch_ds9();	
 	pn_load_preferences(&prefs, "preferences.dat");
@@ -391,11 +393,21 @@ static void pn_log_inner(const char * format, va_list args)
     struct tm* ptm = gmtime(&tv.tv_sec);
     char timebuf[9];
     strftime(timebuf, 9, "%H:%M:%S", ptm);
-    fprintf(logFile, "[%s.%03ld] ", timebuf, tv.tv_usec / 1000);
 
-    // Log message
-	vfprintf(logFile, format, args);
+    // Construct log line
+    char *msgbuf, *linebuf;
+    vasprintf(&msgbuf, format, args);
+    asprintf(&linebuf, "[%s.%03ld] %s", timebuf, tv.tv_usec / 1000, msgbuf);
+    free(msgbuf);
+
+    // Log to file
+    fprintf(logFile, "%s", linebuf);
 	fprintf(logFile, "\n");
+
+    // Add to gui
+    add_log_line(linebuf);
+
+    free(linebuf);
 }
 
 void pn_die(const char * format, ...)

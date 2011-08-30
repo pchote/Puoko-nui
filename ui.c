@@ -5,10 +5,10 @@
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
 
-#include <ncurses.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <ncurses.h>
 
 #include "ui.h"
 #include "gps.h"
@@ -20,6 +20,7 @@ WINDOW *camera_panel;
 WINDOW *acquisition_panel;
 WINDOW *command_panel;
 WINDOW *metadata_panel;
+WINDOW *log_panel;
 
 static WINDOW *create_time_panel()
 {
@@ -241,6 +242,57 @@ static WINDOW *create_command_panel()
     return win;
 }
 
+// A circular buffer for storing log messages
+static char *log_messages[256];
+static unsigned char log_position;
+
+static WINDOW *create_log_panel()
+{
+    int row,col;
+    getmaxyx(stdscr,row,col);
+
+    int x = 34;
+    int y = 0;
+    int w = col - 34;
+    int h = row - 3;
+    return newwin(h,w,y,x);
+}
+
+static void update_log_panel()
+{
+    int height, width;
+    getmaxyx(log_panel, height, width);
+
+    // First erase the screen
+    wclear(log_panel);
+
+    // Redraw messages
+    for (int i = 0; i < height && i < 256; i++)
+    {
+        unsigned char j = (unsigned char)(log_position - i);
+        if (log_messages[j] != NULL)
+            mvwprintw(log_panel, height - i - 1, 0, log_messages[j]);
+    }
+
+    wrefresh(log_panel);
+}
+
+void init_log_gui()
+{
+    log_position = 0;
+    for (int i = 0; i < 256; i++)
+        log_messages[i] = NULL;
+}
+
+void add_log_line(char *msg)
+{
+    log_position++;
+    if (log_messages[log_position] != NULL)
+        free(log_messages[log_position]);
+
+    log_messages[log_position] = strdup(msg);
+}
+
 void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 {
     initscr();
@@ -251,13 +303,16 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
     acquisition_panel = create_acquisition_panel();
     command_panel = create_command_panel();
     metadata_panel = create_metadata_panel();
+    log_panel = create_log_panel();
+
+    update_log_panel();
+
     for (;;)
     {
         update_time_panel(gps);
         update_camera_panel(camera);
         update_metadata_panel(prefs);
         update_acquisition_panel(prefs);
-        
         sleep(1);
     }
 }
@@ -267,5 +322,13 @@ void pn_ui_shutdown()
 {
     delwin(time_panel);
     delwin(camera_panel);
+    delwin(acquisition_panel);
+    delwin(command_panel);
+    delwin(metadata_panel);
+    delwin(log_panel);
+
+    for (int i = 0; i < 256; i++)
+        free(log_messages[i]);
+
     endwin();
 }

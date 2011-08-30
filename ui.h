@@ -8,6 +8,9 @@
 #ifndef UI_H
 #define UI_H
 
+void init_log_gui();
+void add_log_line(char *msg);
+
 void pn_ui_run();
 void pn_ui_shutdown();
 
