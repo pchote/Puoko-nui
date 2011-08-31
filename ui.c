@@ -26,6 +26,7 @@ WINDOW *log_panel;
 // A circular buffer for storing log messages
 static char *log_messages[256];
 static unsigned char log_position;
+static unsigned char last_log_position;
 
 static int exposing = FALSE;
 static int saving = FALSE;
@@ -60,28 +61,23 @@ static void update_time_panel(PNGPS *gps)
 	mvwaddstr(time_panel, 2, 12, strtime);
 
 	/* GPS time */
-	char *gpsstring = "Unavailable";
-	char gpsbuf[30];
-	
-    char *expstring = "Unavailable";
-    char expbuf[30];
-
     pthread_mutex_lock(&gps->currenttime_mutex);
     PNGPSTimestamp ts = gps->current_timestamp;
     pthread_mutex_unlock(&gps->currenttime_mutex);
 	
+    mvwaddstr(time_panel, 1, 12, (ts.locked ? "Locked  " : "Unlocked"));
+
 	if (ts.valid)
 	{
-		sprintf(gpsbuf, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
-		gpsstring = gpsbuf;
-        printf(expbuf, "%03d        ", ts.remaining_exposure);
-        expstring = expbuf;
+        mvwprintw(time_panel, 3, 12, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
+        mvwprintw(time_panel, 4, 12, "%03d        ", ts.remaining_exposure);
 	}
-	
-	mvwaddstr(time_panel, 3, 12, gpsstring);
-    mvwaddstr(time_panel, 4, 12, expstring);
-    mvwaddstr(time_panel, 1, 12, (ts.locked ? "Locked  " : "Unlocked"));
-	
+    else
+    {
+        mvwaddstr(time_panel, 3, 12, "Unavailable");
+        mvwaddstr(time_panel, 4, 12, "Unavailable");
+    }
+
     wrefresh(time_panel);
 }
 
@@ -251,9 +247,9 @@ static void update_log_panel()
     // Redraw messages
     for (int i = 0; i < height && i < 256; i++)
     {
-        unsigned char j = (unsigned char)(log_position - i);
+        unsigned char j = (unsigned char)(log_position - height + i + 1);
         if (log_messages[j] != NULL)
-            mvwaddstr(log_panel, height - i - 1, 0, log_messages[j]);
+            mvwaddstr(log_panel, i, 0, log_messages[j]);
     }
 
     wrefresh(log_panel);
@@ -261,7 +257,7 @@ static void update_log_panel()
 
 void init_log_gui()
 {
-    log_position = 0;
+    last_log_position = log_position = 0;
     for (int i = 0; i < 256; i++)
         log_messages[i] = NULL;
 }
@@ -330,19 +326,11 @@ static void update_command_panel()
     wrefresh(command_panel);
 }
 
-void quit_handler()
-{
-    should_quit = TRUE;
-}
-
 void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 {
-    // Catch ^C
-    signal(SIGINT, quit_handler);
-
     initscr();
     noecho();
-    cbreak();
+    raw();
 
     time_panel = create_time_panel();
     camera_panel = create_camera_panel();
@@ -353,15 +341,18 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 
     update_log_panel();
     update_command_panel();
+    update_metadata_panel(prefs);
 
-    // prevent getch from blocking
-    nodelay(stdscr, TRUE);
+    update_acquisition_panel(prefs);
+    update_time_panel(gps);
+    update_camera_panel(camera);
+
+    // Only wait for 100ms for input so we can keep the ui up to date
+    // *and* respond timely to input
+    timeout(100);
 
     for (;;)
     {
-        if (should_quit)
-            break;
-
         int ch;
         while ((ch = getch()) != ERR)
         {
@@ -369,20 +360,34 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 
             switch (ch)
             {
+                case 0x03: // ^C
+                    should_quit = TRUE;
+                break;
                 default:
-                    sprintf(buf, "Pressed %c", ch);
+                    sprintf(buf, "Pressed %c 0x%02x", ch, ch);
                     add_log_line(buf);
-                    update_log_panel();
                 break;
             }
         }
 
         update_time_panel(gps);
         update_camera_panel(camera);
-        update_metadata_panel(prefs);
         update_acquisition_panel(prefs);
 
-        sleep(1);
+        if (log_position != last_log_position)
+        {
+            update_log_panel();
+            last_log_position = log_position;
+        }
+
+        // curs_set(0) doesn't work properly when running via ssh from osx
+        // so put the cursor in the corner where it can't cause trouble
+        int row,col;
+        getmaxyx(stdscr, row, col);
+        move(row-1, col-1);
+
+        if (should_quit)
+            break;
     }
 }
 
