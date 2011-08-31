@@ -11,11 +11,13 @@
 #include <signal.h>
 #include <ncurses.h>
 #include <panel.h>
+#include <ctype.h>
 
 #include "ui.h"
 #include "gps.h"
 #include "camera.h"
 #include "preferences.h"
+#include "common.h"
 
 WINDOW  *time_window, *camera_window, *acquisition_window,
         *command_window, *metadata_window, *log_window,
@@ -321,15 +323,26 @@ static WINDOW *create_exposure_window()
     int row, col;
     getmaxyx(stdscr, row, col);
 
-    int w = 20;
-    int h = 10;
-    int y = (row - h)/2;
-    int x = (col - w)/2;
-    return newwin(h, w, y, x);
+    int x = 0;
+    int y = row-2;
+    int w = col;
+    int h = 2;
+    WINDOW *win = newwin(h, w, y, x);
+    mvwhline(win, 0, 0, 0, col);
+    mvwaddstr(win, 1, 1, "Enter an exposure time: ");
+
+    return win;
+}
+
+char exp_entry_buf[1024];
+int exp_entry_length = 0;
+static void update_exposure_window()
+{
+    mvwaddnstr(exposure_window, 1, 25, exp_entry_buf, exp_entry_length);
+    wclrtoeol(exposure_window);
 }
 
 PNUIInputType input_type = INPUT_MAIN;
-
 void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 {
     initscr();
@@ -344,7 +357,6 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
     metadata_window = create_metadata_window();
     log_window = create_log_window();
     exposure_window = create_exposure_window();
-    box(exposure_window,0,0);
 
     // Create panels
     time_panel = new_panel(time_window);
@@ -381,7 +393,15 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
                     switch (ch)
                     {
                         case 0x05: // ^E
+                            if (exposing)
+                                break;
+
                             input_type = INPUT_EXPOSURE;
+
+                            exp_entry_length = sprintf(exp_entry_buf, "%d", prefs->exposure_time);
+                            update_exposure_window();
+
+                            hide_panel(command_panel);
                             show_panel(exposure_panel);
                         break;
                         case 0x03: // ^C
@@ -394,15 +414,41 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
                     }
                 break;
                 case INPUT_EXPOSURE:
-                    input_type = INPUT_MAIN;
-                    hide_panel(exposure_panel);
+                    if (ch == '\n')
+                    {
+                        exp_entry_buf[exp_entry_length] = '\0';
+                        int newexp = atoi(exp_entry_buf);
+
+                        if (newexp < 3 || newexp > 255)
+                        {
+                            // Invalid entry
+                            exp_entry_length = sprintf(exp_entry_buf, "%d", prefs->exposure_time);
+                        }
+                        else
+                        {
+                            input_type = INPUT_MAIN;
+                            hide_panel(exposure_panel);
+                            show_panel(command_panel);
+
+                            // Update preferences
+                            prefs->exposure_time = newexp;
+                            pn_save_preferences(prefs, "preferences.dat");
+                            update_acquisition_window(prefs);
+                            pn_log("Exposure set to %d seconds", newexp);
+                        }
+                    }
+                    else if (ch == 0x7f && exp_entry_length > 0) // Backspace
+                        --exp_entry_length;
+                    else if (isdigit(ch))
+                        exp_entry_buf[exp_entry_length++] = ch;
+
+                    update_exposure_window();
                 break;
             }
         }
 
         update_time_window(gps);
         update_camera_window(camera);
-        update_acquisition_window(prefs);
 
         if (log_position != last_log_position)
         {
@@ -413,11 +459,14 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
         update_panels();
         doupdate();
 
-        // curs_set(0) doesn't work properly when running via ssh from osx
-        // so put the cursor in the corner where it can't cause trouble
-        int row,col;
-        getmaxyx(stdscr, row, col);
-        move(row-1, col-1);
+        if (input_type == INPUT_MAIN)
+        {
+            // curs_set(0) doesn't work properly when running via ssh from osx
+            // so put the cursor in the corner where it can't cause trouble
+            int row,col;
+            getmaxyx(stdscr, row, col);
+            move(row-1, col-1);
+        }
 
         if (should_quit)
             break;
@@ -430,17 +479,17 @@ void pn_ui_shutdown()
     delwin(time_window);
     delwin(camera_window);
     delwin(acquisition_window);
-    delwin(command_window);
     delwin(metadata_window);
     delwin(log_window);
+    delwin(command_window);
     delwin(exposure_window);
 
     del_panel(time_panel);
     del_panel(camera_panel);
     del_panel(acquisition_panel);
-    del_panel(command_panel);
     del_panel(metadata_panel);
     del_panel(log_panel);
+    del_panel(command_panel);
     del_panel(exposure_panel);
 
     for (int i = 0; i < 256; i++)
