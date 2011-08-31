@@ -42,11 +42,11 @@ static WINDOW *create_time_panel()
     box(win, 0, 0);
     
     char *title = " Timer Information ";
-    mvwprintw(win, 0, (w-strlen(title))/2, title);
-    mvwprintw(win, 1, 2, "  Status:");
-    mvwprintw(win, 2, 2, " PC Time:");    
-    mvwprintw(win, 3, 2, "GPS Time:");
-    mvwprintw(win, 4, 2, "Exposure:");
+    mvwaddstr(win, 0, (w-strlen(title))/2, title);
+    mvwaddstr(win, 1, 2, "  Status:");
+    mvwaddstr(win, 2, 2, " PC Time:");
+    mvwaddstr(win, 3, 2, "GPS Time:");
+    mvwaddstr(win, 4, 2, "Exposure:");
     
     return win;
 }
@@ -57,7 +57,7 @@ static void update_time_panel(PNGPS *gps)
 	char strtime[30];
 	time_t t = time(NULL);
 	strftime(strtime, 30, "%Y-%m-%d %H:%M:%S", gmtime(&t));
-	mvwprintw(time_panel, 2, 12, "%s", strtime);
+	mvwaddstr(time_panel, 2, 12, strtime);
 
 	/* GPS time */
 	char *gpsstring = "Unavailable";
@@ -78,9 +78,9 @@ static void update_time_panel(PNGPS *gps)
         expstring = expbuf;
 	}
 	
-	mvwprintw(time_panel, 3, 12, gpsstring);
-    mvwprintw(time_panel, 4, 12, expstring);
-    mvwprintw(time_panel, 1, 12, ts.locked ? "Locked  " : "Unlocked");
+	mvwaddstr(time_panel, 3, 12, gpsstring);
+    mvwaddstr(time_panel, 4, 12, expstring);
+    mvwaddstr(time_panel, 1, 12, (ts.locked ? "Locked  " : "Unlocked"));
 	
     wrefresh(time_panel);
 }
@@ -96,9 +96,9 @@ static WINDOW *create_camera_panel()
     box(win, 0, 0);
     
     char *title = " Camera Information ";
-    mvwprintw(win, 0, (w-strlen(title))/2, title);
-    mvwprintw(win, 1, 2, "     Status:");
-    mvwprintw(win, 2, 2, "Temperature:");
+    mvwaddstr(win, 0, (w-strlen(title))/2, title);
+    mvwaddstr(win, 1, 2, "     Status:");
+    mvwaddstr(win, 2, 2, "Temperature:");
     
     return win;
 }
@@ -128,7 +128,7 @@ static void update_camera_panel(PNCamera *camera)
 			label = "Closing     ";
 		break;
 	}
-	mvwprintw(camera_panel, 1, 15, label);
+	mvwaddstr(camera_panel, 1, 15, label);
 
 	/* Camera temperature */
 	char *tempstring = "Unavailable";
@@ -139,7 +139,7 @@ static void update_camera_panel(PNCamera *camera)
 	    sprintf(tempbuf, "%0.02f °C    ",(float)camera->temperature/100);
         tempstring = tempbuf;
 	}
-	mvwprintw(camera_panel, 2, 15, "%s", tempstring);
+	mvwaddstr(camera_panel, 2, 15, tempstring);
 
 	wrefresh(camera_panel);
 }
@@ -155,10 +155,10 @@ static WINDOW *create_acquisition_panel()
     box(win, 0, 0);
     
     char *title = " Acquisition ";
-    mvwprintw(win, 0, (w-strlen(title))/2, title);
-    mvwprintw(win, 1, 2, "Exposure:");
-    mvwprintw(win, 2, 2, "    Type:");
-    mvwprintw(win, 3, 2, "    Save:");
+    mvwaddstr(win, 0, (w-strlen(title))/2, title);
+    mvwaddstr(win, 1, 2, "Exposure:");
+    mvwaddstr(win, 2, 2, "    Type:");
+    mvwaddstr(win, 3, 2, "    Save:");
     
     return win;
 }
@@ -179,8 +179,8 @@ static void update_acquisition_panel(PNPreferences *prefs)
             break;
     }
 	mvwprintw(acquisition_panel, 1, 12, "%d seconds     ", prefs->exposure_time);
-	mvwprintw(acquisition_panel, 2, 12, type);
-	mvwprintw(acquisition_panel, 3, 12, saving ? "On " : "Off");
+	mvwaddstr(acquisition_panel, 2, 12, type);
+	mvwaddstr(acquisition_panel, 3, 12, (saving ? "On " : "Off"));
     
 	wrefresh(acquisition_panel);
 }
@@ -196,11 +196,11 @@ static WINDOW *create_metadata_panel()
     box(win, 0, 0);
     
     char *title = " Metadata ";
-    mvwprintw(win, 0, (w-strlen(title))/2, title);
-    mvwprintw(win, 1, 2, "Observatory:");
-    mvwprintw(win, 2, 2, "  Observers:");
-    mvwprintw(win, 3, 2, "  Telescope:");
-    mvwprintw(win, 4, 2, "     Object:");
+    mvwaddstr(win, 0, (w-strlen(title))/2, title);
+    mvwaddstr(win, 1, 2, "Observatory:");
+    mvwaddstr(win, 2, 2, "  Observers:");
+    mvwaddstr(win, 3, 2, "  Telescope:");
+    mvwaddstr(win, 4, 2, "     Object:");
     wrefresh(win);
 
     return win;
@@ -208,9 +208,9 @@ static WINDOW *create_metadata_panel()
 
 static void update_metadata_panel(PNPreferences *prefs)
 {
-	mvwprintw(metadata_panel, 1, 15, prefs->observatory);
-	mvwprintw(metadata_panel, 2, 15, prefs->observers);
-	mvwprintw(metadata_panel, 3, 15, prefs->telescope);
+	mvwaddstr(metadata_panel, 1, 15, prefs->observatory);
+	mvwaddstr(metadata_panel, 2, 15, prefs->observers);
+	mvwaddstr(metadata_panel, 3, 15, prefs->telescope);
     
     char *object = prefs->object_name;
     switch (prefs->object_type)
@@ -223,7 +223,7 @@ static void update_metadata_panel(PNPreferences *prefs)
         break;
     }
     
-	mvwprintw(metadata_panel, 4, 15, object);
+	mvwaddstr(metadata_panel, 4, 15, object);
     
 	wrefresh(metadata_panel);
 }
@@ -253,7 +253,7 @@ static void update_log_panel()
     {
         unsigned char j = (unsigned char)(log_position - i);
         if (log_messages[j] != NULL)
-            mvwprintw(log_panel, height - i - 1, 0, log_messages[j]);
+            mvwaddstr(log_panel, height - i - 1, 0, log_messages[j]);
     }
 
     wrefresh(log_panel);
