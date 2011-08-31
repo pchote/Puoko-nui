@@ -8,6 +8,14 @@
 #ifndef UI_H
 #define UI_H
 
+/* GPS command types */
+typedef enum
+{
+	INPUT_MAIN = 1,
+	INPUT_EXPOSURE = 2,
+} PNUIInputType;
+
+
 void init_log_gui();
 void add_log_line(char *msg);
 
