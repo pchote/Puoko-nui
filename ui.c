@@ -21,11 +21,11 @@
 
 WINDOW  *time_window, *camera_window, *acquisition_window,
         *command_window, *metadata_window, *log_window,
-        *exposure_window;
+        *status_window, *exposure_window;
 
 PANEL   *time_panel, *camera_panel, *acquisition_panel,
         *command_panel, *metadata_panel, *log_panel,
-        *exposure_panel;
+        *status_panel, *exposure_panel;
 
 // A circular buffer for storing log messages
 static char *log_messages[256];
@@ -40,7 +40,7 @@ static WINDOW *create_time_window()
 {
     int x = 0;
     int y = 0;
-    int w = 33;
+    int w = 34;
     int h = 6;
     
     WINDOW *win = newwin(h, w, y, x);
@@ -48,10 +48,10 @@ static WINDOW *create_time_window()
     
     char *title = " Timer Information ";
     mvwaddstr(win, 0, (w-strlen(title))/2, title);
-    mvwaddstr(win, 1, 2, "  Status:");
-    mvwaddstr(win, 2, 2, " PC Time:");
-    mvwaddstr(win, 3, 2, "GPS Time:");
-    mvwaddstr(win, 4, 2, "Exposure:");
+    mvwaddstr(win, 1, 2, "   Status:");
+    mvwaddstr(win, 2, 2, "  PC Time:");
+    mvwaddstr(win, 3, 2, " GPS Time:");
+    mvwaddstr(win, 4, 2, "Countdown:");
     
     return win;
 }
@@ -62,24 +62,28 @@ static void update_time_window(PNGPS *gps)
 	char strtime[30];
 	time_t t = time(NULL);
 	strftime(strtime, 30, "%Y-%m-%d %H:%M:%S", gmtime(&t));
-	mvwaddstr(time_window, 2, 12, strtime);
+	mvwaddstr(time_window, 2, 13, strtime);
 
 	/* GPS time */
     pthread_mutex_lock(&gps->currenttime_mutex);
     PNGPSTimestamp ts = gps->current_timestamp;
     pthread_mutex_unlock(&gps->currenttime_mutex);
 	
-    mvwaddstr(time_window, 1, 12, (ts.locked ? "Locked  " : "Unlocked"));
+    mvwaddstr(time_window, 1, 13, (ts.locked ? "Locked  " : "Unlocked"));
 
 	if (ts.valid)
 	{
-        mvwprintw(time_window, 3, 12, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
-        mvwprintw(time_window, 4, 12, "%03d        ", ts.remaining_exposure);
+        mvwprintw(time_window, 3, 13, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
+
+        if (ts.remaining_exposure > 0)
+            mvwprintw(time_window, 4, 13, "%03d        ", ts.remaining_exposure);
+        else
+            mvwaddstr(time_window, 4, 13, "Disabled    ");
 	}
     else
     {
-        mvwaddstr(time_window, 3, 12, "Unavailable");
-        mvwaddstr(time_window, 4, 12, "Unavailable");
+        mvwaddstr(time_window, 3, 13, "Unavailable");
+        mvwaddstr(time_window, 4, 13, "Unavailable");
     }
 }
 
@@ -87,7 +91,7 @@ static WINDOW *create_camera_window()
 {
     int x = 0;
     int y = 6;
-    int w = 33;
+    int w = 34;
     int h = 4;
     
     WINDOW *win = newwin(h, w, y, x);
@@ -144,17 +148,18 @@ static WINDOW *create_acquisition_window()
 {
     int x = 0;
     int y = 16;
-    int w = 33;
-    int h = 5;
+    int w = 34;
+    int h = 6;
     
     WINDOW *win = newwin(h, w, y, x);
     box(win, 0, 0);
     
     char *title = " Acquisition ";
     mvwaddstr(win, 0, (w-strlen(title))/2, title);
-    mvwaddstr(win, 1, 2, "Exposure:");
-    mvwaddstr(win, 2, 2, "    Type:");
-    mvwaddstr(win, 3, 2, "    Save:");
+    mvwaddstr(win, 1, 2, " Exposure:");
+    mvwaddstr(win, 2, 2, "     Type:");
+    mvwaddstr(win, 3, 2, "Remaining:");
+    mvwaddstr(win, 4, 2, " Filename:");
     
     return win;
 }
@@ -165,25 +170,32 @@ static void update_acquisition_window(PNPreferences *prefs)
     switch (prefs->object_type)
     {
         case OBJECT_DARK:
-            type = "Dark";
+            type = "Dark  ";
             break;
         case OBJECT_FLAT:
-            type = "Flat";
+            type = "Flat  ";
             break;
         case OBJECT_TARGET:
             type = "Object";
             break;
     }
-	mvwprintw(acquisition_window, 1, 12, "%d seconds     ", prefs->exposure_time);
-	mvwaddstr(acquisition_window, 2, 12, type);
-	mvwaddstr(acquisition_window, 3, 12, (saving ? "On " : "Off"));
+	mvwprintw(acquisition_window, 1, 13, "%d seconds   ", prefs->exposure_time);
+	mvwaddstr(acquisition_window, 2, 13, type);
+
+    if (prefs->object_type == OBJECT_TARGET)
+        mvwaddstr(acquisition_window, 3, 13, "N/A        ");
+    else
+        mvwprintw(acquisition_window, 3, 13, "%d   ", prefs->calibration_remaining_framecount);
+
+    mvwaddstr(acquisition_window, 4, 13, "                    ");
+    mvwprintw(acquisition_window, 4, 13, "%s-%04d.fits.gz", prefs->run_prefix, prefs->run_number);
 }
 
 static WINDOW *create_metadata_window()
 {
     int x = 0;
     int y = 10;
-    int w = 33;
+    int w = 34;
     int h = 6;
     
     WINDOW *win = newwin(h, w, y, x);
@@ -224,10 +236,10 @@ static WINDOW *create_log_window()
     int row,col;
     getmaxyx(stdscr,row,col);
 
-    int x = 34;
+    int x = 35;
     int y = 0;
     int w = col - 34;
-    int h = row - 3;
+    int h = row - 4;
     return newwin(h, w, y, x);
 }
 
@@ -318,6 +330,35 @@ static void update_command_window()
     print_command_option(command_window, TRUE, "^C", "Quit");
 }
 
+
+static WINDOW *create_status_window()
+{
+    int row, col;
+    getmaxyx(stdscr, row, col);
+
+    int x = 35;
+    int y = row-3;
+    int w = col-35;
+    int h = 1;
+
+    WINDOW *win = newwin(h, w, y, x);
+    mvwaddstr(win, 0, 5, "Acquiring:");
+    mvwaddstr(win, 0, 27, "Saving:");
+    return win;
+}
+
+static void update_status_window()
+{
+    wattron(status_window, A_STANDOUT);
+    mvwaddstr(status_window, 0, 16, (exposing ? " YES " : " NO "));
+    wattroff(status_window, A_STANDOUT);
+    waddstr(status_window, " ");
+    wattron(status_window, A_STANDOUT);
+    mvwaddstr(status_window, 0, 35, (saving ? " YES " : " NO "));
+    wattroff(status_window, A_STANDOUT);
+    waddstr(status_window, " ");
+}
+
 static WINDOW *create_exposure_window()
 {
     int row, col;
@@ -356,6 +397,7 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
     command_window = create_command_window();
     metadata_window = create_metadata_window();
     log_window = create_log_window();
+    status_window = create_status_window();
     exposure_window = create_exposure_window();
 
     // Create panels
@@ -364,11 +406,13 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
     acquisition_panel = new_panel(acquisition_window);
     metadata_panel = new_panel(metadata_window);
     log_panel = new_panel(log_window);
+    status_panel = new_panel(status_window);
     command_panel = new_panel(command_window);
     exposure_panel = new_panel(exposure_window);
 
     // Set initial state
     update_log_window();
+    update_status_window();
     update_command_window();
     update_metadata_window(prefs);
 
@@ -430,11 +474,14 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
                             hide_panel(exposure_panel);
                             show_panel(command_panel);
 
-                            // Update preferences
-                            prefs->exposure_time = newexp;
-                            pn_save_preferences(prefs, "preferences.dat");
-                            update_acquisition_window(prefs);
-                            pn_log("Exposure set to %d seconds", newexp);
+                            if (prefs->exposure_time != newexp)
+                            {
+                                // Update preferences
+                                prefs->exposure_time = newexp;
+                                pn_save_preferences(prefs, "preferences.dat");
+                                update_acquisition_window(prefs);
+                                pn_log("Exposure set to %d seconds", newexp);
+                            }
                         }
                     }
                     else if (ch == 0x7f && exp_entry_length > 0) // Backspace
