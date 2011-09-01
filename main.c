@@ -211,18 +211,10 @@ void pn_frame_downloaded_cb(PNFrame *frame)
         first_frame = FALSE;
         return;
     }
-    /*
-    gdk_threads_enter();
-    gboolean preview = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.display_checkbox));
-    gboolean save = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(view.save_checkbox));
-    gdk_threads_leave();
-    */
-    int preview = 1;
-    int save = 0;
 
 	pn_log("Frame downloaded");
 
-	if (save)
+	if (prefs.save_frames)
 	{
 		pn_save_frame(frame);
 
@@ -251,8 +243,7 @@ void pn_frame_downloaded_cb(PNFrame *frame)
 	}
 
 	/* Display the frame in ds9 */
-	if (preview)
-		pn_preview_frame(frame);
+	pn_preview_frame(frame);
 }
 
 void simulate_camera_download()

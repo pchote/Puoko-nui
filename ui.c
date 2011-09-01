@@ -33,7 +33,6 @@ static unsigned char log_position;
 static unsigned char last_log_position;
 
 static int exposing = FALSE;
-static int saving = FALSE;
 static int should_quit = FALSE;
 
 static WINDOW *create_time_window()
@@ -305,7 +304,7 @@ static void print_command_option(WINDOW *w, int indent, char *hotkey, char *form
 	va_end(args);
 }
 
-static void update_command_window()
+static void update_command_window(PNPreferences *prefs)
 {
     int row,col;
     getmaxyx(stdscr,row,col);
@@ -317,10 +316,10 @@ static void update_command_window()
     print_command_option(command_window, FALSE, "^A", "Acquire", exposing ? "Stop " : "");
 
     // Save toggle
-    print_command_option(command_window, TRUE, "^S", "%s Saving", saving ? "Stop" : "Start");
+    print_command_option(command_window, TRUE, "^S", "%s Saving", prefs->save_frames ? "Stop" : "Start");
 
     // Display parameter panel
-    if (!saving)
+    if (!prefs->save_frames)
         print_command_option(command_window, TRUE, "^P", "Edit Parameters");
 
     // Display exposure panel
@@ -347,14 +346,14 @@ static WINDOW *create_status_window()
     return win;
 }
 
-static void update_status_window()
+static void update_status_window(PNPreferences *prefs)
 {
     wattron(status_window, A_STANDOUT);
     mvwaddstr(status_window, 0, 16, (exposing ? " YES " : " NO "));
     wattroff(status_window, A_STANDOUT);
     waddstr(status_window, " ");
     wattron(status_window, A_STANDOUT);
-    mvwaddstr(status_window, 0, 35, (saving ? " YES " : " NO "));
+    mvwaddstr(status_window, 0, 35, (prefs->save_frames ? " YES " : " NO "));
     wattroff(status_window, A_STANDOUT);
     waddstr(status_window, " ");
 }
@@ -412,8 +411,8 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 
     // Set initial state
     update_log_window();
-    update_status_window();
-    update_command_window();
+    update_status_window(prefs);
+    update_command_window(prefs);
     update_metadata_window(prefs);
 
     update_acquisition_window(prefs);
@@ -424,7 +423,6 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
     // Only wait for 100ms for input so we can keep the ui up to date
     // *and* respond timely to input
     timeout(100);
-
     for (;;)
     {
         int ch;
@@ -447,6 +445,13 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 
                             hide_panel(command_panel);
                             show_panel(exposure_panel);
+                        break;
+                        case 0x13: // ^S
+                            prefs->save_frames ^= TRUE;
+                            pn_save_preferences(prefs, "preferences.dat");
+                            update_status_window(prefs);
+                            update_command_window(prefs);
+                            pn_log("%s saving", prefs->save_frames ? "Enabled" : "Disabled");
                         break;
                         case 0x03: // ^C
                             should_quit = TRUE;
@@ -486,7 +491,7 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
                     }
                     else if (ch == 0x7f && exp_entry_length > 0) // Backspace
                         --exp_entry_length;
-                    else if (isdigit(ch))
+                    else if (isdigit(ch) && exp_entry_length < 1024 - 1)
                         exp_entry_buf[exp_entry_length++] = ch;
 
                     update_exposure_window();

@@ -30,6 +30,8 @@ void pn_load_preferences(PNPreferences *prefs, const char *path)
 
         prefs->calibration_default_framecount = 30;
         prefs->calibration_remaining_framecount = 30;
+
+        prefs->save_frames = 0;
 	}
 	else
 	{	

@@ -17,16 +17,18 @@ typedef struct
 	char run_prefix[PREFERENCES_LENGTH];
 	int run_number;
 
-	int object_type;
+	char object_type;
 	char object_name[PREFERENCES_LENGTH];
 
 	char observers[PREFERENCES_LENGTH];
 	char observatory[PREFERENCES_LENGTH];
 	char telescope[PREFERENCES_LENGTH];
 
-	int exposure_time;
+	unsigned char exposure_time;
     int calibration_default_framecount;
     int calibration_remaining_framecount;
+
+    char save_frames;
 } PNPreferences;
 
 
