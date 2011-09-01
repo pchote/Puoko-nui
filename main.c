@@ -24,7 +24,6 @@
 
 PNCamera camera;
 PNGPS gps;
-PNPreferences prefs;
 
 /* A quick and dirty method for opening ds9
  * Beware of race conditions: it will take some time
@@ -51,11 +50,14 @@ void pn_save_frame(PNFrame *frame)
 	fitsfile *fptr;
 	int status = 0;
 
-	char filepath[PATH_MAX];
-
 	/* Saving will fail if a file with the same name already exists */
-	sprintf(filepath, "%s/%s-%04d.fits.gz", prefs.output_directory, prefs.run_prefix, prefs.run_number);
-	pn_log("Saving frame %s", filepath);
+    char *output_dir = pn_preference_string(OUTPUT_DIR);
+    char *run_prefix = pn_preference_string(RUN_PREFIX);
+    int run_number = pn_preference_int(RUN_NUMBER);
+
+    char *filepath;
+	asprintf(&filepath, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number);
+    pn_log("Saving frame %s", filepath);
 	
 	/* Create a new fits file */
 	if (fits_create_file(&fptr, filepath, &status))
@@ -69,29 +71,31 @@ void pn_save_frame(PNFrame *frame)
 	fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
 	/* Write header keys */
-	fits_update_key(fptr, TSTRING, "RUN", (void *)prefs.run_prefix, "name of this run", &status);
+	fits_update_key(fptr, TSTRING, "RUN", (void *)run_prefix, "name of this run", &status);
 	
-	char *object;
-	switch (prefs.object_type)
-	{
-		case OBJECT_DARK:
-			object = "DARK";
-		break;
-		case OBJECT_FLAT:
-			object = "FLAT";
-		break;
-		default:
-		case OBJECT_TARGET:
-			object = prefs.object_name;
-		break;
-	}
+    free(output_dir);
+    free(run_prefix);
 
-	fits_update_key(fptr, TSTRING, "OBJECT", (void *)object, "Object name", &status);
-	fits_update_key(fptr, TLONG, "EXPTIME", &prefs.exposure_time, "Actual integration time (sec)", &status);
-	fits_update_key(fptr, TSTRING, "OBSERVER", (void *)prefs.observers, "Observers", &status);
-	fits_update_key(fptr, TSTRING, "OBSERVAT", (void *)prefs.observatory, "Observatory", &status);
-	fits_update_key(fptr, TSTRING, "TELESCOP", (void *)prefs.telescope, "Telescope name", &status);
-	fits_update_key(fptr, TSTRING, "PROGRAM", "puoko-nui", "Data acquistion program", &status);
+    char *object_name = pn_preference_string(OBJECT_NAME);
+	fits_update_key(fptr, TSTRING, "OBJECT", (void *)object_name, "Object name", &status);
+    free(object_name);
+
+    int exposure_time = pn_preference_char(EXPOSURE_TIME);
+	fits_update_key(fptr, TLONG, "EXPTIME", &exposure_time, "Actual integration time (sec)", &status);
+
+    char *observers = pn_preference_string(OBSERVERS);
+	fits_update_key(fptr, TSTRING, "OBSERVER", (void *)observers, "Observers", &status);
+    free(observers);
+
+    char *observatory = pn_preference_string(OBSERVATORY);
+	fits_update_key(fptr, TSTRING, "OBSERVAT", (void *)observatory, "Observatory", &status);
+	free(observatory);
+
+    char *telescope = pn_preference_string(TELESCOPE);
+    fits_update_key(fptr, TSTRING, "TELESCOP", (void *)telescope, "Telescope name", &status);
+	free(telescope);
+
+    fits_update_key(fptr, TSTRING, "PROGRAM", "puoko-nui", "Data acquistion program", &status);
 	fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
 
 	char datebuf[15];
@@ -107,7 +111,7 @@ void pn_save_frame(PNFrame *frame)
 	/* synctime gives the *end* of the exposure. The start of the exposure
 	 * is found by subtracting the exposure time */
 	PNGPSTimestamp start = end;
-	pn_timestamp_subtract_seconds(&start, prefs.exposure_time);
+	pn_timestamp_subtract_seconds(&start, exposure_time);
 
 	sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
 	fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
@@ -125,7 +129,7 @@ void pn_save_frame(PNFrame *frame)
 
 	char timebuf[15];
 	time_t pcend = time(NULL);
-	time_t pcstart = pcend - prefs.exposure_time;
+	time_t pcstart = pcend - exposure_time;
 
 	strftime(timebuf, 15, "%Y-%m-%d", gmtime(&pcstart));
 	fits_update_key(fptr, TSTRING, "PC-DATE", (void *)timebuf, "Exposure start date (PC)", &status);
@@ -153,6 +157,8 @@ void pn_save_frame(PNFrame *frame)
     char cmd[PATH_MAX];
     sprintf(cmd,"./frame_available.sh %s&",filepath);
     system(cmd);
+
+    free(filepath);
 }
 
 void pn_preview_frame(PNFrame *frame)
@@ -216,33 +222,10 @@ void pn_frame_downloaded_cb(PNFrame *frame)
     }
 
 	pn_log("Frame downloaded");
-
-	if (prefs.save_frames)
+	if (pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save())
 	{
 		pn_save_frame(frame);
-
-		/* Increment the next frame */
-		prefs.run_number++;
-		pn_save_preferences(&prefs, "preferences.dat");
-
-/*
-        gdk_threads_enter();
-        gtk_spin_button_set_value(GTK_SPIN_BUTTON(view.frame_entry), prefs.run_number);
-
-        // Decrement the calibration frame count
-        if (prefs.object_type != OBJECT_TARGET)
-        {
-            int remaining = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.target_countdown));
-            if (--remaining <= 0)
-            {
-                gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(view.save_checkbox), FALSE);
-                remaining = 0;
-            }
-            gtk_spin_button_set_value(GTK_SPIN_BUTTON(view.target_countdown), remaining);
-        }
-        gdk_flush();
-        gdk_threads_leave();
-*/
+        pn_preference_increment_framecount();
 	}
 
 	/* Display the frame in ds9 */
@@ -307,8 +290,7 @@ int main( int argc, char *argv[] )
     init_log_gui();
 
     launch_ds9();	
-	pn_load_preferences(&prefs, "preferences.dat");
-	pn_save_preferences(&prefs, "preferences.dat");
+	pn_init_preferences("preferences.dat");
 
 	rs_bool simulate_camera = FALSE;
     rs_bool simulate_gps = FALSE;
@@ -347,7 +329,7 @@ int main( int argc, char *argv[] )
     camera_thread_initialized = TRUE;
 
 	// Initialise the gui and wait for it to exit
-    pn_ui_run(&gps, &camera, &prefs);
+    pn_ui_run(&gps, &camera);
 
 	/* Shutdown hardware cleanly before exiting */
 	pn_shutdown();
@@ -374,6 +356,7 @@ void pn_shutdown()
         pthread_join(gps_thread, retval);
 
     pn_ui_shutdown();
+    pn_free_preferences();
     fclose(logFile);
 }
 

@@ -11,26 +11,6 @@
 #define PREFERENCES_H
 
 #define PREFERENCES_LENGTH 128
-typedef struct
-{
-	char output_directory[PATH_MAX];
-	char run_prefix[PREFERENCES_LENGTH];
-	int run_number;
-
-	char object_type;
-	char object_name[PREFERENCES_LENGTH];
-
-	char observers[PREFERENCES_LENGTH];
-	char observatory[PREFERENCES_LENGTH];
-	char telescope[PREFERENCES_LENGTH];
-
-	unsigned char exposure_time;
-    int calibration_default_framecount;
-    int calibration_remaining_framecount;
-
-    char save_frames;
-} PNPreferences;
-
 
 typedef enum
 {
@@ -39,9 +19,41 @@ typedef enum
 	OBJECT_TARGET
 } PNFrameType;
 
+typedef enum
+{
+    OUTPUT_DIR,
+    RUN_PREFIX,
+    OBJECT_NAME,
+    OBSERVERS,
+    OBSERVATORY,
+    TELESCOPE,
+} PNPreferenceString;
 
-void pn_load_preferences(PNPreferences *prefs, const char *path);
-void pn_save_preferences(PNPreferences *prefs, const char *path);
-void pn_set_preference_string(char *pref, const char *value);
-void pn_set_preference_path(char *pref, const char *value);
+typedef enum
+{
+    EXPOSURE_TIME,
+    SAVE_FRAMES,
+    OBJECT_TYPE,
+} PNPreferenceChar;
+
+typedef enum
+{
+    RUN_NUMBER,
+    CALIBRATION_DEFAULT_FRAMECOUNT,
+    CALIBRATION_REMAINING_FRAMECOUNT
+} PNPreferenceInt;
+
+void pn_init_preferences(const char *path);
+void pn_free_preferences();
+void pn_save_preferences();
+
+char *pn_preference_string(PNPreferenceString key);
+unsigned char pn_preference_char(PNPreferenceChar key);
+int pn_preference_int(PNPreferenceInt key);
+
+void pn_preference_increment_framecount();
+unsigned char pn_preference_toggle_save();
+unsigned char pn_preference_allow_save();
+
+void pn_preference_set_char(PNPreferenceChar key, unsigned char val);
 #endif

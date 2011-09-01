@@ -6,55 +6,191 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include "preferences.h"
 #include "common.h"
 
-void pn_load_preferences(PNPreferences *prefs, const char *path)
+static char *filename;
+static pthread_mutex_t access_mutex;
+
+typedef struct
 {
-	FILE *fp = fopen(path, "r");
-	if (!fp)
-	{
-		pn_log("Could not open `%s`. Initialising with default settings", path);
-		pn_set_preference_string(prefs->observatory, "MJUO");
-		pn_set_preference_string(prefs->telescope, "MJUO 1-meter");
-		pn_set_preference_string(prefs->observers, "DJS, PC");
-		prefs->object_type = OBJECT_TARGET;
-		pn_set_preference_string(prefs->object_name, "ec20058");
+	char output_directory[PATH_MAX];
+	char run_prefix[PREFERENCES_LENGTH];
+	char object_name[PREFERENCES_LENGTH];
 
-		pn_set_preference_path(prefs->output_directory, "/home/sullivan/Desktop");
-		pn_set_preference_string(prefs->run_prefix, "run");
-		prefs->run_number = 0;
+	char observers[PREFERENCES_LENGTH];
+	char observatory[PREFERENCES_LENGTH];
+	char telescope[PREFERENCES_LENGTH];
 
-		prefs->exposure_time = 5;
+	unsigned char exposure_time;
+    unsigned char save_frames;
+	PNFrameType object_type;
 
-        prefs->calibration_default_framecount = 30;
-        prefs->calibration_remaining_framecount = 30;
+    int calibration_default_framecount;
+    int calibration_remaining_framecount;
+	int run_number;
+} PNPreferences;
 
-        prefs->save_frames = 0;
-	}
-	else
-	{	
-		fread(prefs, sizeof(*prefs), 1, fp);
-	}
-}
+static PNPreferences prefs;
 
-void pn_save_preferences(PNPreferences *prefs, const char *path)
+static void save()
 {
-	FILE *fp = fopen(path, "w");
-	fwrite(prefs, sizeof(*prefs), 1, fp);
+    FILE *fp = fopen(filename, "w");
+	fwrite(&prefs, sizeof(prefs), 1, fp);
 	fclose(fp);
 }
 
-/* Set a preference string safely (avoid buffer overruns) */
-void pn_set_preference_string(char *pref, const char *value)
+void pn_init_preferences(const char *path)
 {
-	strncpy(pref, value, PREFERENCES_LENGTH);
-	pref[PREFERENCES_LENGTH-1] = '\0';
+    filename = strdup(path);
+	FILE *fp = fopen(filename, "r");
+	if (!fp)
+	{
+		pn_log("Could not open `%s`. Initialising with default settings", path);
+		strcpy(prefs.observatory, "MJUO");
+		strcpy(prefs.telescope, "MJUO 1-meter");
+		strcpy(prefs.observers, "DJS, PC");
+		prefs.object_type = OBJECT_TARGET;
+		strcpy(prefs.object_name, "ec20058");
+
+		strcpy(prefs.output_directory, "/home/sullivan/Desktop");
+		strcpy(prefs.run_prefix, "run");
+		prefs.run_number = 0;
+
+		prefs.exposure_time = 5;
+
+        prefs.calibration_default_framecount = 30;
+        prefs.calibration_remaining_framecount = 30;
+        prefs.save_frames = 0;
+	}
+	else
+	{	
+		fread(&prefs, sizeof(prefs), 1, fp);
+        fclose(fp);
+	}
+
+    // Init mutex
+    pthread_mutex_init(&access_mutex, NULL);
+    save();
 }
 
-void pn_set_preference_path(char *pref, const char *value)
+void pn_free_preferences()
 {
-	strncpy(pref, value, PATH_MAX);
-	pref[PATH_MAX-1] = '\0';
+    pthread_mutex_destroy(&access_mutex);
+    free(filename);
+}
+
+char *pn_preference_string(PNPreferenceString key)
+{
+    char *val, *ret;
+    pthread_mutex_lock(&access_mutex);
+    switch (key)
+    {
+        case OUTPUT_DIR: val = prefs.output_directory; break;
+        case RUN_PREFIX: val = prefs.run_prefix; break;
+        case OBJECT_NAME:
+            switch (prefs.object_type)
+            {
+                case OBJECT_DARK:
+                    val = "DARK";
+                    break;
+                case OBJECT_FLAT:
+                    val = "FLAT";
+                    break;
+                default:
+                case OBJECT_TARGET:
+                    val = prefs.object_name;
+                    break;
+            }
+        break;
+        case OBSERVERS: val = prefs.observers; break;
+        case OBSERVATORY: val = prefs.observatory; break;
+        case TELESCOPE: val = prefs.telescope; break;
+        default: val = "Invalid key"; break;
+    }
+    ret = strdup(val);
+    pthread_mutex_unlock(&access_mutex);
+
+    return ret;
+}
+
+unsigned char pn_preference_char(PNPreferenceChar key)
+{
+    char val;
+    pthread_mutex_lock(&access_mutex);
+    switch (key)
+    {
+        case EXPOSURE_TIME: val = prefs.exposure_time; break;
+        case SAVE_FRAMES: val = prefs.save_frames; break;
+        case OBJECT_TYPE: val = prefs.object_type; break;
+        default: val = 0;
+    }
+    pthread_mutex_unlock(&access_mutex);
+
+    return val;
+}
+
+int pn_preference_int(PNPreferenceInt key)
+{
+    char val;
+    pthread_mutex_lock(&access_mutex);
+    switch (key)
+    {
+        case RUN_NUMBER: val = prefs.run_number; break;
+        case CALIBRATION_DEFAULT_FRAMECOUNT: val = prefs.calibration_default_framecount; break;
+        case CALIBRATION_REMAINING_FRAMECOUNT: val = prefs.calibration_remaining_framecount; break;
+        default: val = 0;
+    }
+    pthread_mutex_unlock(&access_mutex);
+
+    return val;
+}
+
+void pn_preference_increment_framecount()
+{
+    pthread_mutex_lock(&access_mutex);
+
+    // Incrememnt the run number
+    prefs.run_number++;
+
+    // Decrement the calibration frame count if applicable
+    if (prefs.object_type != OBJECT_TARGET && prefs.calibration_remaining_framecount > 0)
+        --prefs.calibration_remaining_framecount;
+
+    save();
+    pthread_mutex_unlock(&access_mutex);
+}
+
+unsigned char pn_preference_toggle_save()
+{
+    pthread_mutex_lock(&access_mutex);
+    unsigned char ret = prefs.save_frames ^= 1;
+    save();
+    pthread_mutex_unlock(&access_mutex);
+    return ret;
+}
+
+unsigned char pn_preference_allow_save()
+{
+    pthread_mutex_lock(&access_mutex);
+    unsigned char ret = prefs.object_type == OBJECT_TARGET || prefs.calibration_remaining_framecount > 0;
+    pthread_mutex_unlock(&access_mutex);
+
+    return ret;
+}
+
+void pn_preference_set_char(PNPreferenceChar key, unsigned char val)
+{
+    pthread_mutex_lock(&access_mutex);
+    switch (key)
+    {
+        case EXPOSURE_TIME: prefs.exposure_time = val; break;
+        case SAVE_FRAMES: prefs.save_frames = val; break;
+        case OBJECT_TYPE: prefs.object_type = val; break;
+    }
+    save();
+    pthread_mutex_unlock(&access_mutex);
 }

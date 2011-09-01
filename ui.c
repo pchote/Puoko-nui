@@ -161,31 +161,39 @@ static WINDOW *create_acquisition_window()
     return win;
 }
 
-static void update_acquisition_window(PNPreferences *prefs)
+static void update_acquisition_window()
 {
-    char *type;
-    switch (prefs->object_type)
+    PNFrameType type = pn_preference_char(OBJECT_TYPE);
+    unsigned char exptime = pn_preference_char(EXPOSURE_TIME);
+    int remaining_frames = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
+    char *run_prefix = pn_preference_string(RUN_PREFIX);
+    int run_number = pn_preference_int(RUN_NUMBER);
+
+    char *typename;
+    switch (type)
     {
         case OBJECT_DARK:
-            type = "Dark  ";
+            typename = "Dark  ";
             break;
         case OBJECT_FLAT:
-            type = "Flat  ";
+            typename = "Flat  ";
             break;
         case OBJECT_TARGET:
-            type = "Object";
+            typename = "Object";
             break;
     }
-	mvwprintw(acquisition_window, 1, 13, "%d seconds   ", prefs->exposure_time);
-	mvwaddstr(acquisition_window, 2, 13, type);
 
-    if (prefs->object_type == OBJECT_TARGET)
+	mvwprintw(acquisition_window, 1, 13, "%d seconds   ", exptime);
+	mvwaddstr(acquisition_window, 2, 13, typename);
+
+    if (type == OBJECT_TARGET)
         mvwaddstr(acquisition_window, 3, 13, "N/A        ");
     else
-        mvwprintw(acquisition_window, 3, 13, "%d   ", prefs->calibration_remaining_framecount);
+        mvwprintw(acquisition_window, 3, 13, "%d   ", remaining_frames);
 
     mvwaddstr(acquisition_window, 4, 13, "                    ");
-    mvwprintw(acquisition_window, 4, 13, "%s-%04d.fits.gz", prefs->run_prefix, prefs->run_number);
+    mvwprintw(acquisition_window, 4, 13, "%s-%04d.fits.gz", run_prefix, run_number);
+    free(run_prefix);
 }
 
 static WINDOW *create_metadata_window()
@@ -208,24 +216,23 @@ static WINDOW *create_metadata_window()
     return win;
 }
 
-static void update_metadata_window(PNPreferences *prefs)
+static void update_metadata_window()
 {
-	mvwaddstr(metadata_window, 1, 15, prefs->observatory);
-	mvwaddstr(metadata_window, 2, 15, prefs->observers);
-	mvwaddstr(metadata_window, 3, 15, prefs->telescope);
-    
-    char *object = prefs->object_name;
-    switch (prefs->object_type)
-    {
-        case OBJECT_DARK:
-            object = "Dark";
-        break;
-        case OBJECT_FLAT:
-            object = "Flat";
-        break;
-    }
-    
+    char *observatory = pn_preference_string(OBSERVATORY);
+	mvwaddstr(metadata_window, 1, 15, observatory);
+    free(observatory);
+
+    char *observers = pn_preference_string(OBSERVERS);
+    mvwaddstr(metadata_window, 2, 15, observers);
+    free(observers);
+
+    char *telescope = pn_preference_string(TELESCOPE);
+	mvwaddstr(metadata_window, 3, 15, telescope);
+    free(telescope);
+
+    char *object = pn_preference_string(OBJECT_NAME);
 	mvwaddstr(metadata_window, 4, 15, object);
+    free(object);
 }
 
 static WINDOW *create_log_window()
@@ -302,12 +309,16 @@ static void print_command_option(WINDOW *w, int indent, char *hotkey, char *form
 	va_end(args);
 }
 
-static void update_command_window(PNPreferences *prefs, PNCameraMode camera_mode)
+static void update_command_window(PNCameraMode camera_mode)
 {
     int row,col;
     getmaxyx(stdscr,row,col);
     wclear(command_window);
     mvwhline(command_window, 0, 0, 0, col);
+
+    PNFrameType type = pn_preference_char(OBJECT_TYPE);
+    unsigned char save = pn_preference_char(SAVE_FRAMES);
+    int remaining_frames = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
 
     // Acquire toggle
     wmove(command_window, 1, 0);
@@ -315,11 +326,11 @@ static void update_command_window(PNPreferences *prefs, PNCameraMode camera_mode
         print_command_option(command_window, FALSE, "^A", "Acquire", camera_mode == ACQUIRING ? "Stop " : "");
 
     // Save toggle
-    if (prefs->object_type == OBJECT_TARGET || prefs->calibration_remaining_framecount > 0)
-        print_command_option(command_window, TRUE, "^S", "%s Saving", prefs->save_frames ? "Stop" : "Start");
+    if (type == OBJECT_TARGET || remaining_frames > 0)
+        print_command_option(command_window, TRUE, "^S", "%s Saving", save ? "Stop" : "Start");
 
     // Display parameter panel
-    if (!prefs->save_frames)
+    if (!save)
         print_command_option(command_window, TRUE, "^P", "Edit Parameters");
 
     // Display exposure panel
@@ -346,14 +357,15 @@ static WINDOW *create_status_window()
     return win;
 }
 
-static void update_status_window(PNPreferences *prefs, PNCameraMode camera_mode)
+static void update_status_window(PNCameraMode camera_mode)
 {
+    unsigned char save = pn_preference_char(SAVE_FRAMES);
     wattron(status_window, A_STANDOUT);
     mvwaddstr(status_window, 0, 16, (camera_mode == ACQUIRING ? " YES " : " NO "));
     wattroff(status_window, A_STANDOUT);
     waddstr(status_window, " ");
     wattron(status_window, A_STANDOUT);
-    mvwaddstr(status_window, 0, 35, (prefs->save_frames ? " YES " : " NO "));
+    mvwaddstr(status_window, 0, 35, (save ? " YES " : " NO "));
     wattroff(status_window, A_STANDOUT);
     waddstr(status_window, " ");
 }
@@ -388,7 +400,7 @@ int last_calibration_framecount;
 int last_run_number;
 
 PNUIInputType input_type = INPUT_MAIN;
-void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
+void pn_ui_run(PNGPS *gps, PNCamera *camera)
 {
     initscr();
     noecho();
@@ -419,11 +431,11 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
     last_camera_temperature = camera->temperature;
 
     update_log_window();
-    update_status_window(prefs, last_camera_mode);
-    update_command_window(prefs, last_camera_mode);
-    update_metadata_window(prefs);
+    update_status_window(last_camera_mode);
+    update_command_window(last_camera_mode);
+    update_metadata_window();
 
-    update_acquisition_window(prefs);
+    update_acquisition_window();
     update_time_window(gps);
     update_camera_window(last_camera_mode, last_camera_temperature);
     hide_panel(exposure_panel);
@@ -454,7 +466,7 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 
                             input_type = INPUT_EXPOSURE;
 
-                            exp_entry_length = sprintf(exp_entry_buf, "%d", prefs->exposure_time);
+                            exp_entry_length = sprintf(exp_entry_buf, "%d", pn_preference_char(EXPOSURE_TIME));
                             update_exposure_window();
 
                             hide_panel(command_panel);
@@ -462,15 +474,16 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
                         break;
                         case 0x13: // ^S
                             // Can't enable saving for calibration frames after the target count has been reached
-                            if (prefs->object_type != OBJECT_TARGET &&
-                                prefs->calibration_remaining_framecount <= 0)
+                            if (!pn_preference_allow_save())
+                            {
+                                add_log_line("fail");
                                 break;
+                            }
 
-                            prefs->save_frames ^= TRUE;
-                            pn_save_preferences(prefs, "preferences.dat");
-                            update_status_window(prefs, camera_mode);
-                            update_command_window(prefs, camera_mode);
-                            pn_log("%s saving", prefs->save_frames ? "Enabled" : "Disabled");
+                            unsigned char save = pn_preference_toggle_save();
+                            update_status_window(camera_mode);
+                            update_command_window(camera_mode);
+                            pn_log("%s saving", save ? "Enabled" : "Disabled");
                         break;
                         case 0x03: // ^C
                             should_quit = TRUE;
@@ -486,11 +499,11 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
                     {
                         exp_entry_buf[exp_entry_length] = '\0';
                         int newexp = atoi(exp_entry_buf);
-
+                        unsigned char oldexp = pn_preference_char(EXPOSURE_TIME);
                         if (newexp < 3 || newexp > 255)
                         {
                             // Invalid entry
-                            exp_entry_length = sprintf(exp_entry_buf, "%d", prefs->exposure_time);
+                            exp_entry_length = sprintf(exp_entry_buf, "%d", oldexp);
                         }
                         else
                         {
@@ -498,12 +511,11 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
                             hide_panel(exposure_panel);
                             show_panel(command_panel);
 
-                            if (prefs->exposure_time != newexp)
+                            if (oldexp != newexp)
                             {
                                 // Update preferences
-                                prefs->exposure_time = newexp;
-                                pn_save_preferences(prefs, "preferences.dat");
-                                update_acquisition_window(prefs);
+                                pn_preference_set_char(EXPOSURE_TIME, newexp);
+                                update_acquisition_window();
                                 pn_log("Exposure set to %d seconds", newexp);
                             }
                         }
@@ -527,8 +539,8 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
 
         if (last_camera_mode != camera_mode)
         {
-            update_command_window(prefs, camera_mode);
-            update_status_window(prefs, camera_mode);
+            update_command_window(camera_mode);
+            update_status_window(camera_mode);
             update_camera_window(camera_mode, camera_temperature);
             last_camera_mode = camera_mode;
         }
@@ -539,12 +551,14 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
             last_camera_temperature = camera_temperature;
         }
 
-        if (prefs->calibration_remaining_framecount != last_calibration_framecount ||
-            prefs->run_number != last_run_number)
+        int remaining_frames = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
+        int run_number = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
+        if (remaining_frames != last_calibration_framecount ||
+            run_number != last_run_number)
         {
-            update_acquisition_window(prefs);
-            last_calibration_framecount = prefs->calibration_remaining_framecount;
-            last_run_number = prefs->run_number;
+            update_acquisition_window();
+            last_calibration_framecount = remaining_frames;
+            last_run_number = run_number;
         }
 
         update_panels();
