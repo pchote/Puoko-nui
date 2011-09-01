@@ -23,7 +23,31 @@ PNCamera pn_camera_new()
 	cam.image_buffer_size = 0;
 	cam.binsize = 2;
     cam.temperature = 0;
+    pthread_mutex_init(&cam.read_mutex, NULL);
+
 	return cam;
+}
+
+void pn_camera_free(PNCamera *cam)
+{
+    pthread_mutex_destroy(&cam->read_mutex);
+}
+
+static void set_mode(PNCamera *cam, PNCameraMode mode)
+{
+    pthread_mutex_lock(&cam->read_mutex);
+    cam->mode = mode;
+    pthread_mutex_unlock(&cam->read_mutex);
+}
+
+static void read_temperature(PNCamera *cam)
+{
+    int16 temp;
+    pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &temp );
+
+    pthread_mutex_lock(&cam->read_mutex);
+    cam->temperature = (float)temp/100;
+    pthread_mutex_unlock(&cam->read_mutex);
 }
 
 static void check_pvcam_error(const char * msg, int line)
@@ -63,7 +87,7 @@ static void initialise(PNCamera *cam, rs_bool simulated)
     }
     else
     {
-        cam->mode = INITIALISING;
+        set_mode(cam, INITIALISING);
         
         if (!pl_pvcam_init())
 		    check_pvcam_error("Could not initialise the PVCAM library (pl_pvcam_init)", __LINE__);
@@ -144,12 +168,14 @@ static void initialise(PNCamera *cam, rs_bool simulated)
         
 	    pn_log("Camera initialised");
     }
-    cam->mode = IDLE;
+
+    set_mode(cam, IDLE);
 }
 
 static void start_acquiring(PNCamera *cam)
 {
-    cam->mode = ACQUIRE_START;
+    set_mode(cam, ACQUIRE_START);
+
     /* Initialise the acquisition sequence */
     if (cam->handle == SIMULATED)
     {
@@ -206,14 +232,16 @@ static void start_acquiring(PNCamera *cam)
         pn_log("Acquisition run started");
         
         /* Get initial temperature */
-        pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );
+        read_temperature(cam);
     }
-    cam->mode = ACQUIRING;
+
+    set_mode(cam, ACQUIRING);
 }
 
 static void stop_acquiring(PNCamera *cam)
 {
-    cam->mode = ACQUIRE_STOP;
+    set_mode(cam, ACQUIRE_STOP);
+
     /* Finish the acquisition sequence */
     if (cam->handle != SIMULATED)
     {
@@ -238,7 +266,8 @@ static void stop_acquiring(PNCamera *cam)
 
     free(cam->image_buffer);
     pn_log("Acquisition sequence uninitialised");
-    cam->mode = IDLE;
+
+    set_mode(cam, IDLE);
 }
 
 void *pn_camera_thread(void *_cam)
@@ -293,7 +322,7 @@ void *pn_camera_thread(void *_cam)
 	    if (cam->handle != SIMULATED && ++temp_ticks >= 50)
 	    {
 		    temp_ticks = 0;
-		    pl_get_param(cam->handle, PARAM_TEMP, ATTR_CURRENT, &cam->temperature );
+            read_temperature(cam);
 	    }
         nanosleep(&wait, NULL);
     }
@@ -309,6 +338,8 @@ void *pn_camera_thread(void *_cam)
 	        pn_log("Error uninitialising PVCAM");
 	    pn_log("PVCAM uninitialised");
     }
+
+    pn_camera_free(cam);
 	pthread_exit(NULL);
 }
 

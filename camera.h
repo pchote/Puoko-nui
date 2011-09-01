@@ -57,13 +57,14 @@ typedef struct
 	PNCameraMode mode;
 	uns16 frame_width;
 	uns16 frame_height;
-	int16 temperature;
+	float temperature;
 
 	/* internal use only */
 	int16 handle;
 	void *image_buffer;
 	uns32 image_buffer_size;
     rs_bool simulated_frame_available;
+    pthread_mutex_t read_mutex;
 } PNCamera;
 
 PNCamera pn_camera_new();

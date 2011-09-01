@@ -102,7 +102,7 @@ static WINDOW *create_camera_window()
     return win;
 }
 
-static void update_camera_window(PNCameraMode mode, int temperature)
+static void update_camera_window(PNCameraMode mode, float temp)
 {
 	/* Camera status */
 	char *label;
@@ -135,7 +135,7 @@ static void update_camera_window(PNCameraMode mode, int temperature)
     
 	if (mode == ACQUIRING || mode == IDLE)
 	{
-	    sprintf(tempbuf, "%0.02f C     ",(float)temperature/100);
+	    sprintf(tempbuf, "%0.02f C     ", temp);
         tempstring = tempbuf;
 	}
 	mvwaddstr(camera_window, 2, 15, tempstring);
@@ -383,7 +383,7 @@ static void update_exposure_window()
 }
 
 PNCameraMode last_camera_mode;
-int last_camera_temperature;
+float last_camera_temperature;
 int last_calibration_framecount;
 int last_run_number;
 
@@ -434,8 +434,10 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera, PNPreferences *prefs)
     for (;;)
     {
         // Read once at the start of the loop so values remain consistent
+        pthread_mutex_lock(&camera->read_mutex);
         PNCameraMode camera_mode = camera->mode;
-        int camera_temperature = camera->temperature;
+        float camera_temperature = camera->temperature;
+        pthread_mutex_unlock(&camera->read_mutex);
 
         int ch;
         while ((ch = getch()) != ERR)
