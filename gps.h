@@ -26,7 +26,8 @@ typedef enum
     DEBUG_RAW = 0xA5,
     START_EXPOSURE = 0xA6,
     STOP_EXPOSURE = 0xA7,
-    RESET = 0xA8
+    RESET = 0xA8,
+    DOWNLOADCOMPLETE = 0xA9,
 } PNGPSRequest;
 
 /* Represents a timestamp from the GPS */
@@ -55,9 +56,9 @@ typedef struct
 	struct ftdi_context *context;
     rs_bool shutdown;
     PNGPSTimestamp current_timestamp;
-    pthread_mutex_t currenttime_mutex;
     PNGPSTimestamp download_timestamp;
-    pthread_mutex_t downloadtime_mutex;
+    int camera_downloading;
+    pthread_mutex_t read_mutex;
 
     unsigned char send_buffer[256];
     unsigned char send_length;

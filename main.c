@@ -102,11 +102,11 @@ void pn_save_frame(PNFrame *frame)
 	char gpstimebuf[15];
 
     /* Get the last download pulse time from the gps */
-    pthread_mutex_lock(&gps.downloadtime_mutex);
+    pthread_mutex_lock(&gps.read_mutex);
     PNGPSTimestamp end = gps.download_timestamp;
     rs_bool was_valid = end.valid;
     gps.download_timestamp.valid = FALSE;
-    pthread_mutex_unlock(&gps.downloadtime_mutex);
+    pthread_mutex_unlock(&gps.read_mutex);
 	
 	/* synctime gives the *end* of the exposure. The start of the exposure
 	 * is found by subtracting the exposure time */
@@ -184,9 +184,9 @@ void pn_preview_frame(PNFrame *frame)
 	fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
 	/* Write frame data to the OBJECT header for ds9 to display */
-    pthread_mutex_lock(&gps.downloadtime_mutex);
+    pthread_mutex_lock(&gps.read_mutex);
     PNGPSTimestamp end = gps.download_timestamp;
-    pthread_mutex_unlock(&gps.downloadtime_mutex);
+    pthread_mutex_unlock(&gps.read_mutex);
 
 	char buf[128];
     sprintf(buf, "Exposure ending %04d-%02d-%02d %02d:%02d:%02d",

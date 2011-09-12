@@ -62,9 +62,9 @@ static void update_time_window(PNGPS *gps)
 	mvwaddstr(time_window, 2, 13, strtime);
 
 	/* GPS time */
-    pthread_mutex_lock(&gps->currenttime_mutex);
+    pthread_mutex_lock(&gps->read_mutex);
     PNGPSTimestamp ts = gps->current_timestamp;
-    pthread_mutex_unlock(&gps->currenttime_mutex);
+    pthread_mutex_unlock(&gps->read_mutex);
 	
     mvwaddstr(time_window, 1, 13, (ts.locked ? "Locked  " : "Unlocked"));
 
@@ -102,7 +102,7 @@ static WINDOW *create_camera_window()
     return win;
 }
 
-static void update_camera_window(PNCameraMode mode, float temp)
+static void update_camera_window(PNCameraMode mode, int camera_downloading, float temp)
 {
 	/* Camera status */
 	char *label;
@@ -118,7 +118,10 @@ static void update_camera_window(PNCameraMode mode, float temp)
 			label = "Idle        ";
 		break;
 		case ACQUIRING:
-			label = "Acquiring   ";
+            if (camera_downloading)
+                label = "Downloading ";
+            else
+                label = "Acquiring   ";
         break;
         case DOWNLOADING:
             label = "Downloading ";
@@ -401,7 +404,7 @@ PNCameraMode last_camera_mode;
 float last_camera_temperature;
 int last_calibration_framecount;
 int last_run_number;
-
+int last_camera_downloading;
 PNUIInputType input_type = INPUT_MAIN;
 void pn_ui_run(PNGPS *gps, PNCamera *camera)
 {
@@ -438,9 +441,13 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
     update_command_window(last_camera_mode);
     update_metadata_window();
 
+    pthread_mutex_lock(&gps->read_mutex);
+    last_camera_downloading = gps->camera_downloading;
+    pthread_mutex_unlock(&gps->read_mutex);
+
     update_acquisition_window();
     update_time_window(gps);
-    update_camera_window(last_camera_mode, last_camera_temperature);
+    update_camera_window(last_camera_mode, last_camera_downloading, last_camera_temperature);
     hide_panel(exposure_panel);
 
     // Only wait for 100ms for input so we can keep the ui up to date
@@ -453,6 +460,10 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
         PNCameraMode camera_mode = camera->mode;
         float camera_temperature = camera->temperature;
         pthread_mutex_unlock(&camera->read_mutex);
+
+        pthread_mutex_lock(&gps->read_mutex);
+        int camera_downloading = gps->camera_downloading;
+        pthread_mutex_unlock(&gps->read_mutex);
 
         int ch;
         while ((ch = getch()) != ERR)
@@ -561,17 +572,19 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
             last_log_position = log_position;
         }
 
-        if (last_camera_mode != camera_mode)
+        if (last_camera_mode != camera_mode ||
+            last_camera_downloading != camera_downloading)
         {
             update_command_window(camera_mode);
             update_status_window(camera_mode);
-            update_camera_window(camera_mode, camera_temperature);
+            update_camera_window(camera_mode, camera_downloading, camera_temperature);
             last_camera_mode = camera_mode;
+            last_camera_downloading = camera_downloading;
         }
 
         if (last_camera_temperature != camera_temperature)
         {
-            update_camera_window(camera_mode, camera_temperature);
+            update_camera_window(camera_mode, camera_downloading, camera_temperature);
             last_camera_temperature = camera_temperature;
         }
 

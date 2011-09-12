@@ -40,9 +40,9 @@ PNGPS pn_gps_new(rs_bool simulate)
     ret.current_timestamp.valid = FALSE;
     ret.send_length = 0;
     ret.simulated = FALSE;
+    ret.camera_downloading = 0;
 
-	pthread_mutex_init(&ret.currenttime_mutex, NULL);
-    pthread_mutex_init(&ret.downloadtime_mutex, NULL);
+	pthread_mutex_init(&ret.read_mutex, NULL);
     pthread_mutex_init(&ret.sendbuffer_mutex, NULL);
 
     if (simulate)
@@ -78,8 +78,7 @@ PNGPS pn_gps_new(rs_bool simulate)
 void pn_gps_free(PNGPS *gps)
 {
 	check_gps(gps, __FILE__, __LINE__);
-    pthread_mutex_destroy(&gps->currenttime_mutex);
-    pthread_mutex_destroy(&gps->downloadtime_mutex);
+    pthread_mutex_destroy(&gps->read_mutex);
     pthread_mutex_destroy(&gps->sendbuffer_mutex);
 }
 
@@ -279,7 +278,7 @@ void *pn_gps_thread(void *_gps)
                 if (gps->simulated_remaining <= 0 && gps->simulated_exptime > 0)
                 {
                     gps->simulated_remaining = gps->simulated_exptime;
-                    pthread_mutex_lock(&gps->downloadtime_mutex);
+                    pthread_mutex_lock(&gps->read_mutex);
                     gps->download_timestamp.year = t->tm_year + 1900;
                     gps->download_timestamp.month = t->tm_mon;
                     gps->download_timestamp.day = t->tm_wday;
@@ -297,12 +296,12 @@ void *pn_gps_thread(void *_gps)
                            gps->download_timestamp.minutes,   // Minute
                            gps->download_timestamp.seconds,   // Second
                            gps->download_timestamp.locked); // Locked
-                    pthread_mutex_unlock(&gps->downloadtime_mutex);
+                    pthread_mutex_unlock(&gps->read_mutex);
 
                     simulate_camera_download();
                 }
 
-                pthread_mutex_lock(&gps->currenttime_mutex);
+                pthread_mutex_lock(&gps->read_mutex);
                 gps->current_timestamp.year = t->tm_year + 1900;
                 gps->current_timestamp.month = t->tm_mon;
                 gps->current_timestamp.day = t->tm_wday;
@@ -312,7 +311,7 @@ void *pn_gps_thread(void *_gps)
                 gps->current_timestamp.locked = 1;
                 gps->current_timestamp.remaining_exposure = gps->simulated_remaining;
                 gps->current_timestamp.valid = TRUE;
-                pthread_mutex_unlock(&gps->currenttime_mutex);
+                pthread_mutex_unlock(&gps->read_mutex);
 
                 gps->simulated_unixtime = curunixtime;
             }
@@ -382,7 +381,7 @@ void *pn_gps_thread(void *_gps)
                     switch(gps_packet[2])
                     {
                         case CURRENTTIME:
-	                        pthread_mutex_lock(&gps->currenttime_mutex);
+	                        pthread_mutex_lock(&gps->read_mutex);
                             gps->current_timestamp.year = (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00);
                             gps->current_timestamp.month = gps_packet[7];
                             gps->current_timestamp.day = gps_packet[6];
@@ -393,7 +392,7 @@ void *pn_gps_thread(void *_gps)
                             gps->current_timestamp.remaining_exposure = gps_packet[11];
                             gps->current_timestamp.valid = TRUE;
 
-                            pthread_mutex_unlock(&gps->currenttime_mutex);
+                            pthread_mutex_unlock(&gps->read_mutex);
 /*
                             pn_log("Time: %04d-%02d-%02d %02d:%02d:%02d (%03d:%d)", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
                                                                       gps_packet[7],   // Month
@@ -406,7 +405,7 @@ void *pn_gps_thread(void *_gps)
 */
                         break;
                         case DOWNLOADTIME:
-                            pthread_mutex_lock(&gps->downloadtime_mutex);
+                            pthread_mutex_lock(&gps->read_mutex);
                             gps->download_timestamp.year = (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00);
                             gps->download_timestamp.month = gps_packet[7];
                             gps->download_timestamp.day = gps_packet[6];
@@ -415,7 +414,6 @@ void *pn_gps_thread(void *_gps)
                             gps->download_timestamp.seconds = gps_packet[5];
                             gps->download_timestamp.locked = gps_packet[10];
                             gps->download_timestamp.valid = TRUE;
-                            pthread_mutex_unlock(&gps->downloadtime_mutex);
                             pn_log("Download: %04d-%02d-%02d %02d:%02d:%02d (%d)", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
                                                                       gps_packet[7],   // Month
                                                                       gps_packet[6],   // Day
@@ -424,9 +422,18 @@ void *pn_gps_thread(void *_gps)
                                                                       gps_packet[5],   // Second
                                                                       gps_packet[10]); // Locked
 
+                            // Mark the camera as downloading for UI feedback and shutdown purposes
+                            gps->camera_downloading = TRUE;
+                            pthread_mutex_unlock(&gps->read_mutex);
+
                             // Trigger a fake download if the camera is simulated
                             simulate_camera_download();
                         break;
+                        case DOWNLOADCOMPLETE:
+                            pthread_mutex_lock(&gps->read_mutex);
+                            gps->camera_downloading = FALSE;
+                            pthread_mutex_unlock(&gps->read_mutex);
+                            break;
                         case DEBUG_STRING:
                             gps_packet[gps_packet[1]+3] = '\0';
                             pn_log("GPS Debug: `%s`", &gps_packet[3]);
