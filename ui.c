@@ -316,6 +316,9 @@ static void update_command_window(PNCameraMode camera_mode)
     wclear(command_window);
     mvwhline(command_window, 0, 0, 0, col);
 
+    if (should_quit)
+        return;
+
     PNFrameType type = pn_preference_char(OBJECT_TYPE);
     unsigned char save = pn_preference_char(SAVE_FRAMES);
     int remaining_frames = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
@@ -460,7 +463,26 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
                 case INPUT_MAIN:
                     switch (ch)
                     {
-                        case 0x05: // ^E
+                        case 0x01: // ^A - Toggle Acquire
+                            if (camera_mode == IDLE)
+                            {
+                                pthread_mutex_lock(&camera->read_mutex);
+                                camera->desired_mode = ACQUIRING;
+                                pthread_mutex_unlock(&camera->read_mutex);
+
+                                unsigned char exptime = pn_preference_char(EXPOSURE_TIME);
+                                pn_gps_start_exposure(gps, exptime);
+                            }
+                            else if (camera_mode == ACQUIRING)
+                            {
+                                pthread_mutex_lock(&camera->read_mutex);
+                                camera->desired_mode = ACQUIRE_WAIT;
+                                pthread_mutex_unlock(&camera->read_mutex);
+
+                                pn_gps_stop_exposure(gps);
+                            }
+                            break;
+                        case 0x05: // ^E - Set Exposure
                             if (camera_mode != IDLE)
                                 break;
 
@@ -472,7 +494,7 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
                             hide_panel(command_panel);
                             show_panel(exposure_panel);
                         break;
-                        case 0x13: // ^S
+                        case 0x13: // ^S - Toggle Save
                             // Can't enable saving for calibration frames after the target count has been reached
                             if (!pn_preference_allow_save())
                             {
@@ -485,8 +507,10 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
                             update_command_window(camera_mode);
                             pn_log("%s saving", save ? "Enabled" : "Disabled");
                         break;
-                        case 0x03: // ^C
+                        case 0x03: // ^C - Quit
                             should_quit = TRUE;
+                            pn_log("Shutting down...");
+                            update_command_window(camera_mode);
                         break;
                         default:
                             sprintf(buf, "Pressed %c 0x%02x", ch, ch);
@@ -552,7 +576,7 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
         }
 
         int remaining_frames = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
-        int run_number = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
+        int run_number = pn_preference_int(RUN_NUMBER);
         if (remaining_frames != last_calibration_framecount ||
             run_number != last_run_number)
         {
@@ -581,14 +605,6 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
 
 void pn_ui_shutdown()
 {
-    delwin(time_window);
-    delwin(camera_window);
-    delwin(acquisition_window);
-    delwin(metadata_window);
-    delwin(log_window);
-    delwin(command_window);
-    delwin(exposure_window);
-
     del_panel(time_panel);
     del_panel(camera_panel);
     del_panel(acquisition_panel);
@@ -596,6 +612,14 @@ void pn_ui_shutdown()
     del_panel(log_panel);
     del_panel(command_panel);
     del_panel(exposure_panel);
+
+    delwin(time_window);
+    delwin(camera_window);
+    delwin(acquisition_window);
+    delwin(metadata_window);
+    delwin(log_window);
+    delwin(command_window);
+    delwin(exposure_window);
 
     for (int i = 0; i < 256; i++)
         free(log_messages[i]);

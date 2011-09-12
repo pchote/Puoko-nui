@@ -282,16 +282,21 @@ void *pn_camera_thread(void *_cam)
     /* Loop and respond to user commands */
 	struct timespec wait = {0,1e8};
     int temp_ticks = 0;
-    while (cam->desired_mode != SHUTDOWN)
+
+    pthread_mutex_lock(&cam->read_mutex);
+    PNCameraMode desired_mode = cam->desired_mode;
+    pthread_mutex_unlock(&cam->read_mutex);
+
+    while (desired_mode != SHUTDOWN)
     {
         // Start/stop acquisition
-        if (cam->desired_mode == ACQUIRING && cam->mode == IDLE)
+        if (desired_mode == ACQUIRING && cam->mode == IDLE)
             start_acquiring(cam);
 
-        if (cam->desired_mode == ACQUIRE_WAIT && cam->mode == ACQUIRING)
+        if (desired_mode == ACQUIRE_WAIT && cam->mode == ACQUIRING)
             cam->mode = ACQUIRE_WAIT;
 
-        if (cam->desired_mode == IDLE && cam->mode == ACQUIRE_WAIT)
+        if (desired_mode == IDLE && cam->mode == ACQUIRE_WAIT)
             stop_acquiring(cam);
         
         // Check for new frame
@@ -325,6 +330,10 @@ void *pn_camera_thread(void *_cam)
             read_temperature(cam);
 	    }
         nanosleep(&wait, NULL);
+
+        pthread_mutex_lock(&cam->read_mutex);
+        desired_mode = cam->desired_mode;
+        pthread_mutex_unlock(&cam->read_mutex);
     }
 
     /* Shutdown camera */

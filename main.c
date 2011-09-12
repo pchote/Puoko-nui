@@ -241,37 +241,12 @@ void simulate_camera_download()
 /*
  * Start or stop acquiring frames in response to user input
  */
-/*
-static void startstop_pressed(GtkWidget *widget, gpointer data)
-{
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) 
-	{
-		pn_update_camera_preferences(&view);
-        pn_set_camera_editable(&view, FALSE);
-	
-		// Set the exposure time
-		int exptime = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(view.exptime_entry));
-		pn_gps_start_exposure(&gps, exptime);
-        first_frame = TRUE;
-
-		// Start acquisition
-        camera.desired_mode = ACQUIRING;
-		gtk_button_set_label(GTK_BUTTON(widget), "Stop Acquisition");
-	}
-	else
-	{
-		// Stop acquisition
-        gtk_button_set_label(GTK_BUTTON(view.startstop_btn), "Start Acquisition");
-        pn_set_camera_editable(&view, TRUE);
-        camera.desired_mode = ACQUIRE_WAIT;
-        pn_gps_stop_exposure(&gps);
-    }
-}
-*/
 
 void shutdown_camera()
 {
+    pthread_mutex_lock(&camera.read_mutex);
     camera.desired_mode = IDLE;
+    pthread_mutex_unlock(&camera.read_mutex);
 }
 
 static pthread_t gps_thread;
@@ -346,7 +321,9 @@ void pn_shutdown()
     closing = TRUE;
 
 	/* camera and gps shutdown are done in their own threads */
+    pthread_mutex_lock(&camera.read_mutex);
     camera.desired_mode = SHUTDOWN;
+    pthread_mutex_unlock(&camera.read_mutex);
     gps.shutdown = TRUE;
 
 	void **retval = NULL;
