@@ -25,9 +25,28 @@
 PNCamera camera;
 PNGPS gps;
 
-/* A quick and dirty method for opening ds9
- * Beware of race conditions: it will take some time
- * between calling this, and ds9 actually being available */
+#pragma mark Utility Routines
+// Trigger a simulated frame download
+// Runs in the GPS thread
+void simulate_camera_download()
+{
+    if (camera.handle == SIMULATED)
+        camera.simulated_frame_available = TRUE;
+}
+
+// Issue a camera stop-sequence command
+// Runs in the GPS thread
+void shutdown_camera()
+{
+    pthread_mutex_lock(&camera.read_mutex);
+    camera.desired_mode = IDLE;
+    pthread_mutex_unlock(&camera.read_mutex);
+}
+
+// A quick and dirty method for opening ds9
+// Beware of race conditions: it will take some time
+// between calling this, and ds9 actually being available
+// Runs at program startup in the main thread, or on frame acquisition in the camera thread
 static void launch_ds9()
 {
     char *names[1];
@@ -44,36 +63,39 @@ static void launch_ds9()
         system("ds9 -title Puoko-nui&");
 }
 
-/* Write frame data to a fits file */
+#pragma mark Frame Saving/Preview. Runs in camera thread
+
+// Write frame data to a fits file
 void pn_save_frame(PNFrame *frame)
 {
 	fitsfile *fptr;
 	int status = 0;
 
-	/* Saving will fail if a file with the same name already exists */
+    // Construct the output filepath from the output dir, run prefix, and run number.
+	// Saving will fail if a file with the same name already exists
     char *output_dir = pn_preference_string(OUTPUT_DIR);
     char *run_prefix = pn_preference_string(RUN_PREFIX);
     int run_number = pn_preference_int(RUN_NUMBER);
 
     char *filepath;
 	asprintf(&filepath, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number);
+    free(output_dir);
+
     pn_log("Saving frame %s", filepath);
-	
-	/* Create a new fits file */
+
+	// Create a new fits file
 	if (fits_create_file(&fptr, filepath, &status))
     {
         pn_log("Unable to save file. fitsio error %d", status);
         return;
     }
 
-	/* Create the primary array image (16-bit short integer pixels */
+	// Create the primary array image (16-bit short integer pixels
 	long size[2] = { frame->width, frame->height };
 	fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
-	/* Write header keys */
+	// Write header keys
 	fits_update_key(fptr, TSTRING, "RUN", (void *)run_prefix, "name of this run", &status);
-	
-    free(output_dir);
     free(run_prefix);
 
     char *object_name = pn_preference_string(OBJECT_NAME);
@@ -98,24 +120,29 @@ void pn_save_frame(PNFrame *frame)
     fits_update_key(fptr, TSTRING, "PROGRAM", "puoko-nui", "Data acquistion program", &status);
 	fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
 
-	char datebuf[15];
-	char gpstimebuf[15];
-
-    /* Get the last download pulse time from the gps */
+    // Get the last download pulse time from the gps
     pthread_mutex_lock(&gps.read_mutex);
+
     PNGPSTimestamp end = gps.download_timestamp;
     rs_bool was_valid = end.valid;
     gps.download_timestamp.valid = FALSE;
+
+    // Invalidate the timestamp if the GPS thread has died
+    if (gps.fatal_error != NULL)
+        was_valid = FALSE;
+
     pthread_mutex_unlock(&gps.read_mutex);
-	
-	/* synctime gives the *end* of the exposure. The start of the exposure
-	 * is found by subtracting the exposure time */
+
+	// synctime gives the *end* of the exposure. The start of the exposure
+    // is found by subtracting the exposure time
 	PNGPSTimestamp start = end;
 	pn_timestamp_subtract_seconds(&start, exposure_time);
 
+    char datebuf[15];
 	sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
 	fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
 
+    char gpstimebuf[15];
 	sprintf(gpstimebuf, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
 	fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
 
@@ -123,14 +150,14 @@ void pn_save_frame(PNFrame *frame)
     fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
 	fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
 
-    /* The timestamp may not be valid (spurious downloads, etc) */
+    // The timestamp may not be valid (spurious downloads, etc)
     if (!was_valid)
 	    fits_update_key(fptr, TLOGICAL, "GPS-VALID", &was_valid, "GPS timestamp has been used already", &status);
 
-	char timebuf[15];
 	time_t pcend = time(NULL);
 	time_t pcstart = pcend - exposure_time;
 
+    char timebuf[15];
 	strftime(timebuf, 15, "%Y-%m-%d", gmtime(&pcstart));
 	fits_update_key(fptr, TSTRING, "PC-DATE", (void *)timebuf, "Exposure start date (PC)", &status);
 
@@ -140,113 +167,82 @@ void pn_save_frame(PNFrame *frame)
 	strftime(timebuf, 15, "%H:%M:%S", gmtime(&pcend));
 	fits_update_key(fptr, TSTRING, "PC-END", (void *)timebuf, "Exposure end time (PC)", &status);
 
-    /* Camera temperature */
+    // Camera temperature
     pthread_mutex_lock(&camera.read_mutex);
     sprintf(timebuf, "%0.02f", camera.temperature);
     pthread_mutex_unlock(&camera.read_mutex);
 
 	fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)timebuf, "CCD temperature at end of exposure in deg C", &status);
 
-	/* Write the frame data to the image */
+	// Write the frame data to the image and close the file
 	fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
-
 	fits_close_file(fptr, &status);
 
-	/* print out any error messages */
-	fits_report_error(stderr, status);
+	// Log any error messages
+    char fitserr[128];
+    while (fits_read_errmsg(fitserr))
+        pn_log("cfitsio error: %s", fitserr);
+
+    // Call frame_available.sh to run the online reduction code
     char cmd[PATH_MAX];
-    sprintf(cmd,"./frame_available.sh %s&",filepath);
+    sprintf(cmd,"./frame_available.sh %s&", filepath);
     system(cmd);
 
     free(filepath);
 }
 
+// Display a frame in DS9
 void pn_preview_frame(PNFrame *frame)
 {
 	fitsfile *fptr;
 	int status = 0;
 	void *fitsbuf;
 
-	/* Size of the memory buffer = 1024*1024*2 bytes 
-	 * for pixels + 4096 for the header */
-	/* TODO: What is a good number for this? */
+    // Create a new fits file in memory
+	// Size of the memory buffer = 1024*1024*2 bytes
+    // for pixels + 4096 for the header
 	size_t fitssize = 2101248;
-
-	/* Allocate a chunk of memory for the image */
 	fitsbuf = malloc(fitssize);
+    if (!fitsbuf)
+        return;
 
-	/* Create a new fits file in memory */
 	fits_create_memfile(&fptr, &fitsbuf, &fitssize, 2880, realloc, &status);
 
-	/* Create the primary array image (16-bit short integer pixels */
+	// Create the primary array image (16-bit short integer pixels
 	long size[2] = { frame->width, frame->height };
 	fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
-	/* Write frame data to the OBJECT header for ds9 to display */
+	// Write a message into the OBJECT header for ds9 to display
+	char buf[128];
     pthread_mutex_lock(&gps.read_mutex);
     PNGPSTimestamp end = gps.download_timestamp;
     pthread_mutex_unlock(&gps.read_mutex);
-
-	char buf[128];
     sprintf(buf, "Exposure ending %04d-%02d-%02d %02d:%02d:%02d",
             end.year, end.month, end.day,
             end.hours, end.minutes, end.seconds);
-
     fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
 
-	/* Write the frame data to the image */
+	// Write the frame data to the image
 	fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
 	fits_close_file(fptr, &status);
 
-	/* print out any error messages */
 	if (status)
-		fits_report_error(stderr, status);
-	else /* Tell ds9 to draw the new image via XPA */
-		if (0 == XPASet(NULL, "Puoko-nui", "fits", NULL, fitsbuf, fitssize, NULL, NULL, 1))
-            launch_ds9(); // Launch a new instance of ds9 to be available for the next frame
-	
+    {
+        // print out any error messages
+		char *fitserr = NULL;
+        while (fits_read_errmsg(fitserr))
+            pn_log("cfitsio error: %s", fitserr);
+    }
+	else
+    {
+        // Use XPA to display the image in ds9
+        if (0 == XPASet(NULL, "Puoko-nui", "fits", NULL, fitsbuf, fitssize, NULL, NULL, 1))
+            launch_ds9();
+    }
 	free(fitsbuf);
 }
 
-rs_bool first_frame = FALSE;
-/* Called when the acquisition thread has downloaded a frame
- * Note: this runs in the acquisition thread *not* the main thread. */
-void pn_frame_downloaded_cb(PNFrame *frame)
-{
-	/* When starting a run, the first frame will not have a valid exposure time */
-	if (first_frame)
-    {
-        first_frame = FALSE;
-        return;
-    }
-
-	pn_log("Frame downloaded");
-	if (pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save())
-	{
-		pn_save_frame(frame);
-        pn_preference_increment_framecount();
-	}
-
-	/* Display the frame in ds9 */
-	pn_preview_frame(frame);
-}
-
-void simulate_camera_download()
-{
-    if (camera.handle == SIMULATED)
-        camera.simulated_frame_available = TRUE;
-}
-
-/*
- * Start or stop acquiring frames in response to user input
- */
-
-void shutdown_camera()
-{
-    pthread_mutex_lock(&camera.read_mutex);
-    camera.desired_mode = IDLE;
-    pthread_mutex_unlock(&camera.read_mutex);
-}
+#pragma mark Main program logic
 
 static pthread_t gps_thread;
 static rs_bool gps_thread_initialized = FALSE;
@@ -256,6 +252,10 @@ static rs_bool camera_thread_initialized = FALSE;
 FILE *logFile;
 int main( int argc, char *argv[] )
 {
+    //
+    // Startup
+    //
+
     // Open the log file for writing
     time_t start = time(NULL);
     char namebuf[32];
@@ -263,7 +263,7 @@ int main( int argc, char *argv[] )
     logFile = fopen(namebuf, "w");
     init_log_gui();
 
-    launch_ds9();	
+    launch_ds9();
 	pn_init_preferences("preferences.dat");
 
 	rs_bool simulate_camera = FALSE;
@@ -283,19 +283,20 @@ int main( int argc, char *argv[] )
 			disable_pixel_binning = TRUE;
     }
 
-	/* Initialise the gps on its own thread*/
-	gps = pn_gps_new(simulate_gps);
+    //
+    // Initialization
+    //
 
+	// GPS Timer
+	gps = pn_gps_new(simulate_gps);
 	pthread_create(&gps_thread, NULL, pn_gps_thread, (void *)&gps);
     gps_thread_initialized = TRUE;
 
-	/* Initialise the camera on its own thread */
+	// Camera
 	camera = pn_camera_new();
 
     if (disable_pixel_binning)
         camera.binsize = 1;
-
-	camera.on_frame_available = pn_frame_downloaded_cb;
 
     if (simulate_camera)
         pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)&camera);
@@ -304,12 +305,10 @@ int main( int argc, char *argv[] )
 
     camera_thread_initialized = TRUE;
 
-
     //
 	// Main program loop is run by the ui code
     //
     pn_ui_run(&gps, &camera);
-
 
     //
 	// Shutdown hardware and cleanup
@@ -337,6 +336,7 @@ int main( int argc, char *argv[] )
     return 0;
 }
 
+// Add a message to the gui and saved log files
 void pn_log(const char * format, ...)
 {
 	va_list args;

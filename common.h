@@ -6,10 +6,13 @@
 */
 
 #include <stdarg.h>
+#include "camera.h"
 
 #ifndef COMMON_H
 #define COMMON_H
 
+void pn_save_frame(PNFrame *frame);
+void pn_preview_frame(PNFrame *frame);
 void pn_log(const char * format, ...);
 
 #endif

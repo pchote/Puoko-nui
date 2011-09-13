@@ -13,6 +13,7 @@
 
 #include "common.h"
 #include "camera.h"
+#include "preferences.h"
 
 #pragma mark Creation and Destruction (Called from main thread)
 
@@ -28,6 +29,7 @@ PNCamera pn_camera_new()
 	cam.binsize = 2;
     cam.temperature = 0;
     cam.fatal_error = NULL;
+    cam.first_frame = TRUE;
     pthread_mutex_init(&cam.read_mutex, NULL);
 
 	return cam;
@@ -50,6 +52,29 @@ static void set_mode(PNCamera *cam, PNCameraMode mode)
     pthread_mutex_lock(&cam->read_mutex);
     cam->mode = mode;
     pthread_mutex_unlock(&cam->read_mutex);
+}
+
+// Decide what to do with an acquired frame
+static void frame_downloaded(PNCamera *cam, PNFrame *frame)
+{
+	// When starting a run, the first frame will not be exposed
+    // for the correct time, so we discard it
+	if (cam->first_frame)
+    {
+        pn_log("Discarding first frame");
+        cam->first_frame = FALSE;
+        return;
+    }
+
+	pn_log("Frame downloaded");
+	if (pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save())
+	{
+		pn_save_frame(frame);
+        pn_preference_increment_framecount();
+	}
+
+	// Display the frame in ds9
+	pn_preview_frame(frame);
 }
 
 #pragma mark Real Camera Routines
@@ -177,6 +202,8 @@ static void initialize_camera(PNCamera *cam)
     if (!pl_set_param(cam->handle, PARAM_SPDTAB_INDEX, (void*) &param))
         pvcam_error(cam, "Error setting PARAM_SPDTAB_INDEX", __LINE__);
 
+    cam->first_frame = TRUE;
+
     pn_log("Camera initialized");
     set_mode(cam, IDLE);
 }
@@ -302,7 +329,7 @@ void *pn_camera_thread(void *_cam)
 		    frame.width = cam->frame_width;
 		    frame.height = cam->frame_height;
 		    frame.data = camera_frame;
-		    cam->on_frame_available(&frame);
+		    frame_downloaded(cam, &frame);
 
 		    // Unlock the frame buffer for reuse
             if (!pl_exp_unlock_oldest_frame(cam->handle))
@@ -356,6 +383,7 @@ void *pn_simulated_camera_thread(void *_cam)
 
     // Initialize the camera
     cam->handle = SIMULATED;
+    cam->first_frame = TRUE;
     pn_log("Initialising simulated camera");
 
     // Wait a bit to simulate hardware startup time
@@ -411,7 +439,7 @@ void *pn_simulated_camera_thread(void *_cam)
 		    frame.width = cam->frame_width;
 		    frame.height = cam->frame_height;
 		    frame.data = cam->image_buffer;
-		    cam->on_frame_available(&frame);
+		    frame_downloaded(cam, &frame);
             cam->simulated_frame_available = FALSE;
         }
 

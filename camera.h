@@ -50,7 +50,6 @@ typedef struct
 {
 	/* read/write */
 	uns16 binsize;
-	void (*on_frame_available)(PNFrame *frame);
     PNCameraMode desired_mode;
 
 	/* read only */
@@ -66,6 +65,7 @@ typedef struct
 	uns32 image_buffer_size;
     rs_bool simulated_frame_available;
     pthread_mutex_t read_mutex;
+    rs_bool first_frame;
 } PNCamera;
 
 PNCamera pn_camera_new();
