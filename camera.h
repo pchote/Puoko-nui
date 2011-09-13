@@ -24,7 +24,7 @@ enum ForceReadOut {
 /* Represents the current state of the camera */
 typedef enum
 {
-    UNINITIALISED,
+    UNINITIALIZED,
 	INITIALISING,
     IDLE,
     ACQUIRE_START,
@@ -71,5 +71,6 @@ typedef struct
 PNCamera pn_camera_new();
 void pn_camera_free(PNCamera *cam);
 void *pn_camera_thread(void *_cam);
+void *pn_simulated_camera_thread(void *_cam);
 
 #endif

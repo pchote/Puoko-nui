@@ -291,15 +291,17 @@ int main( int argc, char *argv[] )
 
 	/* Initialise the camera on its own thread */
 	camera = pn_camera_new();
-    if (simulate_camera)
-        camera.handle = SIMULATED;
 
     if (disable_pixel_binning)
         camera.binsize = 1;
 
 	camera.on_frame_available = pn_frame_downloaded_cb;
 
-	pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
+    if (simulate_camera)
+        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)&camera);
+    else
+        pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
+
     camera_thread_initialized = TRUE;
 
 
