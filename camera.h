@@ -58,6 +58,7 @@ typedef struct
 	uns16 frame_width;
 	uns16 frame_height;
 	float temperature;
+    char *fatal_error;
 
 	/* internal use only */
 	int16 handle;
@@ -68,5 +69,7 @@ typedef struct
 } PNCamera;
 
 PNCamera pn_camera_new();
+void pn_camera_free(PNCamera *cam);
 void *pn_camera_thread(void *_cam);
+
 #endif

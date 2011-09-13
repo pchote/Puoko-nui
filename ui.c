@@ -455,6 +455,14 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
     timeout(100);
     for (;;)
     {
+        if (camera->fatal_error != NULL)
+        {
+            pn_log("Fatal camera error: %s", camera->fatal_error);
+            timeout(-1);
+            getch();
+            break;
+        }
+
         // Read once at the start of the loop so values remain consistent
         pthread_mutex_lock(&camera->read_mutex);
         PNCameraMode camera_mode = camera->mode;
@@ -613,11 +621,8 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
         if (should_quit)
             break;
     }
-}
 
-
-void pn_ui_shutdown()
-{
+    // Destroy ui
     del_panel(time_panel);
     del_panel(camera_panel);
     del_panel(acquisition_panel);

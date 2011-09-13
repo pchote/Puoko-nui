@@ -9,10 +9,13 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <string.h>
 
 #include "common.h"
 #include "camera.h"
 
+// Initialise a new PNCamera struct.
+// Called by the main thread
 PNCamera pn_camera_new()
 {
 	PNCamera cam;
@@ -23,15 +26,24 @@ PNCamera pn_camera_new()
 	cam.image_buffer_size = 0;
 	cam.binsize = 2;
     cam.temperature = 0;
+    cam.fatal_error = NULL;
     pthread_mutex_init(&cam.read_mutex, NULL);
 
 	return cam;
 }
 
+// Destroy a PNCamera struct.
+// Called by the main thread
 void pn_camera_free(PNCamera *cam)
 {
+    if (cam->fatal_error)
+        free(cam->fatal_error);
     pthread_mutex_destroy(&cam->read_mutex);
 }
+
+//
+// All following code runs on the camera thread
+//
 
 static void set_mode(PNCamera *cam, PNCameraMode mode)
 {
@@ -50,7 +62,7 @@ static void read_temperature(PNCamera *cam)
     pthread_mutex_unlock(&cam->read_mutex);
 }
 
-static void check_pvcam_error(const char * msg, int line)
+static void pvcam_error(PNCamera *cam, const char *msg, int line)
 {
 	int error = pl_error_code();
 	if (!error)
@@ -60,7 +72,8 @@ static void check_pvcam_error(const char * msg, int line)
 	pvmsg[0] = '\0';
 	pl_error_message(error, pvmsg);
 
-	pn_die("FATAL: %s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);
+    asprintf(&cam->fatal_error, "FATAL: %s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);    
+	pthread_exit(NULL);
 }
 
 static rs_bool frame_available(PNCamera *cam)
@@ -71,7 +84,7 @@ static rs_bool frame_available(PNCamera *cam)
     int16 status = READOUT_NOT_ACTIVE;
 	uns32 bytesStored = 0, numFilledBuffers = 0;
 	if (!pl_exp_check_cont_status(cam->handle, &status, &bytesStored, &numFilledBuffers))
-		check_pvcam_error("Error querying camera status", __LINE__);
+		pvcam_error(cam, "Error querying camera status", __LINE__);
 
 	return (status == FRAME_AVAILABLE);
 }
@@ -90,81 +103,84 @@ static void initialise(PNCamera *cam, rs_bool simulated)
         set_mode(cam, INITIALISING);
         
         if (!pl_pvcam_init())
-		    check_pvcam_error("Could not initialise the PVCAM library (pl_pvcam_init)", __LINE__);
+		    pvcam_error(cam, "Could not initialise the PVCAM library (pl_pvcam_init)", __LINE__);
 	
 	    uns16 pversion;
 	    if (!pl_pvcam_get_ver(&pversion))
-		    check_pvcam_error("Cannot query pvcam version", __LINE__);
+		    pvcam_error(cam, "Cannot query pvcam version", __LINE__);
 
 	    pn_log("PVCAM Version %d.%d.%d (0x%x) initialised",pversion>>8, (pversion & 0x00F0)>>4, pversion & 0x000F, pversion);
 
 	    int16 numCams = 0;
 	    if (!pl_cam_get_total(&numCams))
-		    check_pvcam_error("Cannot query the number of cameras (pl_cam_get_total)", __LINE__);
+		    pvcam_error(cam, "Cannot query the number of cameras (pl_cam_get_total)", __LINE__);
 
 	    pn_log("Found %d camera(s)", numCams);
 	    if (numCams == 0)
-		    pn_die("FATAL: No cameras are available (pass --simulate-camera to use simulated hardware).");
+		{
+            cam->fatal_error = strdup("FATAL: No cameras are available (pass --simulate-camera to use simulated hardware).");    
+            pthread_exit(NULL);
+        }
 
 	    /* Get the camera name (assume that we only have one camera) */
 	    char cameraName[CAM_NAME_LEN];
 	    if (!pl_cam_get_name(0, cameraName))
-		    check_pvcam_error("Cannot open the camera as could not get the camera name (pl_cam_get_name)", __LINE__);
+		    pvcam_error(cam, "Cannot open the camera as could not get the camera name (pl_cam_get_name)", __LINE__);
 
 	    /* Open the camera */
 	    if (!pl_cam_open(cameraName, &cam->handle, OPEN_EXCLUSIVE))
-		    check_pvcam_error("Cannot open the camera. Are you running as root?", __LINE__);
+		    pvcam_error(cam, "Cannot open the camera. Are you running as root?", __LINE__);
 
 	    /* Print the camera firmware version if available */
 	    char fwver_buf[16] = "Unknown";
 	    uns16 fwver;
 	    rs_bool avail = FALSE;
 	    if (!pl_get_param(cam->handle, PARAM_CAM_FW_VERSION, ATTR_AVAIL, (void *)&avail))
-		    check_pvcam_error("Error querying camera fw version", __LINE__);
+		    pvcam_error(cam, "Error querying camera fw version", __LINE__);
 
 	    if (avail)
 	    {
 		    if (pl_get_param(cam->handle, PARAM_CAM_FW_VERSION, ATTR_CURRENT, (void *)&fwver))
-			    check_pvcam_error("Error querying camera fw version", __LINE__);
+			    pvcam_error(cam, "Error querying camera fw version", __LINE__);
 		    sprintf(fwver_buf, "%d.%d (0x%x)", fwver >> 8, fwver & 0x00FF, fwver);
 	    }
 	    pn_log("Opened camera `%s`: Firmware version %s", cameraName, fwver_buf);
 
 	    /* Check camera status */
 	    if (!pl_cam_get_diags(cam->handle))
-		    check_pvcam_error("Camera failed diagnostic checks", __LINE__);
+		    pvcam_error(cam, "Camera failed diagnostic checks", __LINE__);
 
 	    /* Set camera parameters */
 	    uns16 shtr = 0;
 	    if (!pl_set_param(cam->handle, PARAM_SHTR_CLOSE_DELAY, (void*) &shtr))
-		    check_pvcam_error("Error setting PARAM_SHTR_CLOSE_DELAY]", __LINE__);
+		    pvcam_error(cam, "Error setting PARAM_SHTR_CLOSE_DELAY]", __LINE__);
 
 	    int param = OUTPUT_NOT_SCAN;
 	    if (!pl_set_param(cam->handle, PARAM_LOGIC_OUTPUT, (void*) &param))
-		    check_pvcam_error("Error setting OUTPUT_NOT_SCAN", __LINE__);
+		    pvcam_error(cam, "Error setting OUTPUT_NOT_SCAN", __LINE__);
 
         /* Trigger on positive edge of the download pulse */
 	    param = EDGE_TRIG_NEG;
 	    if (!pl_set_param(cam->handle, PARAM_EDGE_TRIGGER, (void*) &param))
-		    check_pvcam_error("Error setting PARAM_EDGE_TRIGGER", __LINE__);
+		    pvcam_error(cam, "Error setting PARAM_EDGE_TRIGGER", __LINE__);
        
         /* Use custom frame-transfer readout mode */
 	    param = MAKE_FRAME_TRANSFER;
 	    if (!pl_set_param(cam->handle, PARAM_FORCE_READOUT_MODE, (void*) &param))
-		    check_pvcam_error("Error setting PARAM_FORCE_READOUT_MODE", __LINE__);
+		    pvcam_error(cam, "Error setting PARAM_FORCE_READOUT_MODE", __LINE__);
         
         /* Set temperature */
         param = -5000; // -50 deg C
 	    //param = -4000; // -40 deg C
         //param = 0; // 0 deg C
 	    if (!pl_set_param(cam->handle, PARAM_TEMP_SETPOINT, (void*) &param))
-		    check_pvcam_error("Error setting PARAM_TEMP_SETPOINT", __LINE__);
+		    pvcam_error(cam, "Error setting PARAM_TEMP_SETPOINT", __LINE__);
 
         /* Set readout speed */
         param = 0; // 100kHz
         //param = 1; // 1Mhz
         if (!pl_set_param(cam->handle, PARAM_SPDTAB_INDEX, (void*) &param))
-		    check_pvcam_error("Error setting PARAM_SPDTAB_INDEX", __LINE__);
+		    pvcam_error(cam, "Error setting PARAM_SPDTAB_INDEX", __LINE__);
         
 	    pn_log("Camera initialised");
     }
@@ -193,10 +209,10 @@ static void start_acquiring(PNCamera *cam)
     {
         pn_log("Starting acquisition run...");
         if (!pl_get_param(cam->handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *)&cam->frame_width))
-	        check_pvcam_error("Error querying camera width", __LINE__);
+	        pvcam_error(cam, "Error querying camera width", __LINE__);
 
         if (!pl_get_param(cam->handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *)&cam->frame_height))
-	        check_pvcam_error("Error querying camera height", __LINE__);
+	        pvcam_error(cam, "Error querying camera height", __LINE__);
 
         pn_log("Pixel binning factor: %d", cam->binsize);
 
@@ -214,12 +230,12 @@ static void start_acquiring(PNCamera *cam)
 
         /* Init exposure control libs */
         if (!pl_exp_init_seq())
-	        check_pvcam_error("pl_exp_init_seq failed", __LINE__);
+	        pvcam_error(cam, "pl_exp_init_seq failed", __LINE__);
 
         /* Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer */
         uns32 frame_size = 0;
         if (!pl_exp_setup_cont(cam->handle, 1, &region, STROBED_MODE, 0, &frame_size, CIRC_NO_OVERWRITE))
-	        check_pvcam_error("pl_exp_setup_cont failed", __LINE__);
+	        pvcam_error(cam, "pl_exp_setup_cont failed", __LINE__);
 
         /* Create a buffer big enough to hold 4 images */
         cam->image_buffer_size = frame_size * 4;
@@ -227,7 +243,7 @@ static void start_acquiring(PNCamera *cam)
 
         /* Start waiting for sync pulses to trigger exposures */
         if (!pl_exp_start_cont(cam->handle, cam->image_buffer, cam->image_buffer_size))
-	        check_pvcam_error("pl_exp_start_cont failed", __LINE__);
+	        pvcam_error(cam, "pl_exp_start_cont failed", __LINE__);
 
         pn_log("Acquisition run started");
         
@@ -273,8 +289,6 @@ static void stop_acquiring(PNCamera *cam)
 void *pn_camera_thread(void *_cam)
 {
     PNCamera *cam = (PNCamera *)_cam;
-	if (cam == NULL)
-		pn_die("FATAL: cam is null @ %s:%d\n", __FILE__, __LINE__);
 
     /* Initialize the camera */
     initialise(cam, cam->handle == SIMULATED);
@@ -307,7 +321,7 @@ void *pn_camera_thread(void *_cam)
             if (cam->handle == SIMULATED)
                 camera_frame = cam->image_buffer;
             else if (!pl_exp_get_oldest_frame(cam->handle, &camera_frame))
-			    check_pvcam_error("Error retrieving oldest frame", __LINE__);
+			    pvcam_error(cam, "Error retrieving oldest frame", __LINE__);
 
 		    /* Do something with the frame data */
 		    PNFrame frame;			
@@ -320,7 +334,7 @@ void *pn_camera_thread(void *_cam)
             if (cam->handle == SIMULATED)
                 cam->simulated_frame_available = FALSE;
 		    else if (!pl_exp_unlock_oldest_frame(cam->handle))
-			    check_pvcam_error("Error unlocking oldest frame", __LINE__);
+			    pvcam_error(cam, "Error unlocking oldest frame", __LINE__);
         }
 
         // Check temperature
@@ -348,7 +362,6 @@ void *pn_camera_thread(void *_cam)
 	    pn_log("PVCAM uninitialised");
     }
 
-    pn_camera_free(cam);
 	pthread_exit(NULL);
 }
 

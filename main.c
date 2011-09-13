@@ -332,7 +332,6 @@ void pn_shutdown()
     if (gps_thread_initialized)
         pthread_join(gps_thread, retval);
 
-    pn_ui_shutdown();
     pn_free_preferences();
     fclose(logFile);
 }
