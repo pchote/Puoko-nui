@@ -50,7 +50,6 @@ typedef struct
     rs_bool simulated;
     int simulated_exptime;
     int simulated_remaining;
-    time_t simulated_unixtime;
     char *fatal_error;
 
 	struct usb_device *device;
@@ -66,15 +65,14 @@ typedef struct
     pthread_mutex_t sendbuffer_mutex;
 } PNGPS;
 
-PNGPS pn_gps_new(rs_bool simulated);
+PNGPS pn_gps_new();
 void pn_gps_free(PNGPS *gps);
-void pn_gps_init(PNGPS *gps);
-void pn_gps_uninit(PNGPS *gps);
+void *pn_timer_thread(void *_gps);
+void *pn_simulated_timer_thread(void *_gps);
+
 void pn_gps_start_exposure(PNGPS *gps, unsigned char exptime);
 void pn_gps_stop_exposure();
 void pn_gps_ping(PNGPS *gps);
+PNGPSTimestamp pn_timestamp_subtract_seconds(PNGPSTimestamp ts, int seconds);
 
-void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds);
-
-void *pn_gps_thread(void *_gps);
 #endif

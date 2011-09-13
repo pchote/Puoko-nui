@@ -135,8 +135,7 @@ void pn_save_frame(PNFrame *frame)
 
 	// synctime gives the *end* of the exposure. The start of the exposure
     // is found by subtracting the exposure time
-	PNGPSTimestamp start = end;
-	pn_timestamp_subtract_seconds(&start, exposure_time);
+	PNGPSTimestamp start = pn_timestamp_subtract_seconds(end, exposure_time);
 
     char datebuf[15];
 	sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
@@ -244,9 +243,8 @@ void pn_preview_frame(PNFrame *frame)
 
 #pragma mark Main program logic
 
-static pthread_t gps_thread;
-static rs_bool gps_thread_initialized = FALSE;
-static pthread_t camera_thread;
+static pthread_t timer_thread, camera_thread;
+static rs_bool timer_thread_initialized = FALSE;
 static rs_bool camera_thread_initialized = FALSE;
 
 FILE *logFile;
@@ -267,7 +265,7 @@ int main( int argc, char *argv[] )
 	pn_init_preferences("preferences.dat");
 
 	rs_bool simulate_camera = FALSE;
-    rs_bool simulate_gps = FALSE;
+    rs_bool simulate_timer = FALSE;
     rs_bool disable_pixel_binning = FALSE;
 
 	// Parse the commandline args
@@ -276,8 +274,8 @@ int main( int argc, char *argv[] )
     	if (strcmp(argv[i], "--simulate-camera") == 0)
 			simulate_camera = TRUE;
 
-        if (strcmp(argv[i], "--simulate-gps") == 0)
-			simulate_gps = TRUE;
+        if (strcmp(argv[i], "--simulate-timer") == 0)
+			simulate_timer = TRUE;
 
         if (strcmp(argv[i], "--disable-binning") == 0)
 			disable_pixel_binning = TRUE;
@@ -287,10 +285,15 @@ int main( int argc, char *argv[] )
     // Initialization
     //
 
-	// GPS Timer
-	gps = pn_gps_new(simulate_gps);
-	pthread_create(&gps_thread, NULL, pn_gps_thread, (void *)&gps);
-    gps_thread_initialized = TRUE;
+	// Timer unit
+	gps = pn_gps_new();
+
+    if (simulate_timer)
+        pthread_create(&timer_thread, NULL, pn_simulated_timer_thread, (void *)&gps);
+    else
+        pthread_create(&timer_thread, NULL, pn_timer_thread, (void *)&gps);
+
+    timer_thread_initialized = TRUE;
 
 	// Camera
 	camera = pn_camera_new();
@@ -324,8 +327,8 @@ int main( int argc, char *argv[] )
 	void **retval = NULL;
     if (camera_thread_initialized)
 	    pthread_join(camera_thread, retval);
-    if (gps_thread_initialized)
-        pthread_join(gps_thread, retval);
+    if (timer_thread_initialized)
+        pthread_join(timer_thread, retval);
 
     // Final cleanup
     pn_gps_free(&gps);
