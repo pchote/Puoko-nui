@@ -350,7 +350,7 @@ void *pn_camera_thread(void *_cam)
     }
 
     // Shutdown camera
-    if (cam->mode == ACQUIRING)
+    if (cam->mode == ACQUIRING || cam->mode == ACQUIRE_WAIT)
         stop_acquiring(cam);
 
     // Close the PVCAM lib (which in turn closes the camera)
