@@ -455,9 +455,11 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
     timeout(100);
     for (;;)
     {
-        if (camera->fatal_error != NULL)
+        if (camera->fatal_error != NULL || gps->fatal_error != NULL)
         {
-            pn_log("Fatal camera error: %s", camera->fatal_error);
+            char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps->fatal_error;
+
+            pn_log("Fatal error: %s", msg);
             timeout(-1);
             getch();
             break;

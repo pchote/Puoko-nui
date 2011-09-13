@@ -17,20 +17,8 @@
 
 extern void simulate_camera_download();
 
-void check_ftdi(const char *message, char* file, int line, int status)
-{
-	if (status < 0)
-		pn_die("FATAL: %s line %d : %s, status = %d\n", file, line, message, status);
-}
-
-
-void check_gps(PNGPS *gps, char *file, int line)
-{
-	if (gps == NULL)
-		pn_die("FATAL: gps is null @ %s:%d\n", file, line);
-}
-
-/* Initialise a gps object with a valid usb device */
+// Initialise a new PNGPS struct.
+// Called by the main thread
 PNGPS pn_gps_new(rs_bool simulate)
 {
 	PNGPS ret;
@@ -41,6 +29,7 @@ PNGPS pn_gps_new(rs_bool simulate)
     ret.send_length = 0;
     ret.simulated = FALSE;
     ret.camera_downloading = 0;
+    ret.fatal_error = NULL;
 
 	pthread_mutex_init(&ret.read_mutex, NULL);
     pthread_mutex_init(&ret.sendbuffer_mutex, NULL);
@@ -53,82 +42,112 @@ PNGPS pn_gps_new(rs_bool simulate)
         return ret;
     }
 
+	return ret;
+}
+
+// Destroy a PNCamera struct.
+// Called by the main thread
+void pn_gps_free(PNGPS *gps)
+{
+    if (gps->fatal_error)
+        free(gps->fatal_error);
+
+    pthread_mutex_destroy(&gps->read_mutex);
+    pthread_mutex_destroy(&gps->sendbuffer_mutex);
+}
+
+//
+// All following code runs on the GPS thread
+//
+
+// Check the ftdi return code for a fatal error
+// If an error occured, set the error message and kill the thread
+static void check_ftdi(PNGPS *gps, const char *message, char* file, int line, int status)
+{
+	if (status >= 0)
+        return;
+
+    asprintf(&gps->fatal_error, "FATAL: %s line %d : %s, status = %d\n", file, line, message, status);
+    pthread_exit(NULL);
+}
+
+// Trigger a fatal error
+// Sets the error message and kills the thread
+static void gps_error(PNGPS *gps, char *msg, ...)
+{
+	va_list args;
+	va_start(args, msg);
+    vasprintf(&gps->fatal_error, msg, args);
+	va_end(args);
+
+    pthread_exit(NULL);
+}
+
+/* Open the usb gps device and prepare it for reading/writing */
+void pn_gps_init(PNGPS *gps)
+{
+    if (gps->simulated)
+    {
+        pn_log("Simulating GPS");
+        return;
+    }
+
 	struct ftdi_device_list* devices = NULL;
 	const int vendorId = 0x0403;  /* The USB vendor identifier for the FTDI company */
 	const int productId = 0x6001; /* USB product identifier for the FT232 device */
 
 	/* Get the list of FTDI devices on the system */
 	int numDevices = ftdi_usb_find_all(NULL, &devices, vendorId, productId);
-	check_ftdi("ftdi_usb_find_all() returned an error code", __FILE__, __LINE__, numDevices);
-	
+	check_ftdi(gps, "ftdi_usb_find_all() returned an error code", __FILE__, __LINE__, numDevices);
+
 	pn_log("Found %d FTDI device(s)", numDevices);
 
 	/* Assume that the first device is the gps unit */
 	if (numDevices == 0)
 	{
   		ftdi_list_free(&devices);
-		pn_die("FATAL: GPS unit unavailable");
+		gps_error(gps, "FATAL: GPS unit unavailable");
 	}
 
-	ret.device = devices->dev;
+	gps->device = devices->dev;
   	ftdi_list_free(&devices);
-	return ret;
-}
 
-void pn_gps_free(PNGPS *gps)
-{
-	check_gps(gps, __FILE__, __LINE__);
-    pthread_mutex_destroy(&gps->read_mutex);
-    pthread_mutex_destroy(&gps->sendbuffer_mutex);
-}
-
-/* Open the usb gps device and prepare it for reading/writing */
-void pn_gps_init(PNGPS *gps)
-{
-	check_gps(gps, __FILE__, __LINE__);	
-
-    if (gps->simulated)
-    {
-        pn_log("Simulating GPS");
-        return;
-    }
 	pn_log("Opened FTDI device `%s`", gps->device->filename);
 
 	if (gps->context != NULL)
-		pn_die("FATAL: device %s is already open @ %s:%d", gps->device->filename, __FILE__, __LINE__);
+		gps_error(gps, "FATAL: device %s is already open @ %s:%d", gps->device->filename, __FILE__, __LINE__);
 
 	gps->context = ftdi_new();
     if (gps->context == NULL)
-        pn_die("FATAL: ftdi_new failed");
+        gps_error(gps, "FATAL: ftdi_new failed");
 
 
 	int status = ftdi_init(gps->context);
-	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
 
 	// Prepare the device for use with libftdi library calls.
 	status = ftdi_usb_open_dev(gps->context, gps->device);
-	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
 
 	//ftdi_enable_bitbang(pContext, 0xFF);
 
 	status = ftdi_set_baudrate(gps->context, 115200);
-	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
 
 	status = ftdi_set_line_property(gps->context, BITS_8, STOP_BIT_1, NONE);
-	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
 
 	status = ftdi_setflowctrl(gps->context, SIO_DISABLE_FLOW_CTRL);
-	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
 
 	unsigned char latency = 1; // the latency in milliseconds before partially full bit buffers are sent.
 	status = ftdi_set_latency_timer(gps->context, latency);
-	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
 }
 
 /* Close the usb gps device */
 void pn_gps_uninit(PNGPS *gps)
 {
-	check_gps(gps, __FILE__, __LINE__);
     if (gps->simulated)
     {
         pn_log("Closing simulated GPS");
@@ -140,7 +159,7 @@ void pn_gps_uninit(PNGPS *gps)
 		pn_log("device %s is already closed @ %s:%d", gps->device->filename, __FILE__, __LINE__);
 
 	int status = ftdi_usb_close(gps->context);
-	check_ftdi("ftdi_usb_close() returned an error code", __FILE__, __LINE__, status);
+	check_ftdi(gps, "ftdi_usb_close() returned an error code", __FILE__, __LINE__, status);
 
 	ftdi_deinit(gps->context);
 	ftdi_free(gps->context);
@@ -235,8 +254,6 @@ void pn_timestamp_subtract_seconds(PNGPSTimestamp *ts, int seconds)
 void *pn_gps_thread(void *_gps)
 {
     PNGPS *gps = (PNGPS *)_gps;
-	if (gps == NULL)
-		pn_die("FATAL: gps is null @ %s:%d\n", __FILE__, __LINE__);
 
     // Store recieved bytes in a 256 byte circular buffer indexed
     // by unsigned char. This ensures the correct circular behavior on over/underflow
@@ -331,7 +348,7 @@ void *pn_gps_thread(void *_gps)
         // Grab any data accumulated by the usb driver
 	    int ret = ftdi_read_data(gps->context, recvbuf, 256);
 	    if (ret < 0)
-		    pn_die("FATAL: Bad response from gps. return code 0x%x",ret);
+		    gps_error(gps, "FATAL: Bad response from gps. return code 0x%x",ret);
         
         // Copy recieved bytes into the buffer
         for (int i = 0; i < ret; i++)

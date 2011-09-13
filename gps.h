@@ -51,6 +51,7 @@ typedef struct
     int simulated_exptime;
     int simulated_remaining;
     time_t simulated_unixtime;
+    char *fatal_error;
 
 	struct usb_device *device;
 	struct ftdi_context *context;
