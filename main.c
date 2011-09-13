@@ -173,8 +173,7 @@ void pn_preview_frame(PNFrame *frame)
 	size_t fitssize = 2101248;
 
 	/* Allocate a chunk of memory for the image */
-	if(!(fitsbuf = malloc(fitssize)))
-		pn_die("FATAL: couldn't allocate fitsbuf\n");
+	fitsbuf = malloc(fitssize);
 
 	/* Create a new fits file in memory */
 	fits_create_memfile(&fptr, &fitsbuf, &fitssize, 2880, realloc, &status);
@@ -303,42 +302,44 @@ int main( int argc, char *argv[] )
 	pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
     camera_thread_initialized = TRUE;
 
-	// Initialise the gui and wait for it to exit
+
+    //
+	// Main program loop is run by the ui code
+    //
     pn_ui_run(&gps, &camera);
 
-	/* Shutdown hardware cleanly before exiting */
-	pn_shutdown();
-	return 0;
-}
 
-rs_bool closing = FALSE;
-void pn_shutdown()
-{
-    // Only die once - pvcam errors while shutting
-    // down the camera can cause loops
-    if (closing)
-        return;
-    closing = TRUE;
+    //
+	// Shutdown hardware and cleanup
+    //
 
-	/* camera and gps shutdown are done in their own threads */
+    // Tell the GPS and Camera threads to terminate themselves
     pthread_mutex_lock(&camera.read_mutex);
     camera.desired_mode = SHUTDOWN;
     pthread_mutex_unlock(&camera.read_mutex);
     gps.shutdown = TRUE;
 
+    // Wait for the GPS and Camera threads to terminate
 	void **retval = NULL;
     if (camera_thread_initialized)
 	    pthread_join(camera_thread, retval);
     if (gps_thread_initialized)
         pthread_join(gps_thread, retval);
 
+    // Final cleanup
+    pn_gps_free(&gps);
+    pn_camera_free(&camera);
     pn_free_preferences();
     fclose(logFile);
+
+    return 0;
 }
 
-
-static void pn_log_inner(const char * format, va_list args)
+void pn_log(const char * format, ...)
 {
+	va_list args;
+	va_start(args, format);
+
     // Log time
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -361,23 +362,5 @@ static void pn_log_inner(const char * format, va_list args)
     add_log_line(linebuf);
 
     free(linebuf);
-}
-
-void pn_die(const char * format, ...)
-{
-	va_list args;
-	va_start(args, format);
-    pn_log_inner(format, args);
-	va_end(args);
-
-	pn_shutdown();
-	exit(1);
-}
-
-void pn_log(const char * format, ...)
-{
-	va_list args;
-	va_start(args, format);
-    pn_log_inner(format, args);
-	va_end(args);
+    va_end(args);
 }

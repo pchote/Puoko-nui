@@ -11,8 +11,6 @@
 #define COMMON_H
 
 void pn_log(const char * format, ...);
-void pn_shutdown();
-void pn_die(const char * format, ...);
 
 #endif
 

@@ -490,7 +490,6 @@ void *pn_gps_thread(void *_gps)
 
 	/* Close the gps */	
 	pn_gps_uninit(gps);
-	pn_gps_free(gps);
 
 	pthread_exit(NULL);
 }
