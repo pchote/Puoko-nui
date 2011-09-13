@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -c -Wall -pedantic -Dlinux --std=c99 -Ipvcam -D_POSIX_C_SOURCE=199309L -D_GNU_SOURCE
+CFLAGS = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -Ipvcam -D_POSIX_C_SOURCE=199309L -D_GNU_SOURCE
 LFLAGS = -lpanel -lncurses -lcfitsio -lxpa -lpvcam -ldl -lpthread -lraw1394 -lftdi
 
 SRC = main.c camera.c gps.c preferences.c ui.c
