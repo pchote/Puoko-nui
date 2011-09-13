@@ -67,10 +67,10 @@ typedef struct
 
 PNGPS pn_gps_new();
 void pn_gps_free(PNGPS *gps);
-void *pn_timer_thread(void *_gps);
-void *pn_simulated_timer_thread(void *_gps);
+void *pn_timer_thread(void *);
+void *pn_simulated_timer_thread(void *);
 
-void pn_gps_start_exposure(PNGPS *gps, unsigned char exptime);
+void pn_gps_start_exposure(unsigned char exptime);
 void pn_gps_stop_exposure();
 void pn_gps_ping(PNGPS *gps);
 PNGPSTimestamp pn_timestamp_subtract_seconds(PNGPSTimestamp ts, int seconds);

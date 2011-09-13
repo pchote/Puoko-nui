@@ -15,6 +15,9 @@
 #include "common.h"
 #include "gps.h"
 
+extern PNGPS *gps;
+extern PNCamera *camera;
+
 extern void simulate_camera_download();
 extern void shutdown_camera();
 extern time_t timegm(struct tm *);
@@ -43,20 +46,20 @@ PNGPS pn_gps_new()
 }
 
 // Destroy a PNCamera struct.
-void pn_gps_free(PNGPS *gps)
+void pn_gps_free(PNGPS *_gps)
 {
-    if (gps->fatal_error)
-        free(gps->fatal_error);
+    if (_gps->fatal_error)
+        free(_gps->fatal_error);
 
-    pthread_mutex_destroy(&gps->read_mutex);
-    pthread_mutex_destroy(&gps->sendbuffer_mutex);
+    pthread_mutex_destroy(&_gps->read_mutex);
+    pthread_mutex_destroy(&_gps->sendbuffer_mutex);
 }
 
 #pragma mark Timer Routines (Called from Timer thread)
 
 // Check the ftdi return code for a fatal error
 // If an error occured, set the error message and kill the thread
-static void check_ftdi(PNGPS *gps, const char *message, char* file, int line, int status)
+static void check_ftdi(const char *message, char* file, int line, int status)
 {
 	if (status >= 0)
         return;
@@ -67,7 +70,7 @@ static void check_ftdi(PNGPS *gps, const char *message, char* file, int line, in
 
 // Trigger a fatal error
 // Sets the error message and kills the thread
-static void gps_error(PNGPS *gps, char *msg, ...)
+static void gps_error(char *msg, ...)
 {
 	va_list args;
 	va_start(args, msg);
@@ -88,7 +91,7 @@ static unsigned char checksum(unsigned char *data, unsigned char length)
 
 // Queue a raw byte to be sent to the timer
 // Should only be called by queue_data
-static void queue_send_byte(PNGPS *gps, unsigned char b)
+static void queue_send_byte(unsigned char b)
 {
     // Hard-loop until the send buffer empties
     // Should never happen in normal operation
@@ -100,24 +103,24 @@ static void queue_send_byte(PNGPS *gps, unsigned char b)
 }
 
 // Wrap an array of bytes in a data packet and send it to the gps
-static void queue_data(PNGPS *gps, unsigned char type, unsigned char *data, unsigned char length)
+static void queue_data(unsigned char type, unsigned char *data, unsigned char length)
 {
-    queue_send_byte(gps, DLE);
-    queue_send_byte(gps, length);
-    queue_send_byte(gps, type);
+    queue_send_byte(DLE);
+    queue_send_byte(length);
+    queue_send_byte(type);
     for (unsigned char i = 0; i < length; i++)
     {
-        queue_send_byte(gps, data[i]);
+        queue_send_byte(data[i]);
         if (data[i] == DLE)
-            queue_send_byte(gps, DLE);
+            queue_send_byte(DLE);
     }
-    queue_send_byte(gps, checksum(data,length));
-    queue_send_byte(gps, DLE);
-    queue_send_byte(gps, ETX);
+    queue_send_byte(checksum(data,length));
+    queue_send_byte(DLE);
+    queue_send_byte(ETX);
 }
 
 // Initialize the usb connection to the timer
-static void initialize_timer(PNGPS *gps)
+static void initialize_timer()
 {
 	struct ftdi_device_list* devices = NULL;
 	const int vendorId = 0x0403;  // FTDI USB vendor identifier
@@ -125,14 +128,14 @@ static void initialize_timer(PNGPS *gps)
 
 	// Get the list of FTDI devices on the system
 	int numDevices = ftdi_usb_find_all(NULL, &devices, vendorId, productId);
-	check_ftdi(gps, "ftdi_usb_find_all() returned an error code", __FILE__, __LINE__, numDevices);
+	check_ftdi("ftdi_usb_find_all() returned an error code", __FILE__, __LINE__, numDevices);
 	pn_log("Found %d FTDI device(s)", numDevices);
 
 	// Assume that the first device is the gps unit
 	if (numDevices == 0)
 	{
   		ftdi_list_free(&devices);
-		gps_error(gps, "FATAL: GPS unit unavailable");
+		gps_error("FATAL: GPS unit unavailable");
 	}
 
 	gps->device = devices->dev;
@@ -141,44 +144,44 @@ static void initialize_timer(PNGPS *gps)
 	pn_log("Opened FTDI device `%s`", gps->device->filename);
 
 	if (gps->context != NULL)
-		gps_error(gps, "FATAL: device %s is already open @ %s:%d", gps->device->filename, __FILE__, __LINE__);
+		gps_error("FATAL: device %s is already open @ %s:%d", gps->device->filename, __FILE__, __LINE__);
 
 	gps->context = ftdi_new();
     if (gps->context == NULL)
-        gps_error(gps, "FATAL: ftdi_new failed");
+        gps_error("FATAL: ftdi_new failed");
 
 	int status = ftdi_init(gps->context);
-	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
 	// Prepare the device for use with libftdi library calls.
 	status = ftdi_usb_open_dev(gps->context, gps->device);
-	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
 	//ftdi_enable_bitbang(pContext, 0xFF);
 
 	status = ftdi_set_baudrate(gps->context, 115200);
-	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
 	status = ftdi_set_line_property(gps->context, BITS_8, STOP_BIT_1, NONE);
-	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
 	status = ftdi_setflowctrl(gps->context, SIO_DISABLE_FLOW_CTRL);
-	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
 	unsigned char latency = 1; // the latency in milliseconds before partially full bit buffers are sent.
 	status = ftdi_set_latency_timer(gps->context, latency);
-	check_ftdi(gps, gps->context->error_str, __FILE__, __LINE__, status);
+	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 }
 
 // Close the usb connection to the timer
-static void uninitialize_timer(PNGPS *gps)
+static void uninitialize_timer()
 {
 	pn_log("Closing device %s", gps->device->filename);
 	if (gps->context == NULL)
 		pn_log("device %s is already closed @ %s:%d", gps->device->filename, __FILE__, __LINE__);
 
 	int status = ftdi_usb_close(gps->context);
-	check_ftdi(gps, "ftdi_usb_close() returned an error code", __FILE__, __LINE__, status);
+	check_ftdi("ftdi_usb_close() returned an error code", __FILE__, __LINE__, status);
 
 	ftdi_deinit(gps->context);
 	ftdi_free(gps->context);
@@ -186,10 +189,8 @@ static void uninitialize_timer(PNGPS *gps)
 }
 
 // Main timer thread loop
-void *pn_timer_thread(void *_gps)
+void *pn_timer_thread(void *_unused)
 {
-    PNGPS *gps = (PNGPS *)_gps;
-
     // Store recieved bytes in a 256 byte circular buffer indexed by an unsigned char
     // This ensures the correct circular behavior on over/underflow
 	unsigned char recvbuf[256];
@@ -202,14 +203,14 @@ void *pn_timer_thread(void *_gps)
     unsigned char gps_packet[256];
     unsigned char gps_packet_length = 0;
 
-	// Initialize the gps
-    initialize_timer(gps);
+	// Initialization
+    initialize_timer();
 
     // Send two reset packets to the timer.
     // The first is used to sync the incoming data and discarded
     unsigned char unused = 0;
-    queue_data(gps, RESET, &unused, 1);
-    queue_data(gps, RESET, &unused, 1);
+    queue_data(RESET, &unused, 1);
+    queue_data(RESET, &unused, 1);
 
     // Loop until shutdown, parsing incoming data
 	struct timespec wait = {0,1e8};
@@ -230,7 +231,7 @@ void *pn_timer_thread(void *_gps)
         // Grab any data accumulated by ftdi
 	    int ret = ftdi_read_data(gps->context, recvbuf, 256);
 	    if (ret < 0)
-		    gps_error(gps, "FATAL: Bad response from timer. return code 0x%x",ret);
+		    gps_error("FATAL: Bad response from timer. return code 0x%x",ret);
 
         // Copy recieved bytes into the buffer
         for (int i = 0; i < ret; i++)
@@ -371,15 +372,13 @@ void *pn_timer_thread(void *_gps)
     }
 
 	// Uninitialize the timer connection and exit
-	uninitialize_timer(gps);
+	uninitialize_timer();
 	pthread_exit(NULL);
 }
 
 // Main simulated timer thread loop
-void *pn_simulated_timer_thread(void *_gps)
+void *pn_simulated_timer_thread(void *unused)
 {
-    PNGPS *gps = (PNGPS *)_gps;
-
 	// Initialization
     pn_log("Simulating GPS");
     gps->simulated = TRUE;
@@ -449,17 +448,17 @@ void *pn_simulated_timer_thread(void *_gps)
 #pragma mark Timer communication Routines (Called from any thread)
 
 // Start an exposure sequence with a specified exposure time
-void pn_gps_start_exposure(PNGPS *gps, unsigned char exptime)
+void pn_gps_start_exposure(unsigned char exptime)
 {
     pn_log("Starting exposure @ %ds", exptime);
     if (gps->simulated)
         gps->simulated_remaining = gps->simulated_exptime = exptime;
     else
-        queue_data(gps, START_EXPOSURE, &exptime, 1);
+        queue_data(START_EXPOSURE, &exptime, 1);
 }
 
 // Stop the current exposure sequence
-void pn_gps_stop_exposure(PNGPS *gps)
+void pn_gps_stop_exposure()
 {
     pn_log("Stopping exposure");
     unsigned char unused = 0;
@@ -467,7 +466,7 @@ void pn_gps_stop_exposure(PNGPS *gps)
     if (gps->simulated)
         shutdown_camera();
     else
-        queue_data(gps, STOP_EXPOSURE, &unused, 1);
+        queue_data(STOP_EXPOSURE, &unused, 1);
 }
 
 // Utility routine to subtract a number of seconds from a PNGPSTimestamp

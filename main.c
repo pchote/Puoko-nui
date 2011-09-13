@@ -22,25 +22,25 @@
 #include "preferences.h"
 #include "ui.h"
 
-PNCamera camera;
-PNGPS gps;
+PNCamera *camera;
+PNGPS *gps;
 
 #pragma mark Utility Routines
 // Trigger a simulated frame download
 // Runs in the GPS thread
 void simulate_camera_download()
 {
-    if (camera.handle == SIMULATED)
-        camera.simulated_frame_available = TRUE;
+    if (camera->handle == SIMULATED)
+        camera->simulated_frame_available = TRUE;
 }
 
 // Issue a camera stop-sequence command
 // Runs in the GPS thread
 void shutdown_camera()
 {
-    pthread_mutex_lock(&camera.read_mutex);
-    camera.desired_mode = IDLE;
-    pthread_mutex_unlock(&camera.read_mutex);
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = IDLE;
+    pthread_mutex_unlock(&camera->read_mutex);
 }
 
 // A quick and dirty method for opening ds9
@@ -121,17 +121,17 @@ void pn_save_frame(PNFrame *frame)
 	fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
 
     // Get the last download pulse time from the gps
-    pthread_mutex_lock(&gps.read_mutex);
+    pthread_mutex_lock(&gps->read_mutex);
 
-    PNGPSTimestamp end = gps.download_timestamp;
+    PNGPSTimestamp end = gps->download_timestamp;
     rs_bool was_valid = end.valid;
-    gps.download_timestamp.valid = FALSE;
+    gps->download_timestamp.valid = FALSE;
 
     // Invalidate the timestamp if the GPS thread has died
-    if (gps.fatal_error != NULL)
+    if (gps->fatal_error != NULL)
         was_valid = FALSE;
 
-    pthread_mutex_unlock(&gps.read_mutex);
+    pthread_mutex_unlock(&gps->read_mutex);
 
 	// synctime gives the *end* of the exposure. The start of the exposure
     // is found by subtracting the exposure time
@@ -167,9 +167,9 @@ void pn_save_frame(PNFrame *frame)
 	fits_update_key(fptr, TSTRING, "PC-END", (void *)timebuf, "Exposure end time (PC)", &status);
 
     // Camera temperature
-    pthread_mutex_lock(&camera.read_mutex);
-    sprintf(timebuf, "%0.02f", camera.temperature);
-    pthread_mutex_unlock(&camera.read_mutex);
+    pthread_mutex_lock(&camera->read_mutex);
+    sprintf(timebuf, "%0.02f", camera->temperature);
+    pthread_mutex_unlock(&camera->read_mutex);
 
 	fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)timebuf, "CCD temperature at end of exposure in deg C", &status);
 
@@ -213,9 +213,9 @@ void pn_preview_frame(PNFrame *frame)
 
 	// Write a message into the OBJECT header for ds9 to display
 	char buf[128];
-    pthread_mutex_lock(&gps.read_mutex);
-    PNGPSTimestamp end = gps.download_timestamp;
-    pthread_mutex_unlock(&gps.read_mutex);
+    pthread_mutex_lock(&gps->read_mutex);
+    PNGPSTimestamp end = gps->download_timestamp;
+    pthread_mutex_unlock(&gps->read_mutex);
     sprintf(buf, "Exposure ending %04d-%02d-%02d %02d:%02d:%02d",
             end.year, end.month, end.day,
             end.hours, end.minutes, end.seconds);
@@ -251,8 +251,13 @@ FILE *logFile;
 int main( int argc, char *argv[] )
 {
     //
-    // Startup
+    // Initialization
     //
+	PNGPS _gps = pn_gps_new();
+    gps = &_gps;
+    
+    PNCamera _camera = pn_camera_new();
+    camera = &_camera;
 
     // Open the log file for writing
     time_t start = time(NULL);
@@ -281,13 +286,7 @@ int main( int argc, char *argv[] )
 			disable_pixel_binning = TRUE;
     }
 
-    //
-    // Initialization
-    //
-
 	// Timer unit
-	gps = pn_gps_new();
-
     if (simulate_timer)
         pthread_create(&timer_thread, NULL, pn_simulated_timer_thread, (void *)&gps);
     else
@@ -296,10 +295,8 @@ int main( int argc, char *argv[] )
     timer_thread_initialized = TRUE;
 
 	// Camera
-	camera = pn_camera_new();
-
     if (disable_pixel_binning)
-        camera.binsize = 1;
+        camera->binsize = 1;
 
     if (simulate_camera)
         pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)&camera);
@@ -311,17 +308,17 @@ int main( int argc, char *argv[] )
     //
 	// Main program loop is run by the ui code
     //
-    pn_ui_run(&gps, &camera);
+    pn_ui_run();
 
     //
 	// Shutdown hardware and cleanup
     //
 
     // Tell the GPS and Camera threads to terminate themselves
-    pthread_mutex_lock(&camera.read_mutex);
-    camera.desired_mode = SHUTDOWN;
-    pthread_mutex_unlock(&camera.read_mutex);
-    gps.shutdown = TRUE;
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = SHUTDOWN;
+    pthread_mutex_unlock(&camera->read_mutex);
+    gps->shutdown = TRUE;
 
     // Wait for the GPS and Camera threads to terminate
 	void **retval = NULL;
@@ -331,8 +328,8 @@ int main( int argc, char *argv[] )
         pthread_join(timer_thread, retval);
 
     // Final cleanup
-    pn_gps_free(&gps);
-    pn_camera_free(&camera);
+    pn_gps_free(gps);
+    pn_camera_free(camera);
     pn_free_preferences();
     fclose(logFile);
 

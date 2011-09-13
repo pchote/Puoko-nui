@@ -19,6 +19,9 @@
 #include "preferences.h"
 #include "common.h"
 
+extern PNGPS *gps;
+extern PNCamera *camera;
+
 WINDOW  *time_window, *camera_window, *acquisition_window,
         *command_window, *metadata_window, *log_window,
         *status_window, *exposure_window;
@@ -53,7 +56,7 @@ static WINDOW *create_time_window()
     return win;
 }
 
-static void update_time_window(PNGPS *gps)
+static void update_time_window()
 {
 	/* PC time */	
 	char strtime[30];
@@ -406,7 +409,7 @@ int last_calibration_framecount;
 int last_run_number;
 int last_camera_downloading;
 PNUIInputType input_type = INPUT_MAIN;
-void pn_ui_run(PNGPS *gps, PNCamera *camera)
+void pn_ui_run()
 {
     initscr();
     noecho();
@@ -446,7 +449,7 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
     pthread_mutex_unlock(&gps->read_mutex);
 
     update_acquisition_window();
-    update_time_window(gps);
+    update_time_window();
     update_camera_window(last_camera_mode, last_camera_downloading, last_camera_temperature);
     hide_panel(exposure_panel);
 
@@ -492,7 +495,7 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
                                 pthread_mutex_unlock(&camera->read_mutex);
 
                                 unsigned char exptime = pn_preference_char(EXPOSURE_TIME);
-                                pn_gps_start_exposure(gps, exptime);
+                                pn_gps_start_exposure(exptime);
                             }
                             else if (camera_mode == ACQUIRING)
                             {
@@ -500,7 +503,7 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
                                 camera->desired_mode = ACQUIRE_WAIT;
                                 pthread_mutex_unlock(&camera->read_mutex);
 
-                                pn_gps_stop_exposure(gps);
+                                pn_gps_stop_exposure();
                             }
                             break;
                         case 0x05: // ^E - Set Exposure
@@ -574,7 +577,7 @@ void pn_ui_run(PNGPS *gps, PNCamera *camera)
                 break;
             }
         }
-        update_time_window(gps);
+        update_time_window();
 
         if (log_position != last_log_position)
         {
