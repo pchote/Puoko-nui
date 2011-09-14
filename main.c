@@ -34,15 +34,6 @@ void simulate_camera_download()
         camera->simulated_frame_available = TRUE;
 }
 
-// Issue a camera stop-sequence command
-// Runs in the GPS thread
-void shutdown_camera()
-{
-    pthread_mutex_lock(&camera->read_mutex);
-    camera->desired_mode = IDLE;
-    pthread_mutex_unlock(&camera->read_mutex);
-}
-
 // A quick and dirty method for opening ds9
 // Beware of race conditions: it will take some time
 // between calling this, and ds9 actually being available

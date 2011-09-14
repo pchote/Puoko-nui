@@ -19,7 +19,6 @@ extern PNGPS *gps;
 extern PNCamera *camera;
 
 extern void simulate_camera_download();
-extern void shutdown_camera();
 extern time_t timegm(struct tm *);
 
 #pragma mark Creation and Destruction (Called from main thread)
@@ -117,6 +116,14 @@ static void queue_data(unsigned char type, unsigned char *data, unsigned char le
     queue_send_byte(checksum(data,length));
     queue_send_byte(DLE);
     queue_send_byte(ETX);
+}
+
+// Issue a camera stop-sequence command
+static void shutdown_camera()
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = IDLE;
+    pthread_mutex_unlock(&camera->read_mutex);
 }
 
 // Initialize the usb connection to the timer
