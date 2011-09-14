@@ -40,9 +40,9 @@ PNCamera pn_camera_new()
 // Destroy a PNCamera struct.
 void pn_camera_free(PNCamera *cam)
 {
-    if (camera->fatal_error)
-        free(camera->fatal_error);
-    pthread_mutex_destroy(&camera->read_mutex);
+    if (cam->fatal_error)
+        free(cam->fatal_error);
+    pthread_mutex_destroy(&cam->read_mutex);
 }
 
 
