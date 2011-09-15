@@ -26,13 +26,6 @@ PNCamera *camera;
 PNGPS *gps;
 
 #pragma mark Utility Routines
-// Trigger a simulated frame download
-// Runs in the GPS thread
-void simulate_camera_download()
-{
-    if (camera->handle == SIMULATED)
-        camera->simulated_frame_available = TRUE;
-}
 
 // A quick and dirty method for opening ds9
 // Beware of race conditions: it will take some time

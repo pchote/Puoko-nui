@@ -43,8 +43,6 @@ typedef struct
 	uns16 *data; /* Pointer to the start of the frame data */
 } PNFrame;
 
-#define SIMULATED -10
-
 /* Holds the state of a camera */
 typedef struct
 {
@@ -53,6 +51,7 @@ typedef struct
     PNCameraMode desired_mode;
 
 	/* read only */
+    rs_bool simulated;
 	PNCameraMode mode;
 	uns16 frame_width;
 	uns16 frame_height;
@@ -63,7 +62,6 @@ typedef struct
 	int16 handle;
 	void *image_buffer;
 	uns32 image_buffer_size;
-    rs_bool simulated_frame_available;
     pthread_mutex_t read_mutex;
     rs_bool first_frame;
 } PNCamera;

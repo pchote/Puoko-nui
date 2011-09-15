@@ -34,6 +34,9 @@ typedef enum
     EXPOSURE_TIME,
     SAVE_FRAMES,
     OBJECT_TYPE,
+    USE_TIMER_MONITORING,
+    TIMER_NOMONITOR_STARTUP_DELAY,
+    TIMER_NOMONITOR_STOP_DELAY,
 } PNPreferenceChar;
 
 typedef enum

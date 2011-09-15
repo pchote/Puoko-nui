@@ -27,6 +27,9 @@ typedef struct
 
 	unsigned char exposure_time;
     unsigned char save_frames;
+    unsigned char use_timer_monitoring;
+    unsigned char timer_nomonitor_startup_delay;
+    unsigned char timer_nomonitor_stop_delay;
 	PNFrameType object_type;
 
     int calibration_default_framecount;
@@ -65,6 +68,10 @@ void pn_init_preferences(const char *path)
         prefs.calibration_default_framecount = 30;
         prefs.calibration_remaining_framecount = 30;
         prefs.save_frames = 0;
+        
+        prefs.use_timer_monitoring = TRUE;
+        prefs.timer_nomonitor_startup_delay = 5;
+        prefs.timer_nomonitor_stop_delay = 5;
 	}
 	else
 	{	
@@ -126,6 +133,9 @@ unsigned char pn_preference_char(PNPreferenceChar key)
         case EXPOSURE_TIME: val = prefs.exposure_time; break;
         case SAVE_FRAMES: val = prefs.save_frames; break;
         case OBJECT_TYPE: val = prefs.object_type; break;
+        case USE_TIMER_MONITORING: val = prefs.use_timer_monitoring; break;
+        case TIMER_NOMONITOR_STARTUP_DELAY: val = prefs.timer_nomonitor_startup_delay; break;
+        case TIMER_NOMONITOR_STOP_DELAY: val = prefs.timer_nomonitor_stop_delay; break;
         default: val = 0;
     }
     pthread_mutex_unlock(&access_mutex);
@@ -190,6 +200,9 @@ void pn_preference_set_char(PNPreferenceChar key, unsigned char val)
         case EXPOSURE_TIME: prefs.exposure_time = val; break;
         case SAVE_FRAMES: prefs.save_frames = val; break;
         case OBJECT_TYPE: prefs.object_type = val; break;
+        case USE_TIMER_MONITORING: prefs.use_timer_monitoring = val; break;
+        case TIMER_NOMONITOR_STARTUP_DELAY: prefs.timer_nomonitor_startup_delay = val; break;
+        case TIMER_NOMONITOR_STOP_DELAY: prefs.timer_nomonitor_stop_delay = val; break;
     }
     save();
     pthread_mutex_unlock(&access_mutex);

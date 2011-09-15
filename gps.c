@@ -13,12 +13,9 @@
 #include <time.h>
 #include <ftdi.h>
 #include "common.h"
+#include "preferences.h"
 #include "gps.h"
 
-extern PNGPS *gps;
-extern PNCamera *camera;
-
-extern void simulate_camera_download();
 extern time_t timegm(struct tm *);
 
 #pragma mark Creation and Destruction (Called from main thread)
@@ -55,6 +52,9 @@ void pn_gps_free(PNGPS *_gps)
 }
 
 #pragma mark Timer Routines (Called from Timer thread)
+
+extern PNGPS *gps;
+extern PNCamera *camera;
 
 // Check the ftdi return code for a fatal error
 // If an error occured, set the error message and kill the thread
@@ -331,9 +331,6 @@ void *pn_timer_thread(void *_unused)
                             // Mark the camera as downloading for UI feedback and shutdown purposes
                             gps->camera_downloading = TRUE;
                             pthread_mutex_unlock(&gps->read_mutex);
-
-                            // Trigger a fake download if the camera is simulated
-                            simulate_camera_download();
                         break;
                         case DOWNLOADCOMPLETE:
                             pthread_mutex_lock(&gps->read_mutex);
@@ -427,9 +424,9 @@ void *pn_simulated_timer_thread(void *unused)
                        gps->download_timestamp.minutes,   // Minute
                        gps->download_timestamp.seconds,   // Second
                        gps->download_timestamp.locked); // Locked
-                pthread_mutex_unlock(&gps->read_mutex);
 
-                simulate_camera_download();
+                gps->camera_downloading = TRUE;
+                pthread_mutex_unlock(&gps->read_mutex);
             }
 
             pthread_mutex_lock(&gps->read_mutex);
@@ -461,19 +458,37 @@ void pn_gps_start_exposure(unsigned char exptime)
     if (gps->simulated)
         gps->simulated_remaining = gps->simulated_exptime = exptime;
     else
-        queue_data(START_EXPOSURE, &exptime, 1);
+    {
+        unsigned char data[3];
+        data[0] = exptime;
+        // Monitor the NOTSCAN output for determining startup/stop
+        data[1] = !camera->simulated && pn_preference_char(USE_TIMER_MONITORING);
+        
+        // Fixed startup delay (in seconds) if not monitoring NOTSCAN; minimum 1
+        data[2] = pn_preference_char(TIMER_NOMONITOR_STARTUP_DELAY);
+
+        if (data[1])
+            pn_log("Using timer monitor");
+
+        queue_data(START_EXPOSURE, data, 3);
+    }
 }
 
 // Stop the current exposure sequence
 void pn_gps_stop_exposure()
 {
     pn_log("Stopping exposure");
-    unsigned char unused = 0;
+    unsigned char data[2];
+    // Monitor the NOTSCAN output for determining startup/stop
+    data[0] = !camera->simulated && pn_preference_char(USE_TIMER_MONITORING);
+
+    // Fixed startup delay (in seconds) if not monitoring NOTSCAN; minimum 1
+    data[1] = pn_preference_char(TIMER_NOMONITOR_STOP_DELAY);
 
     if (gps->simulated)
         shutdown_camera();
     else
-        queue_data(STOP_EXPOSURE, &unused, 1);
+        queue_data(STOP_EXPOSURE, data, 2);
 }
 
 // Utility routine to subtract a number of seconds from a PNGPSTimestamp

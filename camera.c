@@ -13,9 +13,8 @@
 
 #include "common.h"
 #include "camera.h"
+#include "gps.h"
 #include "preferences.h"
-
-extern PNCamera *camera;
 
 #pragma mark Creation and Destruction (Called from main thread)
 
@@ -32,6 +31,7 @@ PNCamera pn_camera_new()
     cam.temperature = 0;
     cam.fatal_error = NULL;
     cam.first_frame = TRUE;
+    cam.simulated = FALSE;
     pthread_mutex_init(&cam.read_mutex, NULL);
 
 	return cam;
@@ -47,6 +47,8 @@ void pn_camera_free(PNCamera *cam)
 
 
 #pragma mark Camera Routines (Called from camera thread)
+extern PNCamera *camera;
+extern PNGPS *gps;
 
 // Set the camera mode to be read by the other threads in a threadsafe manner
 static void set_mode(PNCameraMode mode)
@@ -380,7 +382,7 @@ static void stop_acquiring_simulated()
 void *pn_simulated_camera_thread(void *_unused)
 {
     // Initialize the camera
-    camera->handle = SIMULATED;
+    camera->simulated = TRUE;
     camera->first_frame = TRUE;
     pn_log("Initialising simulated camera");
 
@@ -405,7 +407,6 @@ void *pn_simulated_camera_thread(void *_unused)
 
             camera->frame_height = 512;
             camera->frame_width = 512;
-            camera->simulated_frame_available = FALSE;
 
             // Create a buffer to write a simulated frame to
             camera->image_buffer_size = 512*512*2;
@@ -428,7 +429,11 @@ void *pn_simulated_camera_thread(void *_unused)
             stop_acquiring_simulated();
 
         // Check for new frame
-        if (camera->mode == ACQUIRING && camera->simulated_frame_available)
+        pthread_mutex_lock(&gps->read_mutex);
+        int downloading = gps->camera_downloading;
+        pthread_mutex_unlock(&gps->read_mutex);
+
+        if (camera->mode == ACQUIRING && downloading)
         {
             pn_log("Frame available @ %d", (int)time(NULL));
 
@@ -438,7 +443,12 @@ void *pn_simulated_camera_thread(void *_unused)
 		    frame.height = camera->frame_height;
 		    frame.data = camera->image_buffer;
 		    frame_downloaded(&frame);
-            camera->simulated_frame_available = FALSE;
+
+            // There is no physical camera for the timer to monitor
+            // so we must toggle this manually
+            pthread_mutex_lock(&gps->read_mutex);
+            gps->camera_downloading = FALSE;
+            pthread_mutex_unlock(&gps->read_mutex);
         }
 
         nanosleep(&wait, NULL);
