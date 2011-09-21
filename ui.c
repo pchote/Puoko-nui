@@ -515,6 +515,7 @@ void pn_ui_run()
         pthread_mutex_unlock(&gps->read_mutex);
 
         int ch;
+        unsigned char valid = TRUE;
         while ((ch = getch()) != ERR)
         {
             char buf[128];
@@ -607,15 +608,24 @@ void pn_ui_run()
                             input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OUTPUT_DIR));
                             set_input_window_msg("Output path: ");
                             break;
+                        case 0x0f: // ^O - Object name
+                            input_type = INPUT_OBJECT_NAME;
+
+                            input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OBJECT_NAME));
+                            set_input_window_msg("Object Name: ");
+                            break;
                         case 0x0e: // ^N - Frame #
                             input_type = INPUT_FRAME_NUMBER;
 
                             input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(RUN_NUMBER));
                             set_input_window_msg("Frame #: ");
                             break;
+                        default:
+                            valid = FALSE;
+                            break;
                     }
 
-                    if (ch != '\n')
+                    if (valid && ch != '\n')
                     {
                         update_input_window();
                         hide_panel(parameters_panel);
@@ -685,6 +695,7 @@ void pn_ui_run()
                 break;
                 case INPUT_FRAME_DIR:
                 case INPUT_RUN_PREFIX:
+                case INPUT_OBJECT_NAME:
                     if (ch == '\n')
                     {
                         input_entry_buf[input_entry_length] = '\0';
@@ -713,6 +724,17 @@ void pn_ui_run()
                                 pn_preference_set_string(OUTPUT_DIR, pathBuf);
                                 update_acquisition_window();
                                 pn_log("Frame dir set to `%s'", pathBuf);
+                            }
+                        }
+                        else if (input_type == INPUT_OBJECT_NAME)
+                        {
+                            char *oldname = pn_preference_string(OBJECT_NAME);
+                            if (strcmp(oldname, input_entry_buf))
+                            {
+                                // Update preferences
+                                pn_preference_set_string(OBJECT_NAME, input_entry_buf);
+                                update_metadata_window();
+                                pn_log("Object name set to `%s'", input_entry_buf);
                             }
                         }
                         input_type = INPUT_PARAMETERS;
