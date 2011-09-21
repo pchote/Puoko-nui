@@ -54,6 +54,7 @@ void pn_save_frame(PNFrame *frame)
 {
 	fitsfile *fptr;
 	int status = 0;
+    char fitserr[128];
 
     // Construct the output filepath from the output dir, run prefix, and run number.
 	// Saving will fail if a file with the same name already exists
@@ -71,6 +72,8 @@ void pn_save_frame(PNFrame *frame)
 	if (fits_create_file(&fptr, filepath, &status))
     {
         pn_log("Unable to save file. fitsio error %d", status);
+        while (fits_read_errmsg(fitserr))
+            pn_log(fitserr);
         return;
     }
 
@@ -162,7 +165,6 @@ void pn_save_frame(PNFrame *frame)
 	fits_close_file(fptr, &status);
 
 	// Log any error messages
-    char fitserr[128];
     while (fits_read_errmsg(fitserr))
         pn_log("cfitsio error: %s", fitserr);
 
