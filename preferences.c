@@ -223,3 +223,16 @@ void pn_preference_set_string(PNPreferenceString key, const char *val)
     save();
     pthread_mutex_unlock(&access_mutex);
 }
+
+void pn_preference_set_int(PNPreferenceInt key, int val)
+{
+    pthread_mutex_lock(&access_mutex);
+    switch (key)
+    {
+        case RUN_NUMBER: prefs.run_number = val; break;
+        case CALIBRATION_DEFAULT_FRAMECOUNT: prefs.calibration_default_framecount = val; break;
+        case CALIBRATION_REMAINING_FRAMECOUNT: prefs.calibration_remaining_framecount = val; break;
+    }
+    save();
+    pthread_mutex_unlock(&access_mutex);
+}

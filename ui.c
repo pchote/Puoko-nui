@@ -587,30 +587,92 @@ void pn_ui_run()
                         break;
                     }
                 break;
+                case INPUT_PARAMETERS:
+                    switch (ch)
+                    {
+                        case '\n': // Back
+                            input_type = INPUT_MAIN;
+                            hide_panel(parameters_panel);
+                            show_panel(command_panel);
+                            break;
+                        case 0x10: // ^P - Run Prefix
+                            input_type = INPUT_RUN_PREFIX;
+
+                            input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(RUN_PREFIX));
+                            set_input_window_msg("Run Prefix: ");
+                            break;
+                        case 0x13: // ^S - Frame dir
+                            input_type = INPUT_FRAME_DIR;
+
+                            input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OUTPUT_DIR));
+                            set_input_window_msg("Output path: ");
+                            break;
+                        case 0x0e: // ^N - Frame #
+                            input_type = INPUT_FRAME_NUMBER;
+
+                            input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(RUN_NUMBER));
+                            set_input_window_msg("Frame #: ");
+                            break;
+                    }
+
+                    if (ch != '\n')
+                    {
+                        update_input_window();
+                        hide_panel(parameters_panel);
+                        show_panel(input_panel);
+                    }
+                    break;
                 case INPUT_EXPOSURE:
+                case INPUT_FRAME_NUMBER:
                     if (ch == '\n')
                     {
                         input_entry_buf[input_entry_length] = '\0';
+                        int new = atoi(input_entry_buf);
 
-                        int newexp = atoi(input_entry_buf);
-                        unsigned char oldexp = pn_preference_char(EXPOSURE_TIME);
-                        if (newexp < 3 || newexp > 255)
+                        if (input_type == INPUT_EXPOSURE)
                         {
-                            // Invalid entry
-                            input_entry_length = sprintf(input_entry_buf, "%d", oldexp);
-                        }
-                        else
-                        {
-                            input_type = INPUT_MAIN;
-                            hide_panel(input_panel);
-                            show_panel(command_panel);
-
-                            if (oldexp != newexp)
+                            unsigned char oldexp = pn_preference_char(EXPOSURE_TIME);
+                            if (new < 3 || new > 255)
                             {
-                                // Update preferences
-                                pn_preference_set_char(EXPOSURE_TIME, newexp);
-                                update_acquisition_window();
-                                pn_log("Exposure set to %d seconds", newexp);
+                                // Invalid entry
+                                input_entry_length = sprintf(input_entry_buf, "%d", oldexp);
+                            }
+                            else
+                            {
+                                input_type = INPUT_MAIN;
+                                hide_panel(input_panel);
+                                show_panel(command_panel);
+
+                                if (oldexp != new)
+                                {
+                                    // Update preferences
+                                    pn_preference_set_char(EXPOSURE_TIME, new);
+                                    update_acquisition_window();
+                                    pn_log("Exposure set to %d seconds", new);
+                                }
+                            }
+                        }
+                        else if (input_type == INPUT_FRAME_NUMBER)
+                        {
+                            unsigned char oldframe = pn_preference_char(RUN_NUMBER);
+                            if (new < 0)
+                            {
+                                // Invalid entry
+                                input_entry_length = sprintf(input_entry_buf, "%d", oldframe);
+                            }
+                            else
+                            {
+                                input_type = INPUT_PARAMETERS;
+                                hide_panel(input_panel);
+                                show_panel(parameters_panel);
+
+                                if (oldframe != new)
+                                {
+                                    // Update preferences
+                                    pn_preference_set_int(RUN_NUMBER, new);
+                                    update_acquisition_window();
+                                    pn_log("Frame # set to %d", new);
+                                }
                             }
                         }
                     }
@@ -621,43 +683,41 @@ void pn_ui_run()
 
                     update_input_window();
                 break;
-                case INPUT_PARAMETERS:
-                    switch (ch)
-                    {
-                        case '\n': // Back
-                            input_type = INPUT_MAIN;
-                            hide_panel(parameters_panel);
-                            show_panel(command_panel);
-                        break;
-                        case 0x10: // ^P - Run Prefix
-                            input_type = INPUT_RUN_PREFIX;
-
-                            input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(RUN_PREFIX));
-                            set_input_window_msg("Run Prefix: ");
-                            update_input_window();
-
-                            hide_panel(parameters_panel);
-                            show_panel(input_panel);
-                        break;
-                    }
-                break;
+                case INPUT_FRAME_DIR:
                 case INPUT_RUN_PREFIX:
                     if (ch == '\n')
                     {
                         input_entry_buf[input_entry_length] = '\0';
-                        char *oldprefix = pn_preference_string(RUN_PREFIX);
 
+                        if (input_type == INPUT_RUN_PREFIX)
+                        {
+                            char *oldprefix = pn_preference_string(RUN_PREFIX);
+
+                            if (strcmp(oldprefix, input_entry_buf))
+                            {
+                                // Update preferences
+                                pn_preference_set_string(RUN_PREFIX, input_entry_buf);
+                                update_acquisition_window();
+                                pn_log("Run prefix set to `%s'", input_entry_buf);
+                            }
+                        }
+                        else if (input_type == INPUT_FRAME_DIR)
+                        {
+                            char *olddir = pn_preference_string(OUTPUT_DIR);
+                            char pathBuf[PATH_MAX];
+                            realpath(input_entry_buf, pathBuf);
+
+                            if (strcmp(olddir, pathBuf))
+                            {
+                                // Update preferences
+                                pn_preference_set_string(OUTPUT_DIR, pathBuf);
+                                update_acquisition_window();
+                                pn_log("Frame dir set to `%s'", pathBuf);
+                            }
+                        }
                         input_type = INPUT_PARAMETERS;
                         hide_panel(input_panel);
                         show_panel(parameters_panel);
-                        
-                        if (strcmp(oldprefix, input_entry_buf))
-                        {
-                            // Update preferences
-                            pn_preference_set_string(RUN_PREFIX, input_entry_buf);
-                            update_acquisition_window();
-                            pn_log("Run prefix set to `%s'", input_entry_buf);
-                        }
                     }
                     else if (ch == 0x7f) // Backspace
                     {
@@ -668,7 +728,7 @@ void pn_ui_run()
                         input_entry_buf[input_entry_length++] = ch;
                     
                     update_input_window();
-                    break;
+                break;
             }
         }
         update_time_window();
