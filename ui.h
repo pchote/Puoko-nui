@@ -11,9 +11,10 @@
 /* GPS command types */
 typedef enum
 {
-	INPUT_MAIN = 1,
-	INPUT_EXPOSURE = 2,
-    INPUT_PARAMETERS = 3,
+	INPUT_MAIN,
+	INPUT_EXPOSURE,
+    INPUT_PARAMETERS,
+    INPUT_RUN_PREFIX
 } PNUIInputType;
 
 

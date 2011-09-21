@@ -207,3 +207,19 @@ void pn_preference_set_char(PNPreferenceChar key, unsigned char val)
     save();
     pthread_mutex_unlock(&access_mutex);
 }
+
+void pn_preference_set_string(PNPreferenceString key, const char *val)
+{
+    pthread_mutex_lock(&access_mutex);
+    switch (key)
+    {
+        case OUTPUT_DIR: strncpy(prefs.output_directory, val, PREFERENCES_LENGTH); break;
+        case RUN_PREFIX: strncpy(prefs.run_prefix, val, PREFERENCES_LENGTH); break;
+        case OBJECT_NAME: strncpy(prefs.object_name, val, PREFERENCES_LENGTH); break;
+        case OBSERVERS: strncpy(prefs.observers, val, PREFERENCES_LENGTH); break;
+        case OBSERVATORY: strncpy(prefs.observatory, val, PREFERENCES_LENGTH); break;
+        case TELESCOPE: strncpy(prefs.telescope, val, PREFERENCES_LENGTH); break;
+    }
+    save();
+    pthread_mutex_unlock(&access_mutex);
+}

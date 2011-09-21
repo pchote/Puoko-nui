@@ -59,4 +59,5 @@ unsigned char pn_preference_toggle_save();
 unsigned char pn_preference_allow_save();
 
 void pn_preference_set_char(PNPreferenceChar key, unsigned char val);
+void pn_preference_set_string(PNPreferenceString key, const char *val);
 #endif

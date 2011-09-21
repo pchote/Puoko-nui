@@ -396,16 +396,20 @@ static WINDOW *create_parameters_window()
     print_command_option(ret, FALSE, "^T", "Type");
 
     if (pn_preference_char(OBJECT_TYPE) == OBJECT_TARGET)
-        print_command_option(ret, TRUE, "^D", "Object");
+        print_command_option(ret, TRUE, "^O", "Object");
     else
         print_command_option(ret, TRUE, "^D", "Set Countdown");
 
+    print_command_option(ret, TRUE, "^S", "Frame Dir");
     print_command_option(ret, TRUE, "^P", "Run Prefix");
     print_command_option(ret, TRUE, "^N", "Frame #");
     print_command_option(ret, TRUE, "RET", "Back");
     return ret;
 }
 
+int input_entry_margin = 0;
+char input_entry_buf[1024];
+int input_entry_length = 0;
 
 static WINDOW *create_input_window()
 {
@@ -418,14 +422,13 @@ static WINDOW *create_input_window()
 
 static void set_input_window_msg(char *msg)
 {
+    input_entry_margin = strlen(msg) + 1;
     mvwaddstr(input_window, 0, 1, msg);
 }
 
-char input_entry_buf[1024];
-int input_entry_length = 0;
 static void update_input_window()
 {
-    mvwaddnstr(input_window, 0, 25, input_entry_buf, input_entry_length);
+    mvwaddnstr(input_window, 0, input_entry_margin, input_entry_buf, input_entry_length);
     wclrtoeol(input_window);
 }
 
@@ -626,8 +629,46 @@ void pn_ui_run()
                             hide_panel(parameters_panel);
                             show_panel(command_panel);
                         break;
+                        case 0x10: // ^P - Run Prefix
+                            input_type = INPUT_RUN_PREFIX;
+
+                            input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(RUN_PREFIX));
+                            set_input_window_msg("Run Prefix: ");
+                            update_input_window();
+
+                            hide_panel(parameters_panel);
+                            show_panel(input_panel);
+                        break;
                     }
                 break;
+                case INPUT_RUN_PREFIX:
+                    if (ch == '\n')
+                    {
+                        input_entry_buf[input_entry_length] = '\0';
+                        char *oldprefix = pn_preference_string(RUN_PREFIX);
+
+                        input_type = INPUT_PARAMETERS;
+                        hide_panel(input_panel);
+                        show_panel(parameters_panel);
+                        
+                        if (strcmp(oldprefix, input_entry_buf))
+                        {
+                            // Update preferences
+                            pn_preference_set_string(RUN_PREFIX, input_entry_buf);
+                            update_acquisition_window();
+                            pn_log("Run prefix set to `%s'", input_entry_buf);
+                        }
+                    }
+                    else if (ch == 0x7f) // Backspace
+                    {
+                        if (input_entry_length > 0)
+                            --input_entry_length;
+                    }
+                    else if (isascii(ch) && input_entry_length < 1024 - 1)
+                        input_entry_buf[input_entry_length++] = ch;
+                    
+                    update_input_window();
+                    break;
             }
         }
         update_time_window();
