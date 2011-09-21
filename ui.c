@@ -370,7 +370,7 @@ static void update_status_window(PNCameraMode camera_mode)
 {
     unsigned char save = pn_preference_char(SAVE_FRAMES);
     wattron(status_window, A_STANDOUT);
-    mvwaddstr(status_window, 0, 16, (camera_mode == ACQUIRING ? " YES " : " NO "));
+    mvwaddstr(status_window, 0, 16, (camera_mode == ACQUIRING ? " YES " : camera_mode == IDLE ? " NO " : " ... "));
     wattroff(status_window, A_STANDOUT);
     waddstr(status_window, " ");
     wattron(status_window, A_STANDOUT);
