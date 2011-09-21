@@ -25,12 +25,12 @@ extern PNCamera *camera;
 WINDOW  *time_window, *camera_window, *acquisition_window,
         *command_window, *metadata_window, *log_window,
         *status_window, *separator_window,
-        *exposure_window, *parameters_window;
+        *input_window, *parameters_window;
 
 PANEL   *time_panel, *camera_panel, *acquisition_panel,
         *command_panel, *metadata_panel, *log_panel,
         *status_panel, *separator_panel,
-        *exposure_panel, *parameters_panel;
+        *input_panel, *parameters_panel;
 
 // A circular buffer for storing log messages
 static char *log_messages[256];
@@ -387,17 +387,6 @@ static void update_command_window(PNCameraMode camera_mode)
     print_command_option(command_window, TRUE, "^C", "Quit");
 }
 
-static WINDOW *create_exposure_window()
-{
-    int row, col;
-    getmaxyx(stdscr, row, col);
-
-    WINDOW *win = newwin(1, col, row-1, 0);
-    mvwaddstr(win, 0, 1, "Enter an exposure time: ");
-
-    return win;
-}
-
 static WINDOW *create_parameters_window()
 {
     int row, col;
@@ -417,12 +406,27 @@ static WINDOW *create_parameters_window()
     return ret;
 }
 
-char exp_entry_buf[1024];
-int exp_entry_length = 0;
-static void update_exposure_window()
+
+static WINDOW *create_input_window()
 {
-    mvwaddnstr(exposure_window, 1, 25, exp_entry_buf, exp_entry_length);
-    wclrtoeol(exposure_window);
+    int row, col;
+    getmaxyx(stdscr, row, col);
+
+    WINDOW *win = newwin(1, col, row-1, 0);
+    return win;
+}
+
+static void set_input_window_msg(char *msg)
+{
+    mvwaddstr(input_window, 0, 1, msg);
+}
+
+char input_entry_buf[1024];
+int input_entry_length = 0;
+static void update_input_window()
+{
+    mvwaddnstr(input_window, 0, 25, input_entry_buf, input_entry_length);
+    wclrtoeol(input_window);
 }
 
 PNCameraMode last_camera_mode;
@@ -447,7 +451,7 @@ void pn_ui_run()
     status_window = create_status_window();
 
     separator_window = create_separator_window();
-    exposure_window = create_exposure_window();
+    input_window = create_input_window();
     parameters_window = create_parameters_window();
 
     // Create panels
@@ -460,7 +464,7 @@ void pn_ui_run()
     command_panel = new_panel(command_window);
 
     separator_panel = new_panel(separator_window);
-    exposure_panel = new_panel(exposure_window);
+    input_panel = new_panel(input_window);
     parameters_panel = new_panel(parameters_window);
 
     // Set initial state
@@ -479,7 +483,7 @@ void pn_ui_run()
     update_acquisition_window();
     update_time_window();
     update_camera_window(last_camera_mode, last_camera_downloading, last_camera_temperature);
-    hide_panel(exposure_panel);
+    hide_panel(input_panel);
     hide_panel(parameters_panel);
 
     // Only wait for 100ms for input so we can keep the ui up to date
@@ -541,11 +545,12 @@ void pn_ui_run()
 
                             input_type = INPUT_EXPOSURE;
 
-                            exp_entry_length = sprintf(exp_entry_buf, "%d", pn_preference_char(EXPOSURE_TIME));
-                            update_exposure_window();
+                            input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_char(EXPOSURE_TIME));
+                            set_input_window_msg("Enter an exposure time: ");
+                            update_input_window();
 
                             hide_panel(command_panel);
-                            show_panel(exposure_panel);
+                            show_panel(input_panel);
                         break;
                         case 0x10: // ^P - Edit Parameters
                             if (pn_preference_char(SAVE_FRAMES))
@@ -582,18 +587,19 @@ void pn_ui_run()
                 case INPUT_EXPOSURE:
                     if (ch == '\n')
                     {
-                        exp_entry_buf[exp_entry_length] = '\0';
-                        int newexp = atoi(exp_entry_buf);
+                        input_entry_buf[input_entry_length] = '\0';
+
+                        int newexp = atoi(input_entry_buf);
                         unsigned char oldexp = pn_preference_char(EXPOSURE_TIME);
                         if (newexp < 3 || newexp > 255)
                         {
                             // Invalid entry
-                            exp_entry_length = sprintf(exp_entry_buf, "%d", oldexp);
+                            input_entry_length = sprintf(input_entry_buf, "%d", oldexp);
                         }
                         else
                         {
                             input_type = INPUT_MAIN;
-                            hide_panel(exposure_panel);
+                            hide_panel(input_panel);
                             show_panel(command_panel);
 
                             if (oldexp != newexp)
@@ -605,12 +611,12 @@ void pn_ui_run()
                             }
                         }
                     }
-                    else if (ch == 0x7f && exp_entry_length > 0) // Backspace
-                        --exp_entry_length;
-                    else if (isdigit(ch) && exp_entry_length < 1024 - 1)
-                        exp_entry_buf[exp_entry_length++] = ch;
+                    else if (ch == 0x7f && input_entry_length > 0) // Backspace
+                        --input_entry_length;
+                    else if (isdigit(ch) && input_entry_length < 1024 - 1)
+                        input_entry_buf[input_entry_length++] = ch;
 
-                    update_exposure_window();
+                    update_input_window();
                 break;
                 case INPUT_PARAMETERS:
                     switch (ch)
@@ -681,7 +687,7 @@ void pn_ui_run()
     del_panel(metadata_panel);
     del_panel(log_panel);
     del_panel(command_panel);
-    del_panel(exposure_panel);
+    del_panel(input_panel);
     del_panel(parameters_panel);
 
     delwin(time_window);
@@ -690,7 +696,7 @@ void pn_ui_run()
     delwin(metadata_window);
     delwin(log_window);
     delwin(command_window);
-    delwin(exposure_window);
+    delwin(input_window);
     delwin(parameters_window);
 
     for (int i = 0; i < 256; i++)
