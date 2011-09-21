@@ -24,11 +24,13 @@ extern PNCamera *camera;
 
 WINDOW  *time_window, *camera_window, *acquisition_window,
         *command_window, *metadata_window, *log_window,
-        *status_window, *exposure_window;
+        *status_window, *separator_window,
+        *exposure_window, *parameters_window;
 
 PANEL   *time_panel, *camera_panel, *acquisition_panel,
         *command_panel, *metadata_panel, *log_panel,
-        *status_panel, *exposure_panel;
+        *status_panel, *separator_panel,
+        *exposure_panel, *parameters_panel;
 
 // A circular buffer for storing log messages
 static char *log_messages[256];
@@ -287,69 +289,6 @@ void add_log_line(char *msg)
 }
 
 
-static WINDOW *create_command_window()
-{
-    int row, col;
-    getmaxyx(stdscr, row, col);
-
-    int x = 0;
-    int y = row-2;
-    int w = col;
-    int h = 2;
-    return newwin(h, w, y, x);
-}
-
-static void print_command_option(WINDOW *w, int indent, char *hotkey, char *format, ...)
-{
-    if (indent)
-        waddstr(w, "  ");
-
-    wattron(w, A_STANDOUT);
-    waddstr(w, hotkey);
-    wattroff(w, A_STANDOUT);
-    waddstr(w, " ");
-
-    va_list args;
-	va_start(args, format);
-    vwprintw(w, format, args);
-	va_end(args);
-}
-
-static void update_command_window(PNCameraMode camera_mode)
-{
-    int row,col;
-    getmaxyx(stdscr,row,col);
-    wclear(command_window);
-    mvwhline(command_window, 0, 0, 0, col);
-
-    if (should_quit)
-        return;
-
-    PNFrameType type = pn_preference_char(OBJECT_TYPE);
-    unsigned char save = pn_preference_char(SAVE_FRAMES);
-    int remaining_frames = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
-
-    // Acquire toggle
-    wmove(command_window, 1, 0);
-    if (camera_mode == IDLE || camera_mode == ACQUIRING)
-        print_command_option(command_window, FALSE, "^A", "Acquire", camera_mode == ACQUIRING ? "Stop " : "");
-
-    // Save toggle
-    if (type == OBJECT_TARGET || remaining_frames > 0)
-        print_command_option(command_window, TRUE, "^S", "%s Saving", save ? "Stop" : "Start");
-
-    // Display parameter panel
-    if (!save)
-        print_command_option(command_window, TRUE, "^P", "Edit Parameters");
-
-    // Display exposure panel
-    if (camera_mode == IDLE)
-        print_command_option(command_window, TRUE, "^E", "Set Exposure");
-
-    print_command_option(command_window, TRUE, "^C", "Quit");
-}
-
-
 static WINDOW *create_status_window()
 {
     int row, col;
@@ -379,20 +318,103 @@ static void update_status_window(PNCameraMode camera_mode)
     waddstr(status_window, " ");
 }
 
-static WINDOW *create_exposure_window()
+static WINDOW *create_separator_window()
+{
+    int row, col;
+    getmaxyx(stdscr, row, col);
+    WINDOW *win = newwin(1, col, row-2, 0);
+    mvwhline(win, 0, 0, 0, col);
+    return win;
+}
+
+static WINDOW *create_command_window()
 {
     int row, col;
     getmaxyx(stdscr, row, col);
 
     int x = 0;
-    int y = row-2;
+    int y = row-1;
     int w = col;
-    int h = 2;
-    WINDOW *win = newwin(h, w, y, x);
-    mvwhline(win, 0, 0, 0, col);
-    mvwaddstr(win, 1, 1, "Enter an exposure time: ");
+    int h = 1;
+    return newwin(h, w, y, x);
+}
+
+static void print_command_option(WINDOW *w, int indent, char *hotkey, char *format, ...)
+{
+    if (indent)
+        waddstr(w, "  ");
+
+    wattron(w, A_STANDOUT);
+    waddstr(w, hotkey);
+    wattroff(w, A_STANDOUT);
+    waddstr(w, " ");
+
+    va_list args;
+	va_start(args, format);
+    vwprintw(w, format, args);
+	va_end(args);
+}
+
+static void update_command_window(PNCameraMode camera_mode)
+{
+    int row,col;
+    getmaxyx(stdscr,row,col);
+    wclear(command_window);
+
+    if (should_quit)
+        return;
+
+    PNFrameType type = pn_preference_char(OBJECT_TYPE);
+    unsigned char save = pn_preference_char(SAVE_FRAMES);
+    int remaining_frames = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
+
+    // Acquire toggle
+    if (camera_mode == IDLE || camera_mode == ACQUIRING)
+        print_command_option(command_window, FALSE, "^A", "Acquire", camera_mode == ACQUIRING ? "Stop " : "");
+
+    // Save toggle
+    if (type == OBJECT_TARGET || remaining_frames > 0)
+        print_command_option(command_window, TRUE, "^S", "%s Saving", save ? "Stop" : "Start");
+
+    // Display parameter panel
+    if (!save)
+        print_command_option(command_window, TRUE, "^P", "Edit Parameters");
+
+    // Display exposure panel
+    if (camera_mode == IDLE)
+        print_command_option(command_window, TRUE, "^E", "Set Exposure");
+
+    print_command_option(command_window, TRUE, "^C", "Quit");
+}
+
+static WINDOW *create_exposure_window()
+{
+    int row, col;
+    getmaxyx(stdscr, row, col);
+
+    WINDOW *win = newwin(1, col, row-1, 0);
+    mvwaddstr(win, 0, 1, "Enter an exposure time: ");
 
     return win;
+}
+
+static WINDOW *create_parameters_window()
+{
+    int row, col;
+    getmaxyx(stdscr, row, col);
+
+    WINDOW *ret = newwin(1, col, row-1, 0);
+    print_command_option(ret, FALSE, "^T", "Type");
+
+    if (pn_preference_char(OBJECT_TYPE) == OBJECT_TARGET)
+        print_command_option(ret, TRUE, "^D", "Object");
+    else
+        print_command_option(ret, TRUE, "^D", "Set Countdown");
+
+    print_command_option(ret, TRUE, "^P", "Run Prefix");
+    print_command_option(ret, TRUE, "^N", "Frame #");
+    print_command_option(ret, TRUE, "RET", "Back");
+    return ret;
 }
 
 char exp_entry_buf[1024];
@@ -423,7 +445,10 @@ void pn_ui_run()
     metadata_window = create_metadata_window();
     log_window = create_log_window();
     status_window = create_status_window();
+
+    separator_window = create_separator_window();
     exposure_window = create_exposure_window();
+    parameters_window = create_parameters_window();
 
     // Create panels
     time_panel = new_panel(time_window);
@@ -433,7 +458,10 @@ void pn_ui_run()
     log_panel = new_panel(log_window);
     status_panel = new_panel(status_window);
     command_panel = new_panel(command_window);
+
+    separator_panel = new_panel(separator_window);
     exposure_panel = new_panel(exposure_window);
+    parameters_panel = new_panel(parameters_window);
 
     // Set initial state
     last_camera_mode = camera->mode;
@@ -452,6 +480,7 @@ void pn_ui_run()
     update_time_window();
     update_camera_window(last_camera_mode, last_camera_downloading, last_camera_temperature);
     hide_panel(exposure_panel);
+    hide_panel(parameters_panel);
 
     // Only wait for 100ms for input so we can keep the ui up to date
     // *and* respond timely to input
@@ -518,6 +547,14 @@ void pn_ui_run()
                             hide_panel(command_panel);
                             show_panel(exposure_panel);
                         break;
+                        case 0x10: // ^P - Edit Parameters
+                            if (pn_preference_char(SAVE_FRAMES))
+                                break;
+
+                            input_type = INPUT_PARAMETERS;
+                            hide_panel(command_panel);
+                            show_panel(parameters_panel);
+                        break;
                         case 0x13: // ^S - Toggle Save
                             // Can't enable saving for calibration frames after the target count has been reached
                             if (!pn_preference_allow_save())
@@ -574,6 +611,16 @@ void pn_ui_run()
                         exp_entry_buf[exp_entry_length++] = ch;
 
                     update_exposure_window();
+                break;
+                case INPUT_PARAMETERS:
+                    switch (ch)
+                    {
+                        case '\n': // Back
+                            input_type = INPUT_MAIN;
+                            hide_panel(parameters_panel);
+                            show_panel(command_panel);
+                        break;
+                    }
                 break;
             }
         }
@@ -635,6 +682,7 @@ void pn_ui_run()
     del_panel(log_panel);
     del_panel(command_panel);
     del_panel(exposure_panel);
+    del_panel(parameters_panel);
 
     delwin(time_window);
     delwin(camera_window);
@@ -643,6 +691,7 @@ void pn_ui_run()
     delwin(log_window);
     delwin(command_window);
     delwin(exposure_window);
+    delwin(parameters_window);
 
     for (int i = 0; i < 256; i++)
         free(log_messages[i]);

@@ -13,6 +13,7 @@ typedef enum
 {
 	INPUT_MAIN = 1,
 	INPUT_EXPOSURE = 2,
+    INPUT_PARAMETERS = 3,
 } PNUIInputType;
 
 
