@@ -652,6 +652,13 @@ void pn_ui_run()
                             hide_panel(parameters_panel);
                             show_panel(frametype_panel);
                             break;
+                        case 0x04: // ^D - Countdown
+                            input_type = INPUT_COUNTDOWN_NUMBER;
+
+                            input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT));
+                            set_input_window_msg("Countdown #: ");
+                            is_input = TRUE;
+                            break;
                     }
 
                     if (is_input && ch != '\n')
@@ -663,6 +670,7 @@ void pn_ui_run()
                     break;
                 case INPUT_EXPOSURE:
                 case INPUT_FRAME_NUMBER:
+                case INPUT_COUNTDOWN_NUMBER:
                     if (ch == '\n')
                     {
                         input_entry_buf[input_entry_length] = '\0';
@@ -711,6 +719,29 @@ void pn_ui_run()
                                     pn_preference_set_int(RUN_NUMBER, new);
                                     update_acquisition_window();
                                     pn_log("Frame # set to %d", new);
+                                }
+                            }
+                        }
+                        else if (input_type == INPUT_COUNTDOWN_NUMBER)
+                        {
+                            unsigned char oldcount = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
+                            if (new < 0)
+                            {
+                                // Invalid entry
+                                input_entry_length = sprintf(input_entry_buf, "%d", oldcount);
+                            }
+                            else
+                            {
+                                input_type = INPUT_PARAMETERS;
+                                hide_panel(input_panel);
+                                show_panel(parameters_panel);
+
+                                if (oldcount != new)
+                                {
+                                    // Update preferences
+                                    pn_preference_set_int(CALIBRATION_REMAINING_FRAMECOUNT, new);
+                                    update_acquisition_window();
+                                    pn_log("Countdown # set to %d", new);
                                 }
                             }
                         }
