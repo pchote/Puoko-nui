@@ -307,7 +307,7 @@ static WINDOW *create_status_window()
 
 static void update_status_window(PNCameraMode camera_mode)
 {
-    unsigned char save = pn_preference_char(SAVE_FRAMES);
+    unsigned char save = pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save();
     wattron(status_window, A_STANDOUT);
     mvwaddstr(status_window, 0, 16, (camera_mode == ACQUIRING ? " YES " : camera_mode == IDLE ? " NO " : " ... "));
     wattroff(status_window, A_STANDOUT);
@@ -377,7 +377,7 @@ static void update_command_window(PNCameraMode camera_mode)
         print_command_option(command_window, TRUE, "^S", "%s Saving", save ? "Stop" : "Start");
 
     // Display parameter panel
-    if (!save)
+    if (!save || !pn_preference_allow_save())
         print_command_option(command_window, TRUE, "^P", "Edit Parameters");
 
     // Display exposure panel
@@ -579,7 +579,7 @@ void pn_ui_run()
                             show_panel(input_panel);
                         break;
                         case 0x10: // ^P - Edit Parameters
-                            if (pn_preference_char(SAVE_FRAMES))
+                            if (pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save())
                                 break;
 
                             input_type = INPUT_PARAMETERS;
@@ -591,7 +591,7 @@ void pn_ui_run()
                             // Can't enable saving for calibration frames after the target count has been reached
                             if (!pn_preference_allow_save())
                             {
-                                add_log_line("fail");
+                                add_log_line("Unable to toggle save: countdown is zero");
                                 break;
                             }
 
@@ -741,6 +741,8 @@ void pn_ui_run()
                                     // Update preferences
                                     pn_preference_set_int(CALIBRATION_REMAINING_FRAMECOUNT, new);
                                     update_acquisition_window();
+                                    update_status_window(camera_mode);
+                                    update_command_window(camera_mode);
                                     pn_log("Countdown # set to %d", new);
                                 }
                             }
@@ -880,6 +882,7 @@ void pn_ui_run()
             run_number != last_run_number)
         {
             update_acquisition_window();
+            update_status_window(camera_mode);
             last_calibration_framecount = remaining_frames;
             last_run_number = run_number;
         }
