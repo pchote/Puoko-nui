@@ -25,12 +25,12 @@ extern PNCamera *camera;
 WINDOW  *time_window, *camera_window, *acquisition_window,
         *command_window, *metadata_window, *log_window,
         *status_window, *separator_window,
-        *input_window, *parameters_window;
+        *input_window, *parameters_window, *frametype_window;
 
 PANEL   *time_panel, *camera_panel, *acquisition_panel,
         *command_panel, *metadata_panel, *log_panel,
         *status_panel, *separator_panel,
-        *input_panel, *parameters_panel;
+        *input_panel, *parameters_panel, *frametype_panel;
 
 // A circular buffer for storing log messages
 static char *log_messages[256];
@@ -187,7 +187,7 @@ static void update_acquisition_window()
             typename = "Flat  ";
             break;
         case OBJECT_TARGET:
-            typename = "Object";
+            typename = "Target";
             break;
     }
 
@@ -219,7 +219,7 @@ static WINDOW *create_metadata_window()
     mvwaddstr(win, 1, 2, "Observatory:");
     mvwaddstr(win, 2, 2, "  Observers:");
     mvwaddstr(win, 3, 2, "  Telescope:");
-    mvwaddstr(win, 4, 2, "     Object:");
+    mvwaddstr(win, 4, 2, "     Target:");
 
     return win;
 }
@@ -392,18 +392,37 @@ static WINDOW *create_parameters_window()
     int row, col;
     getmaxyx(stdscr, row, col);
 
-    WINDOW *ret = newwin(1, col, row-1, 0);
-    print_command_option(ret, FALSE, "^T", "Type");
+    return newwin(1, col, row-1, 0);
+}
+
+static void update_parameters_window()
+{
+    int row, col;
+    getmaxyx(stdscr, row, col);
+    wclear(parameters_window);
+    print_command_option(parameters_window, FALSE, "^T", "Type");
 
     if (pn_preference_char(OBJECT_TYPE) == OBJECT_TARGET)
-        print_command_option(ret, TRUE, "^O", "Object");
+        print_command_option(parameters_window, TRUE, "^O", "Target Name");
     else
-        print_command_option(ret, TRUE, "^D", "Set Countdown");
+        print_command_option(parameters_window, TRUE, "^D", "Set Countdown");
 
-    print_command_option(ret, TRUE, "^S", "Frame Dir");
-    print_command_option(ret, TRUE, "^P", "Run Prefix");
-    print_command_option(ret, TRUE, "^N", "Frame #");
-    print_command_option(ret, TRUE, "RET", "Back");
+    print_command_option(parameters_window, TRUE, "^S", "Frame Dir");
+    print_command_option(parameters_window, TRUE, "^P", "Run Prefix");
+    print_command_option(parameters_window, TRUE, "^N", "Frame #");
+    print_command_option(parameters_window, TRUE, "RET", "Back");
+}
+
+
+static WINDOW *create_frametype_window()
+{
+    int row, col;
+    getmaxyx(stdscr, row, col);
+
+    WINDOW *ret = newwin(1, col, row-1, 0);
+    print_command_option(ret, FALSE, " D ", "Dark");
+    print_command_option(ret, TRUE, " F ", "Flat");
+    print_command_option(ret, TRUE, " T ", "Target");
     return ret;
 }
 
@@ -456,6 +475,7 @@ void pn_ui_run()
     separator_window = create_separator_window();
     input_window = create_input_window();
     parameters_window = create_parameters_window();
+    frametype_window = create_frametype_window();
 
     // Create panels
     time_panel = new_panel(time_window);
@@ -469,6 +489,7 @@ void pn_ui_run()
     separator_panel = new_panel(separator_window);
     input_panel = new_panel(input_window);
     parameters_panel = new_panel(parameters_window);
+    frametype_panel = new_panel(frametype_window);
 
     // Set initial state
     last_camera_mode = camera->mode;
@@ -488,6 +509,7 @@ void pn_ui_run()
     update_camera_window(last_camera_mode, last_camera_downloading, last_camera_temperature);
     hide_panel(input_panel);
     hide_panel(parameters_panel);
+    hide_panel(frametype_panel);
 
     // Only wait for 100ms for input so we can keep the ui up to date
     // *and* respond timely to input
@@ -515,7 +537,7 @@ void pn_ui_run()
         pthread_mutex_unlock(&gps->read_mutex);
 
         int ch;
-        unsigned char valid = TRUE;
+        unsigned char is_input = FALSE;
         while ((ch = getch()) != ERR)
         {
             char buf[128];
@@ -562,6 +584,7 @@ void pn_ui_run()
 
                             input_type = INPUT_PARAMETERS;
                             hide_panel(command_panel);
+                            update_parameters_window();
                             show_panel(parameters_panel);
                         break;
                         case 0x13: // ^S - Toggle Save
@@ -601,31 +624,37 @@ void pn_ui_run()
 
                             input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(RUN_PREFIX));
                             set_input_window_msg("Run Prefix: ");
+                            is_input = TRUE;
                             break;
                         case 0x13: // ^S - Frame dir
                             input_type = INPUT_FRAME_DIR;
 
                             input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OUTPUT_DIR));
                             set_input_window_msg("Output path: ");
+                            is_input = TRUE;
                             break;
                         case 0x0f: // ^O - Object name
                             input_type = INPUT_OBJECT_NAME;
 
                             input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OBJECT_NAME));
-                            set_input_window_msg("Object Name: ");
+                            set_input_window_msg("Target Name: ");
+                            is_input = TRUE;
                             break;
                         case 0x0e: // ^N - Frame #
                             input_type = INPUT_FRAME_NUMBER;
 
                             input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(RUN_NUMBER));
                             set_input_window_msg("Frame #: ");
+                            is_input = TRUE;
                             break;
-                        default:
-                            valid = FALSE;
+                        case 0x14: // ^T - Frame Type
+                            input_type = INPUT_FRAME_TYPE;
+                            hide_panel(parameters_panel);
+                            show_panel(frametype_panel);
                             break;
                     }
 
-                    if (valid && ch != '\n')
+                    if (is_input && ch != '\n')
                     {
                         update_input_window();
                         hide_panel(parameters_panel);
@@ -664,7 +693,7 @@ void pn_ui_run()
                         }
                         else if (input_type == INPUT_FRAME_NUMBER)
                         {
-                            unsigned char oldframe = pn_preference_char(RUN_NUMBER);
+                            unsigned char oldframe = pn_preference_int(RUN_NUMBER);
                             if (new < 0)
                             {
                                 // Invalid entry
@@ -751,6 +780,43 @@ void pn_ui_run()
                     
                     update_input_window();
                 break;
+                case INPUT_FRAME_TYPE:
+                    if (!isalpha(ch))
+                        break;
+
+                    unsigned char type = 0xFF;
+                    char *type_name = "INVALID";
+                    switch (tolower(ch))
+                    {
+                        case 'd':
+                            type = OBJECT_DARK;
+                            type_name = "Dark";
+                        break;
+                        case 'f':
+                            type = OBJECT_FLAT;
+                            type_name = "Flat";
+                        break;
+                        case 't':
+                            type = OBJECT_TARGET;
+                            type_name = "Target";
+                        break;
+                    }
+                    if (type == 0xFF)
+                        break;
+
+                    unsigned char oldtype = pn_preference_int(OBJECT_TYPE);
+                    if (type != oldtype)
+                    {
+                        pn_preference_set_char(OBJECT_TYPE, type);
+                        update_acquisition_window();
+                        update_parameters_window();
+                        pn_log("Frame type set to `%s'", type_name);
+
+                        input_type = INPUT_PARAMETERS;
+                        hide_panel(input_panel);
+                        show_panel(parameters_panel);
+                    }
+                break;
             }
         }
         update_time_window();
@@ -812,6 +878,7 @@ void pn_ui_run()
     del_panel(command_panel);
     del_panel(input_panel);
     del_panel(parameters_panel);
+    del_panel(frametype_panel);
 
     delwin(time_window);
     delwin(camera_window);
@@ -821,6 +888,7 @@ void pn_ui_run()
     delwin(command_window);
     delwin(input_window);
     delwin(parameters_window);
+    delwin(frametype_window);
 
     for (int i = 0; i < 256; i++)
         free(log_messages[i]);
