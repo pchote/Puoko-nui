@@ -248,8 +248,13 @@ int main( int argc, char *argv[] )
     // Open the log file for writing
     time_t start = time(NULL);
     char namebuf[32];
-    strftime(namebuf, 32, "%Y%m%d-%H%M%S.log", gmtime(&start));
+    strftime(namebuf, 32, "logs/%Y%m%d-%H%M%S.log", gmtime(&start));
     logFile = fopen(namebuf, "w");
+    if (logFile == NULL)
+    {
+        fprintf(stderr, "Unable to create logfile %s\n", namebuf);
+        exit(1);
+    }
     init_log_gui();
 
     launch_ds9();
