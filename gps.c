@@ -142,7 +142,7 @@ static void initialize_timer()
 	if (numDevices == 0)
 	{
   		ftdi_list_free(&devices);
-		gps_error("FATAL: GPS unit unavailable");
+		gps_error("Timer not found");
 	}
 
 	gps->device = devices->dev;
@@ -151,11 +151,11 @@ static void initialize_timer()
 	pn_log("Opened FTDI device `%s`", gps->device->filename);
 
 	if (gps->context != NULL)
-		gps_error("FATAL: device %s is already open @ %s:%d", gps->device->filename, __FILE__, __LINE__);
+		gps_error("device %s is already open", gps->device->filename);
 
 	gps->context = ftdi_new();
     if (gps->context == NULL)
-        gps_error("FATAL: ftdi_new failed");
+        gps_error("ftdi_new failed");
 
 	int status = ftdi_init(gps->context);
 	check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
@@ -238,7 +238,7 @@ void *pn_timer_thread(void *_unused)
         // Grab any data accumulated by ftdi
 	    int ret = ftdi_read_data(gps->context, recvbuf, 256);
 	    if (ret < 0)
-		    gps_error("FATAL: Bad response from timer. return code 0x%x",ret);
+		    gps_error("Bad response from timer. return code 0x%x",ret);
 
         // Copy recieved bytes into the buffer
         for (int i = 0; i < ret; i++)

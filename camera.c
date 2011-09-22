@@ -142,7 +142,7 @@ static void initialize_camera()
     pn_log("Found %d camera(s)", numCams);
     if (numCams == 0)
     {
-        camera->fatal_error = strdup("FATAL: No cameras are available (pass --simulate-camera to use simulated hardware).");    
+        camera->fatal_error = strdup("Camera not found");
         pthread_exit(NULL);
     }
 

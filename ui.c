@@ -395,6 +395,20 @@ static WINDOW *create_parameters_window()
     return newwin(1, col, row-1, 0);
 }
 
+static WINDOW *create_error_window(char *msg)
+{
+    int row, col;
+    getmaxyx(stdscr, row, col);
+
+    WINDOW *win = newwin(row, col, 0, 0);
+    box(win, 0, 0);
+    char *title = " FATAL ERROR ";
+    mvwaddstr(win, 0, (col-strlen(title))/2, title);
+    mvwaddstr(win, (row-1)/2, (col-strlen(msg))/2, msg);
+
+    return win;
+}
+
 static void update_parameters_window()
 {
     int row, col;
@@ -516,13 +530,31 @@ void pn_ui_run()
     timeout(100);
     for (;;)
     {
+        int ch = ERR;
         if (camera->fatal_error != NULL || gps->fatal_error != NULL)
         {
             char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps->fatal_error;
-
             pn_log("Fatal error: %s", msg);
-            timeout(-1);
-            getch();
+
+            WINDOW *error_window = create_error_window(msg);
+            PANEL *error_panel = new_panel(error_window);
+            int row,col;
+            getmaxyx(stdscr, row, col);
+            timeout(250);
+
+
+            // Blink the screen annoyingly fast to grab attention until a key is pressed
+            while (ch == ERR)
+            {
+                flash();
+                update_panels();
+                doupdate();
+                move(row-1, col-1);
+                ch = getch();
+            }
+            del_panel(error_panel);
+            delwin(error_window);
+
             break;
         }
 
@@ -536,7 +568,6 @@ void pn_ui_run()
         int camera_downloading = gps->camera_downloading;
         pthread_mutex_unlock(&gps->read_mutex);
 
-        int ch;
         unsigned char is_input = FALSE;
         while ((ch = getch()) != ERR)
         {
