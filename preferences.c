@@ -26,7 +26,7 @@ typedef struct
 	char telescope[PREFERENCES_LENGTH];
 
 	unsigned char exposure_time;
-    unsigned char save_frames;
+    unsigned char save_frames; // set to FALSE on every startup
     unsigned char use_timer_monitoring;
     unsigned char timer_nomonitor_startup_delay;
     unsigned char timer_nomonitor_stop_delay;
@@ -42,42 +42,85 @@ static PNPreferences prefs;
 static void save()
 {
     FILE *fp = fopen(filename, "w");
-	fwrite(&prefs, sizeof(prefs), 1, fp);
-	fclose(fp);
+    fprintf(fp, "OutputDir: %s\n", prefs.output_directory);
+    fprintf(fp, "RunPrefix: %s\n", prefs.run_prefix);
+    fprintf(fp, "ObjectName: %s\n", prefs.object_name);
+    fprintf(fp, "Observers: %s\n", prefs.observers);
+    fprintf(fp, "Observatory: %s\n", prefs.observatory);
+    fprintf(fp, "Telescope: %s\n", prefs.telescope);
+    fprintf(fp, "ExposureTime: %d\n", prefs.exposure_time);
+    fprintf(fp, "UseTimerMonitor: %d\n", prefs.use_timer_monitoring);
+    fprintf(fp, "TimerStartDelay: %d\n", prefs.timer_nomonitor_startup_delay);
+    fprintf(fp, "TimerStopDelay: %d\n", prefs.timer_nomonitor_stop_delay);
+    fprintf(fp, "ObjectType: %d\n", prefs.object_type);
+    fprintf(fp, "CalibrationTotalFrames: %d\n", prefs.calibration_default_framecount);
+    fprintf(fp, "CalibrationRemainingFrames: %d\n", prefs.calibration_remaining_framecount);
+    fprintf(fp, "RunNumber: %d\n", prefs.run_number);
+    fclose(fp);
 }
 
 void pn_init_preferences(const char *path)
 {
     filename = strdup(path);
-	FILE *fp = fopen(filename, "r");
-	if (!fp)
-	{
-		pn_log("Could not open `%s`. Initialising with default settings", path);
-		strcpy(prefs.observatory, "MJUO");
-		strcpy(prefs.telescope, "MJUO 1-meter");
-		strcpy(prefs.observers, "DJS, PC");
-		prefs.object_type = OBJECT_TARGET;
-		strcpy(prefs.object_name, "ec20058");
 
-		strcpy(prefs.output_directory, "/home/sullivan/Desktop");
-		strcpy(prefs.run_prefix, "run");
-		prefs.run_number = 0;
+    // Set defaults
+    strcpy(prefs.observatory, "MJUO");
+    strcpy(prefs.telescope, "MJUO 1-meter");
+    strcpy(prefs.observers, "DJS, PC");
+    prefs.object_type = OBJECT_TARGET;
+    strcpy(prefs.object_name, "ec20058");
 
-		prefs.exposure_time = 5;
+    strcpy(prefs.output_directory, "/home/sullivan/Desktop");
+    strcpy(prefs.run_prefix, "run");
+    prefs.run_number = 0;
 
-        prefs.calibration_default_framecount = 30;
-        prefs.calibration_remaining_framecount = 30;
-        prefs.save_frames = 0;
-        
-        prefs.use_timer_monitoring = TRUE;
-        prefs.timer_nomonitor_startup_delay = 5;
-        prefs.timer_nomonitor_stop_delay = 5;
-	}
-	else
-	{	
-		fread(&prefs, sizeof(prefs), 1, fp);
+    prefs.exposure_time = 5;
+
+    prefs.calibration_default_framecount = 30;
+    prefs.calibration_remaining_framecount = 30;
+    prefs.save_frames = FALSE;
+
+    prefs.use_timer_monitoring = TRUE;
+    prefs.timer_nomonitor_startup_delay = 5;
+    prefs.timer_nomonitor_stop_delay = 5;
+
+    FILE *fp = fopen(filename, "r");
+
+	if (fp)
+    {
+        char linebuf[1024];
+        while (fgets(linebuf, sizeof(linebuf)-1, fp) != NULL)
+        {
+            if (!strncmp(linebuf,"OutputDir:", 10))
+                sscanf(linebuf, "OutputDir: %1024s\n", prefs.output_directory);
+            else if (!strncmp(linebuf, "RunPrefix:", 10))
+                sscanf(linebuf, "RunPrefix: %128s\n", prefs.run_prefix);
+            else if (!strncmp(linebuf, "ObjectName:", 11))
+                sscanf(linebuf, "ObjectName: %128s\n", prefs.observatory);
+            else if (!strncmp(linebuf, "Observers:", 10))
+                sscanf(linebuf, "Observers: %128s\n", prefs.observers);
+            else if (!strncmp(linebuf, "Telescope:", 10))
+                sscanf(linebuf, "Telescope: %128s\n", prefs.telescope);
+            else if (!strncmp(linebuf, "ExposureTime:", 13))
+                sscanf(linebuf, "ExposureTime: %hhu\n", &prefs.exposure_time);
+            else if (!strncmp(linebuf, "UseTimerMonitor:", 16))
+                sscanf(linebuf, "UseTimerMonitor: %hhu\n", &prefs.use_timer_monitoring);
+            else if (!strncmp(linebuf, "TimerStartDelay:", 16))
+                sscanf(linebuf, "TimerStartDelay: %hhu\n", &prefs.timer_nomonitor_startup_delay);
+            else if (!strncmp(linebuf, "TimerStopDelay:", 15))
+                sscanf(linebuf, "TimerStopDelay: %hhu\n", &prefs.timer_nomonitor_stop_delay);
+            else if (!strncmp(linebuf, "ObjectType:", 11))
+                sscanf(linebuf, "ObjectType: %hhu\n", (unsigned char *)&prefs.object_type);
+            else if (!strncmp(linebuf, "CalibrationTotalFrames:", 23))
+                sscanf(linebuf, "CalibrationTotalFrames: %d\n", &prefs.calibration_default_framecount);
+            else if (!strncmp(linebuf, "CalibrationRemainingFrames:", 27))
+                sscanf(linebuf, "CalibrationRemainingFrames: %d\n", &prefs.calibration_remaining_framecount);
+            else if (!strncmp(linebuf, "RunNumber:", 10))
+                sscanf(linebuf, "RunNumber: %d\n", &prefs.run_number);
+        }
+
         fclose(fp);
-	}
+    }
 
     // Init mutex
     pthread_mutex_init(&access_mutex, NULL);
