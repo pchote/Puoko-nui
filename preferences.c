@@ -17,13 +17,13 @@ static pthread_mutex_t access_mutex;
 
 typedef struct
 {
-	char output_directory[PATH_MAX];
-	char run_prefix[PREFERENCES_LENGTH];
-	char object_name[PREFERENCES_LENGTH];
+	char *output_directory;
+	char *run_prefix;
+	char *object_name;
 
-	char observers[PREFERENCES_LENGTH];
-	char observatory[PREFERENCES_LENGTH];
-	char telescope[PREFERENCES_LENGTH];
+	char *observers;
+	char *observatory;
+	char *telescope;
 
 	unsigned char exposure_time;
     unsigned char save_frames; // set to FALSE on every startup
@@ -64,14 +64,14 @@ void pn_init_preferences(const char *path)
     filename = strdup(path);
 
     // Set defaults
-    strcpy(prefs.observatory, "MJUO");
-    strcpy(prefs.telescope, "MJUO 1-meter");
-    strcpy(prefs.observers, "DJS, PC");
+    prefs.observatory = strdup("MJUO");
+    prefs.telescope = strdup("MJUO 1-meter");
+    prefs.observers = strdup("DJS, PC");
     prefs.object_type = OBJECT_TARGET;
-    strcpy(prefs.object_name, "ec20058");
+    prefs.object_name = strdup("ec20058");
 
-    strcpy(prefs.output_directory, "/home/sullivan/Desktop");
-    strcpy(prefs.run_prefix, "run");
+    prefs.output_directory = strdup("/home/sullivan/");
+    prefs.run_prefix = strdup("run");
     prefs.run_number = 0;
 
     prefs.exposure_time = 5;
@@ -92,15 +92,17 @@ void pn_init_preferences(const char *path)
         while (fgets(linebuf, sizeof(linebuf)-1, fp) != NULL)
         {
             if (!strncmp(linebuf,"OutputDir:", 10))
-                sscanf(linebuf, "OutputDir: %1024s\n", prefs.output_directory);
+                prefs.output_directory = strndup(linebuf + 11, strlen(linebuf) - 12);
             else if (!strncmp(linebuf, "RunPrefix:", 10))
-                sscanf(linebuf, "RunPrefix: %128s\n", prefs.run_prefix);
+                prefs.run_prefix = strndup(linebuf + 11, strlen(linebuf) - 12);
             else if (!strncmp(linebuf, "ObjectName:", 11))
-                sscanf(linebuf, "ObjectName: %128s\n", prefs.observatory);
+                prefs.object_name = strndup(linebuf + 12, strlen(linebuf) - 13);
             else if (!strncmp(linebuf, "Observers:", 10))
-                sscanf(linebuf, "Observers: %128s\n", prefs.observers);
+                prefs.observers = strndup(linebuf + 11, strlen(linebuf) - 12);
+            else if (!strncmp(linebuf, "Observatory:", 12))
+                prefs.observatory = strndup(linebuf + 13, strlen(linebuf) - 14);
             else if (!strncmp(linebuf, "Telescope:", 10))
-                sscanf(linebuf, "Telescope: %128s\n", prefs.telescope);
+                prefs.telescope = strndup(linebuf + 11, strlen(linebuf) - 12);
             else if (!strncmp(linebuf, "ExposureTime:", 13))
                 sscanf(linebuf, "ExposureTime: %hhu\n", &prefs.exposure_time);
             else if (!strncmp(linebuf, "UseTimerMonitor:", 16))
@@ -256,12 +258,12 @@ void pn_preference_set_string(PNPreferenceString key, const char *val)
     pthread_mutex_lock(&access_mutex);
     switch (key)
     {
-        case OUTPUT_DIR: strncpy(prefs.output_directory, val, PREFERENCES_LENGTH); break;
-        case RUN_PREFIX: strncpy(prefs.run_prefix, val, PREFERENCES_LENGTH); break;
-        case OBJECT_NAME: strncpy(prefs.object_name, val, PREFERENCES_LENGTH); break;
-        case OBSERVERS: strncpy(prefs.observers, val, PREFERENCES_LENGTH); break;
-        case OBSERVATORY: strncpy(prefs.observatory, val, PREFERENCES_LENGTH); break;
-        case TELESCOPE: strncpy(prefs.telescope, val, PREFERENCES_LENGTH); break;
+        case OUTPUT_DIR: free(prefs.output_directory); prefs.output_directory = strdup(val); break;
+        case RUN_PREFIX: free(prefs.run_prefix); prefs.run_prefix = strdup(val); break;
+        case OBJECT_NAME: free(prefs.object_name); prefs.object_name = strdup(val); break;
+        case OBSERVERS: free(prefs.observers); prefs.observers = strdup(val); break;
+        case OBSERVATORY: free(prefs.observatory); prefs.observatory = strdup(val); break;
+        case TELESCOPE: free(prefs.telescope); prefs.telescope = strdup(val); break;
     }
     save();
     pthread_mutex_unlock(&access_mutex);
