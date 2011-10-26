@@ -188,7 +188,7 @@ unsigned char pn_preference_char(PNPreferenceChar key)
 
 int pn_preference_int(PNPreferenceInt key)
 {
-    char val;
+    int val;
     pthread_mutex_lock(&access_mutex);
     switch (key)
     {
