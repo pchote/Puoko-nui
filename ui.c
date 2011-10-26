@@ -874,6 +874,7 @@ void pn_ui_run()
                         pn_preference_set_char(OBJECT_TYPE, type);
                         update_acquisition_window();
                         update_parameters_window();
+                        update_metadata_window();
                         pn_log("Frame type set to `%s'", type_name);
 
                         input_type = INPUT_PARAMETERS;
