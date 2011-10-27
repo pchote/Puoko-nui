@@ -234,12 +234,15 @@ static rs_bool timer_thread_initialized = FALSE;
 static rs_bool camera_thread_initialized = FALSE;
 static rs_bool shutdown = FALSE;
 
+pthread_mutex_t log_mutex;
 FILE *logFile;
 int main( int argc, char *argv[] )
 {
     //
     // Initialization
     //
+    pthread_mutex_init(&log_mutex, NULL);
+
 	PNGPS _gps = pn_gps_new();
     gps = &_gps;
     
@@ -325,7 +328,7 @@ int main( int argc, char *argv[] )
     pn_camera_free(camera);
     pn_free_preferences();
     fclose(logFile);
-
+    pthread_mutex_destroy(&log_mutex);
     return 0;
 }
 
@@ -343,6 +346,8 @@ void pn_log(const char * format, ...)
     char timebuf[9];
     strftime(timebuf, 9, "%H:%M:%S", ptm);
 
+    pthread_mutex_lock(&log_mutex);
+
     // Construct log line
     char *msgbuf, *linebuf;
     vasprintf(&msgbuf, format, args);
@@ -356,6 +361,8 @@ void pn_log(const char * format, ...)
     // Add to gui
     if (!shutdown)
         add_log_line(linebuf);
+
+    pthread_mutex_unlock(&log_mutex);
 
     free(linebuf);
     va_end(args);
