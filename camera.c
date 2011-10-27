@@ -243,12 +243,10 @@ static void start_acquiring()
         pvcam_error("pl_exp_init_seq failed", __LINE__);
 
     // Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer
-    uns32 frame_size = 0;
-    if (!pl_exp_setup_cont(camera->handle, 1, &region, STROBED_MODE, 0, &frame_size, CIRC_NO_OVERWRITE))
+    if (!pl_exp_setup_cont(camera->handle, 1, &region, STROBED_MODE, 0, &camera->image_buffer_size, CIRC_NO_OVERWRITE))
         pvcam_error("pl_exp_setup_cont failed", __LINE__);
 
-    // Create a buffer big enough to hold 4 images
-    camera->image_buffer_size = frame_size * 4;
+    // Create a buffer big enough to hold 1 image
     camera->image_buffer = (uns16*)malloc( camera->image_buffer_size );
 
     // Start waiting for sync pulses to trigger exposures
