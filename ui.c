@@ -868,7 +868,7 @@ void pn_ui_run()
                     if (type == 0xFF)
                         break;
 
-                    unsigned char oldtype = pn_preference_int(OBJECT_TYPE);
+                    unsigned char oldtype = pn_preference_char(OBJECT_TYPE);
                     if (type != oldtype)
                     {
                         pn_preference_set_char(OBJECT_TYPE, type);
