@@ -232,6 +232,7 @@ void pn_preview_frame(PNFrame *frame)
 static pthread_t timer_thread, camera_thread;
 static rs_bool timer_thread_initialized = FALSE;
 static rs_bool camera_thread_initialized = FALSE;
+static rs_bool shutdown = FALSE;
 
 FILE *logFile;
 int main( int argc, char *argv[] )
@@ -304,6 +305,7 @@ int main( int argc, char *argv[] )
     //
 	// Shutdown hardware and cleanup
     //
+    shutdown = TRUE;
 
     // Tell the GPS and Camera threads to terminate themselves
     pthread_mutex_lock(&camera->read_mutex);
@@ -352,7 +354,8 @@ void pn_log(const char * format, ...)
 	fprintf(logFile, "\n");
 
     // Add to gui
-    add_log_line(linebuf);
+    if (!shutdown)
+        add_log_line(linebuf);
 
     free(linebuf);
     va_end(args);
