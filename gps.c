@@ -342,9 +342,13 @@ void *pn_timer_thread(void *_unused)
                             pn_log("GPS Debug: `%s`", &gps_packet[3]);
                         break;
                         case DEBUG_RAW:
-                            pn_log("GPS Debug: ");
+                            if (TRUE);
+                            char *msg = (char *)malloc((3*gps_packet[1]+1)*sizeof(char));
                             for (unsigned char i = 0; i < gps_packet[1]; i++)
-                                pn_log("0x%02x ", gps_packet[3+i]);
+                                sprintf(msg+strlen(msg), "%02x ", gps_packet[3+i]);
+
+                            pn_log("GPS Raw: %s", msg);
+                            free(msg);
                         break;
                         case STOP_EXPOSURE:
                             pn_log("Timer reports safe to shutdown camera");
