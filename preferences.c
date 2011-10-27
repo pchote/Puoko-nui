@@ -161,7 +161,7 @@ char *pn_preference_string(PNPreferenceString key)
         case OBSERVERS: val = prefs.observers; break;
         case OBSERVATORY: val = prefs.observatory; break;
         case TELESCOPE: val = prefs.telescope; break;
-        default: val = "Invalid key"; break;
+        default: pn_log("ERROR: Attempting to access invalid string pref"); val = "Invalid key"; break;
     }
     ret = strdup(val);
     pthread_mutex_unlock(&access_mutex);
@@ -181,7 +181,7 @@ unsigned char pn_preference_char(PNPreferenceChar key)
         case USE_TIMER_MONITORING: val = prefs.use_timer_monitoring; break;
         case TIMER_NOMONITOR_STARTUP_DELAY: val = prefs.timer_nomonitor_startup_delay; break;
         case TIMER_NOMONITOR_STOP_DELAY: val = prefs.timer_nomonitor_stop_delay; break;
-        default: val = 0;
+        default: pn_log("ERROR: Attempting to access invalid char pref"); val = 0;
     }
     pthread_mutex_unlock(&access_mutex);
 
@@ -197,7 +197,7 @@ int pn_preference_int(PNPreferenceInt key)
         case RUN_NUMBER: val = prefs.run_number; break;
         case CALIBRATION_DEFAULT_FRAMECOUNT: val = prefs.calibration_default_framecount; break;
         case CALIBRATION_REMAINING_FRAMECOUNT: val = prefs.calibration_remaining_framecount; break;
-        default: val = 0;
+        default: pn_log("ERROR: Attempting to access invalid int pref"); val = 0;
     }
     pthread_mutex_unlock(&access_mutex);
 
@@ -248,6 +248,7 @@ void pn_preference_set_char(PNPreferenceChar key, unsigned char val)
         case USE_TIMER_MONITORING: prefs.use_timer_monitoring = val; break;
         case TIMER_NOMONITOR_STARTUP_DELAY: prefs.timer_nomonitor_startup_delay = val; break;
         case TIMER_NOMONITOR_STOP_DELAY: prefs.timer_nomonitor_stop_delay = val; break;
+        default: pn_log("ERROR: Attempting to set invalid char pref");
     }
     save();
     pthread_mutex_unlock(&access_mutex);
@@ -264,6 +265,7 @@ void pn_preference_set_string(PNPreferenceString key, const char *val)
         case OBSERVERS: free(prefs.observers); prefs.observers = strdup(val); break;
         case OBSERVATORY: free(prefs.observatory); prefs.observatory = strdup(val); break;
         case TELESCOPE: free(prefs.telescope); prefs.telescope = strdup(val); break;
+        default: pn_log("ERROR: Attempting to set invalid string pref");
     }
     save();
     pthread_mutex_unlock(&access_mutex);
@@ -277,6 +279,7 @@ void pn_preference_set_int(PNPreferenceInt key, int val)
         case RUN_NUMBER: prefs.run_number = val; break;
         case CALIBRATION_DEFAULT_FRAMECOUNT: prefs.calibration_default_framecount = val; break;
         case CALIBRATION_REMAINING_FRAMECOUNT: prefs.calibration_remaining_framecount = val; break;
+        default: pn_log("ERROR: Attempting to set invalid int pref");
     }
     save();
     pthread_mutex_unlock(&access_mutex);
