@@ -473,6 +473,8 @@ void pn_gps_start_exposure(unsigned char exptime)
 
         if (data[1])
             pn_log("Using timer monitor");
+        else
+            pn_log("Using fixed startup delay of %d seconds", data[2]);
 
         queue_data(START_EXPOSURE, data, 3);
     }
@@ -492,7 +494,13 @@ void pn_gps_stop_exposure()
     if (gps->simulated)
         shutdown_camera();
     else
+    {
         queue_data(STOP_EXPOSURE, data, 2);
+        if (data[0])
+            pn_log("Using timer monitor");
+        else
+            pn_log("Using fixed stop delay of %d seconds", data[1]);
+    }
 }
 
 // Utility routine to subtract a number of seconds from a PNGPSTimestamp
