@@ -31,11 +31,13 @@ typedef struct
     unsigned char timer_nomonitor_startup_delay;
     unsigned char timer_nomonitor_stop_delay;
     unsigned char superpixel_size; // Number of pixels to bin in both directions
+    unsigned char camera_readout_mode; // 0 = 100kHz, 1 = 1MHz
     PNFrameType object_type;
 
     int calibration_default_framecount;
     int calibration_remaining_framecount;
     int run_number;
+    int camera_temperature; // = degrees * 100 (-5000 = -50 deg)
 } PNPreferences;
 
 static PNPreferences prefs;
@@ -51,6 +53,8 @@ static void save()
     fprintf(fp, "Telescope: %s\n", prefs.telescope);
     fprintf(fp, "ExposureTime: %d\n", prefs.exposure_time);
     fprintf(fp, "SuperpixelSize: %d\n", prefs.superpixel_size);
+    fprintf(fp, "CameraReadoutMode: %d\n", prefs.camera_readout_mode);
+    fprintf(fp, "CameraTemperature: %d\n", prefs.camera_temperature);
     fprintf(fp, "UseTimerMonitor: %d\n", prefs.use_timer_monitoring);
     fprintf(fp, "TimerStartDelay: %d\n", prefs.timer_nomonitor_startup_delay);
     fprintf(fp, "TimerStopDelay: %d\n", prefs.timer_nomonitor_stop_delay);
@@ -78,6 +82,8 @@ void pn_init_preferences(const char *path)
 
     prefs.exposure_time = 5;
     prefs.superpixel_size = 2;
+    prefs.camera_readout_mode = 0;
+    prefs.camera_temperature = -5000;
 
     prefs.calibration_default_framecount = 30;
     prefs.calibration_remaining_framecount = 30;
@@ -110,6 +116,10 @@ void pn_init_preferences(const char *path)
                 sscanf(linebuf, "ExposureTime: %hhu\n", &prefs.exposure_time);
             else if (!strncmp(linebuf, "SuperpixelSize:", 15))
                 sscanf(linebuf, "SuperpixelSize: %hhu\n", &prefs.superpixel_size);
+            else if (!strncmp(linebuf, "CameraTemperature:", 18))
+                sscanf(linebuf, "CameraTemperature: %d\n", &prefs.camera_temperature);
+            else if (!strncmp(linebuf, "CameraReadoutMode:", 18))
+                sscanf(linebuf, "CameraReadoutMode: %hhu\n", &prefs.camera_readout_mode);
             else if (!strncmp(linebuf, "UseTimerMonitor:", 16))
                 sscanf(linebuf, "UseTimerMonitor: %hhu\n", &prefs.use_timer_monitoring);
             else if (!strncmp(linebuf, "TimerStartDelay:", 16))
@@ -187,6 +197,7 @@ unsigned char pn_preference_char(PNPreferenceChar key)
         case USE_TIMER_MONITORING: val = prefs.use_timer_monitoring; break;
         case TIMER_NOMONITOR_STARTUP_DELAY: val = prefs.timer_nomonitor_startup_delay; break;
         case TIMER_NOMONITOR_STOP_DELAY: val = prefs.timer_nomonitor_stop_delay; break;
+        case CAMERA_READOUT_MODE: val = prefs.camera_readout_mode; break;
         default: pn_log("ERROR: Attempting to access invalid char pref"); val = 0;
     }
     pthread_mutex_unlock(&access_mutex);
@@ -203,6 +214,7 @@ int pn_preference_int(PNPreferenceInt key)
         case RUN_NUMBER: val = prefs.run_number; break;
         case CALIBRATION_DEFAULT_FRAMECOUNT: val = prefs.calibration_default_framecount; break;
         case CALIBRATION_REMAINING_FRAMECOUNT: val = prefs.calibration_remaining_framecount; break;
+        case CAMERA_TEMPERATURE: val = prefs.camera_temperature; break;
         default: pn_log("ERROR: Attempting to access invalid int pref"); val = 0;
     }
     pthread_mutex_unlock(&access_mutex);

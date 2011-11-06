@@ -193,15 +193,12 @@ static void initialize_camera()
         pvcam_error("Error setting PARAM_FORCE_READOUT_MODE", __LINE__);
 
     // Set temperature
-    param = -5000; // -50 deg C
-    //param = -4000; // -40 deg C
-    //param = 0; // 0 deg C
+    param = pn_preference_int(CAMERA_TEMPERATURE);
     if (!pl_set_param(camera->handle, PARAM_TEMP_SETPOINT, (void*) &param))
         pvcam_error("Error setting PARAM_TEMP_SETPOINT", __LINE__);
 
     // Set readout speed
-    param = 0; // 100kHz
-    //param = 1; // 1Mhz
+    param = pn_preference_char(CAMERA_READOUT_MODE);
     if (!pl_set_param(camera->handle, PARAM_SPDTAB_INDEX, (void*) &param))
         pvcam_error("Error setting PARAM_SPDTAB_INDEX", __LINE__);
 
