@@ -37,6 +37,7 @@ typedef enum
     USE_TIMER_MONITORING = 9,
     TIMER_NOMONITOR_STARTUP_DELAY = 10,
     TIMER_NOMONITOR_STOP_DELAY = 11,
+    SUPERPIXEL_SIZE = 15
 } PNPreferenceChar;
 
 typedef enum

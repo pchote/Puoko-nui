@@ -27,7 +27,6 @@ PNCamera pn_camera_new()
     cam.desired_mode = IDLE;
     cam.image_buffer = NULL;
     cam.image_buffer_size = 0;
-    cam.binsize = 2;
     cam.temperature = 0;
     cam.fatal_error = NULL;
     cam.first_frame = TRUE;
@@ -224,19 +223,20 @@ static void start_acquiring()
     if (!pl_get_param(camera->handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *)&camera->frame_height))
         pvcam_error("Error querying camera height", __LINE__);
 
-    pn_log("Pixel binning factor: %d", camera->binsize);
+    unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
+    pn_log("Superpixel size: %d", superpixel_size);
 
     rgn_type region;
-    region.s1 = 0;                   // x start ('serial' direction)
+    region.s1 = 0;                      // x start ('serial' direction)
     region.s2 = camera->frame_width-1;  // x end
-    region.sbin = camera->binsize;      // x binning (1 = no binning)
-    region.p1 = 0;                   // y start ('parallel' direction)
+    region.sbin = superpixel_size;      // x binning (1 = no binning)
+    region.p1 = 0;                      // y start ('parallel' direction)
     region.p2 = camera->frame_height-1; // y end
-    region.pbin = camera->binsize;      // y binning (1 = no binning)
+    region.pbin = superpixel_size;      // y binning (1 = no binning)
 
     // Divide the chip size by the bin size to find the frame dimensions
-    camera->frame_height /= camera->binsize;
-    camera->frame_width /= camera->binsize;
+    camera->frame_height /= superpixel_size;
+    camera->frame_width /= superpixel_size;
 
     // Init exposure control libs
     if (!pl_exp_init_seq())

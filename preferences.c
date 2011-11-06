@@ -30,6 +30,7 @@ typedef struct
     unsigned char use_timer_monitoring;
     unsigned char timer_nomonitor_startup_delay;
     unsigned char timer_nomonitor_stop_delay;
+    unsigned char superpixel_size; // Number of pixels to bin in both directions
     PNFrameType object_type;
 
     int calibration_default_framecount;
@@ -49,6 +50,7 @@ static void save()
     fprintf(fp, "Observatory: %s\n", prefs.observatory);
     fprintf(fp, "Telescope: %s\n", prefs.telescope);
     fprintf(fp, "ExposureTime: %d\n", prefs.exposure_time);
+    fprintf(fp, "SuperpixelSize: %d\n", prefs.superpixel_size);
     fprintf(fp, "UseTimerMonitor: %d\n", prefs.use_timer_monitoring);
     fprintf(fp, "TimerStartDelay: %d\n", prefs.timer_nomonitor_startup_delay);
     fprintf(fp, "TimerStopDelay: %d\n", prefs.timer_nomonitor_stop_delay);
@@ -75,6 +77,7 @@ void pn_init_preferences(const char *path)
     prefs.run_number = 0;
 
     prefs.exposure_time = 5;
+    prefs.superpixel_size = 2;
 
     prefs.calibration_default_framecount = 30;
     prefs.calibration_remaining_framecount = 30;
@@ -105,6 +108,8 @@ void pn_init_preferences(const char *path)
                 prefs.telescope = strndup(linebuf + 11, strlen(linebuf) - 12);
             else if (!strncmp(linebuf, "ExposureTime:", 13))
                 sscanf(linebuf, "ExposureTime: %hhu\n", &prefs.exposure_time);
+            else if (!strncmp(linebuf, "SuperpixelSize:", 15))
+                sscanf(linebuf, "SuperpixelSize: %hhu\n", &prefs.superpixel_size);
             else if (!strncmp(linebuf, "UseTimerMonitor:", 16))
                 sscanf(linebuf, "UseTimerMonitor: %hhu\n", &prefs.use_timer_monitoring);
             else if (!strncmp(linebuf, "TimerStartDelay:", 16))
@@ -176,6 +181,7 @@ unsigned char pn_preference_char(PNPreferenceChar key)
     switch (key)
     {
         case EXPOSURE_TIME: val = prefs.exposure_time; break;
+        case SUPERPIXEL_SIZE: val = prefs.superpixel_size; break;
         case SAVE_FRAMES: val = prefs.save_frames; break;
         case OBJECT_TYPE: val = prefs.object_type; break;
         case USE_TIMER_MONITORING: val = prefs.use_timer_monitoring; break;

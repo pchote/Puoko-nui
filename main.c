@@ -266,7 +266,6 @@ int main( int argc, char *argv[] )
 
     rs_bool simulate_camera = FALSE;
     rs_bool simulate_timer = FALSE;
-    rs_bool disable_pixel_binning = FALSE;
 
     // Parse the commandline args
     for (int i = 0; i < argc; i++)
@@ -276,9 +275,6 @@ int main( int argc, char *argv[] )
 
         if (strcmp(argv[i], "--simulate-timer") == 0)
             simulate_timer = TRUE;
-
-        if (strcmp(argv[i], "--disable-binning") == 0)
-            disable_pixel_binning = TRUE;
     }
 
     // Timer unit
@@ -288,10 +284,6 @@ int main( int argc, char *argv[] )
         pthread_create(&timer_thread, NULL, pn_timer_thread, (void *)&gps);
 
     timer_thread_initialized = TRUE;
-
-    // Camera
-    if (disable_pixel_binning)
-        camera->binsize = 1;
 
     if (simulate_camera)
         pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)&camera);

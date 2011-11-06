@@ -47,7 +47,6 @@ typedef struct
 typedef struct
 {
     // read/write
-    uns16 binsize;
     PNCameraMode desired_mode;
 
     // read only
