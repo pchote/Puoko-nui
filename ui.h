@@ -8,7 +8,7 @@
 #ifndef UI_H
 #define UI_H
 
-/* GPS command types */
+// Input parsing modes
 typedef enum
 {
     INPUT_MAIN,

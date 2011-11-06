@@ -60,13 +60,13 @@ static WINDOW *create_time_window()
 
 static void update_time_window()
 {
-	/* PC time */	
+    // PC time
     char strtime[30];
     time_t t = time(NULL);
     strftime(strtime, 30, "%Y-%m-%d %H:%M:%S", gmtime(&t));
     mvwaddstr(time_window, 2, 13, strtime);
 
-	/* GPS time */
+    // GPS time
     pthread_mutex_lock(&gps->read_mutex);
     PNGPSTimestamp ts = gps->current_timestamp;
     pthread_mutex_unlock(&gps->read_mutex);
@@ -109,7 +109,7 @@ static WINDOW *create_camera_window()
 
 static void update_camera_window(PNCameraMode mode, int camera_downloading, float temp)
 {
-    /* Camera status */
+    // Camera status
     char *label;
     switch(mode)
     {
@@ -137,7 +137,7 @@ static void update_camera_window(PNCameraMode mode, int camera_downloading, floa
     }
     mvwaddstr(camera_window, 1, 15, label);
 
-    /* Camera temperature */
+    // Camera temperature
     char *tempstring = "Unavailable";
     char tempbuf[30];
     

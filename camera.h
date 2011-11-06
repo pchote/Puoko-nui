@@ -12,7 +12,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-/* Custom frame transfer mode options */
+// Custom frame transfer mode options
 #define PARAM_FORCE_READOUT_MODE ((CLASS2<<16) + (TYPE_UNS32<<24) + 326)
 enum ForceReadOut {
     ALWAYS_CHECK_EXP,
@@ -21,7 +21,7 @@ enum ForceReadOut {
     MAKE_AUTOMATIC
 };
 
-/* Represents the current state of the camera */
+// Represents the current state of the camera
 typedef enum
 {
     UNINITIALIZED,
@@ -35,22 +35,22 @@ typedef enum
     SHUTDOWN,
 } PNCameraMode;
 
-/* Represents an aquired frame */
+// Represents an aquired frame
 typedef struct
 {
     uns16 width;
     uns16 height;
-    uns16 *data; /* Pointer to the start of the frame data */
+    uns16 *data; // Pointer to the start of the frame data
 } PNFrame;
 
-/* Holds the state of a camera */
+// Holds the state of a camera
 typedef struct
 {
-    /* read/write */
+    // read/write
     uns16 binsize;
     PNCameraMode desired_mode;
 
-    /* read only */
+    // read only
     rs_bool simulated;
     PNCameraMode mode;
     uns16 frame_width;
@@ -58,7 +58,7 @@ typedef struct
     float temperature;
     char *fatal_error;
 
-    /* internal use only */
+    // internal use only
     int16 handle;
     void *image_buffer;
     uns32 image_buffer_size;

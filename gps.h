@@ -11,13 +11,12 @@
 #ifndef GPS_H
 #define GPS_H
 
-/* datalink escape byte */
+// Datalink escape byte
 #define DLE 0x10
-/* End of text byte */
+// End of text byte
 #define ETX 0x03
 
-
-/* GPS command types */
+// GPS command types
 typedef enum
 {
     CURRENTTIME = 0xA1,
@@ -30,7 +29,7 @@ typedef enum
     DOWNLOADCOMPLETE = 0xA9,
 } PNGPSRequest;
 
-/* Represents a timestamp from the GPS */
+// Represents a timestamp from the GPS
 typedef struct
 {
     int year;
@@ -44,7 +43,7 @@ typedef struct
     rs_bool valid; // true before initialisation and if the download time has been used
 } PNGPSTimestamp;
 
-/* Represents the GPS hardware */
+// Represents the GPS hardware
 typedef struct
 {
     rs_bool simulated;
