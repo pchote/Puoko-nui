@@ -263,10 +263,7 @@ void pn_preference_set_char(PNPreferenceChar key, unsigned char val)
         case EXPOSURE_TIME: prefs.exposure_time = val; break;
         case SAVE_FRAMES: prefs.save_frames = val; break;
         case OBJECT_TYPE: prefs.object_type = val; break;
-        case USE_TIMER_MONITORING: prefs.use_timer_monitoring = val; break;
-        case TIMER_NOMONITOR_STARTUP_DELAY: prefs.timer_nomonitor_startup_delay = val; break;
-        case TIMER_NOMONITOR_STOP_DELAY: prefs.timer_nomonitor_stop_delay = val; break;
-        default: pn_log("ERROR: Attempting to set invalid char pref");
+        default: pn_log("ERROR: Attempting to set invalid char pref %d", key);
     }
     save();
     pthread_mutex_unlock(&access_mutex);
@@ -280,10 +277,7 @@ void pn_preference_set_string(PNPreferenceString key, const char *val)
         case OUTPUT_DIR: free(prefs.output_directory); prefs.output_directory = strdup(val); break;
         case RUN_PREFIX: free(prefs.run_prefix); prefs.run_prefix = strdup(val); break;
         case OBJECT_NAME: free(prefs.object_name); prefs.object_name = strdup(val); break;
-        case OBSERVERS: free(prefs.observers); prefs.observers = strdup(val); break;
-        case OBSERVATORY: free(prefs.observatory); prefs.observatory = strdup(val); break;
-        case TELESCOPE: free(prefs.telescope); prefs.telescope = strdup(val); break;
-        default: pn_log("ERROR: Attempting to set invalid string pref");
+        default: pn_log("ERROR: Attempting to set invalid string pref %d", key);
     }
     save();
     pthread_mutex_unlock(&access_mutex);
@@ -295,9 +289,8 @@ void pn_preference_set_int(PNPreferenceInt key, int val)
     switch (key)
     {
         case RUN_NUMBER: prefs.run_number = val; break;
-        case CALIBRATION_DEFAULT_FRAMECOUNT: prefs.calibration_default_framecount = val; break;
         case CALIBRATION_REMAINING_FRAMECOUNT: prefs.calibration_remaining_framecount = val; break;
-        default: pn_log("ERROR: Attempting to set invalid int pref");
+        default: pn_log("ERROR: Attempting to set invalid int pref %d", key);
     }
     save();
     pthread_mutex_unlock(&access_mutex);
