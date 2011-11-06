@@ -21,20 +21,20 @@
 // Initialize a new PNCamera struct.
 PNCamera pn_camera_new()
 {
-	PNCamera cam;
-	cam.handle = -1;
-	cam.mode = UNINITIALIZED;
-	cam.desired_mode = IDLE;
-	cam.image_buffer = NULL;
-	cam.image_buffer_size = 0;
-	cam.binsize = 2;
+    PNCamera cam;
+    cam.handle = -1;
+    cam.mode = UNINITIALIZED;
+    cam.desired_mode = IDLE;
+    cam.image_buffer = NULL;
+    cam.image_buffer_size = 0;
+    cam.binsize = 2;
     cam.temperature = 0;
     cam.fatal_error = NULL;
     cam.first_frame = TRUE;
     cam.simulated = FALSE;
     pthread_mutex_init(&cam.read_mutex, NULL);
 
-	return cam;
+    return cam;
 }
 
 // Destroy a PNCamera struct.
@@ -61,24 +61,24 @@ static void set_mode(PNCameraMode mode)
 // Decide what to do with an acquired frame
 static void frame_downloaded(PNFrame *frame)
 {
-	// When starting a run, the first frame will not be exposed
+    // When starting a run, the first frame will not be exposed
     // for the correct time, so we discard it
-	if (camera->first_frame)
+    if (camera->first_frame)
     {
         pn_log("Discarding first frame");
         camera->first_frame = FALSE;
         return;
     }
 
-	pn_log("Frame downloaded");
-	if (pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save())
-	{
-		pn_save_frame(frame);
+    pn_log("Frame downloaded");
+    if (pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save())
+    {
+        pn_save_frame(frame);
         pn_preference_increment_framecount();
-	}
+    }
 
-	// Display the frame in ds9
-	pn_preview_frame(frame);
+    // Display the frame in ds9
+    pn_preview_frame(frame);
 }
 
 #pragma mark Real Camera Routines
@@ -86,16 +86,16 @@ static void frame_downloaded(PNFrame *frame)
 // Generate a fatal error based on the pvcam error
 static void pvcam_error(const char *msg, int line)
 {
-	int error = pl_error_code();
-	if (!error)
-		return;
+    int error = pl_error_code();
+    if (!error)
+        return;
 
-	char pvmsg[ERROR_MSG_LEN];
-	pvmsg[0] = '\0';
-	pl_error_message(error, pvmsg);
+    char pvmsg[ERROR_MSG_LEN];
+    pvmsg[0] = '\0';
+    pl_error_message(error, pvmsg);
 
     asprintf(&camera->fatal_error, "FATAL: %s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);    
-	pthread_exit(NULL);
+    pthread_exit(NULL);
 }
 
 // Sample the camera temperature to be read by the other threads in a threadsafe manner
@@ -114,11 +114,11 @@ static void read_temperature()
 static rs_bool frame_available()
 {
     int16 status = READOUT_NOT_ACTIVE;
-	uns32 bytesStored = 0, numFilledBuffers = 0;
-	if (!pl_exp_check_cont_status(camera->handle, &status, &bytesStored, &numFilledBuffers))
-		pvcam_error("Error querying camera status", __LINE__);
+    uns32 bytesStored = 0, numFilledBuffers = 0;
+    if (!pl_exp_check_cont_status(camera->handle, &status, &bytesStored, &numFilledBuffers))
+        pvcam_error("Error querying camera status", __LINE__);
 
-	return (status == FRAME_AVAILABLE);
+    return (status == FRAME_AVAILABLE);
 }
 
 // Initialize PVCAM and the camera hardware
@@ -297,7 +297,7 @@ void *pn_camera_thread(void *_unused)
     initialize_camera();
 
     // Loop and respond to user commands
-	struct timespec wait = {0,1e8};
+    struct timespec wait = {0,1e8};
     int temp_ticks = 0;
 
     pthread_mutex_lock(&camera->read_mutex);
@@ -320,28 +320,28 @@ void *pn_camera_thread(void *_unused)
         if (camera->mode == ACQUIRING && frame_available())
         {
             pn_log("Frame available @ %d", (int)time(NULL));
-		    void_ptr camera_frame;
+            void_ptr camera_frame;
             if (!pl_exp_get_oldest_frame(camera->handle, &camera_frame))
-			    pvcam_error("Error retrieving oldest frame", __LINE__);
+                pvcam_error("Error retrieving oldest frame", __LINE__);
 
-		    // Do something with the frame data
-		    PNFrame frame;			
-		    frame.width = camera->frame_width;
-		    frame.height = camera->frame_height;
-		    frame.data = camera_frame;
-		    frame_downloaded(&frame);
+            // Do something with the frame data
+            PNFrame frame;            
+            frame.width = camera->frame_width;
+            frame.height = camera->frame_height;
+            frame.data = camera_frame;
+            frame_downloaded(&frame);
 
-		    // Unlock the frame buffer for reuse
+            // Unlock the frame buffer for reuse
             if (!pl_exp_unlock_oldest_frame(camera->handle))
-			    pvcam_error("Error unlocking oldest frame", __LINE__);
+                pvcam_error("Error unlocking oldest frame", __LINE__);
         }
 
         // Check temperature
-	    if (++temp_ticks >= 50)
-	    {
-		    temp_ticks = 0;
+        if (++temp_ticks >= 50)
+        {
+            temp_ticks = 0;
             read_temperature();
-	    }
+        }
         nanosleep(&wait, NULL);
 
         pthread_mutex_lock(&camera->read_mutex);
@@ -355,13 +355,13 @@ void *pn_camera_thread(void *_unused)
 
     // Close the PVCAM lib (which in turn closes the camera)
     if (camera->mode == IDLE)
-    {	
+    {    
         if (!pl_pvcam_uninit())
-	        pn_log("Error uninitialising PVCAM");
-	    pn_log("PVCAM uninitialized");
+            pn_log("Error uninitialising PVCAM");
+        pn_log("PVCAM uninitialized");
     }
 
-	pthread_exit(NULL);
+    pthread_exit(NULL);
 }
 
 
@@ -390,7 +390,7 @@ void *pn_simulated_camera_thread(void *_unused)
     set_mode(IDLE);
 
     // Loop and respond to user commands
-	struct timespec wait = {0,1e8};
+    struct timespec wait = {0,1e8};
 
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode desired_mode = camera->desired_mode;
@@ -435,12 +435,12 @@ void *pn_simulated_camera_thread(void *_unused)
         {
             pn_log("Frame available @ %d", (int)time(NULL));
 
-		    // Do something with the frame data
-		    PNFrame frame;
-		    frame.width = camera->frame_width;
-		    frame.height = camera->frame_height;
-		    frame.data = camera->image_buffer;
-		    frame_downloaded(&frame);
+            // Do something with the frame data
+            PNFrame frame;
+            frame.width = camera->frame_width;
+            frame.height = camera->frame_height;
+            frame.data = camera->image_buffer;
+            frame_downloaded(&frame);
 
             // There is no physical camera for the timer to monitor
             // so we must toggle this manually
@@ -459,6 +459,6 @@ void *pn_simulated_camera_thread(void *_unused)
     if (camera->mode == ACQUIRING)
         stop_acquiring_simulated();
 
-	pthread_exit(NULL);
+    pthread_exit(NULL);
 }
 

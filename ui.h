@@ -11,8 +11,8 @@
 /* GPS command types */
 typedef enum
 {
-	INPUT_MAIN,
-	INPUT_EXPOSURE,
+    INPUT_MAIN,
+    INPUT_EXPOSURE,
     INPUT_PARAMETERS,
     INPUT_RUN_PREFIX,
     INPUT_FRAME_DIR,

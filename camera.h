@@ -25,43 +25,43 @@ enum ForceReadOut {
 typedef enum
 {
     UNINITIALIZED,
-	INITIALISING,
+    INITIALISING,
     IDLE,
     ACQUIRE_START,
-	ACQUIRING,
-	DOWNLOADING,
+    ACQUIRING,
+    DOWNLOADING,
     ACQUIRE_WAIT,
     ACQUIRE_STOP,
-	SHUTDOWN,
+    SHUTDOWN,
 } PNCameraMode;
 
 /* Represents an aquired frame */
 typedef struct
 {
-	uns16 width;
-	uns16 height;
-	uns16 *data; /* Pointer to the start of the frame data */
+    uns16 width;
+    uns16 height;
+    uns16 *data; /* Pointer to the start of the frame data */
 } PNFrame;
 
 /* Holds the state of a camera */
 typedef struct
 {
-	/* read/write */
-	uns16 binsize;
+    /* read/write */
+    uns16 binsize;
     PNCameraMode desired_mode;
 
-	/* read only */
+    /* read only */
     rs_bool simulated;
-	PNCameraMode mode;
-	uns16 frame_width;
-	uns16 frame_height;
-	float temperature;
+    PNCameraMode mode;
+    uns16 frame_width;
+    uns16 frame_height;
+    float temperature;
     char *fatal_error;
 
-	/* internal use only */
-	int16 handle;
-	void *image_buffer;
-	uns32 image_buffer_size;
+    /* internal use only */
+    int16 handle;
+    void *image_buffer;
+    uns32 image_buffer_size;
     pthread_mutex_t read_mutex;
     rs_bool first_frame;
 } PNCamera;

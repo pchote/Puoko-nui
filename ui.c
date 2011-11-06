@@ -61,27 +61,27 @@ static WINDOW *create_time_window()
 static void update_time_window()
 {
 	/* PC time */	
-	char strtime[30];
-	time_t t = time(NULL);
-	strftime(strtime, 30, "%Y-%m-%d %H:%M:%S", gmtime(&t));
-	mvwaddstr(time_window, 2, 13, strtime);
+    char strtime[30];
+    time_t t = time(NULL);
+    strftime(strtime, 30, "%Y-%m-%d %H:%M:%S", gmtime(&t));
+    mvwaddstr(time_window, 2, 13, strtime);
 
 	/* GPS time */
     pthread_mutex_lock(&gps->read_mutex);
     PNGPSTimestamp ts = gps->current_timestamp;
     pthread_mutex_unlock(&gps->read_mutex);
-	
+
     mvwaddstr(time_window, 1, 13, (ts.locked ? "Locked  " : "Unlocked"));
 
-	if (ts.valid)
-	{
+    if (ts.valid)
+    {
         mvwprintw(time_window, 3, 13, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
 
         if (ts.remaining_exposure > 0)
             mvwprintw(time_window, 4, 13, "%03d        ", ts.remaining_exposure);
         else
             mvwaddstr(time_window, 4, 13, "Disabled    ");
-	}
+    }
     else
     {
         mvwaddstr(time_window, 3, 13, "Unavailable");
@@ -109,20 +109,20 @@ static WINDOW *create_camera_window()
 
 static void update_camera_window(PNCameraMode mode, int camera_downloading, float temp)
 {
-	/* Camera status */
-	char *label;
-	switch(mode)
-	{
-		default:		
-		case INITIALISING:
-		case ACQUIRE_START:
-		case ACQUIRE_STOP:
-			label = "Initialising";
-		break;
-		case IDLE:
-			label = "Idle        ";
-		break;
-		case ACQUIRING:
+    /* Camera status */
+    char *label;
+    switch(mode)
+    {
+        default:
+        case INITIALISING:
+        case ACQUIRE_START:
+        case ACQUIRE_STOP:
+            label = "Initialising";
+        break;
+        case IDLE:
+            label = "Idle        ";
+        break;
+        case ACQUIRING:
             if (camera_downloading)
                 label = "Downloading ";
             else
@@ -131,22 +131,22 @@ static void update_camera_window(PNCameraMode mode, int camera_downloading, floa
         case DOWNLOADING:
             label = "Downloading ";
         break;
-		case SHUTDOWN:
-			label = "Closing     ";
-		break;
-	}
-	mvwaddstr(camera_window, 1, 15, label);
+        case SHUTDOWN:
+            label = "Closing     ";
+        break;
+    }
+    mvwaddstr(camera_window, 1, 15, label);
 
-	/* Camera temperature */
-	char *tempstring = "Unavailable";
+    /* Camera temperature */
+    char *tempstring = "Unavailable";
     char tempbuf[30];
     
-	if (mode == ACQUIRING || mode == IDLE)
-	{
-	    sprintf(tempbuf, "%0.02f C     ", temp);
+    if (mode == ACQUIRING || mode == IDLE)
+    {
+        sprintf(tempbuf, "%0.02f C     ", temp);
         tempstring = tempbuf;
-	}
-	mvwaddstr(camera_window, 2, 15, tempstring);
+    }
+    mvwaddstr(camera_window, 2, 15, tempstring);
 }
 
 static WINDOW *create_acquisition_window()
@@ -191,8 +191,8 @@ static void update_acquisition_window()
             break;
     }
 
-	mvwprintw(acquisition_window, 1, 13, "%d seconds   ", exptime);
-	mvwaddstr(acquisition_window, 2, 13, typename);
+    mvwprintw(acquisition_window, 1, 13, "%d seconds   ", exptime);
+    mvwaddstr(acquisition_window, 2, 13, typename);
 
     if (type == OBJECT_TARGET)
         mvwaddstr(acquisition_window, 3, 13, "N/A        ");
@@ -200,7 +200,7 @@ static void update_acquisition_window()
         mvwprintw(acquisition_window, 3, 13, "%d   ", remaining_frames);
 
     mvwaddstr(acquisition_window, 4, 13, "                    ");
-    mvwprintw(acquisition_window, 4, 13, "%s-%04d.fits.gz", run_prefix, run_number);
+    mvwprintw(acquisition_window, 4, 13, "%s-%05d.fits.gz", run_prefix, run_number);
     free(run_prefix);
 }
 
@@ -227,7 +227,7 @@ static WINDOW *create_metadata_window()
 static void update_metadata_window()
 {
     char *observatory = pn_preference_string(OBSERVATORY);
-	mvwaddstr(metadata_window, 1, 15, observatory);
+    mvwaddstr(metadata_window, 1, 15, observatory);
     free(observatory);
 
     char *observers = pn_preference_string(OBSERVERS);
@@ -235,11 +235,11 @@ static void update_metadata_window()
     free(observers);
 
     char *telescope = pn_preference_string(TELESCOPE);
-	mvwaddstr(metadata_window, 3, 15, telescope);
+    mvwaddstr(metadata_window, 3, 15, telescope);
     free(telescope);
 
     char *object = pn_preference_string(OBJECT_NAME);
-	mvwaddstr(metadata_window, 4, 15, object);
+    mvwaddstr(metadata_window, 4, 15, object);
     free(object);
 }
 
@@ -350,9 +350,9 @@ static void print_command_option(WINDOW *w, int indent, char *hotkey, char *form
     waddstr(w, " ");
 
     va_list args;
-	va_start(args, format);
+    va_start(args, format);
     vwprintw(w, format, args);
-	va_end(args);
+    va_end(args);
 }
 
 static void update_command_window(PNCameraMode camera_mode)

@@ -17,24 +17,24 @@ static pthread_mutex_t access_mutex;
 
 typedef struct
 {
-	char *output_directory;
-	char *run_prefix;
-	char *object_name;
+    char *output_directory;
+    char *run_prefix;
+    char *object_name;
 
-	char *observers;
-	char *observatory;
-	char *telescope;
+    char *observers;
+    char *observatory;
+    char *telescope;
 
-	unsigned char exposure_time;
+    unsigned char exposure_time;
     unsigned char save_frames; // set to FALSE on every startup
     unsigned char use_timer_monitoring;
     unsigned char timer_nomonitor_startup_delay;
     unsigned char timer_nomonitor_stop_delay;
-	PNFrameType object_type;
+    PNFrameType object_type;
 
     int calibration_default_framecount;
     int calibration_remaining_framecount;
-	int run_number;
+    int run_number;
 } PNPreferences;
 
 static PNPreferences prefs;
@@ -86,7 +86,7 @@ void pn_init_preferences(const char *path)
 
     FILE *fp = fopen(filename, "r");
 
-	if (fp)
+    if (fp)
     {
         char linebuf[1024];
         while (fgets(linebuf, sizeof(linebuf)-1, fp) != NULL)

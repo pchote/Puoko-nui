@@ -20,9 +20,9 @@
 /* GPS command types */
 typedef enum
 {
-	CURRENTTIME = 0xA1,
-	DOWNLOADTIME = 0xA2,
-	DEBUG_STRING = 0xA3,
+    CURRENTTIME = 0xA1,
+    DOWNLOADTIME = 0xA2,
+    DEBUG_STRING = 0xA3,
     DEBUG_RAW = 0xA5,
     START_EXPOSURE = 0xA6,
     STOP_EXPOSURE = 0xA7,
@@ -33,12 +33,12 @@ typedef enum
 /* Represents a timestamp from the GPS */
 typedef struct
 {
-	int year;
-	int month;
-	int day;
-	int hours;
-	int minutes;
-	int seconds;
+    int year;
+    int month;
+    int day;
+    int hours;
+    int minutes;
+    int seconds;
     rs_bool locked;
     int remaining_exposure; // for current time
     rs_bool valid; // true before initialisation and if the download time has been used
@@ -52,8 +52,8 @@ typedef struct
     int simulated_remaining;
     char *fatal_error;
 
-	struct usb_device *device;
-	struct ftdi_context *context;
+    struct usb_device *device;
+    struct ftdi_context *context;
     rs_bool shutdown;
     PNGPSTimestamp current_timestamp;
     PNGPSTimestamp download_timestamp;
