@@ -571,6 +571,64 @@ void pn_ui_run()
         unsigned char is_input = FALSE;
         while ((ch = getch()) != ERR)
         {
+            // Resized terminal window
+            if (ch == 0x19a)
+            {
+                WINDOW *temp_win = time_window;
+                time_window = create_time_window();
+                replace_panel(time_panel, time_window);
+                delwin(temp_win);
+                update_time_window();
+
+                temp_win = camera_window;
+                camera_window = create_camera_window();
+                replace_panel(camera_panel, camera_window);
+                delwin(temp_win);
+                update_camera_window(camera_mode, camera_downloading, camera_temperature);
+
+                temp_win = acquisition_window;
+                acquisition_window = create_acquisition_window();
+                replace_panel(acquisition_panel, acquisition_window);
+                delwin(temp_win);
+                update_acquisition_window();
+
+                temp_win = command_window;
+                command_window = create_command_window();
+                replace_panel(command_panel, command_window);
+                delwin(temp_win);
+                update_command_window(camera_mode);
+
+                temp_win = metadata_window;
+                metadata_window = create_metadata_window();
+                replace_panel(metadata_panel, metadata_window);
+                delwin(temp_win);
+                update_metadata_window();
+
+                temp_win = log_window;
+                log_window = create_log_window();
+                replace_panel(log_panel, log_window);
+                delwin(temp_win);
+                update_log_window();
+
+                temp_win = status_window;
+                status_window = create_status_window();
+                replace_panel(status_panel, status_window);
+                delwin(temp_win);
+                update_status_window(camera_mode);
+
+                temp_win = separator_window;
+                separator_window = create_separator_window();
+                replace_panel(separator_panel, separator_window);
+                delwin(temp_win);
+
+                int row, col;
+                getmaxyx(stdscr, row, col);
+                move_panel(command_panel, row - 1, 0);
+                move_panel(input_panel, row - 1, 0);
+                move_panel(parameters_panel, row - 1, 0);
+                move_panel(frametype_panel, row - 1, 0);
+                continue;
+            }
             char buf[128];
             switch (input_type)
             {
