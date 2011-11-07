@@ -15,53 +15,57 @@
 static char *filename;
 static pthread_mutex_t access_mutex;
 
+typedef enum { STRING, CHAR, INT } PNPrefDataType;
 typedef struct
 {
-    char *output_directory;
-    char *run_prefix;
-    char *object_name;
+    PNPreferenceType key;
+    PNPrefDataType type;
+    union _value
+    {
+        char *s;
+        char c;
+        int i;
+    } value;
+    char *format;
+} PNPreferenceStore;
 
-    char *observers;
-    char *observatory;
-    char *telescope;
+/*
+ * Preference definitions
+ * Must be defined in the same order as the keys in preference.h
+ */
 
-    unsigned char exposure_time;
-    unsigned char save_frames; // set to FALSE on every startup
-    unsigned char use_timer_monitoring;
-    unsigned char timer_nomonitor_startup_delay;
-    unsigned char timer_nomonitor_stop_delay;
-    unsigned char superpixel_size; // Number of pixels to bin in both directions
-    unsigned char camera_readout_mode; // 0 = 100kHz, 1 = 1MHz
-    PNFrameType object_type;
+PNPreferenceStore prefs[] =
+{
+    // Key, Default value, Output format
+    {OUTPUT_DIR, STRING, .value.s = "/home/sullivan/", "OutputDir: %s\n"},
+    {RUN_PREFIX, STRING, .value.s = "run", "RunPrefix: %s\n"},
+    {OBJECT_NAME, STRING, .value.s = "ec20058", "ObjectName: %s\n"},
+    {OBSERVERS, STRING, .value.s = "DJS, PC", "Observers: %s\n"},
+    {OBSERVATORY, STRING, .value.s = "MJUO", "Observatory: %s\n"},
+    {TELESCOPE, STRING, .value.s = "MJUO 1-meter", "Telescope: %s\n"},
 
-    int calibration_default_framecount;
-    int calibration_remaining_framecount;
-    int run_number;
-    int camera_temperature; // = degrees * 100 (-5000 = -50 deg)
-} PNPreferences;
+    {EXPOSURE_TIME, CHAR, .value.c = 5, "ExposureTime: %hhu\n"},
+    {SAVE_FRAMES, CHAR, .value.c = FALSE, "SaveFrames: %hhu\n"},
+    {OBJECT_TYPE, CHAR, .value.c = OBJECT_TARGET, "ObjectType: %hhu\n"},
+    {USE_TIMER_MONITORING, CHAR, .value.c = TRUE, "UseTimerMonitor: %hhu\n"},
+    {TIMER_NOMONITOR_STARTUP_DELAY, CHAR, .value.c = 5, "TimerStartDelay: %hhu\n"},
+    {TIMER_NOMONITOR_STOP_DELAY, CHAR, .value.c = 5, "TimerStopDelay: %hhu\n"},
+    {SUPERPIXEL_SIZE, CHAR, .value.c = 2, "SuperpixelSize: %hhu\n"},
+    {CAMERA_READOUT_MODE, CHAR, .value.c = 0, "CameraReadoutMode: %hhu\n"},
 
-static PNPreferences prefs;
+    {RUN_NUMBER, INT, .value.i = 0, "RunNumber: %d\n"},
+    {CALIBRATION_DEFAULT_FRAMECOUNT, INT, .value.i = 30, "CalibrationTotalFrames: %d\n"},
+    {CALIBRATION_REMAINING_FRAMECOUNT, INT, .value.i = 30, "CalibrationRemainingFrames: %d\n"},
+    {CAMERA_TEMPERATURE, INT, .value.i = -5000, "CameraTemperature: %d\n"}
+
+};
+int pref_count = sizeof(prefs) / sizeof(prefs[0]);
 
 static void save()
 {
     FILE *fp = fopen(filename, "w");
-    fprintf(fp, "OutputDir: %s\n", prefs.output_directory);
-    fprintf(fp, "RunPrefix: %s\n", prefs.run_prefix);
-    fprintf(fp, "ObjectName: %s\n", prefs.object_name);
-    fprintf(fp, "Observers: %s\n", prefs.observers);
-    fprintf(fp, "Observatory: %s\n", prefs.observatory);
-    fprintf(fp, "Telescope: %s\n", prefs.telescope);
-    fprintf(fp, "ExposureTime: %d\n", prefs.exposure_time);
-    fprintf(fp, "SuperpixelSize: %d\n", prefs.superpixel_size);
-    fprintf(fp, "CameraReadoutMode: %d\n", prefs.camera_readout_mode);
-    fprintf(fp, "CameraTemperature: %d\n", prefs.camera_temperature);
-    fprintf(fp, "UseTimerMonitor: %d\n", prefs.use_timer_monitoring);
-    fprintf(fp, "TimerStartDelay: %d\n", prefs.timer_nomonitor_startup_delay);
-    fprintf(fp, "TimerStopDelay: %d\n", prefs.timer_nomonitor_stop_delay);
-    fprintf(fp, "ObjectType: %d\n", prefs.object_type);
-    fprintf(fp, "CalibrationTotalFrames: %d\n", prefs.calibration_default_framecount);
-    fprintf(fp, "CalibrationRemainingFrames: %d\n", prefs.calibration_remaining_framecount);
-    fprintf(fp, "RunNumber: %d\n", prefs.run_number);
+    for (int i = 0; i < pref_count; i++)
+        fprintf(fp, prefs[i].format, prefs[i].value);
     fclose(fp);
 }
 
@@ -69,75 +73,42 @@ void pn_init_preferences(const char *path)
 {
     filename = strdup(path);
 
-    // Set defaults
-    prefs.observatory = strdup("MJUO");
-    prefs.telescope = strdup("MJUO 1-meter");
-    prefs.observers = strdup("DJS, PC");
-    prefs.object_type = OBJECT_TARGET;
-    prefs.object_name = strdup("ec20058");
-
-    prefs.output_directory = strdup("/home/sullivan/");
-    prefs.run_prefix = strdup("run");
-    prefs.run_number = 0;
-
-    prefs.exposure_time = 5;
-    prefs.superpixel_size = 2;
-    prefs.camera_readout_mode = 0;
-    prefs.camera_temperature = -5000;
-
-    prefs.calibration_default_framecount = 30;
-    prefs.calibration_remaining_framecount = 30;
-    prefs.save_frames = FALSE;
-
-    prefs.use_timer_monitoring = TRUE;
-    prefs.timer_nomonitor_startup_delay = 5;
-    prefs.timer_nomonitor_stop_delay = 5;
+    // Copy string values onto the heap
+    for (int i = 0; i < pref_count; i++)
+        if (prefs[i].type == STRING)
+            prefs[i].value.s = strdup(prefs[i].value.s);
 
     FILE *fp = fopen(filename, "r");
-
     if (fp)
     {
         char linebuf[1024];
         while (fgets(linebuf, sizeof(linebuf)-1, fp) != NULL)
         {
-            if (!strncmp(linebuf,"OutputDir:", 10))
-                prefs.output_directory = strndup(linebuf + 11, strlen(linebuf) - 12);
-            else if (!strncmp(linebuf, "RunPrefix:", 10))
-                prefs.run_prefix = strndup(linebuf + 11, strlen(linebuf) - 12);
-            else if (!strncmp(linebuf, "ObjectName:", 11))
-                prefs.object_name = strndup(linebuf + 12, strlen(linebuf) - 13);
-            else if (!strncmp(linebuf, "Observers:", 10))
-                prefs.observers = strndup(linebuf + 11, strlen(linebuf) - 12);
-            else if (!strncmp(linebuf, "Observatory:", 12))
-                prefs.observatory = strndup(linebuf + 13, strlen(linebuf) - 14);
-            else if (!strncmp(linebuf, "Telescope:", 10))
-                prefs.telescope = strndup(linebuf + 11, strlen(linebuf) - 12);
-            else if (!strncmp(linebuf, "ExposureTime:", 13))
-                sscanf(linebuf, "ExposureTime: %hhu\n", &prefs.exposure_time);
-            else if (!strncmp(linebuf, "SuperpixelSize:", 15))
-                sscanf(linebuf, "SuperpixelSize: %hhu\n", &prefs.superpixel_size);
-            else if (!strncmp(linebuf, "CameraTemperature:", 18))
-                sscanf(linebuf, "CameraTemperature: %d\n", &prefs.camera_temperature);
-            else if (!strncmp(linebuf, "CameraReadoutMode:", 18))
-                sscanf(linebuf, "CameraReadoutMode: %hhu\n", &prefs.camera_readout_mode);
-            else if (!strncmp(linebuf, "UseTimerMonitor:", 16))
-                sscanf(linebuf, "UseTimerMonitor: %hhu\n", &prefs.use_timer_monitoring);
-            else if (!strncmp(linebuf, "TimerStartDelay:", 16))
-                sscanf(linebuf, "TimerStartDelay: %hhu\n", &prefs.timer_nomonitor_startup_delay);
-            else if (!strncmp(linebuf, "TimerStopDelay:", 15))
-                sscanf(linebuf, "TimerStopDelay: %hhu\n", &prefs.timer_nomonitor_stop_delay);
-            else if (!strncmp(linebuf, "ObjectType:", 11))
-                sscanf(linebuf, "ObjectType: %hhu\n", (unsigned char *)&prefs.object_type);
-            else if (!strncmp(linebuf, "CalibrationTotalFrames:", 23))
-                sscanf(linebuf, "CalibrationTotalFrames: %d\n", &prefs.calibration_default_framecount);
-            else if (!strncmp(linebuf, "CalibrationRemainingFrames:", 27))
-                sscanf(linebuf, "CalibrationRemainingFrames: %d\n", &prefs.calibration_remaining_framecount);
-            else if (!strncmp(linebuf, "RunNumber:", 10))
-                sscanf(linebuf, "RunNumber: %d\n", &prefs.run_number);
+            size_t compare = strcspn(linebuf, ":");
+            if (compare == strlen(linebuf))
+                continue; // Line is not in `key: value' format
+
+            for (int i = 0; i < pref_count; i++)
+            {
+                if (strncmp(linebuf, prefs[i].format, compare))
+                    continue;
+
+                if (prefs[i].type == STRING)
+                {
+                    free(prefs[i].value.s);
+                    // Trim whitespace and the newline from the end of the string
+                    prefs[i].value.s = strndup(linebuf + compare + 2, strlen(linebuf) - compare - 3);
+                }
+                else
+                    sscanf(linebuf, prefs[i].format, &prefs[i].value);
+            }
         }
 
         fclose(fp);
     }
+
+    // Force saving to false on startup
+    prefs[SAVE_FRAMES].value.c = FALSE;
 
     // Init mutex
     pthread_mutex_init(&access_mutex, NULL);
@@ -150,88 +121,58 @@ void pn_free_preferences()
     free(filename);
 }
 
-char *pn_preference_string(PNPreferenceString key)
+char *pn_preference_string(PNPreferenceType key)
 {
-    char *val, *ret;
-    pthread_mutex_lock(&access_mutex);
-    switch (key)
+    if (prefs[key].type == STRING)
     {
-        case OUTPUT_DIR: val = prefs.output_directory; break;
-        case RUN_PREFIX: val = prefs.run_prefix; break;
-        case OBJECT_NAME:
-            switch (prefs.object_type)
-            {
-                case OBJECT_DARK:
-                    val = "DARK";
-                    break;
-                case OBJECT_FLAT:
-                    val = "FLAT";
-                    break;
-                default:
-                case OBJECT_TARGET:
-                    val = prefs.object_name;
-                    break;
-            }
-        break;
-        case OBSERVERS: val = prefs.observers; break;
-        case OBSERVATORY: val = prefs.observatory; break;
-        case TELESCOPE: val = prefs.telescope; break;
-        default: pn_log("ERROR: Attempting to access invalid string pref"); val = "Invalid key"; break;
+        pthread_mutex_lock(&access_mutex);
+        char *ret = strdup(prefs[key].value.s);
+        pthread_mutex_unlock(&access_mutex);
+        return ret;
     }
-    ret = strdup(val);
-    pthread_mutex_unlock(&access_mutex);
 
-    return ret;
+    pn_log("ERROR: Attempting to access preference %d as a string", key);
+    return strdup("Invalid key");
 }
 
-unsigned char pn_preference_char(PNPreferenceChar key)
+unsigned char pn_preference_char(PNPreferenceType key)
 {
-    char val;
-    pthread_mutex_lock(&access_mutex);
-    switch (key)
+    if (prefs[key].type == CHAR)
     {
-        case EXPOSURE_TIME: val = prefs.exposure_time; break;
-        case SUPERPIXEL_SIZE: val = prefs.superpixel_size; break;
-        case SAVE_FRAMES: val = prefs.save_frames; break;
-        case OBJECT_TYPE: val = prefs.object_type; break;
-        case USE_TIMER_MONITORING: val = prefs.use_timer_monitoring; break;
-        case TIMER_NOMONITOR_STARTUP_DELAY: val = prefs.timer_nomonitor_startup_delay; break;
-        case TIMER_NOMONITOR_STOP_DELAY: val = prefs.timer_nomonitor_stop_delay; break;
-        case CAMERA_READOUT_MODE: val = prefs.camera_readout_mode; break;
-        default: pn_log("ERROR: Attempting to access invalid char pref"); val = 0;
+        pthread_mutex_lock(&access_mutex);
+        unsigned char ret = prefs[key].value.c;
+        pthread_mutex_unlock(&access_mutex);
+        return ret;
     }
-    pthread_mutex_unlock(&access_mutex);
 
-    return val;
+    pn_log("ERROR: Attempting to access preference %d as a char", key);
+    return 0;
 }
 
-int pn_preference_int(PNPreferenceInt key)
+int pn_preference_int(PNPreferenceType key)
 {
-    int val;
-    pthread_mutex_lock(&access_mutex);
-    switch (key)
+    if (prefs[key].type == INT)
     {
-        case RUN_NUMBER: val = prefs.run_number; break;
-        case CALIBRATION_DEFAULT_FRAMECOUNT: val = prefs.calibration_default_framecount; break;
-        case CALIBRATION_REMAINING_FRAMECOUNT: val = prefs.calibration_remaining_framecount; break;
-        case CAMERA_TEMPERATURE: val = prefs.camera_temperature; break;
-        default: pn_log("ERROR: Attempting to access invalid int pref"); val = 0;
+        pthread_mutex_lock(&access_mutex);
+        int ret = prefs[key].value.i;
+        pthread_mutex_unlock(&access_mutex);
+        return ret;
     }
-    pthread_mutex_unlock(&access_mutex);
 
-    return val;
+    pn_log("ERROR: Attempting to access preference %d as an int", key);
+    return 0;
 }
 
 void pn_preference_increment_framecount()
 {
     pthread_mutex_lock(&access_mutex);
-
-    // Incrememnt the run number
-    prefs.run_number++;
+    // Increment the run number
+    prefs[RUN_NUMBER].value.i++;
 
     // Decrement the calibration frame count if applicable
-    if (prefs.object_type != OBJECT_TARGET && prefs.calibration_remaining_framecount > 0)
-        --prefs.calibration_remaining_framecount;
+    if (prefs[OBJECT_TYPE].value.c != OBJECT_TARGET &&
+        prefs[CALIBRATION_REMAINING_FRAMECOUNT].value.i > 0)
+        prefs[CALIBRATION_REMAINING_FRAMECOUNT].value.i--;
 
     save();
     pthread_mutex_unlock(&access_mutex);
@@ -240,8 +181,7 @@ void pn_preference_increment_framecount()
 unsigned char pn_preference_toggle_save()
 {
     pthread_mutex_lock(&access_mutex);
-    unsigned char ret = prefs.save_frames ^= 1;
-    save();
+    unsigned char ret = prefs[SAVE_FRAMES].value.c ^= TRUE;
     pthread_mutex_unlock(&access_mutex);
     return ret;
 }
@@ -249,49 +189,54 @@ unsigned char pn_preference_toggle_save()
 unsigned char pn_preference_allow_save()
 {
     pthread_mutex_lock(&access_mutex);
-    unsigned char ret = prefs.object_type == OBJECT_TARGET || prefs.calibration_remaining_framecount > 0;
+    unsigned char ret = (prefs[OBJECT_TYPE].value.c == OBJECT_TARGET ||
+                         prefs[CALIBRATION_REMAINING_FRAMECOUNT].value.i > 0);
     pthread_mutex_unlock(&access_mutex);
-
     return ret;
 }
 
-void pn_preference_set_char(PNPreferenceChar key, unsigned char val)
+void pn_preference_set(PNPreferenceType key, void *val)
 {
     pthread_mutex_lock(&access_mutex);
-    switch (key)
+    switch (prefs[key].type)
     {
-        case EXPOSURE_TIME: prefs.exposure_time = val; break;
-        case SAVE_FRAMES: prefs.save_frames = val; break;
-        case OBJECT_TYPE: prefs.object_type = val; break;
-        default: pn_log("ERROR: Attempting to set invalid char pref %d", key);
+        case STRING: free(prefs[key].value.s); prefs[key].value.s = strdup(*((char **)val));
+        case CHAR: prefs[key].value.c = *((char *)val);
+        case INT: prefs[key].value.i = *((int *)val);
     }
     save();
     pthread_mutex_unlock(&access_mutex);
 }
 
-void pn_preference_set_string(PNPreferenceString key, const char *val)
+void pn_preference_set_char(PNPreferenceType key, unsigned char val)
 {
-    pthread_mutex_lock(&access_mutex);
-    switch (key)
+    if (prefs[key].type != CHAR)
     {
-        case OUTPUT_DIR: free(prefs.output_directory); prefs.output_directory = strdup(val); break;
-        case RUN_PREFIX: free(prefs.run_prefix); prefs.run_prefix = strdup(val); break;
-        case OBJECT_NAME: free(prefs.object_name); prefs.object_name = strdup(val); break;
-        default: pn_log("ERROR: Attempting to set invalid string pref %d", key);
+        pn_log("ERROR: Attempting to set invalid char pref %d", key);
+        return;
     }
-    save();
-    pthread_mutex_unlock(&access_mutex);
+
+    pn_preference_set(key, &val);
 }
 
-void pn_preference_set_int(PNPreferenceInt key, int val)
+void pn_preference_set_string(PNPreferenceType key, const char *val)
 {
-    pthread_mutex_lock(&access_mutex);
-    switch (key)
+    if (prefs[key].type != STRING)
     {
-        case RUN_NUMBER: prefs.run_number = val; break;
-        case CALIBRATION_REMAINING_FRAMECOUNT: prefs.calibration_remaining_framecount = val; break;
-        default: pn_log("ERROR: Attempting to set invalid int pref %d", key);
+        pn_log("ERROR: Attempting to set invalid string pref %d", key);
+        return;
     }
-    save();
-    pthread_mutex_unlock(&access_mutex);
+
+    pn_preference_set(key, &val);
+}
+
+void pn_preference_set_int(PNPreferenceType key, int val)
+{
+    if (prefs[key].type != INT)
+    {
+        pn_log("ERROR: Attempting to set invalid int pref %d", key);
+        return;
+    }
+
+    pn_preference_set(key, &val);
 }

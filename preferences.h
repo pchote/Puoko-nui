@@ -21,47 +21,39 @@ typedef enum
 
 typedef enum
 {
-    OUTPUT_DIR = 0,
-    RUN_PREFIX = 1,
-    OBJECT_NAME = 2,
-    OBSERVERS = 3,
-    OBSERVATORY = 4,
-    TELESCOPE = 5,
-} PNPreferenceString;
-
-typedef enum
-{
-    EXPOSURE_TIME = 6,
-    SAVE_FRAMES = 7,
-    OBJECT_TYPE = 8,
-    USE_TIMER_MONITORING = 9,
-    TIMER_NOMONITOR_STARTUP_DELAY = 10,
-    TIMER_NOMONITOR_STOP_DELAY = 11,
-    SUPERPIXEL_SIZE = 12,
-    CAMERA_READOUT_MODE = 13,
-} PNPreferenceChar;
-
-typedef enum
-{
-    RUN_NUMBER = 14,
-    CALIBRATION_DEFAULT_FRAMECOUNT = 15,
-    CALIBRATION_REMAINING_FRAMECOUNT = 16,
-    CAMERA_TEMPERATURE = 17,
-} PNPreferenceInt;
+    OUTPUT_DIR,
+    RUN_PREFIX,
+    OBJECT_NAME,
+    OBSERVERS,
+    OBSERVATORY,
+    TELESCOPE,
+    EXPOSURE_TIME,
+    SAVE_FRAMES,
+    OBJECT_TYPE,
+    USE_TIMER_MONITORING,
+    TIMER_NOMONITOR_STARTUP_DELAY,
+    TIMER_NOMONITOR_STOP_DELAY,
+    SUPERPIXEL_SIZE,
+    CAMERA_READOUT_MODE,
+    RUN_NUMBER,
+    CALIBRATION_DEFAULT_FRAMECOUNT,
+    CALIBRATION_REMAINING_FRAMECOUNT,
+    CAMERA_TEMPERATURE,
+} PNPreferenceType;
 
 void pn_init_preferences(const char *path);
 void pn_free_preferences();
 void pn_save_preferences();
 
-char *pn_preference_string(PNPreferenceString key);
-unsigned char pn_preference_char(PNPreferenceChar key);
-int pn_preference_int(PNPreferenceInt key);
+char *pn_preference_string(PNPreferenceType key);
+unsigned char pn_preference_char(PNPreferenceType key);
+int pn_preference_int(PNPreferenceType key);
 
 void pn_preference_increment_framecount();
 unsigned char pn_preference_toggle_save();
 unsigned char pn_preference_allow_save();
 
-void pn_preference_set_char(PNPreferenceChar key, unsigned char val);
-void pn_preference_set_string(PNPreferenceString key, const char *val);
-void pn_preference_set_int(PNPreferenceInt key, int val);
+void pn_preference_set_char(PNPreferenceType key, unsigned char val);
+void pn_preference_set_string(PNPreferenceType key, const char *val);
+void pn_preference_set_int(PNPreferenceType key, int val);
 #endif
