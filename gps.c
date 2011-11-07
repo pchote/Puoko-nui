@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include <sys/types.h>
 #include <ftdi.h>
 #include "common.h"
 #include "preferences.h"
