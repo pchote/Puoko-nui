@@ -629,7 +629,7 @@ void pn_ui_run()
                 move_panel(frametype_panel, row - 1, 0);
                 continue;
             }
-            char buf[128];
+
             switch (input_type)
             {
                 case INPUT_MAIN:
@@ -693,10 +693,6 @@ void pn_ui_run()
                             should_quit = TRUE;
                             pn_log("Shutting down...");
                             update_command_window(camera_mode);
-                        break;
-                        default:
-                            sprintf(buf, "Pressed %c 0x%02x", ch, ch);
-                            add_log_line(buf);
                         break;
                     }
                 break;
