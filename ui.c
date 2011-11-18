@@ -200,7 +200,7 @@ static void update_acquisition_window()
         mvwprintw(acquisition_window, 3, 13, "%d   ", remaining_frames);
 
     mvwaddstr(acquisition_window, 4, 13, "                    ");
-    mvwprintw(acquisition_window, 4, 13, "%s-%05d.fits.gz", run_prefix, run_number);
+    mvwprintw(acquisition_window, 4, 13, "%s-%04d.fits.gz", run_prefix, run_number);
     free(run_prefix);
 }
 

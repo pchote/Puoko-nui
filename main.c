@@ -63,7 +63,7 @@ void pn_save_frame(PNFrame *frame)
     int run_number = pn_preference_int(RUN_NUMBER);
 
     char *filepath;
-    asprintf(&filepath, "%s/%s-%05d.fits.gz", output_dir, run_prefix, run_number);
+    asprintf(&filepath, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number);
     free(output_dir);
 
     pn_log("Saving frame %s", filepath);
