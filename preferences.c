@@ -200,9 +200,9 @@ void pn_preference_set(PNPreferenceType key, void *val)
     pthread_mutex_lock(&access_mutex);
     switch (prefs[key].type)
     {
-        case STRING: free(prefs[key].value.s); prefs[key].value.s = strdup(*((char **)val));
-        case CHAR: prefs[key].value.c = *((char *)val);
-        case INT: prefs[key].value.i = *((int *)val);
+        case STRING: free(prefs[key].value.s); prefs[key].value.s = strdup(*((char **)val)); break;
+        case CHAR: prefs[key].value.c = *((char *)val); break;
+        case INT: prefs[key].value.i = *((int *)val); break;
     }
     save();
     pthread_mutex_unlock(&access_mutex);
