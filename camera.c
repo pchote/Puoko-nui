@@ -178,28 +178,23 @@ static void initialize_camera()
     if (!pl_set_param(camera->handle, PARAM_SHTR_CLOSE_DELAY, (void*) &shtr))
         pvcam_error("Error setting PARAM_SHTR_CLOSE_DELAY]", __LINE__);
 
-    int param = OUTPUT_NOT_SCAN;
-    if (!pl_set_param(camera->handle, PARAM_LOGIC_OUTPUT, (void*) &param))
+    if (!pl_set_param(camera->handle, PARAM_LOGIC_OUTPUT, (void*) &(int){OUTPUT_NOT_SCAN}))
         pvcam_error("Error setting OUTPUT_NOT_SCAN", __LINE__);
 
     // Trigger on positive edge of the download pulse
-    param = EDGE_TRIG_NEG;
-    if (!pl_set_param(camera->handle, PARAM_EDGE_TRIGGER, (void*) &param))
+    if (!pl_set_param(camera->handle, PARAM_EDGE_TRIGGER, (void*) &(int){EDGE_TRIG_NEG}))
         pvcam_error("Error setting PARAM_EDGE_TRIGGER", __LINE__);
 
     // Use custom frame-transfer readout mode
-    param = MAKE_FRAME_TRANSFER;
-    if (!pl_set_param(camera->handle, PARAM_FORCE_READOUT_MODE, (void*) &param))
+    if (!pl_set_param(camera->handle, PARAM_FORCE_READOUT_MODE, (void*) &(int){MAKE_FRAME_TRANSFER}))
         pvcam_error("Error setting PARAM_FORCE_READOUT_MODE", __LINE__);
 
     // Set temperature
-    param = pn_preference_int(CAMERA_TEMPERATURE);
-    if (!pl_set_param(camera->handle, PARAM_TEMP_SETPOINT, (void*) &param))
+    if (!pl_set_param(camera->handle, PARAM_TEMP_SETPOINT, (void*) &(int){pn_preference_int(CAMERA_TEMPERATURE)}))
         pvcam_error("Error setting PARAM_TEMP_SETPOINT", __LINE__);
 
     // Set readout speed
-    param = pn_preference_char(CAMERA_READOUT_MODE);
-    if (!pl_set_param(camera->handle, PARAM_SPDTAB_INDEX, (void*) &param))
+    if (!pl_set_param(camera->handle, PARAM_SPDTAB_INDEX, (void*) &(int){pn_preference_char(CAMERA_READOUT_MODE)}))
         pvcam_error("Error setting PARAM_SPDTAB_INDEX", __LINE__);
 
     camera->first_frame = TRUE;
@@ -244,7 +239,7 @@ static void start_acquiring()
         pvcam_error("pl_exp_setup_cont failed", __LINE__);
 
     // Create a buffer big enough to hold 1 image
-    camera->image_buffer = (uns16*)malloc( camera->image_buffer_size );
+    camera->image_buffer = (uns16*)malloc(camera->image_buffer_size);
 
     // Start waiting for sync pulses to trigger exposures
     if (!pl_exp_start_cont(camera->handle, camera->image_buffer, camera->image_buffer_size))
