@@ -174,8 +174,7 @@ static void initialize_camera()
         pvcam_error("Camera failed diagnostic checks", __LINE__);
 
     // Set camera parameters
-    uns16 shtr = 0;
-    if (!pl_set_param(camera->handle, PARAM_SHTR_CLOSE_DELAY, (void*) &shtr))
+    if (!pl_set_param(camera->handle, PARAM_SHTR_CLOSE_DELAY, (void*) &(uns16){0}))
         pvcam_error("Error setting PARAM_SHTR_CLOSE_DELAY]", __LINE__);
 
     if (!pl_set_param(camera->handle, PARAM_LOGIC_OUTPUT, (void*) &(int){OUTPUT_NOT_SCAN}))
@@ -197,8 +196,6 @@ static void initialize_camera()
     if (!pl_set_param(camera->handle, PARAM_SPDTAB_INDEX, (void*) &(int){pn_preference_char(CAMERA_READOUT_MODE)}))
         pvcam_error("Error setting PARAM_SPDTAB_INDEX", __LINE__);
 
-    camera->first_frame = TRUE;
-
     pn_log("Camera initialized");
     set_mode(IDLE);
 }
@@ -217,6 +214,20 @@ static void start_acquiring()
 
     unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
     pn_log("Superpixel size: %d", superpixel_size);
+
+    // Enable custom chip so we can add a bias strip
+    if (!pl_set_param(camera->handle, PARAM_CUSTOM_CHIP, (void*) &(rs_bool){TRUE}))
+        pvcam_error("Error setting PARAM_CUSTOM_CHIP", __LINE__);
+
+    // Increase frame width by the 24 masked pixels plus an extra 24px for bias
+    camera->frame_width += 48;
+    if (!pl_set_param(camera->handle, PARAM_SER_SIZE, (void*) &(uns16){camera->frame_width}))
+        pvcam_error("Error setting PARAM_SER_SIZE", __LINE__);
+
+    // Remove postscan and increase width correspondingly to give a dark
+    // PVCAM seems to have mislabeled *SCAN and *MASK
+    if (!pl_set_param(camera->handle, PARAM_POSTMASK, (void*) &(uns16){0}))
+        pvcam_error("Error setting PARAM_POSTMASK", __LINE__);
 
     rgn_type region;
     region.s1 = 0;                      // x start ('serial' direction)
@@ -250,6 +261,7 @@ static void start_acquiring()
     // Sample initial temperature
     read_temperature();
 
+    camera->first_frame = TRUE;
     set_mode(ACQUIRING);
 }
 
