@@ -1,0 +1,42 @@
+==================== INSTALL PICAM ==================== 
+Download and install PICAM from
+ftp://ftp.piacton.com/Public/Software/Official/PICam/PICam%20Install.exe
+
+
+==================== INSTALL USB DRIVER ==================== 
+Download libusb-win32-bin-1.2.6.0.zip from
+http://sourceforge.net/projects/libusb-win32/files/libusb-win32-releases/1.2.6.0/libusb-win32-bin-1.2.6.0.zip/download
+
+Attach timer unit to USB port
+Windows may pop up a dialog saying it couldn't install a driver - We are about to fix that.
+
+Extract libusb-win32-bin-1.2.6.0.zip and run bin\inf-wizard.exe
+Select the timer unit from the list of USB devices. It should show up with Vendor ID 0x403, Product ID 0x6001, Description "USB <-> Serial"
+Select a location to save the resulting .inf, anywhere (eg the Desktop) is fine. You can delete it once we're done with the installation
+Select Install Now from the next dialog
+Allow the driver to install if windows shows an "Unsigned Driver" warning
+(Optional) Check that it shows up correctly in the Device Manager - it should appear as "USB <-> Serial" under "libusb-win32 devices".
+
+
+==================== RUN ====================
+Make sure that the logs directory exists in the same location as puokonui.exe, it won't run if it isn't present.
+Double click puokonui.exe to run it - it should pop up a console window.
+
+
+==================== NOTES ====================
+ - IMPORTANT: Don't click inside the terminal window, this will cause it to freeze up. This seems to be a bug with ncurses under windows or perhaps the windows commandline shell
+
+ - Make sure to reset the frame dir to a location that exists before enable saving frames (ctrl-p then ctrl-s. Set to . to select the program dir)
+
+ - The demo camera functionality doesn't support all the functions used, so I haven't been able to test image acquisition.
+   Expect there to be problems for the first few program iterations. Send me the log file (in \logs, named by start time) and i'll try and fix them,
+   or check BUILD-WIN64.txt for instructions on setting up the toolchain if you want to fix them yourselves
+
+ - The ability to set readout speed isn't implemented, so it will use whatever the default rate is (probably 1MHz)
+
+ - Online preview of frames with ds9 isn't implemented. You'll need to save them and the open them manually for now
+
+ - The timer is set up to use a constant startup and shutdown delay to work around bugs in our ST133 camera.
+   You can tweak the delays by changing TimerStartDelay and TimerStopDelay in preferences.dat
+
+ - UseTimerMonitor is set to 0 in preferences.dat (the default is 1). The unit you have lacks the monitoring hardware, so this must remain disabled
