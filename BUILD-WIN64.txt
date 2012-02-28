@@ -1,0 +1,100 @@
+
+==================== INSTALL USB DRIVER ==================== 
+Download libusb-win32-bin-1.2.6.0.zip from
+http://sourceforge.net/projects/libusb-win32/files/libusb-win32-releases/1.2.6.0/libusb-win32-bin-1.2.6.0.zip/download
+
+Attach timer unit to USB port
+Windows may pop up a dialog saying it couldn't install a driver - We are about to fix that.
+
+Extract libusb-win32-bin-1.2.6.0.zip and run bin\inf-wizard.exe
+Select the timer unit from the list of USB devices. It should show up with Vendor ID 0x403, Product ID 0x6001, Description "USB <-> Serial"
+Select a location to save the resulting .inf, anywhere (eg the Desktop) is fine. You can delete it once we're done with the installation
+Select Install Now from the next dialog
+Allow the driver to install if windows shows an "Unsigned Driver" warning
+(Optional) Check that it shows up correctly in the Device Manager - it should appear as "USB <-> Serial" under "libusb-win32 devices".
+
+==================== INSTALL TOOLCHAIN ====================
+Download MinGW-w64 binaries from
+http://cdnetworks-us-2.dl.sourceforge.net/project/mingw-w64/Toolchains%20targetting%20Win64/Automated%20Builds/mingw-w64-bin_i686-mingw_20111220.zip
+Extract to c:\mingw
+
+Download MSYS binaries from
+http://voxel.dl.sourceforge.net/project/mingw-w64/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29/MSYS-20111123.zip
+Extract to c:\mingw\msys
+
+
+Copy c:\mingw\bin\x86_64-w64-mingw32-gcc.exe and rename it to gcc.exe
+
+Run (double-click) c:\mingw\msys\postinstall\pi.bat
+Continue with post install (y)
+We do have MinGW installed (y)
+MinGW Installation is at c:/mingw/
+
+Create a shortcut to c:\mingw\msys\msys.bat somewhere convenient. All following commands starting with a '$' are run from this shell
+
+We don't plan on installing 32-bit toolchain, so we will remove the prefix from the 64-bit tools to avoid having to prefix everything later
+Run msys.bat and execute
+$ cd /mingw/bin
+$ for i in `ls x86_64-w64-mingw32-*`; do cp "$i" "${i:19}"; done
+
+
+==================== DOWNLOAD PUOKO-NUI CODE ====================
+Check out a copy of the code using git (if you have it installed, which I won't cover here)
+git clone https://github.com/pchote/Puoko-nui.git
+git checkout -b origin/picam picam
+
+Or download and extract a zipball
+https://github.com/pchote/Puoko-nui/zipball/picam
+
+This will create the directory puokonui with the source code.
+I will merge the picam changes into the main codebase soon, so the above will change
+
+The following assumes that you have the puoko-nui directory in your msys home directory at
+c:\mingw\msys\home\<USERNAME>\puoko-nui
+
+Following references to <puoko-nui> means this directory
+
+
+==================== BUILD DEPENDENCIES ====================
+Download 64-bit libftdi binaries from
+http://picusb.googlecode.com/files/libftdi_0.19_devkit_MinGW64_20August2011.zip
+
+Copy include to <puoko-nui>\ftdi\include
+Copy lib\lib64 to <puoko-nui>\ftdi\lib
+Copy bin\bin64\libftdi.dll to <puoko-nui>
+
+
+Download ncurses source from 
+http://ftp.gnu.org/pub/gnu/ncurses/ncurses-5.9.tar.gz
+
+Compile with
+$ configure --enable-term-driver --enable-sp-funcs --prefix=c:/mingw/msys/home/<USERNAME>/puoko-nui/ncurses
+$ make
+$ make install
+
+
+Download cfitsio from
+ftp://heasarc.gsfc.nasa.gov/software/fitsio/c/cfit3290.zip
+
+Compile with
+$ configure --prefix=c:/mingw/msys/home/<USERNAME>/puoko-nui/cfitsio
+$ make
+$ make install
+
+
+==================== BUILD/INSTALL PUOKO-NUI ====================
+Compile with
+$ make
+
+(Optional) Copy binaries to a separate location to run from, <run dir>
+Copy puokonui.exe to <run dir>
+Copy libftdi.dll to <run dir>
+Copy c:\mingw\bin\pthreadGC2-w64.dll to <run dir>
+Create directory <run dir>\logs
+
+
+==================== RUN ====================
+Make sure that the logs directory exists in the same location as puokonui.exe, it won't run if it isn't present.
+Double click puokonui.exe to run it - it should pop up a console window.
+IMPORTANT: Don't click inside the terminal window, this will cause it to freeze up. This seems to be a bug with ncurses under windows...
+Make sure to reset the frame dir to a location that exists before acquiring frames (ctrl-p then ctrl-s. Set to . to select the program dir)
