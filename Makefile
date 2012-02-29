@@ -26,8 +26,8 @@ ifeq ($(USE_XPA),YES)
 endif
 
 ifeq ($(MSYSTEM),MINGW32)
-    CFLAGS += -DWIN32 -Iftdi/include -Icfitsio/include -Incurses/include/ncurses
-    LFLAGS += -Lftdi/lib -Lcfitsio/lib -Lncurses/lib
+    CFLAGS += -DWIN32 -I/usr/local/include
+    LFLAGS += -L/usr/local/lib
 endif
 
 OBJ = $(SRC:.c=.o)

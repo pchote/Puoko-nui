@@ -9,9 +9,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
-#include <ncurses.h>
-#include <panel.h>
 #include <ctype.h>
+
+#if (defined _WIN32 || defined _WIN64)
+    #include <ncurses/ncurses.h>
+    #include <ncurses/panel.h>
+#else
+    #include <ncurses.h>
+    #include <panel.h>
+#endif
 
 #include "ui.h"
 #include "gps.h"
