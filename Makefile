@@ -12,6 +12,11 @@ ifeq ($(CAMERA_TYPE),PVCAM)
     SRC += camera_pvcam.c
 endif
 
+ifeq ($(MSYSTEM),MINGW32)
+    CFLAGS += -Iftdi/include -Icfitsio/include -Incurses/include/ncurses
+    LFLAGS += -Lftdi/lib -Lcfitsio/lib -Lncurses/lib
+endif
+
 OBJ = $(SRC:.c=.o)
 
 puokonui: $(OBJ)
