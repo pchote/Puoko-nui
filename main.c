@@ -296,7 +296,9 @@ int main( int argc, char *argv[] )
     else
     {
         #ifdef USE_PVCAM
-        pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
+        pthread_create(&camera_thread, NULL, pn_pvcam_camera_thread, (void *)&camera);
+		#elif defined USE_PICAM
+		pthread_create(&camera_thread, NULL, pn_picam_camera_thread, (void *)&camera);
         #else
         pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)&camera);
         #endif

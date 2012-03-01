@@ -1,4 +1,5 @@
 #CAMERA_TYPE = PVCAM
+#CAMERA_TYPE = PICAM
 CAMERA_TYPE = NONE
 USE_XPA = YES
 
@@ -17,6 +18,16 @@ ifeq ($(CAMERA_TYPE),PVCAM)
     else
         CFLAGS += -Ipvcam
         LFLAGS += -lpvcam -lraw1394 -ldl
+    endif
+endif
+
+ifeq ($(CAMERA_TYPE),PICAM)
+	CFLAGS += -DUSE_PICAM
+	SRC += camera_picam.c
+
+    ifeq ($(MSYSTEM),MINGW32)
+        CFLAGS += -Ic:/Program\ Files/Princeton\ Instruments/Picam/Includes
+        LFLAGS += -Lc:/Program\ Files/Princeton\ Instruments/Picam/Libraries -lPicam
     endif
 endif
 

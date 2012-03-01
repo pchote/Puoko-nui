@@ -69,7 +69,10 @@ void set_mode(PNCameraMode mode);
 void frame_downloaded(PNFrame *frame);
 
 #ifdef USE_PVCAM
-void *pn_camera_thread(void *);
+void *pn_pvcam_camera_thread(void *);
+#endif
+#ifdef USE_PICAM
+void *pn_picam_camera_thread(void *);
 #endif
 
 #endif
