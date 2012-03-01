@@ -56,18 +56,17 @@ typedef struct
     uint16_t frame_height;
     float temperature;
     char *fatal_error;
-
-    // internal use only
-    int16_t handle;
-    void *image_buffer;
-    uint32_t image_buffer_size;
-    pthread_mutex_t read_mutex;
     bool first_frame;
+
+    pthread_mutex_t read_mutex;
 } PNCamera;
 
 PNCamera pn_camera_new();
 void pn_camera_free(PNCamera *cam);
 void *pn_simulated_camera_thread(void *);
+
+void set_mode(PNCameraMode mode);
+void frame_downloaded(PNFrame *frame);
 
 #ifdef USE_PVCAM
 void *pn_camera_thread(void *);
