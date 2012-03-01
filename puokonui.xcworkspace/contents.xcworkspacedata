@@ -34,4 +34,13 @@
    <FileRef
       location = "group:ui.h">
    </FileRef>
+   <FileRef
+      location = "group:camera_pvcam.c">
+   </FileRef>
+   <FileRef
+      location = "group:platform.c">
+   </FileRef>
+   <FileRef
+      location = "group:platform.h">
+   </FileRef>
 </Workspace>
