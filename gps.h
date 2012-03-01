@@ -6,8 +6,9 @@
 */
 
 #include <time.h>
+#include <stdbool.h>
 #include <pthread.h>
-#include <master.h>
+
 #ifndef GPS_H
 #define GPS_H
 
@@ -38,22 +39,22 @@ typedef struct
     int hours;
     int minutes;
     int seconds;
-    rs_bool locked;
+    bool locked;
     int remaining_exposure; // for current time
-    rs_bool valid; // true before initialisation and if the download time has been used
+    bool valid; // true before initialisation and if the download time has been used
 } PNGPSTimestamp;
 
 // Represents the GPS hardware
 typedef struct
 {
-    rs_bool simulated;
+    bool simulated;
     int simulated_exptime;
     int simulated_remaining;
     char *fatal_error;
 
     struct usb_device *device;
     struct ftdi_context *context;
-    rs_bool shutdown;
+    bool shutdown;
     PNGPSTimestamp current_timestamp;
     PNGPSTimestamp download_timestamp;
     int camera_downloading;

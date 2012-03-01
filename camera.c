@@ -29,8 +29,8 @@ PNCamera pn_camera_new()
     cam.image_buffer_size = 0;
     cam.temperature = 0;
     cam.fatal_error = NULL;
-    cam.first_frame = TRUE;
-    cam.simulated = FALSE;
+    cam.first_frame = true;
+    cam.simulated = false;
     pthread_mutex_init(&cam.read_mutex, NULL);
 
     return cam;
@@ -65,7 +65,7 @@ static void frame_downloaded(PNFrame *frame)
     if (camera->first_frame)
     {
         pn_log("Discarding first frame");
-        camera->first_frame = FALSE;
+        camera->first_frame = false;
         return;
     }
 
@@ -110,7 +110,7 @@ static void read_temperature()
 }
 
 // Check whether a frame is available
-static rs_bool frame_available()
+static bool frame_available()
 {
     int16 status = READOUT_NOT_ACTIVE;
     uns32 bytesStored = 0, numFilledBuffers = 0;
@@ -261,7 +261,7 @@ static void start_acquiring()
     // Sample initial temperature
     read_temperature();
 
-    camera->first_frame = TRUE;
+    camera->first_frame = true;
     set_mode(ACQUIRING);
 }
 
@@ -384,8 +384,8 @@ static void stop_acquiring_simulated()
 void *pn_simulated_camera_thread(void *_unused)
 {
     // Initialize the camera
-    camera->simulated = TRUE;
-    camera->first_frame = TRUE;
+    camera->simulated = true;
+    camera->first_frame = true;
     pn_log("Initialising simulated camera");
 
     // Wait a bit to simulate hardware startup time
@@ -412,7 +412,7 @@ void *pn_simulated_camera_thread(void *_unused)
 
             // Create a buffer to write a simulated frame to
             camera->image_buffer_size = 512*512*2;
-            camera->image_buffer = (uns16*)malloc( camera->image_buffer_size );
+            camera->image_buffer = (uint16_t*)malloc( camera->image_buffer_size );
 
             // Delay a bit to simulate hardware startup time
             sleep(2);
@@ -449,7 +449,7 @@ void *pn_simulated_camera_thread(void *_unused)
             // There is no physical camera for the timer to monitor
             // so we must toggle this manually
             pthread_mutex_lock(&gps->read_mutex);
-            gps->camera_downloading = FALSE;
+            gps->camera_downloading = false;
             pthread_mutex_unlock(&gps->read_mutex);
         }
 

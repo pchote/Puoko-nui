@@ -5,9 +5,9 @@
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
 
-#include <master.h>
-#include <pvcam.h>
 #include <pthread.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #ifndef CAMERA_H
 #define CAMERA_H
@@ -38,9 +38,9 @@ typedef enum
 // Represents an aquired frame
 typedef struct
 {
-    uns16 width;
-    uns16 height;
-    uns16 *data; // Pointer to the start of the frame data
+    uint16_t width;
+    uint16_t height;
+    uint16_t *data; // Pointer to the start of the frame data
 } PNFrame;
 
 // Holds the state of a camera
@@ -50,19 +50,19 @@ typedef struct
     PNCameraMode desired_mode;
 
     // read only
-    rs_bool simulated;
+    bool simulated;
     PNCameraMode mode;
-    uns16 frame_width;
-    uns16 frame_height;
+    uint16_t frame_width;
+    uint16_t frame_height;
     float temperature;
     char *fatal_error;
 
     // internal use only
-    int16 handle;
+    int16_t handle;
     void *image_buffer;
-    uns32 image_buffer_size;
+    uint32_t image_buffer_size;
     pthread_mutex_t read_mutex;
-    rs_bool first_frame;
+    bool first_frame;
 } PNCamera;
 
 PNCamera pn_camera_new();

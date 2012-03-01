@@ -36,7 +36,7 @@ PANEL   *time_panel, *camera_panel, *acquisition_panel,
 static char *log_messages[256];
 static unsigned char log_position;
 static unsigned char last_log_position;
-static int should_quit = FALSE;
+static int should_quit = false;
 
 static WINDOW *create_time_window()
 {
@@ -370,21 +370,21 @@ static void update_command_window(PNCameraMode camera_mode)
 
     // Acquire toggle
     if (camera_mode == IDLE || camera_mode == ACQUIRING)
-        print_command_option(command_window, FALSE, "^A", "Acquire", camera_mode == ACQUIRING ? "Stop " : "");
+        print_command_option(command_window, false, "^A", "Acquire", camera_mode == ACQUIRING ? "Stop " : "");
 
     // Save toggle
     if (type == OBJECT_TARGET || remaining_frames > 0)
-        print_command_option(command_window, TRUE, "^S", "%s Saving", save ? "Stop" : "Start");
+        print_command_option(command_window, true, "^S", "%s Saving", save ? "Stop" : "Start");
 
     // Display parameter panel
     if (!save || !pn_preference_allow_save())
-        print_command_option(command_window, TRUE, "^P", "Edit Parameters");
+        print_command_option(command_window, true, "^P", "Edit Parameters");
 
     // Display exposure panel
     if (camera_mode == IDLE)
-        print_command_option(command_window, TRUE, "^E", "Set Exposure");
+        print_command_option(command_window, true, "^E", "Set Exposure");
 
-    print_command_option(command_window, TRUE, "^C", "Quit");
+    print_command_option(command_window, true, "^C", "Quit");
 }
 
 static WINDOW *create_parameters_window()
@@ -414,17 +414,17 @@ static void update_parameters_window()
     int row, col;
     getmaxyx(stdscr, row, col);
     wclear(parameters_window);
-    print_command_option(parameters_window, FALSE, "^T", "Type");
+    print_command_option(parameters_window, false, "^T", "Type");
 
     if (pn_preference_char(OBJECT_TYPE) == OBJECT_TARGET)
-        print_command_option(parameters_window, TRUE, "^O", "Target Name");
+        print_command_option(parameters_window, true, "^O", "Target Name");
     else
-        print_command_option(parameters_window, TRUE, "^D", "Set Countdown");
+        print_command_option(parameters_window, true, "^D", "Set Countdown");
 
-    print_command_option(parameters_window, TRUE, "^S", "Frame Dir");
-    print_command_option(parameters_window, TRUE, "^P", "Run Prefix");
-    print_command_option(parameters_window, TRUE, "^N", "Frame #");
-    print_command_option(parameters_window, TRUE, "RET", "Back");
+    print_command_option(parameters_window, true, "^S", "Frame Dir");
+    print_command_option(parameters_window, true, "^P", "Run Prefix");
+    print_command_option(parameters_window, true, "^N", "Frame #");
+    print_command_option(parameters_window, true, "RET", "Back");
 }
 
 
@@ -434,9 +434,9 @@ static WINDOW *create_frametype_window()
     getmaxyx(stdscr, row, col);
 
     WINDOW *ret = newwin(1, col, row-1, 0);
-    print_command_option(ret, FALSE, " D ", "Dark");
-    print_command_option(ret, TRUE, " F ", "Flat");
-    print_command_option(ret, TRUE, " T ", "Target");
+    print_command_option(ret, false, " D ", "Dark");
+    print_command_option(ret, true, " F ", "Flat");
+    print_command_option(ret, true, " T ", "Target");
     return ret;
 }
 
@@ -568,7 +568,7 @@ void pn_ui_run()
         int camera_downloading = gps->camera_downloading;
         pthread_mutex_unlock(&gps->read_mutex);
 
-        unsigned char is_input = FALSE;
+        unsigned char is_input = false;
         while ((ch = getch()) != ERR)
         {
             // Resized terminal window
@@ -690,7 +690,7 @@ void pn_ui_run()
                             pn_log("%s saving", save ? "Enabled" : "Disabled");
                         break;
                         case 0x03: // ^C - Quit
-                            should_quit = TRUE;
+                            should_quit = true;
                             pn_log("Shutting down...");
                             update_command_window(camera_mode);
                         break;
@@ -709,28 +709,28 @@ void pn_ui_run()
 
                             input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(RUN_PREFIX));
                             set_input_window_msg("Run Prefix: ");
-                            is_input = TRUE;
+                            is_input = true;
                             break;
                         case 0x13: // ^S - Frame dir
                             input_type = INPUT_FRAME_DIR;
 
                             input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OUTPUT_DIR));
                             set_input_window_msg("Output path: ");
-                            is_input = TRUE;
+                            is_input = true;
                             break;
                         case 0x0f: // ^O - Object name
                             input_type = INPUT_OBJECT_NAME;
 
                             input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OBJECT_NAME));
                             set_input_window_msg("Target Name: ");
-                            is_input = TRUE;
+                            is_input = true;
                             break;
                         case 0x0e: // ^N - Frame #
                             input_type = INPUT_FRAME_NUMBER;
 
                             input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(RUN_NUMBER));
                             set_input_window_msg("Frame #: ");
-                            is_input = TRUE;
+                            is_input = true;
                             break;
                         case 0x14: // ^T - Frame Type
                             input_type = INPUT_FRAME_TYPE;
@@ -742,7 +742,7 @@ void pn_ui_run()
 
                             input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT));
                             set_input_window_msg("Countdown #: ");
-                            is_input = TRUE;
+                            is_input = true;
                             break;
                     }
 

@@ -111,12 +111,12 @@ void pn_save_frame(PNFrame *frame)
     pthread_mutex_lock(&gps->read_mutex);
 
     PNGPSTimestamp end = gps->download_timestamp;
-    rs_bool was_valid = end.valid;
-    gps->download_timestamp.valid = FALSE;
+    bool was_valid = end.valid;
+    gps->download_timestamp.valid = false;
 
     // Invalidate the timestamp if the GPS thread has died
     if (gps->fatal_error != NULL)
-        was_valid = FALSE;
+        was_valid = false;
 
     pthread_mutex_unlock(&gps->read_mutex);
 
@@ -230,9 +230,9 @@ void pn_preview_frame(PNFrame *frame)
 #pragma mark Main program logic
 
 static pthread_t timer_thread, camera_thread;
-static rs_bool timer_thread_initialized = FALSE;
-static rs_bool camera_thread_initialized = FALSE;
-static rs_bool shutdown = FALSE;
+static bool timer_thread_initialized = false;
+static bool camera_thread_initialized = false;
+static bool shutdown = false;
 
 pthread_mutex_t log_mutex;
 FILE *logFile;
@@ -264,17 +264,17 @@ int main( int argc, char *argv[] )
     launch_ds9();
     pn_init_preferences("preferences.dat");
 
-    rs_bool simulate_camera = FALSE;
-    rs_bool simulate_timer = FALSE;
+    bool simulate_camera = false;
+    bool simulate_timer = false;
 
     // Parse the commandline args
     for (int i = 0; i < argc; i++)
     {
         if (strcmp(argv[i], "--simulate-camera") == 0)
-            simulate_camera = TRUE;
+            simulate_camera = true;
 
         if (strcmp(argv[i], "--simulate-timer") == 0)
-            simulate_timer = TRUE;
+            simulate_timer = true;
     }
 
     // Timer unit
@@ -283,14 +283,19 @@ int main( int argc, char *argv[] )
     else
         pthread_create(&timer_thread, NULL, pn_timer_thread, (void *)&gps);
 
-    timer_thread_initialized = TRUE;
+    timer_thread_initialized = true;
 
     if (simulate_camera)
         pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)&camera);
     else
+    {
+        #ifdef USE_PVCAM
         pthread_create(&camera_thread, NULL, pn_camera_thread, (void *)&camera);
-
-    camera_thread_initialized = TRUE;
+        #else
+        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)&camera);
+        #endif
+    }
+    camera_thread_initialized = true;
 
     //
     // Main program loop is run by the ui code
@@ -300,13 +305,13 @@ int main( int argc, char *argv[] )
     //
     // Shutdown hardware and cleanup
     //
-    shutdown = TRUE;
+    shutdown = true;
 
     // Tell the GPS and Camera threads to terminate themselves
     pthread_mutex_lock(&camera->read_mutex);
     camera->desired_mode = SHUTDOWN;
     pthread_mutex_unlock(&camera->read_mutex);
-    gps->shutdown = TRUE;
+    gps->shutdown = true;
 
     // Wait for the GPS and Camera threads to terminate
     void **retval = NULL;

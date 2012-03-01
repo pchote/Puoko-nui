@@ -45,9 +45,9 @@ PNPreferenceStore prefs[] =
     {TELESCOPE, STRING, .value.s = "MJUO 1-meter", "Telescope: %s\n"},
 
     {EXPOSURE_TIME, CHAR, .value.c = 5, "ExposureTime: %hhu\n"},
-    {SAVE_FRAMES, CHAR, .value.c = FALSE, "SaveFrames: %hhu\n"},
+    {SAVE_FRAMES, CHAR, .value.c = false, "SaveFrames: %hhu\n"},
     {OBJECT_TYPE, CHAR, .value.c = OBJECT_TARGET, "ObjectType: %hhu\n"},
-    {USE_TIMER_MONITORING, CHAR, .value.c = TRUE, "UseTimerMonitor: %hhu\n"},
+    {USE_TIMER_MONITORING, CHAR, .value.c = true, "UseTimerMonitor: %hhu\n"},
     {TIMER_NOMONITOR_STARTUP_DELAY, CHAR, .value.c = 5, "TimerStartDelay: %hhu\n"},
     {TIMER_NOMONITOR_STOP_DELAY, CHAR, .value.c = 5, "TimerStopDelay: %hhu\n"},
     {SUPERPIXEL_SIZE, CHAR, .value.c = 2, "SuperpixelSize: %hhu\n"},
@@ -108,7 +108,7 @@ void pn_init_preferences(const char *path)
     }
 
     // Force saving to false on startup
-    prefs[SAVE_FRAMES].value.c = FALSE;
+    prefs[SAVE_FRAMES].value.c = false;
 
     // Init mutex
     pthread_mutex_init(&access_mutex, NULL);
@@ -181,7 +181,7 @@ void pn_preference_increment_framecount()
 unsigned char pn_preference_toggle_save()
 {
     pthread_mutex_lock(&access_mutex);
-    unsigned char ret = prefs[SAVE_FRAMES].value.c ^= TRUE;
+    unsigned char ret = prefs[SAVE_FRAMES].value.c ^= true;
     pthread_mutex_unlock(&access_mutex);
     return ret;
 }

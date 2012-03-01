@@ -26,13 +26,13 @@ PNGPS pn_gps_new()
 {
     PNGPS ret;
     ret.context = NULL;
-    ret.shutdown = FALSE;
-    ret.current_timestamp.valid = FALSE;
-    ret.current_timestamp.locked = FALSE;
-    ret.download_timestamp.valid = FALSE;
-    ret.download_timestamp.locked = FALSE;
+    ret.shutdown = false;
+    ret.current_timestamp.valid = false;
+    ret.current_timestamp.locked = false;
+    ret.download_timestamp.valid = false;
+    ret.download_timestamp.locked = false;
     ret.send_length = 0;
-    ret.simulated = FALSE;
+    ret.simulated = false;
     ret.camera_downloading = 0;
     ret.fatal_error = NULL;
 
@@ -205,7 +205,7 @@ void *pn_timer_thread(void *_unused)
     unsigned char totalbuf[256];
     unsigned char writeIndex = 0;
     unsigned char readIndex = 0;
-    rs_bool synced = FALSE;
+    bool synced = false;
 
     // Current packet storage
     unsigned char gps_packet[256];
@@ -255,7 +255,7 @@ void *pn_timer_thread(void *_unused)
                 totalbuf[(unsigned char)(readIndex-2)] == ETX &&
                 totalbuf[(unsigned char)(readIndex-3)] == DLE)
             {
-                synced = TRUE;
+                synced = true;
                 readIndex -= 1;
                 break;
             }
@@ -277,7 +277,7 @@ void *pn_timer_thread(void *_unused)
             // Packet Format:
             // <DLE> <data length> <type> <data 0> ... <data length-1> <checksum> <DLE> <ETX>
 
-            rs_bool reset = FALSE;
+            bool reset = false;
             // Reached the end of the packet
             if (gps_packet_length > 2 && gps_packet_length == gps_packet[1] + 6)
             {
@@ -297,7 +297,7 @@ void *pn_timer_thread(void *_unused)
                             gps->current_timestamp.seconds = gps_packet[5];
                             gps->current_timestamp.locked = gps_packet[10];
                             gps->current_timestamp.remaining_exposure = gps_packet[11];
-                            gps->current_timestamp.valid = TRUE;
+                            gps->current_timestamp.valid = true;
 
                             pthread_mutex_unlock(&gps->read_mutex);
 /*
@@ -320,7 +320,7 @@ void *pn_timer_thread(void *_unused)
                             gps->download_timestamp.minutes = gps_packet[4];
                             gps->download_timestamp.seconds = gps_packet[5];
                             gps->download_timestamp.locked = gps_packet[10];
-                            gps->download_timestamp.valid = TRUE;
+                            gps->download_timestamp.valid = true;
                             pn_log("Download: %04d-%02d-%02d %02d:%02d:%02d (%d)", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
                                                                       gps_packet[7],   // Month
                                                                       gps_packet[6],   // Day
@@ -330,12 +330,12 @@ void *pn_timer_thread(void *_unused)
                                                                       gps_packet[10]); // Locked
 
                             // Mark the camera as downloading for UI feedback and shutdown purposes
-                            gps->camera_downloading = TRUE;
+                            gps->camera_downloading = true;
                             pthread_mutex_unlock(&gps->read_mutex);
                         break;
                         case DOWNLOADCOMPLETE:
                             pthread_mutex_lock(&gps->read_mutex);
-                            gps->camera_downloading = FALSE;
+                            gps->camera_downloading = false;
                             pthread_mutex_unlock(&gps->read_mutex);
                             break;
                         case DEBUG_STRING:
@@ -343,7 +343,7 @@ void *pn_timer_thread(void *_unused)
                             pn_log("GPS Debug: `%s`", &gps_packet[3]);
                         break;
                         case DEBUG_RAW:
-                            if (TRUE);
+                            if (true);
                             char *msg = (char *)malloc((3*gps_packet[1]+1)*sizeof(char));
                             for (unsigned char i = 0; i < gps_packet[1]; i++)
                                 sprintf(msg+strlen(msg), "%02x ", gps_packet[3+i]);
@@ -361,19 +361,19 @@ void *pn_timer_thread(void *_unused)
                 }
 
                 // Reset for next packet
-                reset = TRUE;
+                reset = true;
             }
 
             // Something went wrong
             if (gps_packet_length >= 255)
             {
                 pn_log("Packet length overrun\n");
-                reset = TRUE;
+                reset = true;
             }
 
             if (reset)
             {
-                synced = FALSE;
+                synced = false;
                 gps_packet_length = 0;
                 break;
             }
@@ -390,7 +390,7 @@ void *pn_simulated_timer_thread(void *unused)
 {
     // Initialization
     pn_log("Simulating GPS");
-    gps->simulated = TRUE;
+    gps->simulated = true;
     gps->simulated_remaining = gps->simulated_exptime = 0;
     time_t last_unixtime = time(NULL);
 
@@ -420,7 +420,7 @@ void *pn_simulated_timer_thread(void *unused)
                 gps->download_timestamp.seconds = t->tm_sec;
                 gps->download_timestamp.locked = 1;
                 gps->download_timestamp.remaining_exposure = 0;
-                gps->download_timestamp.valid = TRUE;
+                gps->download_timestamp.valid = true;
                 pn_log("Simulated Download: %04d-%02d-%02d %02d:%02d:%02d (%d)",
                        gps->download_timestamp.year, // Year
                        gps->download_timestamp.month,   // Month
@@ -430,7 +430,7 @@ void *pn_simulated_timer_thread(void *unused)
                        gps->download_timestamp.seconds,   // Second
                        gps->download_timestamp.locked); // Locked
 
-                gps->camera_downloading = TRUE;
+                gps->camera_downloading = true;
                 pthread_mutex_unlock(&gps->read_mutex);
             }
 
@@ -443,7 +443,7 @@ void *pn_simulated_timer_thread(void *unused)
             gps->current_timestamp.seconds = t->tm_sec;
             gps->current_timestamp.locked = 1;
             gps->current_timestamp.remaining_exposure = gps->simulated_remaining;
-            gps->current_timestamp.valid = TRUE;
+            gps->current_timestamp.valid = true;
             pthread_mutex_unlock(&gps->read_mutex);
 
             last_unixtime = cur_unixtime;
