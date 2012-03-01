@@ -245,7 +245,6 @@ void *pn_camera_thread(void *_unused)
     initialize_camera();
 
     // Loop and respond to user commands
-    struct timespec wait = {0,1e8};
     int temp_ticks = 0;
 
     pthread_mutex_lock(&camera->read_mutex);
