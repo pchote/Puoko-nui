@@ -14,13 +14,15 @@
 #include <pthread.h>
 #include <fitsio.h>
 #include <string.h>
-#include <sys/select.h>
-#include <xpa.h>
 #include "common.h"
 #include "camera.h"
 #include "gps.h"
 #include "preferences.h"
 #include "ui.h"
+
+#ifdef USE_XPA
+    #include <xpa.h>
+#endif
 
 PNCamera *camera;
 PNGPS *gps;
@@ -33,6 +35,7 @@ PNGPS *gps;
 // Runs at program startup in the main thread, or on frame acquisition in the camera thread
 static void launch_ds9()
 {
+#ifdef USE_XPA
     char *names[1];
     char *errs[1];
     int valid = XPAAccess(NULL, "Puoko-nui", NULL, NULL, names, errs, 1);
@@ -45,6 +48,7 @@ static void launch_ds9()
 
     if (!valid)
         system("ds9 -title Puoko-nui&");
+#endif
 }
 
 #pragma mark Frame Saving/Preview. Runs in camera thread
@@ -179,6 +183,7 @@ void pn_save_frame(PNFrame *frame)
 // Display a frame in DS9
 void pn_preview_frame(PNFrame *frame)
 {
+#ifdef USE_XPA
     fitsfile *fptr;
     int status = 0;
     void *fitsbuf;
@@ -225,6 +230,7 @@ void pn_preview_frame(PNFrame *frame)
             launch_ds9();
     }
     free(fitsbuf);
+#endif
 }
 
 #pragma mark Main program logic

@@ -1,15 +1,21 @@
 #CAMERA_TYPE = PVCAM
 CAMERA_TYPE = NONE
+USE_XPA = YES
 
 CC = gcc
 CFLAGS = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
-LFLAGS = -lpanel -lncurses -lcfitsio -lxpa -ldl -lpthread -lftdi
+LFLAGS = -lpanel -lncurses -lcfitsio -ldl -lpthread -lftdi
 SRC = main.c camera.c gps.c preferences.c ui.c
 
 ifeq ($(CAMERA_TYPE),PVCAM)
     CFLAGS += -Ipvcam -DUSE_PVCAM
     LFLAGS += -lpvcam -lraw1394
     SRC += camera_pvcam.c
+endif
+
+ifeq ($(USE_XPA),YES)
+    CFLAGS += -DUSE_XPA
+    LFLAGS += -lxpa
 endif
 
 ifeq ($(MSYSTEM),MINGW32)
