@@ -290,7 +290,7 @@ void *pn_camera_thread(void *_unused)
             temp_ticks = 0;
             read_temperature();
         }
-        nanosleep(&wait, NULL);
+        millisleep(100);
 
         pthread_mutex_lock(&camera->read_mutex);
         desired_mode = camera->desired_mode;

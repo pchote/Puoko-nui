@@ -98,13 +98,11 @@ void *pn_simulated_camera_thread(void *_unused)
     pn_log("Initialising simulated camera");
 
     // Wait a bit to simulate hardware startup time
-    sleep(2);
+    millisleep(2000);
     pn_log("Camera initialized");
     set_mode(IDLE);
 
     // Loop and respond to user commands
-    struct timespec wait = {0,1e8};
-
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode desired_mode = camera->desired_mode;
     pthread_mutex_unlock(&camera->read_mutex);
@@ -123,7 +121,7 @@ void *pn_simulated_camera_thread(void *_unused)
             image_buffer = (uint16_t*)malloc(512*512*2);
 
             // Delay a bit to simulate hardware startup time
-            sleep(2);
+            millisleep(2000);
             pn_log("Simulated acquisition run started");
 
             set_mode(ACQUIRING);
@@ -161,7 +159,7 @@ void *pn_simulated_camera_thread(void *_unused)
             pthread_mutex_unlock(&gps->read_mutex);
         }
 
-        nanosleep(&wait, NULL);
+        millisleep(100);
         pthread_mutex_lock(&camera->read_mutex);
         desired_mode = camera->desired_mode;
         pthread_mutex_unlock(&camera->read_mutex);

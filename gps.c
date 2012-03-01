@@ -9,15 +9,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/time.h>
-#include <time.h>
 #include <sys/types.h>
 #include <ftdi.h>
 #include "common.h"
 #include "preferences.h"
 #include "gps.h"
-
-extern time_t timegm(struct tm *);
 
 #pragma mark Creation and Destruction (Called from main thread)
 
@@ -221,10 +217,9 @@ void *pn_timer_thread(void *_unused)
     queue_data(RESET, &unused, 1);
 
     // Loop until shutdown, parsing incoming data
-    struct timespec wait = {0,1e8};
     while (!gps->shutdown)
     {
-        nanosleep(&wait, NULL);
+        millisleep(100);
 
         // Send any data in the send buffer
         pthread_mutex_lock(&gps->sendbuffer_mutex);
@@ -395,10 +390,9 @@ void *pn_simulated_timer_thread(void *unused)
     time_t last_unixtime = time(NULL);
 
     // Loop until shutdown, parsing incoming data
-    struct timespec wait = {0,1e8};
     while (!gps->shutdown)
     {
-        nanosleep(&wait, NULL);
+        millisleep(100);
 
         time_t cur_unixtime = time(NULL);
         if (cur_unixtime != last_unixtime)
@@ -509,8 +503,7 @@ PNGPSTimestamp pn_timestamp_subtract_seconds(PNGPSTimestamp ts, int seconds)
 {
     // Let gmtime/timegm do the hard work of normalizing the time
     struct tm a = {ts.seconds - seconds, ts.minutes, ts.hours, ts.day, ts.month, ts.year - 1900,0,0,0};
-    time_t b = timegm(&a);
-    gmtime_r(&b, &a);
+    normalize_tm(&a);
 
     // Construct a new timestamp to return
     PNGPSTimestamp ret = ts;

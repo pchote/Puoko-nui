@@ -6,6 +6,7 @@
 */
 
 #include <stdarg.h>
+#include "platform.h"
 #include "camera.h"
 
 #ifndef COMMON_H
