@@ -82,6 +82,11 @@ static void frame_downloaded(PNFrame *frame)
 
 #pragma mark Real Camera Routines
 
+#ifdef USE_PVCAM
+
+#include <master.h>
+#include <pvcam.h>
+
 // Generate a fatal error based on the pvcam error
 static void pvcam_error(const char *msg, int line)
 {
@@ -367,7 +372,7 @@ void *pn_camera_thread(void *_unused)
 
     pthread_exit(NULL);
 }
-
+#endif
 
 #pragma mark Simulated Camera Routines
 

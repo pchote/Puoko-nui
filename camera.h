@@ -67,7 +67,10 @@ typedef struct
 
 PNCamera pn_camera_new();
 void pn_camera_free(PNCamera *cam);
-void *pn_camera_thread(void *);
 void *pn_simulated_camera_thread(void *);
+
+#ifdef USE_PVCAM
+void *pn_camera_thread(void *);
+#endif
 
 #endif

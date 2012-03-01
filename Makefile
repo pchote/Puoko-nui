@@ -1,6 +1,14 @@
+#CAMERA_TYPE = PVCAM
+CAMERA_TYPE = NONE
+
 CC = gcc
-CFLAGS = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -Ipvcam -D_POSIX_C_SOURCE=199309L -D_GNU_SOURCE
-LFLAGS = -lpanel -lncurses -lcfitsio -lxpa -lpvcam -ldl -lpthread -lraw1394 -lftdi
+CFLAGS = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
+LFLAGS = -lpanel -lncurses -lcfitsio -lxpa -ldl -lpthread -lftdi
+
+ifeq ($(CAMERA_TYPE),PVCAM)
+    CFLAGS += -Ipvcam -DUSE_PVCAM
+    LFLAGS += -lpvcam -lraw1394
+endif
 
 SRC = main.c camera.c gps.c preferences.c ui.c
 OBJ = $(SRC:.c=.o)
