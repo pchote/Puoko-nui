@@ -833,7 +833,7 @@ void pn_ui_run()
                             }
                         }
                     }
-                    else if (ch == 0x7f && input_entry_length > 0) // Backspace
+                    else if ((ch == 0x7f || ch == 0x08) && input_entry_length > 0) // Backspace
                         --input_entry_length;
                     else if (isdigit(ch) && input_entry_length < 1024 - 1)
                         input_entry_buf[input_entry_length++] = ch;
@@ -888,7 +888,7 @@ void pn_ui_run()
                         hide_panel(input_panel);
                         show_panel(parameters_panel);
                     }
-                    else if (ch == 0x7f) // Backspace
+                    else if (ch == 0x7f || ch == 0x08) // Backspace
                     {
                         if (input_entry_length > 0)
                             --input_entry_length;
