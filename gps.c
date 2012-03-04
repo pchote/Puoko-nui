@@ -169,7 +169,7 @@ static void initialize_timer()
 
     //ftdi_enable_bitbang(pContext, 0xFF);
 
-    status = ftdi_set_baudrate(gps->context, 115200);
+    status = ftdi_set_baudrate(gps->context, 250000);
     check_ftdi(gps->context->error_str, __FILE__, __LINE__, status);
 
     status = ftdi_set_line_property(gps->context, BITS_8, STOP_BIT_1, NONE);
