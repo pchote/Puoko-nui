@@ -48,8 +48,6 @@ PNPreferenceStore prefs[] =
     {SAVE_FRAMES, CHAR, .value.c = false, "SaveFrames: %hhu\n"},
     {OBJECT_TYPE, CHAR, .value.c = OBJECT_TARGET, "ObjectType: %hhu\n"},
     {USE_TIMER_MONITORING, CHAR, .value.c = true, "UseTimerMonitor: %hhu\n"},
-    {TIMER_NOMONITOR_STARTUP_DELAY, CHAR, .value.c = 5, "TimerStartDelay: %hhu\n"},
-    {TIMER_NOMONITOR_STOP_DELAY, CHAR, .value.c = 5, "TimerStopDelay: %hhu\n"},
     {SUPERPIXEL_SIZE, CHAR, .value.c = 2, "SuperpixelSize: %hhu\n"},
     {CAMERA_READOUT_MODE, CHAR, .value.c = 0, "CameraReadoutMode: %hhu\n"},
 
