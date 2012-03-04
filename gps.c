@@ -450,20 +450,12 @@ void pn_gps_start_exposure(unsigned char exptime)
         gps->simulated_remaining = gps->simulated_exptime = exptime;
     else
     {
-        unsigned char data[3];
-        data[0] = exptime;
-        // Monitor the NOTSCAN output for determining startup/stop
-        data[1] = !camera->simulated && pn_preference_char(USE_TIMER_MONITORING);
-        
-        // Fixed startup delay (in seconds) if not monitoring NOTSCAN; minimum 1
-        data[2] = pn_preference_char(TIMER_NOMONITOR_STARTUP_DELAY);
+        unsigned char simulate_camera = camera->simulated || !pn_preference_char(USE_TIMER_MONITORING);
+        if (simulate_camera)
+            pn_log("Using simulated camera status");
 
-        if (data[1])
-            pn_log("Using timer monitor");
-        else
-            pn_log("Using fixed startup delay of %d seconds", data[2]);
-
-        queue_data(START_EXPOSURE, data, 3);
+        queue_data(SIMULATE_CAMERA, &simulate_camera, 1);
+        queue_data(START_EXPOSURE, &exptime, 1);
     }
 }
 
@@ -471,23 +463,10 @@ void pn_gps_start_exposure(unsigned char exptime)
 void pn_gps_stop_exposure()
 {
     pn_log("Stopping exposure");
-    unsigned char data[2];
-    // Monitor the NOTSCAN output for determining startup/stop
-    data[0] = !camera->simulated && pn_preference_char(USE_TIMER_MONITORING);
-
-    // Fixed startup delay (in seconds) if not monitoring NOTSCAN; minimum 1
-    data[1] = pn_preference_char(TIMER_NOMONITOR_STOP_DELAY);
-
     if (gps->simulated)
         shutdown_camera();
     else
-    {
-        queue_data(STOP_EXPOSURE, data, 2);
-        if (data[0])
-            pn_log("Using timer monitor");
-        else
-            pn_log("Using fixed stop delay of %d seconds", data[1]);
-    }
+        queue_data(STOP_EXPOSURE, NULL, 0);
 }
 
 // Utility routine to subtract a number of seconds from a PNGPSTimestamp

@@ -28,6 +28,7 @@ typedef enum
     STOP_EXPOSURE = 'F',
     RESET = 'G',
     DOWNLOADCOMPLETE = 'H',
+    SIMULATE_CAMERA = 'I',
     UNKNOWN_PACKET = 0,
 } PNGPSPacketType;
 
