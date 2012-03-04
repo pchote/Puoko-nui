@@ -79,8 +79,8 @@ static void gps_error(char *msg, ...)
 // Calculate the checksum of a series of bytes by xoring them together
 static unsigned char checksum(unsigned char *data, unsigned char length)
 {
-    unsigned char csm = data[0];
-    for (unsigned char i = 1; i < length; i++)
+    unsigned char csm = 0;
+    for (unsigned char i = 0; i < length; i++)
         csm ^= data[i];
     return csm;
 }
@@ -101,18 +101,24 @@ static void queue_send_byte(unsigned char b)
 // Wrap an array of bytes in a data packet and send it to the gps
 static void queue_data(unsigned char type, unsigned char *data, unsigned char length)
 {
-    queue_send_byte(DLE);
-    queue_send_byte(length);
+    // Data packet starts with $$ followed by packet type
+    queue_send_byte('$');
+    queue_send_byte('$');
     queue_send_byte(type);
+
+    // Length of data section
+    queue_send_byte(length);
+
+    // Packet data
     for (unsigned char i = 0; i < length; i++)
-    {
         queue_send_byte(data[i]);
-        if (data[i] == DLE)
-            queue_send_byte(DLE);
-    }
+
+    // Checksum
     queue_send_byte(checksum(data,length));
-    queue_send_byte(DLE);
-    queue_send_byte(ETX);
+
+    // Data packet ends with linefeed and carriage return
+    queue_send_byte('\r');
+    queue_send_byte('\n');
 }
 
 // Issue a camera stop-sequence command
@@ -192,29 +198,35 @@ static void uninitialize_timer()
     gps->context = NULL;
 }
 
+static void log_raw_data(unsigned char *data, int len)
+{
+    char *msg = (char *)malloc((3*len+1)*sizeof(char));
+    for (unsigned char i = 0; i < len; i++)
+        sprintf(msg+3*i, "%02x ", data[i]);
+    pn_log(msg);
+    free(msg);
+}
+
 // Main timer thread loop
 void *pn_timer_thread(void *_unused)
 {
     // Store recieved bytes in a 256 byte circular buffer indexed by an unsigned char
     // This ensures the correct circular behavior on over/underflow
-    unsigned char recvbuf[256];
-    unsigned char totalbuf[256];
-    unsigned char writeIndex = 0;
-    unsigned char readIndex = 0;
-    bool synced = false;
+    unsigned char input_buf[256];
+    unsigned char write_index = 0;
+    unsigned char read_index = 0;
 
     // Current packet storage
     unsigned char gps_packet[256];
     unsigned char gps_packet_length = 0;
+    unsigned char gps_packet_expected_length = 0;
+    PNGPSPacketType gps_packet_type = UNKNOWN_PACKET;
 
     // Initialization
     initialize_timer();
 
-    // Send two reset packets to the timer.
-    // The first is used to sync the incoming data and discarded
-    unsigned char unused = 0;
-    queue_data(RESET, &unused, 1);
-    queue_data(RESET, &unused, 1);
+    // Reset timer to its idle state
+    queue_data(RESET, NULL, 0);
 
     // Loop until shutdown, parsing incoming data
     while (!gps->shutdown)
@@ -232,147 +244,127 @@ void *pn_timer_thread(void *_unused)
         pthread_mutex_unlock(&gps->sendbuffer_mutex);
 
         // Grab any data accumulated by ftdi
+        unsigned char recvbuf[256];
         int ret = ftdi_read_data(gps->context, recvbuf, 256);
         if (ret < 0)
             gps_error("Bad response from timer. return code 0x%x",ret);
 
-        // Copy recieved bytes into the buffer
+        // Copy recieved bytes into the circular input buffer
         for (int i = 0; i < ret; i++)
-            totalbuf[writeIndex++] = recvbuf[i];
+            input_buf[write_index++] = recvbuf[i];
 
-        // Sync to the end of the previous packet and the start of the next
-        for (; !synced && readIndex != writeIndex; readIndex++)
+        // Sync to the start of a data packet
+        for (; gps_packet_type == UNKNOWN_PACKET && read_index != write_index; read_index++)
         {
-            if (// Start of new packet
-                totalbuf[readIndex] != DLE &&
-                totalbuf[(unsigned char)(readIndex-1)] == DLE &&
-                // End of previous packet
-                totalbuf[(unsigned char)(readIndex-2)] == ETX &&
-                totalbuf[(unsigned char)(readIndex-3)] == DLE)
+            if (input_buf[(unsigned char)(read_index - 3)] == '$' &&
+                input_buf[(unsigned char)(read_index - 2)] == '$' &&
+                input_buf[(unsigned char)(read_index - 1)] != '$')
             {
-                synced = true;
-                readIndex -= 1;
+                gps_packet_type = input_buf[(unsigned char)(read_index - 1)];
+                gps_packet_expected_length = input_buf[read_index] + 7;
+                read_index -= 3;
+
+                //pn_log("sync packet 0x%02x, length %d", gps_packet_type, gps_packet_expected_length);
                 break;
             }
         }
 
-        // Haven't synced - wait for more data
-        if (!synced)
+        // Copy packet data into a buffer for parsing
+        for (; read_index != write_index && gps_packet_length != gps_packet_expected_length; read_index++)
+            gps_packet[gps_packet_length++] = input_buf[read_index];
+
+        // Waiting for more data
+        if (gps_packet_type == UNKNOWN_PACKET || gps_packet_length < gps_packet_expected_length)
             continue;
 
-        // Copy data from storage buffer into parsing buffer and strip padding
-        for (; readIndex != writeIndex; readIndex++)
+        //
+        // End of packet
+        //
+        unsigned char data_length = gps_packet[3];
+        unsigned char *data = &gps_packet[4];
+        unsigned char data_checksum = gps_packet[gps_packet_length - 3];
+
+        // Check that the packet ends correctly
+        if (gps_packet[gps_packet_length - 2] != '\r' || gps_packet[gps_packet_length - 1] != '\n')
         {
-            // Ignore DLE padding byte
-            if (totalbuf[readIndex] == DLE && totalbuf[readIndex-1] == DLE)
-                readIndex++;
-
-            gps_packet[gps_packet_length++] = totalbuf[readIndex];
-
-            // Packet Format:
-            // <DLE> <data length> <type> <data 0> ... <data length-1> <checksum> <DLE> <ETX>
-
-            bool reset = false;
-            // Reached the end of the packet
-            if (gps_packet_length > 2 && gps_packet_length == gps_packet[1] + 6)
-            {
-                // Validate packet checksum
-                if (checksum(&gps_packet[3], gps_packet[1]) == gps_packet[gps_packet_length - 3])
-                {
-                    // Parse data packet
-                    switch(gps_packet[2])
-                    {
-                        case CURRENTTIME:
-                            pthread_mutex_lock(&gps->read_mutex);
-                            gps->current_timestamp.year = (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00);
-                            gps->current_timestamp.month = gps_packet[7];
-                            gps->current_timestamp.day = gps_packet[6];
-                            gps->current_timestamp.hours = gps_packet[3];
-                            gps->current_timestamp.minutes = gps_packet[4];
-                            gps->current_timestamp.seconds = gps_packet[5];
-                            gps->current_timestamp.locked = gps_packet[10];
-                            gps->current_timestamp.remaining_exposure = gps_packet[11];
-                            gps->current_timestamp.valid = true;
-
-                            pthread_mutex_unlock(&gps->read_mutex);
-/*
-                            pn_log("Time: %04d-%02d-%02d %02d:%02d:%02d (%03d:%d)", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
-                                                                      gps_packet[7],   // Month
-                                                                      gps_packet[6],   // Day
-                                                                      gps_packet[3],   // Hour
-                                                                      gps_packet[4],   // Minute
-                                                                      gps_packet[5],   // Second
-                                                                      gps_packet[11],  // Exptime remaining
-                                                                      gps_packet[10]); // Locked
-*/
-                        break;
-                        case DOWNLOADTIME:
-                            pthread_mutex_lock(&gps->read_mutex);
-                            gps->download_timestamp.year = (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00);
-                            gps->download_timestamp.month = gps_packet[7];
-                            gps->download_timestamp.day = gps_packet[6];
-                            gps->download_timestamp.hours = gps_packet[3];
-                            gps->download_timestamp.minutes = gps_packet[4];
-                            gps->download_timestamp.seconds = gps_packet[5];
-                            gps->download_timestamp.locked = gps_packet[10];
-                            gps->download_timestamp.valid = true;
-                            pn_log("Download: %04d-%02d-%02d %02d:%02d:%02d (%d)", (gps_packet[8] & 0x00FF) | ((gps_packet[9] << 8) & 0xFF00), // Year
-                                                                      gps_packet[7],   // Month
-                                                                      gps_packet[6],   // Day
-                                                                      gps_packet[3],   // Hour
-                                                                      gps_packet[4],   // Minute
-                                                                      gps_packet[5],   // Second
-                                                                      gps_packet[10]); // Locked
-
-                            // Mark the camera as downloading for UI feedback and shutdown purposes
-                            gps->camera_downloading = true;
-                            pthread_mutex_unlock(&gps->read_mutex);
-                        break;
-                        case DOWNLOADCOMPLETE:
-                            pthread_mutex_lock(&gps->read_mutex);
-                            gps->camera_downloading = false;
-                            pthread_mutex_unlock(&gps->read_mutex);
-                            break;
-                        case DEBUG_STRING:
-                            gps_packet[gps_packet[1]+3] = '\0';
-                            pn_log("GPS Debug: `%s`", &gps_packet[3]);
-                        break;
-                        case DEBUG_RAW:
-                            if (true);
-                            char *msg = (char *)malloc((3*gps_packet[1]+1)*sizeof(char));
-                            for (unsigned char i = 0; i < gps_packet[1]; i++)
-                                sprintf(msg+strlen(msg), "%02x ", gps_packet[3+i]);
-
-                            pn_log("GPS Raw: %s", msg);
-                            free(msg);
-                        break;
-                        case STOP_EXPOSURE:
-                            pn_log("Timer reports safe to shutdown camera");
-                            shutdown_camera();
-                        break;
-                        default:
-                            pn_log("Unknown packet");
-                    }
-                }
-
-                // Reset for next packet
-                reset = true;
-            }
-
-            // Something went wrong
-            if (gps_packet_length >= 255)
-            {
-                pn_log("Packet length overrun\n");
-                reset = true;
-            }
-
-            if (reset)
-            {
-                synced = false;
-                gps_packet_length = 0;
-                break;
-            }
+            pn_log("Invalid packet length, expected %d", gps_packet_expected_length);
+            log_raw_data(gps_packet, gps_packet_expected_length);
+            goto resetpacket;
         }
+
+        // Verify packet checksum
+        unsigned char csm = checksum(data, data_length);
+        if (csm != data_checksum)
+        {
+            pn_log("Invalid packet checksum. Got 0x%02x, expected 0x%02x", csm, data_checksum);
+            goto resetpacket;
+        }
+
+        // Handle packet
+        switch(gps_packet_type)
+        {
+            case CURRENTTIME:
+                pthread_mutex_lock(&gps->read_mutex);
+                gps->current_timestamp = (PNGPSTimestamp)
+                {
+                    .year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00),
+                    .month = data[4],
+                    .day = data[3],
+                    .hours = data[0],
+                    .minutes = data[1],
+                    .seconds = data[2],
+                    .locked = data[7],
+                    .remaining_exposure = data[8],
+                    .valid = true
+                };
+                pthread_mutex_unlock(&gps->read_mutex);
+                // PNGPSTimestamp *t = &gps->download_timestamp;
+                // pn_log("Time: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
+            break;
+            case DOWNLOADTIME:
+                pthread_mutex_lock(&gps->read_mutex);
+                gps->download_timestamp = (PNGPSTimestamp)
+                {
+                    .year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00),
+                    .month = data[4],
+                    .day = data[3],
+                    .hours = data[0],
+                    .minutes = data[1],
+                    .seconds = data[2],
+                    .locked = data[7],
+                    .valid = true
+                };
+                PNGPSTimestamp *t = &gps->download_timestamp;
+                pn_log("Download: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
+
+                // Mark the camera as downloading for UI feedback and shutdown purposes
+                gps->camera_downloading = true;
+                pthread_mutex_unlock(&gps->read_mutex);
+            break;
+            case DOWNLOADCOMPLETE:
+                pthread_mutex_lock(&gps->read_mutex);
+                gps->camera_downloading = false;
+                pthread_mutex_unlock(&gps->read_mutex);
+            break;
+            case DEBUG_STRING:
+                gps_packet[gps_packet_length - 3] = '\0';
+                pn_log("GPS Debug: `%s`", data);
+            break;
+            case DEBUG_RAW:
+                log_raw_data(data, data_length);
+            break;
+            case STOP_EXPOSURE:
+                pn_log("Timer reports safe to shutdown camera");
+                shutdown_camera();
+            break;
+            default:
+                pn_log("Unknown packet type %02x", gps_packet_type);
+        }
+
+    resetpacket:
+        gps_packet_length = 0;
+        gps_packet_expected_length = 0;
+        gps_packet_type = UNKNOWN_PACKET;
     }
 
     // Uninitialize the timer connection and exit

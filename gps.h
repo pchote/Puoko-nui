@@ -20,15 +20,16 @@
 // GPS command types
 typedef enum
 {
-    CURRENTTIME = 0xA1,
-    DOWNLOADTIME = 0xA2,
-    DEBUG_STRING = 0xA3,
-    DEBUG_RAW = 0xA5,
-    START_EXPOSURE = 0xA6,
-    STOP_EXPOSURE = 0xA7,
-    RESET = 0xA8,
-    DOWNLOADCOMPLETE = 0xA9,
-} PNGPSRequest;
+    CURRENTTIME = 'A',
+    DOWNLOADTIME = 'B',
+    DEBUG_STRING = 'C',
+    DEBUG_RAW = 'D',
+    START_EXPOSURE = 'E',
+    STOP_EXPOSURE = 'F',
+    RESET = 'G',
+    DOWNLOADCOMPLETE = 'H',
+    UNKNOWN_PACKET = 0,
+} PNGPSPacketType;
 
 // Represents a timestamp from the GPS
 typedef struct
