@@ -58,7 +58,7 @@ static WINDOW *create_time_window()
     mvwaddstr(win, 0, (w-strlen(title))/2, title);
     mvwaddstr(win, 1, 2, "   Status:");
     mvwaddstr(win, 2, 2, "  PC Time:");
-    mvwaddstr(win, 3, 2, " GPS Time:");
+    mvwaddstr(win, 3, 2, " UTC Time:");
     mvwaddstr(win, 4, 2, "Countdown:");
     
     return win;
