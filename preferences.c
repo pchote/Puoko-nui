@@ -54,8 +54,10 @@ PNPreferenceStore prefs[] =
     {RUN_NUMBER, INT, .value.i = 0, "RunNumber: %d\n"},
     {CALIBRATION_DEFAULT_FRAMECOUNT, INT, .value.i = 30, "CalibrationTotalFrames: %d\n"},
     {CALIBRATION_REMAINING_FRAMECOUNT, INT, .value.i = 30, "CalibrationRemainingFrames: %d\n"},
-    {CAMERA_TEMPERATURE, INT, .value.i = -5000, "CameraTemperature: %d\n"}
-
+    {CAMERA_TEMPERATURE, INT, .value.i = -5000, "CameraTemperature: %d\n"},
+    {ENABLE_OVERSCAN, CHAR, .value.c = true, "EnableOverscan: %d\n"},
+    {OVERSCAN_SKIP_COLS, CHAR, .value.c = 24, "SkipCols: %d\n"},
+    {OVERSCAN_BIAS_COLS, CHAR, .value.c = 24, "BiasCols: %d\n"},
 };
 int pref_count = sizeof(prefs) / sizeof(prefs[0]);
 

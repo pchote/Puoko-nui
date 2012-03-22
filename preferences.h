@@ -37,6 +37,9 @@ typedef enum
     CALIBRATION_DEFAULT_FRAMECOUNT,
     CALIBRATION_REMAINING_FRAMECOUNT,
     CAMERA_TEMPERATURE,
+    ENABLE_OVERSCAN,
+    OVERSCAN_SKIP_COLS,
+    OVERSCAN_BIAS_COLS,
 } PNPreferenceType;
 
 void pn_init_preferences(const char *path);

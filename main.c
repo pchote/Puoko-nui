@@ -111,6 +111,20 @@ void pn_save_frame(PNFrame *frame)
     fits_update_key(fptr, TSTRING, "PROGRAM", "puoko-nui", "Data acquistion program", &status);
     fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
 
+    if (pn_preference_char(ENABLE_OVERSCAN))
+    {
+        // TODO: Temporary hack - unhardcode me
+        char buf[25];
+        unsigned char skip = pn_preference_char(OVERSCAN_SKIP_COLS);
+        unsigned char bias = pn_preference_char(OVERSCAN_BIAS_COLS);
+        unsigned char superpixel = pn_preference_char(SUPERPIXEL_SIZE);
+        sprintf(buf, "[%d, %d, %d, %d]", 0, frame->width - (skip + bias)/superpixel, 0, frame->height);
+        fits_update_key(fptr, TSTRING, "IMAG-RGN", buf, "Frame image subregion", &status);
+
+        sprintf(buf, "[%d, %d, %d, %d]", frame->width - skip/superpixel, frame->width, 0, frame->height);
+        fits_update_key(fptr, TSTRING, "BIAS-RGN", buf, "Frame bias subregion", &status);
+    }
+
     // Get the last download pulse time from the gps
     pthread_mutex_lock(&gps->read_mutex);
 
