@@ -229,9 +229,13 @@ void *pn_timer_thread(void *_unused)
     queue_data(RESET, NULL, 0);
 
     // Loop until shutdown, parsing incoming data
-    while (!gps->shutdown)
+    while (true)
     {
         millisleep(100);
+
+        // Reset the timer before shutting down
+        if (gps->shutdown)
+            queue_data(RESET, NULL, 0);
 
         // Send any data in the send buffer
         pthread_mutex_lock(&gps->sendbuffer_mutex);
@@ -242,6 +246,9 @@ void *pn_timer_thread(void *_unused)
             gps->send_length = 0;
         }
         pthread_mutex_unlock(&gps->sendbuffer_mutex);
+
+        if (gps->shutdown)
+            break;
 
         // Grab any data accumulated by ftdi
         unsigned char recvbuf[256];
