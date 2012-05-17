@@ -1,7 +1,7 @@
-#CAMERA_TYPE = PVCAM
-#CAMERA_TYPE = PICAM
-CAMERA_TYPE = NONE
-USE_XPA = YES
+#CAMERA_TYPE := NONE
+CAMERA_TYPE := PVCAM
+#CAMERA_TYPE := PICAM
+USE_XPA := YES
 
 CC = gcc
 CFLAGS = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
