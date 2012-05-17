@@ -1,10 +1,6 @@
 *.o
-rangahau
-pvcam/rspiusb/*
-libxpa.a
-preferences.dat
 ._*
 .DS_Store
+preferences.dat
 puokonui.xcworkspace/xcuserdata/*
-*.log
 puokonui
