@@ -89,9 +89,22 @@ void pn_save_frame(PNFrame *frame)
     fits_update_key(fptr, TSTRING, "RUN", (void *)run_prefix, "name of this run", &status);
     free(run_prefix);
 
-    char *object_name = pn_preference_string(OBJECT_NAME);
-    fits_update_key(fptr, TSTRING, "OBJECT", (void *)object_name, "Object name", &status);
-    free(object_name);
+    switch (pn_preference_char(OBJECT_TYPE))
+    {
+        case OBJECT_DARK:
+            fits_update_key(fptr, TSTRING, "OBJECT", "Dark", "Object name", &status);
+            break;
+        case OBJECT_FLAT:
+            fits_update_key(fptr, TSTRING, "OBJECT", "Flat Field", "Object name", &status);
+            break;
+        default:
+        {
+            char *object_name = pn_preference_string(OBJECT_NAME);
+            fits_update_key(fptr, TSTRING, "OBJECT", (void *)object_name, "Object name", &status);
+            free(object_name);
+            break;
+        }
+    }
 
     int exposure_time = pn_preference_char(EXPOSURE_TIME);
     fits_update_key(fptr, TLONG, "EXPTIME", &exposure_time, "Actual integration time (sec)", &status);
