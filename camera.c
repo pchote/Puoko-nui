@@ -67,7 +67,7 @@ void frame_downloaded(PNFrame *frame)
     }
 
     pn_log("Frame downloaded");
-    if (pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save())
+    if (pn_preference_char(SAVE_FRAMES))
     {
         pn_save_frame(frame);
         pn_preference_increment_framecount();

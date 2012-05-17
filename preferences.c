@@ -172,14 +172,22 @@ void pn_preference_increment_framecount()
     // Decrement the calibration frame count if applicable
     if (prefs[OBJECT_TYPE].value.c != OBJECT_TARGET &&
         prefs[CALIBRATION_REMAINING_FRAMECOUNT].value.i > 0)
+    {
         prefs[CALIBRATION_REMAINING_FRAMECOUNT].value.i--;
 
+        // Disable saving
+        if (prefs[CALIBRATION_REMAINING_FRAMECOUNT].value.i == 0)
+            prefs[SAVE_FRAMES].value.c = false;
+    }
     save();
     pthread_mutex_unlock(&access_mutex);
 }
 
 unsigned char pn_preference_toggle_save()
 {
+    if (!pn_preference_allow_save())
+        return false;
+
     pthread_mutex_lock(&access_mutex);
     unsigned char ret = prefs[SAVE_FRAMES].value.c ^= true;
     pthread_mutex_unlock(&access_mutex);
