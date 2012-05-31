@@ -278,10 +278,10 @@ static int piusb_ioctl (struct inode *inode, struct file *file, unsigned int cmd
         case PIUSB_SETVNDCMD:
             if( __copy_from_user( &ctrl, (void __user*)arg, sizeof( ioctl_struct ) ) )
                 info( "copy_from_user failed\n" );
-//            dbg( "%s %x", "Set Vendor Command = ",ctrl.cmd );
+            dbg( "%s %x", "Set Vendor Command = ",ctrl.cmd );
             controlData = ctrl.pData[0];
             controlData |= ( ctrl.pData[1] << 8 );
-//            dbg( "%s %d", "Vendor Data =",controlData );
+            dbg( "%s %d", "Vendor Data =",controlData );
             retval = usb_control_msg( pdx->udev, 
                             usb_sndctrlpipe( pdx->udev, 0 ),
                             ctrl.cmd, 
