@@ -32,8 +32,14 @@
 #else
 #define PIUSB_MINOR_BASE    192
 #endif
+
 /* prevent races between open() and disconnect() */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
 static DECLARE_MUTEX (disconnect_sem);
+#else
+static DEFINE_SEMAPHORE(disconnect_sem);
+#endif
+
 /* local function prototypes */
 /* Structure to hold all of our device specific stuff */
 struct device_extension {
