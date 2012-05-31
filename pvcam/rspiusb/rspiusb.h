@@ -40,6 +40,8 @@ static DECLARE_MUTEX (disconnect_sem);
 static DEFINE_SEMAPHORE(disconnect_sem);
 #endif
 
+static DEFINE_MUTEX(piusb_mutex);
+
 /* local function prototypes */
 /* Structure to hold all of our device specific stuff */
 struct device_extension {
@@ -69,6 +71,7 @@ struct device_extension {
     //FX2 specific endpoints
     unsigned int        hEP[8];
 };
+
 typedef struct IOCTL_STRUCT
 {
     unsigned char       cmd;
@@ -79,12 +82,13 @@ typedef struct IOCTL_STRUCT
     unsigned char *     pData;
 }ioctl_struct;
 
-static int 	piusb_ioctl			(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg);
-static int 	piusb_open			(struct inode *inode, struct file *file);
-static int 	piusb_release			(struct inode *inode, struct file *file);
-static int 	piusb_probe			(struct usb_interface *interface, const struct usb_device_id *id);
-static void 	piusb_disconnect		(struct usb_interface *interface);
-int		piusb_output			(struct IOCTL_STRUCT*, unsigned char *,int, struct device_extension * );
+static long piusb_unlocked_ioctl(struct file *f, unsigned cmd, unsigned long arg);
+static int 	piusb_ioctl         (struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg);
+static int 	piusb_open          (struct inode *inode, struct file *file);
+static int 	piusb_release       (struct inode *inode, struct file *file);
+static int  piusb_probe         (struct usb_interface *interface, const struct usb_device_id *id);
+static void piusb_disconnect    (struct usb_interface *interface);
+int         piusb_output        (struct IOCTL_STRUCT*, unsigned char *, int, struct device_extension *);
 
 /*
  * File operations needed when we register this driver.
@@ -106,7 +110,11 @@ static struct file_operations piusb_fops = {
 	 * or should the open() function fail.
 	 */
 	.owner =	THIS_MODULE,
-	.ioctl =	piusb_ioctl,
+#if HAVE_UNLOCKED_IOCTL
+	.unlocked_ioctl = piusb_unlocked_ioctl,
+#else
+	.ioctl = piusb_ioctl,
+#endif
 	.open =		piusb_open,
 	.release =	piusb_release,
 };

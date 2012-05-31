@@ -4,7 +4,6 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <linux/smp_lock.h>
 #include <linux/completion.h>
 #include <asm/uaccess.h>
 #include <linux/usb.h>
@@ -12,6 +11,13 @@
 #include <linux/mm.h>
 #include <linux/pci.h> //for scatterlist macros
 #include <linux/pagemap.h>
+
+#if HAVE_UNLOCKED_IOCTL
+#include <linux/mutex.h>
+#else
+#include <linux/smp_lock.h>
+#endif
+
 #include "rspiusb.h"
 
 /*
@@ -477,12 +483,22 @@ static void piusb_disconnect(struct usb_interface *interface)
     struct device_extension *pdx;
     int minor = interface->minor;
 
-    lock_kernel( );
+#if HAVE_UNLOCKED_IOCTL
+    mutex_lock(&piusb_mutex);
+#else
+    lock_kernel();
+#endif
     pdx = usb_get_intfdata (interface);
     usb_set_intfdata (interface, NULL);
     /* give back our minor */
     usb_deregister_dev (interface, &piusb_class);
-    unlock_kernel( );
+
+#if HAVE_UNLOCKED_IOCTL
+    mutex_unlock(&piusb_mutex);
+#else
+    unlock_kernel();
+#endif
+
     /* prevent device read, write and ioctl */
     pdx->present = 0;
     kref_put( &pdx->kref, piusb_delete );
@@ -777,6 +793,15 @@ int MapUserBuffer( struct IOCTL_STRUCT *io, struct device_extension *pdx )
             pdx->pendedPixelUrbs[frameInfo][i] = 1;;
     }
     return 0;
+}
+
+static long piusb_unlocked_ioctl(struct file *f, unsigned cmd, unsigned long arg)
+{
+    long ret;
+    mutex_lock(&piusb_mutex);
+    ret = piusb_ioctl(f->f_dentry->d_inode, f, cmd, arg);
+    mutex_unlock(&piusb_mutex);
+    return ret;
 }
 
 /**
