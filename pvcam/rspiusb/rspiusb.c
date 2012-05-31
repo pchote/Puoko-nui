@@ -586,7 +586,10 @@ int UnMapUserBuffer( struct device_extension *pdx )
         {
             epAddr = pdx->hEP[0];
         }
-        usb_buffer_unmap_sg( pdx->udev, epAddr, pdx->sgl[k], pdx->maplist_numPagesMapped[k] );
+
+        dma_unmap_sg(&pdx->udev->dev, pdx->sgl[k], pdx->maplist_numPagesMapped[k],
+                     epAddr ? DMA_FROM_DEVICE : DMA_TO_DEVICE);
+
         for( i = 0; i < pdx->maplist_numPagesMapped[k]; i++ )
         {
             page_cache_release( sg_page(&(pdx->sgl[k][i])) );
@@ -635,6 +638,7 @@ int MapUserBuffer( struct IOCTL_STRUCT *io, struct device_extension *pdx )
     int i = 0;
     int k = 0;
     int err = 0;
+    int ret = 0;
     struct page **maplist_p;
     int numPagesRequired;
     frameInfo = io->numFrames;
@@ -718,16 +722,21 @@ int MapUserBuffer( struct IOCTL_STRUCT *io, struct device_extension *pdx )
     {
         pdx->sgl[frameInfo][0].length = count;
     }
-      
-    pdx->sgEntries[frameInfo] = usb_buffer_map_sg( pdx->udev, usb_pipein(epAddr), pdx->sgl[frameInfo], pdx->maplist_numPagesMapped[frameInfo] );    
-    dbg("number of sgEntries = %d", pdx->sgEntries[frameInfo] );
-    vfree( maplist_p );
     
-    if ( pdx->sgEntries[frameInfo] == 0 )
+    ret = dma_map_sg(&pdx->udev->dev, pdx->sgl[frameInfo], pdx->maplist_numPagesMapped[frameInfo],
+                     epAddr ? DMA_FROM_DEVICE : DMA_TO_DEVICE) ? : -ENOMEM;
+
+    if ( ret < 0 )
     {
-        info( "usb_buffer_map_sg failed" );
+        vfree( maplist_p );
+        info( "dma_map_sg failed" );
         return -EFAULT;
     }
+
+    dbg("number of sgEntries = %d", pdx->sgEntries[frameInfo] );
+    vfree( maplist_p );
+
+    pdx->sgEntries[frameInfo] = ret;
     
     pdx->userBufMapped = 1;
     
