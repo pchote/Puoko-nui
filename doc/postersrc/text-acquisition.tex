@@ -1,0 +1,19 @@
+%!TEX root = /Users/paul/phd/talks/WD12poster/puokonui-poster.tex
+\vspace{-1.75cm}
+\begin{itemize}[itemsep=20pt]
+\item[] The instrument control and online reduction software is run on a pair of
+compact ``net-top'' PCs situated adjacent to the telescope and controlled via a remote
+connection. The acquisition PC runs the acquisition and online reduction software
+in an Ubuntu GNU/Linux environment. The guide PC runs the proprietary SBIG
+acquisition/autoguiding software in a Microsoft Windows environment.
+
+\item[] The acquisition software provides facilities for setting image metadata
+(target name, observers, etc) and configuring run parameters such as exposure
+time and CCD temperature.
+
+\item[] The software acts as a passive receiver once an acquisition run
+commences, tagging each frame with the GPS timestamp and image metadata. 
+Frames are saved to disk as compressed FITS files.
+
+\end{itemize}
+\vspace{-1.75cm}

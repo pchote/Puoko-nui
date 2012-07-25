@@ -1,0 +1,22 @@
+%!TEX root = /Users/paul/phd/talks/WD12poster/puokonui-poster.tex
+\vspace{-1.75cm}
+\begin{itemize}[itemsep=20pt]
+
+\item[] Exposure timing is controlled by a custom-built unit based around the
+ATmega1284p microcontroller. Timing information is received from an external
+GPS receiver via RS232 and a 1\,Hz edge-aligned time pulse.
+
+\item[] Camera readouts are triggered via a BNC cable connection, with a second
+connection used for monitoring the camera status. Communication with the
+acquisition PC is via USB.
+
+\item[] The main timer firmware supports two external GPS units; the
+Trimble Thunderbolt, and an older Magellan OEM receiver. Support for additional
+GPS receivers can be added with minimal effort.
+
+\item[] An alternative timer firmware provides a ``high-speed'' timing mode:
+the 1\,Hz GPS time signal disciplines an internal timer,
+allowing sub-second exposures with a timing resolution of 10\,ms.
+
+\end{itemize}
+\vspace{-1.75cm}

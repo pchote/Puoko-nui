@@ -1,0 +1,27 @@
+%!TEX root = /Users/paul/phd/talks/WD12poster/puokonui-poster.tex
+\vspace{-1.75cm}
+\begin{itemize}[itemsep=20pt]
+\item[] We have also created a software package for online reduction and analysis
+of Puoko-nui data, called \texttt{tsreduce}.
+
+%\item[] We have developed a robust set of online reduction and analysis
+%software for Puoko-nui, called \texttt{tsreduce}.
+
+\item[] \texttt{tsreduce} performs aperture photometry on selected target and
+comparison stars. The intrinsic variation in the target star (measured in
+milli-modulation amplitudes; 10\,mma~=~1\% change) is determined by taking the
+ratio of the target and comparison intensities, then subtracting a low-order 
+polynomial fit to\\remove any residual long-period effects.
+
+\item[] Frames are processed immediately after acquisition, keeping an up to date
+graphical display of the raw lightcurves for each star, and a lightcurve and Fourier
+amplitude spectrum of the intrinsic target intensity.
+
+\item[] Offline analysis functionality includes routines for optimizing aperture size,
+BJD timestamp corrections, and Fourier analysis techniques including prewhitening.
+
+%\item[] Source code (GPLv3 licensed) is available online at
+%\url{https://github.com/pchote/tsreduce}
+
+\end{itemize}
+\vspace{-1.75cm}
