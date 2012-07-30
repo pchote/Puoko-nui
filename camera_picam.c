@@ -26,9 +26,9 @@ static void fatal_error(const char *msg, int line)
 {
     asprintf(&camera->fatal_error, "FATAL: %s:%d -- %s\n", __FILE__, line, msg);
 
-	// Attempt to die cleanly
-	Picam_StopAcquisition(handle);
-	Picam_CloseCamera(handle);
+    // Attempt to die cleanly
+    Picam_StopAcquisition(handle);
+    Picam_CloseCamera(handle);
     Picam_UninitializeLibrary();
     pthread_exit(NULL);
 }
@@ -37,9 +37,7 @@ static void fatal_error(const char *msg, int line)
 static void read_temperature()
 {    
     piflt temperature;
-    Picam_ReadParameterFloatingPointValue(handle,
-                                          PicamParameter_SensorTemperatureReading,
-                                          &temperature );
+    Picam_ReadParameterFloatingPointValue(handle, PicamParameter_SensorTemperatureReading, &temperature);
     pthread_mutex_lock(&camera->read_mutex);
     camera->temperature = temperature;
     pthread_mutex_unlock(&camera->read_mutex);
@@ -48,17 +46,18 @@ static void read_temperature()
 static void commit_camera_params()
 {
     pibln committed;
-	Picam_AreParametersCommitted(handle, &committed);
-	if( !committed )
-	{
-		const PicamParameter* failed_parameter_array = NULL;
-		piint failed_parameter_count = 0;
-        
-		Picam_CommitParameters(handle, &failed_parameter_array, &failed_parameter_count);
-		if(failed_parameter_count)
+    Picam_AreParametersCommitted(handle, &committed);
+
+    if (!committed)
+    {
+        const PicamParameter *failed_parameter_array = NULL;
+        piint failed_parameter_count = 0;
+
+        Picam_CommitParameters(handle, &failed_parameter_array, &failed_parameter_count);
+        if (failed_parameter_count)
         {
             pn_log("%d parameters failed to commit", failed_parameter_count);
-			Picam_DestroyParameters(failed_parameter_array);
+            Picam_DestroyParameters(failed_parameter_array);
         }
     }
 }
@@ -70,17 +69,20 @@ static void initialize_camera()
     Picam_InitializeLibrary();
 
     // Open the first available camera
-	PicamCameraID id;
-    if(Picam_OpenFirstCamera( &handle ) == PicamError_None)
-        Picam_GetCameraID( handle, &id );
+    PicamCameraID id;
+    if (Picam_OpenFirstCamera(&handle) == PicamError_None)
+        Picam_GetCameraID(handle, &id);
     else
-	{
-		camera->fatal_error = strdup("Camera not found");
+    {
+        // TODO: This tends to fail the first time.
+        // Have it loop until it finds the camera, while still
+        // allowing the user to close the program with ctrl-c
+        camera->fatal_error = strdup("Camera not found");
         pthread_exit(NULL);
     }
 
     // Query camera model info
-    const pichar* string;
+    const pichar *string;
     Picam_GetEnumerationString(PicamEnumeratedType_Model, id.model, &string);
     pn_log("%s (SN:%s) [%s]\r\n", string, id.serial_number, id.sensor_name);
     Picam_DestroyString(string);
@@ -106,7 +108,7 @@ static void initialize_camera()
 
     // TODO: PicamParameter_AdcSpeed: Digitization rate in MHz
 
-	// Commit parameter changes
+    // Commit parameter changes to hardware
     commit_camera_params();
 
     pn_log("Camera initialized");
@@ -119,56 +121,56 @@ static void start_acquiring()
     set_mode(ACQUIRE_START);
     pn_log("Starting acquisition run...");
 
-	// Get chip dimensions
-	const PicamRoisConstraint  *constraint;
-	if (Picam_GetParameterRoisConstraint(handle, PicamParameter_Rois, PicamConstraintCategory_Required, &constraint) != PicamError_None)
-		fatal_error("Error determining ROIs Constraint", __LINE__);
+    // Get chip dimensions
+    const PicamRoisConstraint  *constraint;
+    if (Picam_GetParameterRoisConstraint(handle, PicamParameter_Rois, PicamConstraintCategory_Required, &constraint) != PicamError_None)
+        fatal_error("Error determining ROIs Constraint", __LINE__);
 
-	camera->frame_width = constraint->width_constraint.maximum - constraint->width_constraint.minimum;
-	camera->frame_height = constraint->height_constraint.maximum - constraint->height_constraint.minimum;
-	pn_log("ROI Area: [%d:%d] x [%d:%d]",
-		constraint->width_constraint.minimum, constraint->width_constraint.maximum,
-		constraint->height_constraint.minimum, constraint->height_constraint.maximum);
+    camera->frame_width = constraint->width_constraint.maximum - constraint->width_constraint.minimum;
+    camera->frame_height = constraint->height_constraint.maximum - constraint->height_constraint.minimum;
+    pn_log("ROI Area: [%d:%d] x [%d:%d]",
+    constraint->width_constraint.minimum, constraint->width_constraint.maximum,
+    constraint->height_constraint.minimum, constraint->height_constraint.maximum);
 
-	// Define ROI as entire chip, with requested binning
-	unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
+    // Define ROI as entire chip, with requested binning
+    unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
     pn_log("Superpixel size: %d", superpixel_size);
 
-	// Get region definition
-	const PicamRois *region;
-	if (Picam_GetParameterRoisValue(handle, PicamParameter_Rois, &region) != PicamError_None)
-	{
-		Picam_DestroyRoisConstraints(constraint);
-		Picam_DestroyRois(region);
-		fatal_error("Error determining current ROI", __LINE__);
-	}
+    // Get region definition
+    const PicamRois *region;
+    if (Picam_GetParameterRoisValue(handle, PicamParameter_Rois, &region) != PicamError_None)
+    {
+        Picam_DestroyRoisConstraints(constraint);
+        Picam_DestroyRois(region);
+        fatal_error("Error determining current ROI", __LINE__);
+    }
 
-	if (region->roi_count != 1)
-	{
-		pn_log("region has %d ROIs", region->roi_count);
-		Picam_DestroyRoisConstraints(constraint);
-		Picam_DestroyRois(region);
-		fatal_error("Unsure how to proceed", __LINE__);
-	}
+    if (region->roi_count != 1)
+    {
+        pn_log("region has %d ROIs", region->roi_count);
+        Picam_DestroyRoisConstraints(constraint);
+        Picam_DestroyRois(region);
+        fatal_error("Unsure how to proceed", __LINE__);
+    }
 
-	PicamRoi *roi = &region->roi_array[0];
-	roi->x = constraint->width_constraint.minimum;
-	roi->y = constraint->width_constraint.maximum;
-	roi->width = camera->frame_width;
-	roi->height = camera->frame_height;
-	roi->x_binning = superpixel_size;
-	roi->y_binning = superpixel_size;
-	Picam_DestroyRoisConstraints(constraint);
+    PicamRoi *roi = &region->roi_array[0];
+    roi->x = constraint->width_constraint.minimum;
+    roi->y = constraint->width_constraint.maximum;
+    roi->width = camera->frame_width;
+    roi->height = camera->frame_height;
+    roi->x_binning = superpixel_size;
+    roi->y_binning = superpixel_size;
+    Picam_DestroyRoisConstraints(constraint);
 
-	camera->frame_height /= superpixel_size;
+    camera->frame_height /= superpixel_size;
     camera->frame_width /= superpixel_size;
 
-	if (Picam_SetParameterRoisValue(handle, PicamParameter_Rois, region) != PicamError_None)
-	{
-		Picam_DestroyRois(region);
-		fatal_error("Error setting ROI", __LINE__);
-	}
-	Picam_DestroyRois(region);
+    if (Picam_SetParameterRoisValue(handle, PicamParameter_Rois, region) != PicamError_None)
+    {
+        Picam_DestroyRois(region);
+        fatal_error("Error setting ROI", __LINE__);
+    }
+    Picam_DestroyRois(region);
 
     // Continue exposing until explicitly stopped or error
     Picam_SetParameterIntegerValue(handle, PicamParameter_ReadoutCount, 0);
@@ -242,12 +244,12 @@ void *pn_picam_camera_thread(void *_unused)
 
         if (desired_mode == IDLE && camera->mode == ACQUIRE_WAIT)
             stop_acquiring();
-        
+
         if (camera->mode == ACQUIRING)
         {
             // Wait up to 100ms for a new frame, otherwise timeout and continue
             PicamError ret = Picam_WaitForAcquisitionUpdate(handle, 100, &data, &status);
-            
+
             // New frame
             if (ret == PicamError_None && status.errors == PicamAcquisitionErrorsMask_None &&
                 data.readout_count)
