@@ -1,5 +1,5 @@
 /*
-* Copyright 2010, 2011 Paul Chote
+* Copyright 2010, 2011, 2012 Paul Chote
 * This file is part of Puoko-nui, which is free software. It is made available
 * to you under the terms of version 3 of the GNU General Public License, as
 * published by the Free Software Foundation. For more information, see LICENSE.
@@ -70,7 +70,7 @@ static void commit_camera_params()
     }
 }
 
-// Initialize PVCAM and the camera hardware
+// Initialize PICAM and the camera hardware
 static void initialize_camera()
 {
     set_mode(INITIALISING);
@@ -307,12 +307,12 @@ void *pn_picam_camera_thread(void *_unused)
         stop_acquiring();
     }
     
-    // Close the PVCAM lib (which in turn closes the camera)
+    // Close the PICAM lib (which in turn closes the camera)
     if (camera->mode == IDLE)
     {
         Picam_CloseCamera( handle );
         Picam_UninitializeLibrary();
-        pn_log("PVCAM uninitialized");
+        pn_log("PICAM uninitialized");
     }
 
     pthread_exit(NULL);
