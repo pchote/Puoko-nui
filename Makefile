@@ -5,7 +5,7 @@ USE_XPA := YES
 
 CC = gcc
 CFLAGS = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
-LFLAGS = -lpanel -lncurses -lcfitsio -lpthread -lftdi
+LFLAGS = -lpanel -lncurses -lcfitsio -lpthread -lftdi -lm
 SRC = main.c camera.c gps.c preferences.c ui.c platform.c
 
 ifeq ($(CAMERA_TYPE),PVCAM)
@@ -28,6 +28,9 @@ ifeq ($(CAMERA_TYPE),PICAM)
     ifeq ($(MSYSTEM),MINGW32)
         CFLAGS += -Ic:/Program\ Files/Princeton\ Instruments/Picam/Includes
         LFLAGS += -Lc:/Program\ Files/Princeton\ Instruments/Picam/Libraries -lPicam
+    else
+        CFLAGS += -I/usr/local/picam/includes `apr-1-config --cflags --cppflags --includes`
+        LFLAGS += -lpicam `apr-1-config --link-ld --libs`
     endif
 endif
 
