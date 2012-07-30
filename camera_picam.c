@@ -129,6 +129,9 @@ static void start_acquiring()
     set_mode(ACQUIRE_START);
     pn_log("Starting acquisition run...");
 
+    camera->frame_width = 1024;
+    camera->frame_height = 1024;
+/*
     // Get chip dimensions
     const PicamRoisConstraint  *constraint;
     if (Picam_GetParameterRoisConstraint(handle, PicamParameter_Rois, PicamConstraintCategory_Required, &constraint) != PicamError_None)
@@ -136,6 +139,8 @@ static void start_acquiring()
 
     camera->frame_width = constraint->width_constraint.maximum - constraint->width_constraint.minimum;
     camera->frame_height = constraint->height_constraint.maximum - constraint->height_constraint.minimum;
+
+    // TODO: FIXME: default region gives: ROI Area: [0:1023] x [0:2]
     pn_log("ROI Area: [%d:%d] x [%d:%d]",
     constraint->width_constraint.minimum, constraint->width_constraint.maximum,
     constraint->height_constraint.minimum, constraint->height_constraint.maximum);
@@ -179,6 +184,7 @@ static void start_acquiring()
         fatal_error("Error setting ROI", __LINE__);
     }
     Picam_DestroyRois(region);
+*/
 
     // Continue exposing until explicitly stopped or error
     Picam_SetParameterIntegerValue(handle, PicamParameter_ReadoutCount, 0);
