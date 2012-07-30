@@ -45,19 +45,27 @@ static void read_temperature()
 
 static void commit_camera_params()
 {
-    pibln committed;
-    Picam_AreParametersCommitted(handle, &committed);
+    pibln all_params_committed;
+    Picam_AreParametersCommitted(handle, &all_params_committed);
 
-    if (!committed)
+    if (!all_params_committed)
     {
-        const PicamParameter *failed_parameter_array = NULL;
-        piint failed_parameter_count = 0;
+        const PicamParameter *failed_params = NULL;
+        piint failed_param_count = 0;
+        Picam_CommitParameters(handle, &failed_params, &failed_param_count);
 
-        Picam_CommitParameters(handle, &failed_parameter_array, &failed_parameter_count);
-        if (failed_parameter_count)
+        if (failed_param_count > 0)
         {
-            pn_log("%d parameters failed to commit", failed_parameter_count);
-            Picam_DestroyParameters(failed_parameter_array);
+            pn_log("%d parameters failed to commit:", failed_param_count);
+            for (piint i = 0; i < failed_param_count; i++)
+            {
+                const pichar *name;
+                Picam_GetEnumerationString(PicamEnumeratedType_Parameter, failed_params[i], &name);
+                pn_log("   %s", name);
+                Picam_DestroyString(name);
+            }
+            Picam_DestroyParameters(failed_params);
+            fatal_error("Parameter commit failed", __LINE__);
         }
     }
 }
