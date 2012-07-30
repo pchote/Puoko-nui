@@ -254,7 +254,10 @@ void pn_preview_frame(PNFrame *frame)
     {
         // Use XPA to display the image in ds9
         if (0 == XPASet(NULL, "Puoko-nui", "fits", NULL, fitsbuf, fitssize, NULL, NULL, 1))
+        {
+            pn_log("ds9 not found. Attempting to open");
             launch_ds9();
+        }
     }
     free(fitsbuf);
 #endif
