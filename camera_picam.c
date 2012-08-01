@@ -186,9 +186,11 @@ static void start_acquiring()
 */
 
     // Continue exposing until explicitly stopped or error
-    Picam_SetParameterLargeIntegerValue(handle, PicamParameter_ReadoutCount, 5);
+    // TODO: This should be set to 0 to allow unlimited frames, but this causes a segfault
+    Picam_SetParameterLargeIntegerValue(handle, PicamParameter_ReadoutCount, 1E3);
 
     // Set exposure to 0. Actual exposure is controlled by trigger interval, so this value isn't relevant
+    // TODO: This actually is relevant... needs working around
     Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, 1000.0f);
 
     // Keep the shutter open during the sequence
