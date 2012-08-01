@@ -210,7 +210,8 @@ static void start_acquiring()
 
     // Set exposure to 0. Actual exposure is controlled by trigger interval, so this value isn't relevant
     // TODO: This actually is relevant... needs working around
-    Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, 1000.0f);
+    // Set exposure time to GPS exposure - 100ms
+    Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, 1000*pn_preference_char(EXPOSURE_TIME) - 100);
 
     // Keep the shutter open during the sequence
     Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
