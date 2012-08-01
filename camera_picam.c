@@ -215,7 +215,10 @@ static void start_acquiring()
 
     // Keep the shutter open during the sequence
     Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
+
+    pn_log("About to commit");
     commit_camera_params();
+    pn_log("Committed");
 
     Picam_StartAcquisition(handle);
     pn_log("Acquisition run started");
@@ -223,7 +226,6 @@ static void start_acquiring()
     // Sample initial temperature
     read_temperature();
 
-    camera->first_frame = true;
     set_mode(ACQUIRING);
 }
 
@@ -247,6 +249,8 @@ static void stop_acquiring()
     // Keep the shutter closed until we start a sequence
     Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
     commit_camera_params();
+
+    camera->first_frame = true;
 
     pn_log("Acquisition sequence uninitialized");
     set_mode(IDLE);
