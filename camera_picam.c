@@ -102,14 +102,13 @@ static void initialize_camera()
     Picam_SetParameterIntegerValue(handle, PicamParameter_ReadoutControlMode, PicamReadoutControlMode_FrameTransfer);
 
     // Enable external trigger, negative edge, one frame per pulse, DC coupling
-    Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerSource, PicamTriggerSource_External);
-    Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerDetermination, PicamTriggerDetermination_FallingEdge);
     Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerResponse, PicamTriggerResponse_ReadoutPerTrigger);
-    Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerCoupling, PicamTriggerCoupling_DC);
-    // TODO?: PicamParameter_TriggerTermination sets termination: 50ohm, or high impedance
+    Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerDetermination, PicamTriggerDetermination_FallingEdge);
 
     // Set output low while the camera is reading out a frame
-    Picam_SetParameterIntegerValue(handle, PicamParameter_AuxOutput, PicamOutputSignal_NotReadingOut);
+    // Maybe use PicamOutputSignal_Busy instead?
+    Picam_SetParameterIntegerValue(handle, PicamParameter_OutputSignal, PicamOutputSignal_NotReadingOut);
+    //Picam_SetParameterIntegerValue(handle, PicamParameter_InvertOutputSignal, true);
 
     // Keep the shutter closed until we start a sequence
     Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
@@ -187,10 +186,10 @@ static void start_acquiring()
 */
 
     // Continue exposing until explicitly stopped or error
-    Picam_SetParameterIntegerValue(handle, PicamParameter_ReadoutCount, 0);
+    Picam_SetParameterLargeIntegerValue(handle, PicamParameter_ReadoutCount, 5);
 
     // Set exposure to 0. Actual exposure is controlled by trigger interval, so this value isn't relevant
-    Picam_SetParameterIntegerValue(handle, PicamParameter_ExposureTime, 0);
+    Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, 1000.0f);
 
     // Keep the shutter open during the sequence
     Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
