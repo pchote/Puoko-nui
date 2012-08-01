@@ -74,20 +74,39 @@ static void commit_camera_params()
 static void initialize_camera()
 {
     set_mode(INITIALISING);
-    Picam_InitializeLibrary();
 
-    // Open the first available camera
-    PicamCameraID id;
-    if (Picam_OpenFirstCamera(&handle) == PicamError_None)
-        Picam_GetCameraID(handle, &id);
-    else
+    pthread_mutex_lock(&camera->read_mutex);
+    PNCameraMode desired_mode = camera->desired_mode;
+    pthread_mutex_unlock(&camera->read_mutex);
+
+    // Wait for a camera to be available
+    while (desired_mode != SHUTDOWN)
     {
-        // TODO: This tends to fail the first time.
-        // Have it loop until it finds the camera, while still
-        // allowing the user to close the program with ctrl-c
-        camera->fatal_error = strdup("Camera not found");
-        pthread_exit(NULL);
+        Picam_InitializeLibrary();
+        if (Picam_OpenFirstCamera(&handle) == PicamError_None)
+            break; // Camera found
+
+        pn_log("Camera unavailable. Retrying...");
+
+        pthread_mutex_lock(&camera->read_mutex);
+        desired_mode = camera->desired_mode;
+        pthread_mutex_unlock(&camera->read_mutex);
+
+        // TODO: Won't detect the camera when it becomes available
+        // unless we close and reopen the library
+        Picam_UninitializeLibrary();
     }
+
+    // User has given up waiting for a camera
+    if (desired_mode == SHUTDOWN)
+    {
+        set_mode(UNINITIALIZED);
+        return;
+    }
+
+    pn_log("Camera available. Initializing...");
+    PicamCameraID id;
+    Picam_GetCameraID(handle, &id);
 
     // Query camera model info
     const pichar *string;
