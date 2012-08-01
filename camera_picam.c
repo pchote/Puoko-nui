@@ -105,6 +105,7 @@ static void initialize_camera()
     }
 
     pn_log("Camera available. Initializing...");
+    PicamError error;
     PicamCameraID id;
     Picam_GetCameraID(handle, &id);
 
@@ -115,22 +116,36 @@ static void initialize_camera()
     Picam_DestroyString(string);
 
     // Set temperature
-    Picam_SetParameterFloatingPointValue(handle, PicamParameter_SensorTemperatureSetPoint, pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
+    error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_SensorTemperatureSetPoint, pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_SensorTemperatureSetPoint failed. Errorcode: %d", error);
 
     // Enable frame transfer mode
-    Picam_SetParameterIntegerValue(handle, PicamParameter_ReadoutControlMode, PicamReadoutControlMode_FrameTransfer);
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_ReadoutControlMode, PicamReadoutControlMode_FrameTransfer);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_ReadoutControlMode failed. Errorcode: %d", error);
 
     // Enable external trigger, negative edge, one frame per pulse, DC coupling
-    Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerResponse, PicamTriggerResponse_ReadoutPerTrigger);
-    Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerDetermination, PicamTriggerDetermination_FallingEdge);
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerResponse, PicamTriggerResponse_ReadoutPerTrigger);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_TriggerResponse failed. Errorcode: %d", error);
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerDetermination, PicamTriggerDetermination_FallingEdge);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_TriggerDetermination failed. Errorcode: %d", error);
 
     // Set output low while the camera is reading out a frame
     // Maybe use PicamOutputSignal_Busy instead?
-    Picam_SetParameterIntegerValue(handle, PicamParameter_OutputSignal, PicamOutputSignal_Busy);
-    Picam_SetParameterIntegerValue(handle, PicamParameter_InvertOutputSignal, 1);
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_OutputSignal, PicamOutputSignal_ReadingOut);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_OutputSignal failed. Errorcode: %d", error);
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_InvertOutputSignal, 1);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_InvertOutputSignal failed. Errorcode: %d", error);
 
     // Keep the shutter closed until we start a sequence
-    Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_ShutterTimingMode failed. Errorcode: %d", error);
 
     // TODO: PicamParameter_AdcSpeed: Digitization rate in MHz
 
@@ -221,6 +236,7 @@ static void start_acquiring()
     pn_log("Committed");
 
     Picam_StartAcquisition(handle);
+
     pn_log("Acquisition run started");
 
     // Sample initial temperature
