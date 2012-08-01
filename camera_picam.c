@@ -107,8 +107,8 @@ static void initialize_camera()
 
     // Set output low while the camera is reading out a frame
     // Maybe use PicamOutputSignal_Busy instead?
-    Picam_SetParameterIntegerValue(handle, PicamParameter_OutputSignal, PicamOutputSignal_NotReadingOut);
-    //Picam_SetParameterIntegerValue(handle, PicamParameter_InvertOutputSignal, true);
+    Picam_SetParameterIntegerValue(handle, PicamParameter_OutputSignal, PicamOutputSignal_Busy);
+    Picam_SetParameterIntegerValue(handle, PicamParameter_InvertOutputSignal, 1);
 
     // Keep the shutter closed until we start a sequence
     Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
