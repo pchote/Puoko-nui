@@ -87,7 +87,63 @@ static void commit_camera_params()
             Picam_DestroyParameters(failed_params);
             fatal_error("Parameter commit failed", __LINE__);
         }
+        Picam_DestroyParameters(failed_params);
+
+        PicamHandle model;
+        error = PicamAdvanced_GetCameraModel(handle, &model);
+        if (error != PicamError_None)
+            print_error("Failed to get camera model", error);
+
+        if (PicamAdvanced_CommitParametersToCameraDevice(model) != PicamError_None)
+            pn_log("Advanced parameter commit failed");
     }
+}
+
+// Frame status change callback
+// - called when any of the following occur during acquisition:
+//   - a new readout arrives
+//   - acquisition completes due to total readouts acquired
+//   - acquisition completes due to a stop request
+//   - acquisition completes due to an acquisition error
+//   - an acquisition error occurs
+// - called on another thread
+// - all update callbacks are serialized
+PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAvailableData* data,
+                                                      const PicamAcquisitionStatus* status)
+{
+    if (data && data->readout_count && status->errors == PicamAcquisitionErrorsMask_None)
+    {
+        pn_log("Frame available @ %d", (int)time(NULL));
+
+        // Do something with the frame data
+        PNFrame frame;
+        frame.width = camera->frame_width;
+        frame.height = camera->frame_height;
+        frame.data = data->initial_readout;
+        frame_downloaded(&frame);
+    }
+
+    // Error
+    else if (status->errors != PicamAcquisitionErrorsMask_None)
+    {
+        // Print errors
+        if (status->errors & PicamAcquisitionErrorsMask_DataLost)
+            pn_log("Error: Data lost", __LINE__);
+
+        if (status->errors & PicamAcquisitionErrorsMask_ConnectionLost)
+            pn_log("Error: Camera connection lost", __LINE__);
+    }
+
+    // Check for buffer overrun. Should never happen in practice, but we log this
+    // to aid future debugging if it does crop up in the field.
+    pibln overran;
+    PicamError error = PicamAdvanced_HasAcquisitionBufferOverrun( handle, &overran );
+    if (error != PicamError_None)
+        print_error("Failed to check for acquisition overflow", error);
+    else if (overran)
+        pn_log("Acquisition buffer overflow!");
+    
+    return PicamError_None;
 }
 
 // Initialize PICAM and the camera hardware
@@ -204,6 +260,11 @@ static void initialize_camera()
     error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_AdcSpeed, readout_rate);
     if (error != PicamError_None)
         print_error("PicamParameter_AdcSpeed failed", error);
+
+    // Register callback for acquisition status change / frame available
+    error = PicamAdvanced_RegisterForAcquisitionUpdated(handle, acquisitionUpdatedCallback);
+    if (error != PicamError_None)
+        print_error("PicamAdvanced_RegisterForAcquisitionUpdated failed", error);
 
     // Commit parameter changes to hardware
     commit_camera_params();
@@ -334,17 +395,6 @@ static void stop_acquiring()
     if (error != PicamError_None)
         print_error("Picam_StopAcquisition failed", error);
 
-    // Picam_WaitForAcquisitionUpdate must be called until status.running is false;
-    // this is true regardless of acquisition errors or calling Picam_StopAcquisition.
-    pibln running = true;
-    PicamAvailableData data;
-    PicamAcquisitionStatus status;
-    while (running)
-    {
-        Picam_WaitForAcquisitionUpdate(handle, 100, &data, &status);
-        running = status.running;
-    }
-
     // Clear circular buffer
     PicamAcquisitionBuffer buffer;
     buffer.memory = NULL;
@@ -380,9 +430,6 @@ void *pn_picam_camera_thread(void *_unused)
     PNCameraMode desired_mode = camera->desired_mode;
     pthread_mutex_unlock(&camera->read_mutex);
 
-    PicamAvailableData data;
-    PicamAcquisitionStatus status;
-
     while (desired_mode != SHUTDOWN)
     {
         // Start/stop acquisition
@@ -394,44 +441,6 @@ void *pn_picam_camera_thread(void *_unused)
 
         if (desired_mode == IDLE && camera->mode == ACQUIRE_WAIT)
             stop_acquiring();
-
-        if (camera->mode == ACQUIRING)
-        {
-            // Wait up to 100ms for a new frame, otherwise timeout and continue
-            PicamError ret = Picam_WaitForAcquisitionUpdate(handle, 100, &data, &status);
-
-            // New frame
-            if (ret == PicamError_None && status.errors == PicamAcquisitionErrorsMask_None &&
-                data.readout_count)
-            {
-                pn_log("Frame available @ %d", (int)time(NULL));
-
-                // Do something with the frame data
-                PNFrame frame;            
-                frame.width = camera->frame_width;
-                frame.height = camera->frame_height;
-                frame.data = data.initial_readout;
-                frame_downloaded(&frame);
-            }
-            // Error
-            else if (status.errors != PicamAcquisitionErrorsMask_None)
-            {
-                // Print errors
-                if (status.errors &= PicamAcquisitionErrorsMask_DataLost)
-                    pn_log("Error: Data lost");
-
-                if (status.errors &= PicamAcquisitionErrorsMask_ConnectionLost)
-                    pn_log("Error: Camera connection lost");
-            }
-
-            // Check for buffer overflow
-            pibln overran;
-            PicamError error = PicamAdvanced_HasAcquisitionBufferOverrun( handle, &overran );
-            if (error != PicamError_None)
-                print_error("Failed to check for acquisition overflow", error);
-            else if (overran)
-                fatal_error("Acquisition buffer overflow!", __LINE__);
-        }
 
         // Check temperature
         if (++temp_ticks >= 50)
@@ -453,6 +462,7 @@ void *pn_picam_camera_thread(void *_unused)
     if (camera->mode == IDLE)
     {
         PicamAdvanced_CloseCameraDevice(handle);
+        PicamAdvanced_UnregisterForAcquisitionUpdated(handle, acquisitionUpdatedCallback);
         Picam_UninitializeLibrary();
         pn_log("PICAM uninitialized");
     }
