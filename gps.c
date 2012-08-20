@@ -149,7 +149,7 @@ static void initialize_timer()
     }
 
     gps->device = devices->dev;
-      ftdi_list_free(&devices);
+    ftdi_list_free(&devices);
 
     pn_log("Opened FTDI device `%s`", gps->device->filename);
 
