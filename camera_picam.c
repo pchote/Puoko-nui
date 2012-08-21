@@ -22,6 +22,7 @@
 extern PNCamera *camera;
 extern PNGPS *gps;
 static PicamHandle handle = NULL;
+static pibyte *image_buffer = NULL;
 
 static void fatal_error(const char *msg, int line)
 {
@@ -266,12 +267,6 @@ static void start_acquiring()
     Picam_DestroyRoisConstraints(constraint);
     Picam_DestroyRois(region);
 
-    // Continue exposing until explicitly stopped or error
-    // TODO: This should be set to 0 to allow unlimited frames, but this causes a segfault
-    error = Picam_SetParameterLargeIntegerValue(handle, PicamParameter_ReadoutCount, 1E3);
-    if (error != PicamError_None)
-        print_error("PicamParameter_ReadoutCount failed", error);
-
     // Set exposure to 0. Actual exposure is controlled by trigger interval, so this value isn't relevant
     // TODO: This actually is relevant... needs working around
     // Set exposure time to GPS exposure - 100ms
@@ -283,6 +278,36 @@ static void start_acquiring()
     error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
     if (error != PicamError_None)
         print_error("PicamParameter_ShutterTimingMode failed", error);
+
+    // Continue exposing until explicitly stopped or error
+    // Requires a user specified image buffer to be provided - the interal
+    // routines appears to use this parameter to determine the size of the
+    // internal buffer to use.
+    error = Picam_SetParameterLargeIntegerValue(handle, PicamParameter_ReadoutCount, 0);
+    if (error != PicamError_None)
+        print_error("PicamParameter_ReadoutCount failed", error);
+
+    // Create a buffer large enough to hold 5 frames. In normal operation,
+    // only one should be required, but we include some overhead to be safe.
+    size_t buffer_size = 5;
+    piint frame_stride = 0;
+    error = Picam_GetParameterIntegerValue(handle, PicamParameter_ReadoutStride, &frame_stride);
+    if (error != PicamError_None)
+        print_error("PicamParameter_ReadoutStride failed", error);
+
+    image_buffer = (pibyte *)malloc(buffer_size*frame_stride*sizeof(pibyte));
+    if (image_buffer == NULL)
+        fatal_error("Unable to allocate frame buffer", __LINE__);
+
+    PicamAcquisitionBuffer buffer;
+    buffer.memory = image_buffer;
+    buffer.memory_size = buffer_size * frame_stride;
+    error = PicamAdvanced_SetAcquisitionBuffer(handle, &buffer);
+    if (error != PicamError_None)
+    {
+        print_error("PicamAdvanced_SetAcquisitionBuffer failed", error);
+        fatal_error("Acquisition setup failed", __LINE__);
+    }
 
     commit_camera_params();
 
@@ -319,6 +344,15 @@ static void stop_acquiring()
         Picam_WaitForAcquisitionUpdate(handle, 100, &data, &status);
         running = status.running;
     }
+
+    // Clear circular buffer
+    PicamAcquisitionBuffer buffer;
+    buffer.memory = NULL;
+    buffer.memory_size = 0;
+    error = PicamAdvanced_SetAcquisitionBuffer(handle, &buffer);
+    if (error != PicamError_None)
+        print_error("PicamAdvanced_SetAcquisitionBuffer failed", error);
+    free(image_buffer);
 
     // Keep the shutter closed until we start a sequence
     error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
@@ -389,6 +423,14 @@ void *pn_picam_camera_thread(void *_unused)
                 if (status.errors &= PicamAcquisitionErrorsMask_ConnectionLost)
                     pn_log("Error: Camera connection lost");
             }
+
+            // Check for buffer overflow
+            pibln overran;
+            PicamError error = PicamAdvanced_HasAcquisitionBufferOverrun( handle, &overran );
+            if (error != PicamError_None)
+                print_error("Failed to check for acquisition overflow", error);
+            else if (overran)
+                fatal_error("Acquisition buffer overflow!", __LINE__);
         }
 
         // Check temperature
