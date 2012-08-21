@@ -144,7 +144,29 @@ static void initialize_camera()
     if (error != PicamError_None)
         pn_log("PicamParameter_ShutterTimingMode failed. Errorcode: %d", error);
 
-    // TODO: PicamParameter_AdcSpeed: Digitization rate in MHz
+    // Use the low noise digitization port
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_AdcQuality, PicamAdcQuality_LowNoise);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_AdcQuality failed. Errorcode: %d", error);
+
+    // Set the requested digitization rate in MHz
+    piflt readout_rate = 1; // Default 1MHz
+    switch (pn_preference_char(CAMERA_READOUT_MODE))
+    {
+        case 0: // 100kHz
+            readout_rate = 0.1;
+            break;
+        case 1: // 1MHz
+            readout_rate = 1;
+            break;
+        case 2: // 5MHz
+            readout_rate = 5;
+            break;
+    }
+
+    error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_AdcSpeed, readout_rate);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_AdcSpeed failed. Errorcode: %d", error);
 
     // Commit parameter changes to hardware
     commit_camera_params();
