@@ -129,18 +129,15 @@ static void initialize_camera()
     error = Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerResponse, PicamTriggerResponse_ReadoutPerTrigger);
     if (error != PicamError_None)
         pn_log("PicamParameter_TriggerResponse failed. Errorcode: %d", error);
+
     error = Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerDetermination, PicamTriggerDetermination_FallingEdge);
     if (error != PicamError_None)
         pn_log("PicamParameter_TriggerDetermination failed. Errorcode: %d", error);
 
-    // Set output low while the camera is reading out a frame
-    // Maybe use PicamOutputSignal_Busy instead?
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_OutputSignal, PicamOutputSignal_ReadingOut);
+    // Set output high when the camera is able to respond to a readout trigger
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_OutputSignal, PicamOutputSignal_WaitingForTrigger);
     if (error != PicamError_None)
         pn_log("PicamParameter_OutputSignal failed. Errorcode: %d", error);
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_InvertOutputSignal, 1);
-    if (error != PicamError_None)
-        pn_log("PicamParameter_InvertOutputSignal failed. Errorcode: %d", error);
 
     // Keep the shutter closed until we start a sequence
     error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
