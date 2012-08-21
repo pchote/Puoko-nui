@@ -161,25 +161,13 @@ static void start_acquiring()
     set_mode(ACQUIRE_START);
     pn_log("Starting acquisition run...");
 
-    camera->frame_width = 1024;
-    camera->frame_height = 1024;
-/*
+    unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
+    pn_log("Superpixel size: %d", superpixel_size);
+
     // Get chip dimensions
     const PicamRoisConstraint  *constraint;
     if (Picam_GetParameterRoisConstraint(handle, PicamParameter_Rois, PicamConstraintCategory_Required, &constraint) != PicamError_None)
         fatal_error("Error determining ROIs Constraint", __LINE__);
-
-    camera->frame_width = constraint->width_constraint.maximum - constraint->width_constraint.minimum;
-    camera->frame_height = constraint->height_constraint.maximum - constraint->height_constraint.minimum;
-
-    // TODO: FIXME: default region gives: ROI Area: [0:1023] x [0:2]
-    pn_log("ROI Area: [%d:%d] x [%d:%d]",
-    constraint->width_constraint.minimum, constraint->width_constraint.maximum,
-    constraint->height_constraint.minimum, constraint->height_constraint.maximum);
-
-    // Define ROI as entire chip, with requested binning
-    unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
-    pn_log("Superpixel size: %d", superpixel_size);
 
     // Get region definition
     const PicamRois *region;
@@ -198,25 +186,27 @@ static void start_acquiring()
         fatal_error("Unsure how to proceed", __LINE__);
     }
 
+    // Set ROI to full chip, with requested binning
     PicamRoi *roi = &region->roi_array[0];
-    roi->x = constraint->width_constraint.minimum;
-    roi->y = constraint->width_constraint.maximum;
-    roi->width = camera->frame_width;
-    roi->height = camera->frame_height;
+    roi->x = constraint->x_constraint.minimum;
+    roi->y = constraint->y_constraint.minimum;
+    roi->width = constraint->width_constraint.maximum;
+    roi->height = constraint->height_constraint.maximum;
     roi->x_binning = superpixel_size;
     roi->y_binning = superpixel_size;
-    Picam_DestroyRoisConstraints(constraint);
 
-    camera->frame_height /= superpixel_size;
-    camera->frame_width /= superpixel_size;
+    camera->frame_width = (uint16_t)(constraint->width_constraint.maximum) / superpixel_size;
+    camera->frame_height = (uint16_t)(constraint->height_constraint.maximum) / superpixel_size;
 
     if (Picam_SetParameterRoisValue(handle, PicamParameter_Rois, region) != PicamError_None)
     {
+    	Picam_DestroyRoisConstraints(constraint);
         Picam_DestroyRois(region);
         fatal_error("Error setting ROI", __LINE__);
     }
+
+    Picam_DestroyRoisConstraints(constraint);
     Picam_DestroyRois(region);
-*/
 
     // Continue exposing until explicitly stopped or error
     // TODO: This should be set to 0 to allow unlimited frames, but this causes a segfault
