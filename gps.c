@@ -342,7 +342,7 @@ void *pn_timer_thread(void *_unused)
                     .valid = true
                 };
                 PNGPSTimestamp *t = &gps->download_timestamp;
-                pn_log("Download: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
+                pn_log("Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
 
                 // Mark the camera as downloading for UI feedback and shutdown purposes
                 gps->camera_downloading = true;
@@ -414,7 +414,7 @@ void *pn_simulated_timer_thread(void *unused)
                 gps->download_timestamp.locked = 1;
                 gps->download_timestamp.remaining_exposure = 0;
                 gps->download_timestamp.valid = true;
-                pn_log("Simulated Download: %04d-%02d-%02d %02d:%02d:%02d (%d)",
+                pn_log("Simulated Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)",
                        gps->download_timestamp.year, // Year
                        gps->download_timestamp.month,   // Month
                        gps->download_timestamp.day,   // Day
