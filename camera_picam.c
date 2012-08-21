@@ -156,6 +156,8 @@ static void initialize_camera()
 // Start an acquisition sequence
 static void start_acquiring()
 {
+    PicamError error;
+
     set_mode(ACQUIRE_START);
     pn_log("Starting acquisition run...");
 
@@ -218,15 +220,21 @@ static void start_acquiring()
 
     // Continue exposing until explicitly stopped or error
     // TODO: This should be set to 0 to allow unlimited frames, but this causes a segfault
-    Picam_SetParameterLargeIntegerValue(handle, PicamParameter_ReadoutCount, 1E3);
+    error = Picam_SetParameterLargeIntegerValue(handle, PicamParameter_ReadoutCount, 1E3);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_ReadoutCount failed. Errorcode: %d", error);
 
     // Set exposure to 0. Actual exposure is controlled by trigger interval, so this value isn't relevant
     // TODO: This actually is relevant... needs working around
     // Set exposure time to GPS exposure - 100ms
-    Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, 1000*pn_preference_char(EXPOSURE_TIME) - 100);
+    error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, 1000*pn_preference_char(EXPOSURE_TIME) - 100);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_ExposureTime failed. Errorcode: %d", error);
 
     // Keep the shutter open during the sequence
-    Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_ShutterTimingMode failed. Errorcode: %d", error);
 
     pn_log("About to commit");
     commit_camera_params();
@@ -260,7 +268,10 @@ static void stop_acquiring()
     }
 
     // Keep the shutter closed until we start a sequence
-    Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
+    PicamError error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
+    if (error != PicamError_None)
+        pn_log("PicamParameter_ShutterTimingMode failed. Errorcode: %d", error);
+
     commit_camera_params();
 
     camera->first_frame = true;
