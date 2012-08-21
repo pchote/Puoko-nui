@@ -106,7 +106,7 @@ void pn_save_frame(PNFrame *frame)
         }
     }
 
-    int exposure_time = pn_preference_char(EXPOSURE_TIME);
+    long exposure_time = pn_preference_char(EXPOSURE_TIME);
     fits_update_key(fptr, TLONG, "EXPTIME", &exposure_time, "Actual integration time (sec)", &status);
 
     char *observers = pn_preference_string(OBSERVERS);
