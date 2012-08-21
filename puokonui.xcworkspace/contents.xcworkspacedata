@@ -38,6 +38,9 @@
       location = "group:camera_pvcam.c">
    </FileRef>
    <FileRef
+      location = "group:camera_picam.c">
+   </FileRef>
+   <FileRef
       location = "group:platform.c">
    </FileRef>
    <FileRef
