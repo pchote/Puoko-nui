@@ -46,6 +46,21 @@ static void print_error(const char *msg, PicamError error)
     Picam_DestroyString(string);
 }
 
+
+static void set_integer_param(PicamParameter parameter, piint value)
+{
+    PicamError error = Picam_SetParameterIntegerValue(handle, parameter, value);
+    if (error != PicamError_None)
+    {
+        const pichar *name, *err;
+        Picam_GetEnumerationString(PicamEnumeratedType_Parameter, parameter, &name);
+        Picam_GetEnumerationString(PicamEnumeratedType_Error, error, &err);
+        pn_log("Setting `%s' failed: %s", name, err);
+        Picam_DestroyString(err);
+        Picam_DestroyString(name);
+    }
+}
+
 // Sample the camera temperature to be read by the other threads in a threadsafe manner
 static void read_temperature()
 {
@@ -228,34 +243,22 @@ static void initialize_camera()
         print_error("PicamParameter_SensorTemperatureSetPoint failed", error);
 
     // Enable frame transfer mode
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_ReadoutControlMode, PicamReadoutControlMode_FrameTransfer);
-    if (error != PicamError_None)
-        print_error("PicamParameter_ReadoutControlMode failed", error);
+    set_integer_param(PicamParameter_ReadoutControlMode, PicamReadoutControlMode_FrameTransfer);
 
     // Enable external trigger
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerResponse, PicamTriggerResponse_ReadoutPerTrigger);
-    if (error != PicamError_None)
-        print_error("PicamParameter_TriggerResponse failed", error);
+    set_integer_param(PicamParameter_TriggerResponse, PicamTriggerResponse_ReadoutPerTrigger);
 
     // Set falling edge trigger (actually low level trigger)
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerDetermination, PicamTriggerDetermination_FallingEdge);
-    if (error != PicamError_None)
-        print_error("PicamParameter_TriggerDetermination failed", error);
+    set_integer_param(PicamParameter_TriggerDetermination, PicamTriggerDetermination_FallingEdge);
 
     // Set output high when the camera is able to respond to a readout trigger
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_OutputSignal, PicamOutputSignal_WaitingForTrigger);
-    if (error != PicamError_None)
-        print_error("PicamParameter_OutputSignal failed", error);
+    set_integer_param(PicamParameter_OutputSignal, PicamOutputSignal_WaitingForTrigger);
 
     // Keep the shutter closed until we start a sequence
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
-    if (error != PicamError_None)
-        pn_log("PicamParameter_ShutterTimingMode failed", error);
+    set_integer_param(PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
 
     // Use the low noise digitization port
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_AdcQuality, PicamAdcQuality_LowNoise);
-    if (error != PicamError_None)
-        print_error("PicamParameter_AdcQuality failed", error);
+    set_integer_param(PicamParameter_AdcQuality, PicamAdcQuality_LowNoise);
 
     // Set the requested digitization rate in MHz
     piflt readout_rate = 1; // Default 1MHz
@@ -381,9 +384,7 @@ static void start_acquiring()
         print_error("PicamParameter_ExposureTime failed", error);
 
     // Keep the shutter open during the sequence
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
-    if (error != PicamError_None)
-        print_error("PicamParameter_ShutterTimingMode failed", error);
+    set_integer_param(PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
 
     commit_camera_params();
 
@@ -431,9 +432,7 @@ static void stop_acquiring()
         pn_log("Acquisition sequence uninitialized");
 
     // Close the shutter until the next exposure sequence
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
-    if (error != PicamError_None)
-        print_error("PicamParameter_ShutterTimingMode failed", error);
+    set_integer_param(PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
     commit_camera_params();
 
     camera->first_frame = true;
