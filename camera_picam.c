@@ -266,21 +266,6 @@ static void initialize_camera()
     if (error != PicamError_None)
         print_error("PicamAdvanced_RegisterForAcquisitionUpdated failed", error);
 
-    // Commit parameter changes to hardware
-    commit_camera_params();
-
-    pn_log("Camera initialized");
-    set_mode(IDLE);
-}
-
-// Start an acquisition sequence
-static void start_acquiring()
-{
-    PicamError error;
-
-    set_mode(ACQUIRE_START);
-    pn_log("Starting acquisition run...");
-
     unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
     pn_log("Superpixel size: %d", superpixel_size);
 
@@ -328,18 +313,6 @@ static void start_acquiring()
     Picam_DestroyRoisConstraints(constraint);
     Picam_DestroyRois(region);
 
-    // Set exposure to 0. Actual exposure is controlled by trigger interval, so this value isn't relevant
-    // TODO: This actually is relevant... needs working around
-    // Set exposure time to GPS exposure - 100ms
-    error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, 1000*pn_preference_char(EXPOSURE_TIME) - 100);
-    if (error != PicamError_None)
-        print_error("PicamParameter_ExposureTime failed", error);
-
-    // Keep the shutter open during the sequence
-    error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
-    if (error != PicamError_None)
-        print_error("PicamParameter_ShutterTimingMode failed", error);
-
     // Continue exposing until explicitly stopped or error
     // Requires a user specified image buffer to be provided - the interal
     // routines appears to use this parameter to determine the size of the
@@ -370,6 +343,33 @@ static void start_acquiring()
         fatal_error("Acquisition setup failed", __LINE__);
     }
 
+    // Commit parameter changes to hardware
+    commit_camera_params();
+
+    pn_log("Camera initialized");
+    set_mode(IDLE);
+}
+
+// Start an acquisition sequence
+static void start_acquiring()
+{
+    PicamError error;
+
+    set_mode(ACQUIRE_START);
+    pn_log("Starting acquisition run...");
+
+    // Set exposure to 0. Actual exposure is controlled by trigger interval, so this value isn't relevant
+    // TODO: This actually is relevant... needs working around
+    // Set exposure time to GPS exposure - 100ms
+    error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, 1000*pn_preference_char(EXPOSURE_TIME) - 100);
+    if (error != PicamError_None)
+        print_error("PicamParameter_ExposureTime failed", error);
+
+    // Keep the shutter open during the sequence
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
+    if (error != PicamError_None)
+        print_error("PicamParameter_ShutterTimingMode failed", error);
+
     commit_camera_params();
 
     error = Picam_StartAcquisition(handle);
@@ -394,15 +394,6 @@ static void stop_acquiring()
     PicamError error = Picam_StopAcquisition(handle);
     if (error != PicamError_None)
         print_error("Picam_StopAcquisition failed", error);
-
-    // Clear circular buffer
-    PicamAcquisitionBuffer buffer;
-    buffer.memory = NULL;
-    buffer.memory_size = 0;
-    error = PicamAdvanced_SetAcquisitionBuffer(handle, &buffer);
-    if (error != PicamError_None)
-        print_error("PicamAdvanced_SetAcquisitionBuffer failed", error);
-    free(image_buffer);
 
     // Keep the shutter closed until we start a sequence
     error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
@@ -457,6 +448,15 @@ void *pn_picam_camera_thread(void *_unused)
     // Shutdown camera
     if (camera->mode == ACQUIRING || camera->mode == ACQUIRE_WAIT)
         stop_acquiring();
+
+    // Clear circular buffer
+    PicamAcquisitionBuffer buffer;
+    buffer.memory = NULL;
+    buffer.memory_size = 0;
+    PicamError error = PicamAdvanced_SetAcquisitionBuffer(handle, &buffer);
+    if (error != PicamError_None)
+        print_error("PicamAdvanced_SetAcquisitionBuffer failed", error);
+    free(image_buffer);
 
     // Close the PICAM lib (which in turn closes the camera)
     if (camera->mode == IDLE)
