@@ -152,19 +152,17 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
     // Check for buffer overrun. Should never happen in practice, but we log this
     // to aid future debugging if it does crop up in the field.
     pibln overran;
-    PicamError error = PicamAdvanced_HasAcquisitionBufferOverrun( handle, &overran );
+    PicamError error = PicamAdvanced_HasAcquisitionBufferOverrun(handle, &overran);
     if (error != PicamError_None)
         print_error("Failed to check for acquisition overflow", error);
     else if (overran)
         pn_log("Acquisition buffer overflow!");
-    
+
     return PicamError_None;
 }
 
-/*
- * Connect to the first available camera
- * Expects PICAM to be initialized
- */
+// Connect to the first available camera
+// Expects PICAM to be initialized
 static void connect_camera()
 {
     pthread_mutex_lock(&camera->read_mutex);
@@ -180,7 +178,7 @@ static void connect_camera()
         PicamError error = Picam_GetAvailableCameraIDs(&cameras, &camera_count);
         if (error != PicamError_None || camera_count == 0)
         {
-            pn_log("Camera unavailable. Retrying...");
+            pn_log("Waiting for camera...");
 
             // Camera detection fails unless we close and initialize the library
             Picam_UninitializeLibrary();
@@ -234,8 +232,9 @@ static void initialize_camera()
     // Query camera model info
     const pichar *string;
     Picam_GetEnumerationString(PicamEnumeratedType_Model, id.model, &string);
-    pn_log("%s (SN:%s) [%s]\r\n", string, id.serial_number, id.sensor_name);
+    pn_log("Connected: %s (SN:%s) [%s]", string, id.serial_number, id.sensor_name);
     Picam_DestroyString(string);
+    Picam_DestroyCameraIDs(&id);
 
     // Set temperature
     PicamError error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_SensorTemperatureSetPoint, pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
@@ -258,6 +257,7 @@ static void initialize_camera()
     set_integer_param(PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
 
     // Use the low noise digitization port
+    // TODO: Doesn't work - FIXME
     set_integer_param(PicamParameter_AdcQuality, PicamAdcQuality_LowNoise);
 
     // Set the requested digitization rate in MHz
@@ -275,14 +275,10 @@ static void initialize_camera()
             break;
     }
 
+    // TODO: Doesn't work - FIXME
     error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_AdcSpeed, readout_rate);
     if (error != PicamError_None)
-        print_error("PicamParameter_AdcSpeed failed", error);
-
-    // Register callback for acquisition status change / frame available
-    error = PicamAdvanced_RegisterForAcquisitionUpdated(handle, acquisitionUpdatedCallback);
-    if (error != PicamError_None)
-        print_error("PicamAdvanced_RegisterForAcquisitionUpdated failed", error);
+       print_error("PicamParameter_AdcSpeed failed", error);
 
     unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
     pn_log("Superpixel size: %d", superpixel_size);
@@ -351,9 +347,12 @@ static void initialize_camera()
     if (image_buffer == NULL)
         fatal_error("Unable to allocate frame buffer", __LINE__);
 
-    PicamAcquisitionBuffer buffer;
-    buffer.memory = image_buffer;
-    buffer.memory_size = buffer_size * frame_stride;
+    PicamAcquisitionBuffer buffer =
+    {
+        .memory = image_buffer,
+        .memory_size = buffer_size*frame_stride
+    };
+
     error = PicamAdvanced_SetAcquisitionBuffer(handle, &buffer);
     if (error != PicamError_None)
     {
@@ -363,6 +362,11 @@ static void initialize_camera()
 
     // Commit parameter changes to hardware
     commit_camera_params();
+
+    // Register callback for acquisition status change / frame available
+    error = PicamAdvanced_RegisterForAcquisitionUpdated(handle, acquisitionUpdatedCallback);
+    if (error != PicamError_None)
+        print_error("PicamAdvanced_RegisterForAcquisitionUpdated failed", error);
 
     pn_log("Camera initialized");
     set_mode(IDLE);
@@ -376,10 +380,11 @@ static void start_acquiring()
     set_mode(ACQUIRE_START);
     pn_log("Starting acquisition run...");
 
-    // Set exposure to 0. Actual exposure is controlled by trigger interval, so this value isn't relevant
-    // TODO: This actually is relevant... needs working around
-    // Set exposure time to GPS exposure - 100ms
-    error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, 1000*pn_preference_char(EXPOSURE_TIME) - 100);
+    // The ProEM camera cannot be operated in trigger = download mode
+    // Instead, we set an exposure period 20ms shorter than the trigger period,
+    // giving the camera a short window to be responsive for the next trigger
+    piflt exptime = 1000*pn_preference_char(EXPOSURE_TIME) - 20;
+    error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, exptime);
     if (error != PicamError_None)
         print_error("PicamParameter_ExposureTime failed", error);
 
@@ -387,6 +392,11 @@ static void start_acquiring()
     set_integer_param(PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
 
     commit_camera_params();
+
+    // Add a delay to allow the timer to catch the camera ready
+    // level transition.
+    // TODO: This is a nasty hack - FIXME
+    millisleep(1000);
 
     error = Picam_StartAcquisition(handle);
     if (error != PicamError_None)
@@ -396,10 +406,6 @@ static void start_acquiring()
     }
 
     pn_log("Acquisition run started");
-
-    // Sample initial temperature
-    read_temperature();
-
     set_mode(ACQUIRING);
 }
 
@@ -464,40 +470,35 @@ void *pn_picam_camera_thread(void *_unused)
         if (desired_mode == IDLE && camera->mode == ACQUIRE_WAIT)
             stop_acquiring();
 
-        // Check temperature
-        if (++temp_ticks >= 50)
+        // Check temperature every second
+        if (++temp_ticks >= 10)
         {
             temp_ticks = 0;
             read_temperature();
         }
 
+        millisleep(100);
         pthread_mutex_lock(&camera->read_mutex);
         desired_mode = camera->desired_mode;
         pthread_mutex_unlock(&camera->read_mutex);
     }
 
-    // Shutdown camera
+    // Stop aquisition sequence if necessary
     if (camera->mode == ACQUIRING || camera->mode == ACQUIRE_WAIT)
         stop_acquiring();
 
-    // Clear circular buffer
-    PicamAcquisitionBuffer buffer;
-    buffer.memory = NULL;
-    buffer.memory_size = 0;
+    // Shutdown camera and PICAM
+    PicamAcquisitionBuffer buffer = {.memory = NULL, .memory_size = 0};
     PicamError error = PicamAdvanced_SetAcquisitionBuffer(handle, &buffer);
     if (error != PicamError_None)
         print_error("PicamAdvanced_SetAcquisitionBuffer failed", error);
     free(image_buffer);
 
-    // Close the PICAM lib (which in turn closes the camera)
-    if (camera->mode == IDLE)
-    {
-        PicamAdvanced_CloseCameraDevice(handle);
-        PicamAdvanced_UnregisterForAcquisitionUpdated(handle, acquisitionUpdatedCallback);
-        Picam_UninitializeLibrary();
-        pn_log("PICAM uninitialized");
-    }
+    PicamAdvanced_UnregisterForAcquisitionUpdated(handle, acquisitionUpdatedCallback);
+    PicamAdvanced_CloseCameraDevice(handle);
+    Picam_UninitializeLibrary();
 
+    pn_log("Camera uninitialized");
     pthread_exit(NULL);
 }
 
