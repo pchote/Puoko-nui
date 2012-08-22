@@ -146,50 +146,64 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
     return PicamError_None;
 }
 
-// Initialize PICAM and the camera hardware
-static void initialize_camera()
+/*
+ * Connect to the first available camera
+ * Expects PICAM to be initialized
+ */
+static void connect_camera()
 {
-    PicamError error;
-    set_mode(INITIALISING);
-
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode desired_mode = camera->desired_mode;
     pthread_mutex_unlock(&camera->read_mutex);
 
-    // Loop until a camera is available
+    // Loop until a camera is available or the user gives up
     while (desired_mode != SHUTDOWN)
     {
         const PicamCameraID *cameras = NULL;
         piint camera_count = 0;
 
-        Picam_InitializeLibrary();
-        error = Picam_GetAvailableCameraIDs(&cameras, &camera_count);
-
+        PicamError error = Picam_GetAvailableCameraIDs(&cameras, &camera_count);
         if (error != PicamError_None || camera_count == 0)
         {
             pn_log("Camera unavailable. Retrying...");
 
             // Camera detection fails unless we close and initialize the library
             Picam_UninitializeLibrary();
+            Picam_InitializeLibrary();
+
+            // Wait a bit longer so we don't spin and eat CPU
+            millisleep(500);
 
             // Detect and handle shutdown requests
             pthread_mutex_lock(&camera->read_mutex);
             desired_mode = camera->desired_mode;
             pthread_mutex_unlock(&camera->read_mutex);
-
-            millisleep(500);
             continue;
         }
 
-        // Camera found - continue
         error = PicamAdvanced_OpenCameraDevice(&cameras[0], &handle);
         if (error != PicamError_None)
         {
             print_error("PicamAdvanced_OpenCameraDevice failed", error);
             continue;
         }
-        break;
+
+        return;
     }
+}
+
+
+// Initialize PICAM and the camera hardware
+static void initialize_camera()
+{
+    set_mode(INITIALISING);
+    Picam_InitializeLibrary();
+
+    connect_camera();
+
+    pthread_mutex_lock(&camera->read_mutex);
+    PNCameraMode desired_mode = camera->desired_mode;
+    pthread_mutex_unlock(&camera->read_mutex);
 
     // User has given up waiting for a camera
     if (desired_mode == SHUTDOWN)
@@ -209,7 +223,7 @@ static void initialize_camera()
     Picam_DestroyString(string);
 
     // Set temperature
-    error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_SensorTemperatureSetPoint, pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
+    PicamError error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_SensorTemperatureSetPoint, pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
     if (error != PicamError_None)
         print_error("PicamParameter_SensorTemperatureSetPoint failed", error);
 
@@ -218,11 +232,12 @@ static void initialize_camera()
     if (error != PicamError_None)
         print_error("PicamParameter_ReadoutControlMode failed", error);
 
-    // Enable external trigger, negative edge, one frame per pulse, DC coupling
+    // Enable external trigger
     error = Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerResponse, PicamTriggerResponse_ReadoutPerTrigger);
     if (error != PicamError_None)
         print_error("PicamParameter_TriggerResponse failed", error);
 
+    // Set falling edge trigger (actually low level trigger)
     error = Picam_SetParameterIntegerValue(handle, PicamParameter_TriggerDetermination, PicamTriggerDetermination_FallingEdge);
     if (error != PicamError_None)
         print_error("PicamParameter_TriggerDetermination failed", error);
