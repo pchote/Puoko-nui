@@ -391,20 +391,37 @@ static void start_acquiring()
 static void stop_acquiring()
 {
     set_mode(ACQUIRE_STOP);
-    PicamError error = Picam_StopAcquisition(handle);
-    if (error != PicamError_None)
-        print_error("Picam_StopAcquisition failed", error);
 
-    // Keep the shutter closed until we start a sequence
+    pibln running;
+    PicamError error = Picam_IsAcquisitionRunning(handle, &running);
+    if (error != PicamError_None)
+        print_error("Picam_IsAcquisitionRunning failed", error);
+
+    if (running)
+    {
+        error = Picam_StopAcquisition(handle);
+        if (error != PicamError_None)
+            print_error("Picam_StopAcquisition failed", error);
+    }
+    else
+        pn_log("Acquisition sequence already stopped!");
+
+    error = Picam_IsAcquisitionRunning(handle, &running);
+    if (error != PicamError_None)
+        print_error("Picam_IsAcquisitionRunning failed", error);
+
+    if (running)
+        pn_log("Acquisition sequence stop failed!");
+    else
+        pn_log("Acquisition sequence uninitialized");
+
+    // Close the shutter until the next exposure sequence
     error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
     if (error != PicamError_None)
         print_error("PicamParameter_ShutterTimingMode failed", error);
-
     commit_camera_params();
 
     camera->first_frame = true;
-
-    pn_log("Acquisition sequence uninitialized");
     set_mode(IDLE);
 }
 
