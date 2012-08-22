@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <picam.h>
+#include <picam_advanced.h>
 
 #include "common.h"
 #include "camera.h"
@@ -91,28 +92,46 @@ static void commit_camera_params()
 // Initialize PICAM and the camera hardware
 static void initialize_camera()
 {
+    PicamError error;
     set_mode(INITIALISING);
 
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode desired_mode = camera->desired_mode;
     pthread_mutex_unlock(&camera->read_mutex);
 
-    // Wait for a camera to be available
+    // Loop until a camera is available
     while (desired_mode != SHUTDOWN)
     {
+        const PicamCameraID *cameras = NULL;
+        piint camera_count = 0;
+
         Picam_InitializeLibrary();
-        if (Picam_OpenFirstCamera(&handle) == PicamError_None)
-            break; // Camera found
+        error = Picam_GetAvailableCameraIDs(&cameras, &camera_count);
 
-        pn_log("Camera unavailable. Retrying...");
+        if (error != PicamError_None || camera_count == 0)
+        {
+            pn_log("Camera unavailable. Retrying...");
 
-        pthread_mutex_lock(&camera->read_mutex);
-        desired_mode = camera->desired_mode;
-        pthread_mutex_unlock(&camera->read_mutex);
+            // Camera detection fails unless we close and initialize the library
+            Picam_UninitializeLibrary();
 
-        // TODO: Won't detect the camera when it becomes available
-        // unless we close and reopen the library
-        Picam_UninitializeLibrary();
+            // Detect and handle shutdown requests
+            pthread_mutex_lock(&camera->read_mutex);
+            desired_mode = camera->desired_mode;
+            pthread_mutex_unlock(&camera->read_mutex);
+
+            millisleep(500);
+            continue;
+        }
+
+        // Camera found - continue
+        error = PicamAdvanced_OpenCameraDevice(&cameras[0], &handle);
+        if (error != PicamError_None)
+        {
+            print_error("PicamAdvanced_OpenCameraDevice failed", error);
+            continue;
+        }
+        break;
     }
 
     // User has given up waiting for a camera
@@ -123,7 +142,6 @@ static void initialize_camera()
     }
 
     pn_log("Camera available. Initializing...");
-    PicamError error;
     PicamCameraID id;
     Picam_GetCameraID(handle, &id);
 
@@ -287,7 +305,9 @@ static void start_acquiring()
 static void stop_acquiring()
 {
     set_mode(ACQUIRE_STOP);
-    Picam_StopAcquisition(handle);
+    PicamError error = Picam_StopAcquisition(handle);
+    if (error != PicamError_None)
+        print_error("Picam_StopAcquisition failed", error);
 
     // Picam_WaitForAcquisitionUpdate must be called until status.running is false;
     // this is true regardless of acquisition errors or calling Picam_StopAcquisition.
@@ -301,9 +321,9 @@ static void stop_acquiring()
     }
 
     // Keep the shutter closed until we start a sequence
-    PicamError error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
+    error = Picam_SetParameterIntegerValue(handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
     if (error != PicamError_None)
-        pn_log("PicamParameter_ShutterTimingMode failed. Errorcode: %d", error);
+        print_error("PicamParameter_ShutterTimingMode failed", error);
 
     commit_camera_params();
 
@@ -365,7 +385,7 @@ void *pn_picam_camera_thread(void *_unused)
                 // Print errors
                 if (status.errors &= PicamAcquisitionErrorsMask_DataLost)
                     pn_log("Error: Data lost");
-                
+
                 if (status.errors &= PicamAcquisitionErrorsMask_ConnectionLost)
                     pn_log("Error: Camera connection lost");
             }
@@ -385,14 +405,12 @@ void *pn_picam_camera_thread(void *_unused)
 
     // Shutdown camera
     if (camera->mode == ACQUIRING || camera->mode == ACQUIRE_WAIT)
-    {
         stop_acquiring();
-    }
-    
+
     // Close the PICAM lib (which in turn closes the camera)
     if (camera->mode == IDLE)
     {
-        Picam_CloseCamera( handle );
+        PicamAdvanced_CloseCameraDevice(handle);
         Picam_UninitializeLibrary();
         pn_log("PICAM uninitialized");
     }
