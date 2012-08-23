@@ -205,6 +205,101 @@ static void connect_camera()
     }
 }
 
+static void set_readout_port()
+{
+    // Set readout port by constraint index
+    const PicamCollectionConstraint *adc_port_constraint;
+    if (Picam_GetParameterCollectionConstraint(handle, PicamParameter_AdcQuality, PicamConstraintCategory_Required, &adc_port_constraint) != PicamError_None)
+        fatal_error("Error determining AdcSpeed Constraints", __LINE__);
+
+    pn_log("Available Readout Ports:");
+    for (size_t i = 0; i < adc_port_constraint->values_count; i++)
+    {
+        const pichar *value;
+        Picam_GetEnumerationString(PicamEnumeratedType_AdcQuality, adc_port_constraint->values_array[i], &value);
+        pn_log("   %d = %s", i, value);
+        Picam_DestroyString(value);
+    }
+
+    const size_t readport_id = pn_preference_char(CAMERA_READPORT_MODE);
+    if (readport_id < adc_port_constraint->values_count)
+    {
+	piflt readout_port = adc_port_constraint->values_array[readport_id];
+        PicamError error = Picam_SetParameterIntegerValue(handle, PicamParameter_AdcQuality, (piint)(readout_port));
+        if (error != PicamError_None)
+            print_error("Setting Readout Port failed", error);
+    	else
+        {
+            const pichar *value;
+            Picam_GetEnumerationString(PicamEnumeratedType_AdcQuality, readout_port, &value);
+            pn_log("Readout Port set to %s", value);
+            Picam_DestroyString(value);
+        }
+    }
+    else
+        pn_log("Invalid Readout Port requested: %d", readport_id);
+}
+
+static void set_readout_speed()
+{
+    const PicamCollectionConstraint *adc_speed_constraint;
+    if (Picam_GetParameterCollectionConstraint(handle, PicamParameter_AdcSpeed, PicamConstraintCategory_Required, &adc_speed_constraint) != PicamError_None)
+        fatal_error("Error determining AdcSpeed Constraints", __LINE__);
+
+    pn_log("Available Readout Speeds:");
+    for (size_t i = 0; i < adc_speed_constraint->values_count; i++)
+        pn_log("   %d = %0.1f MHz", i, adc_speed_constraint->values_array[i]);
+
+    // Set readout rate by constraint index
+    const size_t readspeed_id = pn_preference_char(CAMERA_READSPEED_MODE);
+    if (readspeed_id < adc_speed_constraint->values_count)
+    {
+	piflt readout_rate = adc_speed_constraint->values_array[readspeed_id];
+        PicamError error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_AdcSpeed, readout_rate);
+        if (error != PicamError_None)
+            print_error("Setting Readout Speed failed", error);
+    	else
+            pn_log("Readout Speed set to %0.1f MHz", readout_rate);
+    }
+    else
+        pn_log("Invalid Readout Speed requested: %d", readspeed_id);
+}
+
+static void set_readout_gain()
+{
+    // Set readout port by constraint index
+    const PicamCollectionConstraint *adc_gain_constraint;
+    if (Picam_GetParameterCollectionConstraint(handle, PicamParameter_AdcAnalogGain, PicamConstraintCategory_Required, &adc_gain_constraint) != PicamError_None)
+        fatal_error("Error determining AdcGain Constraints", __LINE__);
+
+    pn_log("Available Gain Settings:");
+    for (size_t i = 0; i < adc_gain_constraint->values_count; i++)
+    {
+        const pichar *value;
+        Picam_GetEnumerationString(PicamEnumeratedType_AdcAnalogGain, adc_gain_constraint->values_array[i], &value);
+        pn_log("   %d = %s", i, value);
+        Picam_DestroyString(value);
+    }
+
+    const size_t readgain_id = pn_preference_char(CAMERA_GAIN_MODE);
+    if (readgain_id < adc_gain_constraint->values_count)
+    {
+	piflt readout_gain = adc_gain_constraint->values_array[readgain_id];
+        PicamError error = Picam_SetParameterIntegerValue(handle, PicamParameter_AdcAnalogGain, (piint)(readout_gain));
+        if (error != PicamError_None)
+            print_error("Setting Readout Gain failed", error);
+    	else
+        {
+            const pichar *value;
+            Picam_GetEnumerationString(PicamEnumeratedType_AdcAnalogGain, readout_gain, &value);
+            pn_log("Readout Gain set to %s", value);
+            Picam_DestroyString(value);
+        }
+    }
+    else
+        pn_log("Invalid Readout Gain requested: %d", readgain_id);
+}
+
 
 // Initialize PICAM and the camera hardware
 static void initialize_camera()
@@ -256,32 +351,11 @@ static void initialize_camera()
     // Keep the shutter closed until we start a sequence
     set_integer_param(PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
 
-    // Use the low noise digitization port
-    // TODO: Doesn't work - FIXME
-    set_integer_param(PicamParameter_AdcQuality, PicamAdcQuality_LowNoise);
+    set_readout_port();
+    set_readout_speed();
+    set_readout_gain();
 
-    // Set the requested digitization rate in MHz
-    piflt readout_rate = 1; // Default 1MHz
-    switch (pn_preference_char(CAMERA_READOUT_MODE))
-    {
-        case 0: // 100kHz
-            readout_rate = 0.1;
-            break;
-        case 1: // 1MHz
-            readout_rate = 1;
-            break;
-        case 2: // 5MHz
-            readout_rate = 5;
-            break;
-    }
-
-    // TODO: Doesn't work - FIXME
-    error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_AdcSpeed, readout_rate);
-    if (error != PicamError_None)
-       print_error("PicamParameter_AdcSpeed failed", error);
-
-    unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
-    pn_log("Superpixel size: %d", superpixel_size);
+    unsigned char superpixel_size = pn_preference_char(CAMERA_PIXEL_SIZE);
 
     // Get chip dimensions
     const PicamRoisConstraint  *constraint;
@@ -313,6 +387,8 @@ static void initialize_camera()
     roi->height = constraint->height_constraint.maximum;
     roi->x_binning = superpixel_size;
     roi->y_binning = superpixel_size;
+
+    pn_log("Pixel size set to %dx%d", superpixel_size, superpixel_size);
 
     camera->frame_width  = (uint16_t)(constraint->width_constraint.maximum) / superpixel_size;
     camera->frame_height = (uint16_t)(constraint->height_constraint.maximum) / superpixel_size;

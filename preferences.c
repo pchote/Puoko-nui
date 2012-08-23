@@ -48,13 +48,17 @@ PNPreferenceStore prefs[] =
     {SAVE_FRAMES, CHAR, .value.c = false, "SaveFrames: %hhu\n"},
     {OBJECT_TYPE, CHAR, .value.c = OBJECT_TARGET, "ObjectType: %hhu\n"},
     {USE_TIMER_MONITORING, CHAR, .value.c = true, "UseTimerMonitor: %hhu\n"},
-    {SUPERPIXEL_SIZE, CHAR, .value.c = 2, "SuperpixelSize: %hhu\n"},
-    {CAMERA_READOUT_MODE, CHAR, .value.c = 0, "CameraReadoutMode: %hhu\n"},
+
+    {CAMERA_PIXEL_SIZE, CHAR, .value.c = 1, "CameraPixelSize: %hhu\n"},
+    {CAMERA_READPORT_MODE, CHAR, .value.c = 0, "CameraReadoutPortMode: %hhu\n"},
+    {CAMERA_READSPEED_MODE, CHAR, .value.c = 0, "CameraReadoutSpeedMode: %hhu\n"},
+    {CAMERA_GAIN_MODE, CHAR, .value.c = 0, "CameraGainMode: %hhu\n"},
+    {CAMERA_TEMPERATURE, INT, .value.i = -5000, "CameraTemperature: %d\n"},
 
     {RUN_NUMBER, INT, .value.i = 0, "RunNumber: %d\n"},
     {CALIBRATION_DEFAULT_FRAMECOUNT, INT, .value.i = 30, "CalibrationTotalFrames: %d\n"},
     {CALIBRATION_REMAINING_FRAMECOUNT, INT, .value.i = 30, "CalibrationRemainingFrames: %d\n"},
-    {CAMERA_TEMPERATURE, INT, .value.i = -5000, "CameraTemperature: %d\n"},
+
     {ENABLE_OVERSCAN, CHAR, .value.c = true, "EnableOverscan: %d\n"},
     {OVERSCAN_SKIP_COLS, CHAR, .value.c = 24, "SkipCols: %d\n"},
     {OVERSCAN_BIAS_COLS, CHAR, .value.c = 24, "BiasCols: %d\n"},

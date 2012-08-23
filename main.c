@@ -130,7 +130,7 @@ void pn_save_frame(PNFrame *frame)
         char buf[25];
         unsigned char skip = pn_preference_char(OVERSCAN_SKIP_COLS);
         unsigned char bias = pn_preference_char(OVERSCAN_BIAS_COLS);
-        unsigned char superpixel = pn_preference_char(SUPERPIXEL_SIZE);
+        unsigned char superpixel = pn_preference_char(CAMERA_PIXEL_SIZE);
         sprintf(buf, "[%d, %d, %d, %d]", 0, frame->width - (skip + bias)/superpixel, 0, frame->height);
         fits_update_key(fptr, TSTRING, "IMAG-RGN", buf, "Frame image subregion", &status);
 
