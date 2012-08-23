@@ -21,7 +21,8 @@
 #pragma mark Camera Routines (Called from camera thread)
 extern PNCamera *camera;
 extern PNGPS *gps;
-static PicamHandle handle = NULL;
+static PicamHandle device_handle = NULL;
+static PicamHandle model_handle = NULL;
 static pibyte *image_buffer = NULL;
 
 static void fatal_error(const char *msg, int line)
@@ -29,8 +30,8 @@ static void fatal_error(const char *msg, int line)
     asprintf(&camera->fatal_error, "FATAL: %s:%d -- %s\n", __FILE__, line, msg);
 
     // Attempt to die cleanly
-    Picam_StopAcquisition(handle);
-    Picam_CloseCamera(handle);
+    Picam_StopAcquisition(model_handle);
+    PicamAdvanced_CloseCameraDevice(device_handle);
     Picam_UninitializeLibrary();
     pthread_exit(NULL);
 }
@@ -49,7 +50,7 @@ static void print_error(const char *msg, PicamError error)
 
 static void set_integer_param(PicamParameter parameter, piint value)
 {
-    PicamError error = Picam_SetParameterIntegerValue(handle, parameter, value);
+    PicamError error = Picam_SetParameterIntegerValue(model_handle, parameter, value);
     if (error != PicamError_None)
     {
         const pichar *name, *err;
@@ -65,7 +66,7 @@ static void set_integer_param(PicamParameter parameter, piint value)
 static void read_temperature()
 {
     piflt temperature;
-    PicamError error = Picam_ReadParameterFloatingPointValue(handle, PicamParameter_SensorTemperatureReading, &temperature);
+    PicamError error = Picam_ReadParameterFloatingPointValue(model_handle, PicamParameter_SensorTemperatureReading, &temperature);
     if (error != PicamError_None)
         print_error("Temperature Read failed", error);
 
@@ -79,13 +80,13 @@ static void read_temperature()
 static void commit_camera_params()
 {
     pibln all_params_committed;
-    Picam_AreParametersCommitted(handle, &all_params_committed);
+    Picam_AreParametersCommitted(model_handle, &all_params_committed);
 
     if (!all_params_committed)
     {
         const PicamParameter *failed_params = NULL;
         piint failed_param_count = 0;
-        PicamError error = Picam_CommitParameters(handle, &failed_params, &failed_param_count);
+        PicamError error = Picam_CommitParameters(model_handle, &failed_params, &failed_param_count);
         if (error != PicamError_None)
             print_error("Picam_CommitParameters failed", error);
 
@@ -104,12 +105,7 @@ static void commit_camera_params()
         }
         Picam_DestroyParameters(failed_params);
 
-        PicamHandle model;
-        error = PicamAdvanced_GetCameraModel(handle, &model);
-        if (error != PicamError_None)
-            print_error("Failed to get camera model", error);
-
-        if (PicamAdvanced_CommitParametersToCameraDevice(model) != PicamError_None)
+        if (PicamAdvanced_CommitParametersToCameraDevice(model_handle) != PicamError_None)
             pn_log("Advanced parameter commit failed");
     }
 }
@@ -152,6 +148,7 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
     // Check for buffer overrun. Should never happen in practice, but we log this
     // to aid future debugging if it does crop up in the field.
     pibln overran;
+
     PicamError error = PicamAdvanced_HasAcquisitionBufferOverrun(handle, &overran);
     if (error != PicamError_None)
         print_error("Failed to check for acquisition overflow", error);
@@ -194,10 +191,17 @@ static void connect_camera()
             continue;
         }
 
-        error = PicamAdvanced_OpenCameraDevice(&cameras[0], &handle);
+        error = PicamAdvanced_OpenCameraDevice(&cameras[0], &device_handle);
         if (error != PicamError_None)
         {
             print_error("PicamAdvanced_OpenCameraDevice failed", error);
+            continue;
+        }
+
+        error = PicamAdvanced_GetCameraModel(device_handle, &model_handle);
+        if (error != PicamError_None)
+        {
+            print_error("Failed to get camera model", error);
             continue;
         }
 
@@ -209,7 +213,7 @@ static void set_readout_port()
 {
     // Set readout port by constraint index
     const PicamCollectionConstraint *adc_port_constraint;
-    if (Picam_GetParameterCollectionConstraint(handle, PicamParameter_AdcQuality, PicamConstraintCategory_Required, &adc_port_constraint) != PicamError_None)
+    if (Picam_GetParameterCollectionConstraint(model_handle, PicamParameter_AdcQuality, PicamConstraintCategory_Required, &adc_port_constraint) != PicamError_None)
         fatal_error("Error determining AdcSpeed Constraints", __LINE__);
 
     pn_log("Available Readout Ports:");
@@ -225,7 +229,7 @@ static void set_readout_port()
     if (readport_id < adc_port_constraint->values_count)
     {
 	piflt readout_port = adc_port_constraint->values_array[readport_id];
-        PicamError error = Picam_SetParameterIntegerValue(handle, PicamParameter_AdcQuality, (piint)(readout_port));
+        PicamError error = Picam_SetParameterIntegerValue(model_handle, PicamParameter_AdcQuality, (piint)(readout_port));
         if (error != PicamError_None)
             print_error("Setting Readout Port failed", error);
     	else
@@ -243,7 +247,7 @@ static void set_readout_port()
 static void set_readout_speed()
 {
     const PicamCollectionConstraint *adc_speed_constraint;
-    if (Picam_GetParameterCollectionConstraint(handle, PicamParameter_AdcSpeed, PicamConstraintCategory_Required, &adc_speed_constraint) != PicamError_None)
+    if (Picam_GetParameterCollectionConstraint(model_handle, PicamParameter_AdcSpeed, PicamConstraintCategory_Required, &adc_speed_constraint) != PicamError_None)
         fatal_error("Error determining AdcSpeed Constraints", __LINE__);
 
     pn_log("Available Readout Speeds:");
@@ -255,7 +259,7 @@ static void set_readout_speed()
     if (readspeed_id < adc_speed_constraint->values_count)
     {
 	piflt readout_rate = adc_speed_constraint->values_array[readspeed_id];
-        PicamError error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_AdcSpeed, readout_rate);
+        PicamError error = Picam_SetParameterFloatingPointValue(model_handle, PicamParameter_AdcSpeed, readout_rate);
         if (error != PicamError_None)
             print_error("Setting Readout Speed failed", error);
     	else
@@ -269,7 +273,7 @@ static void set_readout_gain()
 {
     // Set readout port by constraint index
     const PicamCollectionConstraint *adc_gain_constraint;
-    if (Picam_GetParameterCollectionConstraint(handle, PicamParameter_AdcAnalogGain, PicamConstraintCategory_Required, &adc_gain_constraint) != PicamError_None)
+    if (Picam_GetParameterCollectionConstraint(model_handle, PicamParameter_AdcAnalogGain, PicamConstraintCategory_Required, &adc_gain_constraint) != PicamError_None)
         fatal_error("Error determining AdcGain Constraints", __LINE__);
 
     pn_log("Available Gain Settings:");
@@ -285,7 +289,7 @@ static void set_readout_gain()
     if (readgain_id < adc_gain_constraint->values_count)
     {
 	piflt readout_gain = adc_gain_constraint->values_array[readgain_id];
-        PicamError error = Picam_SetParameterIntegerValue(handle, PicamParameter_AdcAnalogGain, (piint)(readout_gain));
+        PicamError error = Picam_SetParameterIntegerValue(model_handle, PicamParameter_AdcAnalogGain, (piint)(readout_gain));
         if (error != PicamError_None)
             print_error("Setting Readout Gain failed", error);
     	else
@@ -322,7 +326,7 @@ static void initialize_camera()
 
     pn_log("Camera available. Initializing...");
     PicamCameraID id;
-    Picam_GetCameraID(handle, &id);
+    Picam_GetCameraID(device_handle, &id);
 
     // Query camera model info
     const pichar *string;
@@ -332,7 +336,7 @@ static void initialize_camera()
     Picam_DestroyCameraIDs(&id);
 
     // Set temperature
-    PicamError error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_SensorTemperatureSetPoint, pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
+    PicamError error = Picam_SetParameterFloatingPointValue(model_handle, PicamParameter_SensorTemperatureSetPoint, pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
     if (error != PicamError_None)
         print_error("PicamParameter_SensorTemperatureSetPoint failed", error);
 
@@ -359,12 +363,12 @@ static void initialize_camera()
 
     // Get chip dimensions
     const PicamRoisConstraint  *constraint;
-    if (Picam_GetParameterRoisConstraint(handle, PicamParameter_Rois, PicamConstraintCategory_Required, &constraint) != PicamError_None)
+    if (Picam_GetParameterRoisConstraint(model_handle, PicamParameter_Rois, PicamConstraintCategory_Required, &constraint) != PicamError_None)
         fatal_error("Error determining ROIs Constraint", __LINE__);
 
     // Get region definition
     const PicamRois *region;
-    if (Picam_GetParameterRoisValue(handle, PicamParameter_Rois, &region) != PicamError_None)
+    if (Picam_GetParameterRoisValue(model_handle, PicamParameter_Rois, &region) != PicamError_None)
     {
         Picam_DestroyRoisConstraints(constraint);
         Picam_DestroyRois(region);
@@ -393,7 +397,7 @@ static void initialize_camera()
     camera->frame_width  = (uint16_t)(constraint->width_constraint.maximum) / superpixel_size;
     camera->frame_height = (uint16_t)(constraint->height_constraint.maximum) / superpixel_size;
 
-    if (Picam_SetParameterRoisValue(handle, PicamParameter_Rois, region) != PicamError_None)
+    if (Picam_SetParameterRoisValue(model_handle, PicamParameter_Rois, region) != PicamError_None)
     {
     	Picam_DestroyRoisConstraints(constraint);
         Picam_DestroyRois(region);
@@ -407,7 +411,7 @@ static void initialize_camera()
     // Requires a user specified image buffer to be provided - the interal
     // routines appears to use this parameter to determine the size of the
     // internal buffer to use.
-    error = Picam_SetParameterLargeIntegerValue(handle, PicamParameter_ReadoutCount, 0);
+    error = Picam_SetParameterLargeIntegerValue(model_handle, PicamParameter_ReadoutCount, 0);
     if (error != PicamError_None)
         print_error("PicamParameter_ReadoutCount failed", error);
 
@@ -415,7 +419,7 @@ static void initialize_camera()
     // only one should be required, but we include some overhead to be safe.
     size_t buffer_size = 5;
     piint frame_stride = 0;
-    error = Picam_GetParameterIntegerValue(handle, PicamParameter_ReadoutStride, &frame_stride);
+    error = Picam_GetParameterIntegerValue(model_handle, PicamParameter_ReadoutStride, &frame_stride);
     if (error != PicamError_None)
         print_error("PicamParameter_ReadoutStride failed", error);
 
@@ -429,7 +433,7 @@ static void initialize_camera()
         .memory_size = buffer_size*frame_stride
     };
 
-    error = PicamAdvanced_SetAcquisitionBuffer(handle, &buffer);
+    error = PicamAdvanced_SetAcquisitionBuffer(device_handle, &buffer);
     if (error != PicamError_None)
     {
         print_error("PicamAdvanced_SetAcquisitionBuffer failed", error);
@@ -440,7 +444,7 @@ static void initialize_camera()
     commit_camera_params();
 
     // Register callback for acquisition status change / frame available
-    error = PicamAdvanced_RegisterForAcquisitionUpdated(handle, acquisitionUpdatedCallback);
+    error = PicamAdvanced_RegisterForAcquisitionUpdated(device_handle, acquisitionUpdatedCallback);
     if (error != PicamError_None)
         print_error("PicamAdvanced_RegisterForAcquisitionUpdated failed", error);
 
@@ -460,7 +464,7 @@ static void start_acquiring()
     // Instead, we set an exposure period 20ms shorter than the trigger period,
     // giving the camera a short window to be responsive for the next trigger
     piflt exptime = 1000*pn_preference_char(EXPOSURE_TIME) - 20;
-    error = Picam_SetParameterFloatingPointValue(handle, PicamParameter_ExposureTime, exptime);
+    error = Picam_SetParameterFloatingPointValue(model_handle, PicamParameter_ExposureTime, exptime);
     if (error != PicamError_None)
         print_error("PicamParameter_ExposureTime failed", error);
 
@@ -474,7 +478,7 @@ static void start_acquiring()
     // TODO: This is a nasty hack - FIXME
     millisleep(1000);
 
-    error = Picam_StartAcquisition(handle);
+    error = Picam_StartAcquisition(model_handle);
     if (error != PicamError_None)
     {
         print_error("Picam_StartAcquisition failed", error);
@@ -491,20 +495,20 @@ static void stop_acquiring()
     set_mode(ACQUIRE_STOP);
 
     pibln running;
-    PicamError error = Picam_IsAcquisitionRunning(handle, &running);
+    PicamError error = Picam_IsAcquisitionRunning(model_handle, &running);
     if (error != PicamError_None)
         print_error("Picam_IsAcquisitionRunning failed", error);
 
     if (running)
     {
-        error = Picam_StopAcquisition(handle);
+        error = Picam_StopAcquisition(model_handle);
         if (error != PicamError_None)
             print_error("Picam_StopAcquisition failed", error);
     }
     else
         pn_log("Acquisition sequence already stopped!");
 
-    error = Picam_IsAcquisitionRunning(handle, &running);
+    error = Picam_IsAcquisitionRunning(model_handle, &running);
     if (error != PicamError_None)
         print_error("Picam_IsAcquisitionRunning failed", error);
 
@@ -565,13 +569,13 @@ void *pn_picam_camera_thread(void *_unused)
 
     // Shutdown camera and PICAM
     PicamAcquisitionBuffer buffer = {.memory = NULL, .memory_size = 0};
-    PicamError error = PicamAdvanced_SetAcquisitionBuffer(handle, &buffer);
+    PicamError error = PicamAdvanced_SetAcquisitionBuffer(device_handle, &buffer);
     if (error != PicamError_None)
         print_error("PicamAdvanced_SetAcquisitionBuffer failed", error);
     free(image_buffer);
 
-    PicamAdvanced_UnregisterForAcquisitionUpdated(handle, acquisitionUpdatedCallback);
-    PicamAdvanced_CloseCameraDevice(handle);
+    PicamAdvanced_UnregisterForAcquisitionUpdated(device_handle, acquisitionUpdatedCallback);
+    PicamAdvanced_CloseCameraDevice(device_handle);
     Picam_UninitializeLibrary();
 
     pn_log("Camera uninitialized");
