@@ -8,12 +8,13 @@
 #include <stdarg.h>
 #include "platform.h"
 #include "camera.h"
+#include "gps.h"
 
 #ifndef COMMON_H
 #define COMMON_H
 
-void pn_save_frame(PNFrame *frame);
-void pn_preview_frame(PNFrame *frame);
+void pn_save_frame(PNFrame *frame, PNGPSTimestamp timestamp);
+void pn_preview_frame(PNFrame *frame, PNGPSTimestamp timestamp);
 void pn_log(const char * format, ...);
 
 #endif

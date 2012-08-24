@@ -54,7 +54,7 @@ static void launch_ds9()
 #pragma mark Frame Saving/Preview. Runs in camera thread
 
 // Write frame data to a fits file
-void pn_save_frame(PNFrame *frame)
+void pn_save_frame(PNFrame *frame, PNGPSTimestamp timestamp)
 {
     fitsfile *fptr;
     int status = 0;
@@ -138,22 +138,15 @@ void pn_save_frame(PNFrame *frame)
         fits_update_key(fptr, TSTRING, "BIAS-RGN", buf, "Frame bias subregion", &status);
     }
 
-    // Get the last download pulse time from the gps
-    pthread_mutex_lock(&gps->read_mutex);
-
-    PNGPSTimestamp end = gps->download_timestamp;
-    bool was_valid = end.valid;
-    gps->download_timestamp.valid = false;
-
-    // Invalidate the timestamp if the GPS thread has died
-    if (gps->fatal_error != NULL)
-        was_valid = false;
-
-    pthread_mutex_unlock(&gps->read_mutex);
-
-    // synctime gives the *end* of the exposure. The start of the exposure
-    // is found by subtracting the exposure time
-    PNGPSTimestamp start = pn_timestamp_subtract_seconds(end, exposure_time);
+#ifdef USE_PICAM
+    // Trigger timestamp defines the *start* of the frame
+    PNGPSTimestamp start = timestamp;
+    PNGPSTimestamp end = pn_timestamp_subtract_seconds(timestamp, -exposure_time);
+#else
+    // Trigger timestamp defines the *end* of the frame
+    PNGPSTimestamp start = pn_timestamp_subtract_seconds(timestamp, exposure_time);
+    PNGPSTimestamp end = timestamp;
+#endif
 
     char datebuf[15];
     sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
@@ -168,8 +161,8 @@ void pn_save_frame(PNFrame *frame)
     fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
 
     // The timestamp may not be valid (spurious downloads, etc)
-    if (!was_valid)
-        fits_update_key(fptr, TLOGICAL, "GPS-VALID", &was_valid, "GPS timestamp has been used already", &status);
+    if (!timestamp.valid)
+        fits_update_key(fptr, TLOGICAL, "GPS-VALID", &timestamp.valid, "GPS timestamp has been used already", &status);
 
     time_t pcend = time(NULL);
     time_t pcstart = pcend - exposure_time;
@@ -208,7 +201,7 @@ void pn_save_frame(PNFrame *frame)
 }
 
 // Display a frame in DS9
-void pn_preview_frame(PNFrame *frame)
+void pn_preview_frame(PNFrame *frame, PNGPSTimestamp timestamp)
 {
 #ifdef USE_XPA
     fitsfile *fptr;
@@ -230,13 +223,16 @@ void pn_preview_frame(PNFrame *frame)
     fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
     // Write a message into the OBJECT header for ds9 to display
+#ifdef USE_PICAM
+    char *title = "Exposure starting %04d-%02d-%02d %02d:%02d:%02d";
+#else
+    char *title = "Exposure ending %04d-%02d-%02d %02d:%02d:%02d";
+#endif
+
     char buf[128];
-    pthread_mutex_lock(&gps->read_mutex);
-    PNGPSTimestamp end = gps->download_timestamp;
-    pthread_mutex_unlock(&gps->read_mutex);
-    sprintf(buf, "Exposure ending %04d-%02d-%02d %02d:%02d:%02d",
-            end.year, end.month, end.day,
-            end.hours, end.minutes, end.seconds);
+    sprintf(buf, title,
+            timestamp.year, timestamp.month, timestamp.day,
+            timestamp.hours, timestamp.minutes, timestamp.seconds);
     fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
 
     // Write the frame data to the image
@@ -272,7 +268,7 @@ static bool shutdown = false;
 
 pthread_mutex_t log_mutex;
 FILE *logFile;
-int main( int argc, char *argv[] )
+int main(int argc, char *argv[])
 {
     //
     // Initialization
@@ -386,7 +382,7 @@ void pn_log(const char * format, ...)
     // Construct log line
     char *msgbuf, *linebuf;
     vasprintf(&msgbuf, format, args);
-    asprintf(&linebuf, "[%s.%03ld] %s", timebuf, tv.tv_usec / 1000, msgbuf);
+    asprintf(&linebuf, "[%s.%03d] %s", timebuf, tv.tv_usec / 1000, msgbuf);
     free(msgbuf);
 
     // Log to file

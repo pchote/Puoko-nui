@@ -57,24 +57,32 @@ void set_mode(PNCameraMode mode)
 // Decide what to do with an acquired frame
 void frame_downloaded(PNFrame *frame)
 {
-    // When starting a run, the first frame will not be exposed
-    // for the correct time, so we discard it
+    pthread_mutex_lock(&gps->read_mutex);
+    PNGPSTimestamp timestamp = gps->download_timestamp;
+    pthread_mutex_unlock(&gps->read_mutex);
+    camera->first_frame = false;
+
+#ifdef USE_PVCAM
+    // PVCAM triggers end the frame, and so the first frame
+    // will consist of the sync and align time period.
+    // Discard this frame.
     if (camera->first_frame)
     {
         pn_log("Discarding first frame");
         camera->first_frame = false;
         return;
     }
+#endif
 
     pn_log("Frame downloaded");
     if (pn_preference_char(SAVE_FRAMES))
     {
-        pn_save_frame(frame);
+        pn_save_frame(frame, timestamp);
         pn_preference_increment_framecount();
     }
 
     // Display the frame in ds9
-    pn_preview_frame(frame);
+    pn_preview_frame(frame, timestamp);
 }
 
 #pragma mark Simulated Camera Routines
