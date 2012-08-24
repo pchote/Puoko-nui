@@ -55,6 +55,7 @@ typedef struct
     uint16_t frame_width;
     uint16_t frame_height;
     float temperature;
+    float readout_time;
     char *fatal_error;
     bool first_frame;
 

@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <ctype.h>
+#include <math.h>
 
 #if (defined _WIN32 || defined _WIN64)
     #include <ncurses/ncurses.h>
@@ -473,6 +474,7 @@ static void update_input_window()
 
 PNCameraMode last_camera_mode;
 float last_camera_temperature;
+float last_camera_readout_time;
 int last_calibration_framecount;
 int last_run_number;
 int last_camera_downloading;
@@ -512,8 +514,11 @@ void pn_ui_run()
     frametype_panel = new_panel(frametype_window);
 
     // Set initial state
+    pthread_mutex_lock(&camera->read_mutex);
     last_camera_mode = camera->mode;
     last_camera_temperature = camera->temperature;
+    last_camera_readout_time = camera->readout_time;
+    pthread_mutex_unlock(&camera->read_mutex);
 
     update_log_window();
     update_status_window(last_camera_mode);
@@ -568,7 +573,23 @@ void pn_ui_run()
         pthread_mutex_lock(&camera->read_mutex);
         PNCameraMode camera_mode = camera->mode;
         float camera_temperature = camera->temperature;
+        float camera_readout_time = camera->readout_time;
         pthread_mutex_unlock(&camera->read_mutex);
+
+        // Check that the exposure time is greater than
+        // the camera readout, and change if necessary
+        if (camera_readout_time != last_camera_readout_time)
+        {
+            unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
+            if (exposure_time < camera_readout_time)
+            {
+	        unsigned char new_exposure = (unsigned char)(ceil(camera_readout_time));
+                pn_preference_set_char(EXPOSURE_TIME, new_exposure);
+	        pn_log("Increasing exposure time to %d seconds", new_exposure);
+                update_acquisition_window();
+            }
+            last_camera_readout_time = camera_readout_time;
+        }
 
         pthread_mutex_lock(&gps->read_mutex);
         int camera_downloading = gps->camera_downloading;
@@ -648,8 +669,7 @@ void pn_ui_run()
                                 camera->desired_mode = ACQUIRING;
                                 pthread_mutex_unlock(&camera->read_mutex);
 
-                                unsigned char exptime = pn_preference_char(EXPOSURE_TIME);
-                                pn_gps_start_exposure(exptime);
+                                pn_gps_start_exposure(pn_preference_char(EXPOSURE_TIME));
                             }
                             else if (camera_mode == ACQUIRING)
                             {
@@ -770,9 +790,14 @@ void pn_ui_run()
                         if (input_type == INPUT_EXPOSURE)
                         {
                             unsigned char oldexp = pn_preference_char(EXPOSURE_TIME);
-                            if (new < 3 || new > 255)
+                            if (new < camera_readout_time || new > 255)
                             {
                                 // Invalid entry
+                                if (new < camera_readout_time)
+                                    pn_log("Minimum exposure: %.2f seconds", camera_readout_time);
+                                else
+                                    pn_log("Maximum exposure: 255 seconds");
+
                                 input_entry_length = sprintf(input_entry_buf, "%d", oldexp);
                             }
                             else

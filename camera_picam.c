@@ -304,6 +304,21 @@ static void set_readout_gain()
         pn_log("Invalid Readout Gain requested: %d", readgain_id);
 }
 
+static void calculate_readout_time()
+{
+    // Query readout time - this determines the minimum allowable exposure time
+    piflt readout_time;
+    PicamError error = Picam_GetParameterFloatingPointValue(model_handle, PicamParameter_ReadoutTimeCalculation, &readout_time);
+    if (error != PicamError_None)
+        print_error("Temperature Read failed", error);
+
+    // Convert to seconds
+    readout_time /= 1000;
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->readout_time = readout_time;
+    pn_log("Frame Readout: %.2f seconds", readout_time);
+    pthread_mutex_unlock(&camera->read_mutex);
+}
 
 // Initialize PICAM and the camera hardware
 static void initialize_camera()
@@ -406,6 +421,8 @@ static void initialize_camera()
 
     Picam_DestroyRoisConstraints(constraint);
     Picam_DestroyRois(region);
+
+    calculate_readout_time();
 
     // Continue exposing until explicitly stopped or error
     // Requires a user specified image buffer to be provided - the interal
