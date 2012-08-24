@@ -180,7 +180,7 @@ static void update_acquisition_window()
 {
     PNFrameType type = pn_preference_char(OBJECT_TYPE);
     unsigned char exptime = pn_preference_char(EXPOSURE_TIME);
-    int remaining_frames = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
+    int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
     char *run_prefix = pn_preference_string(RUN_PREFIX);
     int run_number = pn_preference_int(RUN_NUMBER);
 
@@ -373,7 +373,7 @@ static void update_command_window(PNCameraMode camera_mode)
 
     PNFrameType type = pn_preference_char(OBJECT_TYPE);
     unsigned char save = pn_preference_char(SAVE_FRAMES);
-    int remaining_frames = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
+    int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
 
     // Acquire toggle
     if (camera_mode == IDLE || camera_mode == ACQUIRING)
@@ -766,7 +766,7 @@ void pn_ui_run()
                         case 0x04: // ^D - Countdown
                             input_type = INPUT_COUNTDOWN_NUMBER;
 
-                            input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT));
+                            input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(CALIBRATION_COUNTDOWN));
                             set_input_window_msg("Countdown #: ");
                             is_input = true;
                             break;
@@ -840,7 +840,7 @@ void pn_ui_run()
                         }
                         else if (input_type == INPUT_COUNTDOWN_NUMBER)
                         {
-                            unsigned char oldcount = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
+                            unsigned char oldcount = pn_preference_int(CALIBRATION_COUNTDOWN);
                             if (new < 0)
                             {
                                 // Invalid entry
@@ -855,7 +855,7 @@ void pn_ui_run()
                                 if (oldcount != new)
                                 {
                                     // Update preferences
-                                    pn_preference_set_int(CALIBRATION_REMAINING_FRAMECOUNT, new);
+                                    pn_preference_set_int(CALIBRATION_COUNTDOWN, new);
                                     update_acquisition_window();
                                     update_status_window(camera_mode);
                                     update_command_window(camera_mode);
@@ -993,7 +993,7 @@ void pn_ui_run()
             last_camera_temperature = camera_temperature;
         }
 
-        int remaining_frames = pn_preference_int(CALIBRATION_REMAINING_FRAMECOUNT);
+        int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
         int run_number = pn_preference_int(RUN_NUMBER);
         if (remaining_frames != last_calibration_framecount ||
             run_number != last_run_number)

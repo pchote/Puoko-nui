@@ -37,31 +37,30 @@ typedef struct
 PNPreferenceStore prefs[] =
 {
     // Key, Default value, Output format
-    {OUTPUT_DIR, STRING, .value.s = "/home/sullivan/", "OutputDir: %s\n"},
-    {RUN_PREFIX, STRING, .value.s = "run", "RunPrefix: %s\n"},
-    {OBJECT_NAME, STRING, .value.s = "ec20058", "ObjectName: %s\n"},
-    {OBSERVERS, STRING, .value.s = "DJS, PC", "Observers: %s\n"},
-    {OBSERVATORY, STRING, .value.s = "MJUO", "Observatory: %s\n"},
-    {TELESCOPE, STRING, .value.s = "MJUO 1-meter", "Telescope: %s\n"},
+    {OUTPUT_DIR,  STRING, .value.s = "/home/sullivan/", "OutputDir: %s\n"},
+    {RUN_PREFIX,  STRING, .value.s = "run",             "RunPrefix: %s\n"},
+    {OBJECT_NAME, STRING, .value.s = "ec20058",         "ObjectName: %s\n"},
+    {OBSERVERS,   STRING, .value.s = "DJS, PC",         "Observers: %s\n"},
+    {OBSERVATORY, STRING, .value.s = "MJUO",            "Observatory: %s\n"},
+    {TELESCOPE,   STRING, .value.s = "MJUO 1-meter",    "Telescope: %s\n"},
 
-    {EXPOSURE_TIME, CHAR, .value.c = 5, "ExposureTime: %hhu\n"},
-    {SAVE_FRAMES, CHAR, .value.c = false, "SaveFrames: %hhu\n"},
-    {OBJECT_TYPE, CHAR, .value.c = OBJECT_TARGET, "ObjectType: %hhu\n"},
-    {USE_TIMER_MONITORING, CHAR, .value.c = true, "UseTimerMonitor: %hhu\n"},
+    {EXPOSURE_TIME,             CHAR, .value.c = 5,     "ExposureTime: %hhu\n"},
+    {SAVE_FRAMES,               CHAR, .value.c = false, "SaveFrames: %hhu\n"},
+    {OBJECT_TYPE,               CHAR, .value.c = OBJECT_TARGET, "ObjectType: %hhu\n"},
+    {RUN_NUMBER,                INT,  .value.i = 0,     "RunNumber: %d\n"},
+    {CALIBRATION_COUNTDOWN,     INT, .value.i = 30,     "CalibrationRemainingFrames: %d\n"},
 
-    {CAMERA_PIXEL_SIZE, CHAR, .value.c = 1, "CameraPixelSize: %hhu\n"},
-    {CAMERA_READPORT_MODE, CHAR, .value.c = 0, "CameraReadoutPortMode: %hhu\n"},
-    {CAMERA_READSPEED_MODE, CHAR, .value.c = 0, "CameraReadoutSpeedMode: %hhu\n"},
-    {CAMERA_GAIN_MODE, CHAR, .value.c = 0, "CameraGainMode: %hhu\n"},
-    {CAMERA_TEMPERATURE, INT, .value.i = -5000, "CameraTemperature: %d\n"},
+    {TIMER_MONITOR_LOGIC_OUT,   CHAR, .value.c = true,  "TimerMonitorLogicOut: %hhu\n"},
 
-    {RUN_NUMBER, INT, .value.i = 0, "RunNumber: %d\n"},
-    {CALIBRATION_DEFAULT_FRAMECOUNT, INT, .value.i = 30, "CalibrationTotalFrames: %d\n"},
-    {CALIBRATION_REMAINING_FRAMECOUNT, INT, .value.i = 30, "CalibrationRemainingFrames: %d\n"},
+    {CAMERA_PIXEL_SIZE,         CHAR, .value.c = 1,     "CameraPixelSize: %hhu\n"},
+    {CAMERA_READPORT_MODE,      CHAR, .value.c = 0,     "CameraReadoutPortMode: %hhu\n"},
+    {CAMERA_READSPEED_MODE,     CHAR, .value.c = 0,     "CameraReadoutSpeedMode: %hhu\n"},
+    {CAMERA_GAIN_MODE,          CHAR, .value.c = 0,     "CameraGainMode: %hhu\n"},
+    {CAMERA_TEMPERATURE,        INT,  .value.i = -5000, "CameraTemperature: %d\n"},
 
-    {ENABLE_OVERSCAN, CHAR, .value.c = true, "EnableOverscan: %d\n"},
-    {OVERSCAN_SKIP_COLS, CHAR, .value.c = 24, "SkipCols: %d\n"},
-    {OVERSCAN_BIAS_COLS, CHAR, .value.c = 24, "BiasCols: %d\n"},
+    {CAMERA_OVERSCAN_ENABLED,   CHAR, .value.c = false, "CameraOverscanEnabled: %d\n"},
+    {CAMERA_OVERSCAN_SKIP_COLS, CHAR, .value.c = 24,    "CameraOverscanSkipCols: %d\n"},
+    {CAMERA_OVERSCAN_BIAS_COLS, CHAR, .value.c = 24,    "CameraOverscanBiasCols: %d\n"},
 };
 int pref_count = sizeof(prefs) / sizeof(prefs[0]);
 
@@ -175,12 +174,12 @@ void pn_preference_increment_framecount()
 
     // Decrement the calibration frame count if applicable
     if (prefs[OBJECT_TYPE].value.c != OBJECT_TARGET &&
-        prefs[CALIBRATION_REMAINING_FRAMECOUNT].value.i > 0)
+        prefs[CALIBRATION_COUNTDOWN].value.i > 0)
     {
-        prefs[CALIBRATION_REMAINING_FRAMECOUNT].value.i--;
+        prefs[CALIBRATION_COUNTDOWN].value.i--;
 
         // Disable saving
-        if (prefs[CALIBRATION_REMAINING_FRAMECOUNT].value.i == 0)
+        if (prefs[CALIBRATION_COUNTDOWN].value.i == 0)
             prefs[SAVE_FRAMES].value.c = false;
     }
     save();
@@ -202,7 +201,7 @@ unsigned char pn_preference_allow_save()
 {
     pthread_mutex_lock(&access_mutex);
     unsigned char ret = (prefs[OBJECT_TYPE].value.c == OBJECT_TARGET ||
-                         prefs[CALIBRATION_REMAINING_FRAMECOUNT].value.i > 0);
+                         prefs[CALIBRATION_COUNTDOWN].value.i > 0);
     pthread_mutex_unlock(&access_mutex);
     return ret;
 }

@@ -159,14 +159,14 @@ static void start_acquiring()
     unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
     pn_log("Superpixel size: %d", superpixel_size);
 
-    if (pn_preference_char(ENABLE_OVERSCAN))
+    if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
     {
         // Enable custom chip so we can add a bias strip
         if (!pl_set_param(handle, PARAM_CUSTOM_CHIP, (void*) &(rs_bool){TRUE}))
             pvcam_error("Error setting PARAM_CUSTOM_CHIP", __LINE__);
 
         // Increase frame width by the requested amount
-        camera->frame_width += pn_preference_char(OVERSCAN_SKIP_COLS) + pn_preference_char(OVERSCAN_BIAS_COLS);
+        camera->frame_width += pn_preference_char(CAMERA_OVERSCAN_SKIP_COLS) + pn_preference_char(CAMERA_OVERSCAN_BIAS_COLS);
         if (!pl_set_param(handle, PARAM_SER_SIZE, (void*) &(uns16){camera->frame_width}))
             pvcam_error("Error setting PARAM_SER_SIZE", __LINE__);
 

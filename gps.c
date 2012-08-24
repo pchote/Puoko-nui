@@ -457,7 +457,7 @@ void pn_gps_start_exposure(unsigned char exptime)
         gps->simulated_remaining = gps->simulated_exptime = exptime;
     else
     {
-        unsigned char simulate_camera = camera->simulated || !pn_preference_char(USE_TIMER_MONITORING);
+        unsigned char simulate_camera = camera->simulated || !pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
         if (simulate_camera)
             pn_log("WARNING: USING SIMULATED CAMERA STATUS");
 
