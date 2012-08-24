@@ -17,6 +17,12 @@
 
 #pragma mark Creation and Destruction (Called from main thread)
 
+struct PNGPSTimestampQueue
+{
+    PNGPSTimestamp timestamp;
+    struct PNGPSTimestampQueue *next;
+};
+
 // Initialize a new PNGPS struct.
 PNGPS pn_gps_new()
 {
@@ -25,8 +31,7 @@ PNGPS pn_gps_new()
     ret.shutdown = false;
     ret.current_timestamp.valid = false;
     ret.current_timestamp.locked = false;
-    ret.download_timestamp.valid = false;
-    ret.download_timestamp.locked = false;
+    ret.trigger_queue = NULL;
     ret.send_length = 0;
     ret.simulated = false;
     ret.camera_downloading = 0;
@@ -201,6 +206,9 @@ static void uninitialize_timer()
 static void log_raw_data(unsigned char *data, int len)
 {
     char *msg = (char *)malloc((3*len+1)*sizeof(char));
+    if (msg == NULL)
+        gps_error("Memory allocation error");
+
     for (unsigned char i = 0; i < len; i++)
         sprintf(msg+3*i, "%02x ", data[i]);
     pn_log(msg);
@@ -311,6 +319,7 @@ void *pn_timer_thread(void *_unused)
         switch(gps_packet_type)
         {
             case CURRENTTIME:
+            {
                 pthread_mutex_lock(&gps->read_mutex);
                 gps->current_timestamp = (PNGPSTimestamp)
                 {
@@ -325,12 +334,11 @@ void *pn_timer_thread(void *_unused)
                     .valid = true
                 };
                 pthread_mutex_unlock(&gps->read_mutex);
-                // PNGPSTimestamp *t = &gps->download_timestamp;
-                // pn_log("Time: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
-            break;
+                break;
+            }
             case DOWNLOADTIME:
-                pthread_mutex_lock(&gps->read_mutex);
-                gps->download_timestamp = (PNGPSTimestamp)
+            {
+                PNGPSTimestamp t = (PNGPSTimestamp)
                 {
                     .year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00),
                     .month = data[4],
@@ -341,31 +349,43 @@ void *pn_timer_thread(void *_unused)
                     .locked = data[7],
                     .valid = true
                 };
-                PNGPSTimestamp *t = &gps->download_timestamp;
-                pn_log("Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
+                pn_log("Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t.year, t.month, t.day, t.hours, t.minutes, t.seconds, t.locked);
+                pn_gps_push_trigger(t);
 
                 // Mark the camera as downloading for UI feedback and shutdown purposes
+                pthread_mutex_lock(&gps->read_mutex);
                 gps->camera_downloading = true;
                 pthread_mutex_unlock(&gps->read_mutex);
-            break;
+                break;
+            }
             case DOWNLOADCOMPLETE:
+            {
                 pthread_mutex_lock(&gps->read_mutex);
                 gps->camera_downloading = false;
                 pthread_mutex_unlock(&gps->read_mutex);
-            break;
+                break;
+            }
             case DEBUG_STRING:
+            {
                 gps_packet[gps_packet_length - 3] = '\0';
                 pn_log("GPS Debug: `%s`", data);
-            break;
+                break;
+            }
             case DEBUG_RAW:
+            {
                 log_raw_data(data, data_length);
-            break;
+                break;
+            }
             case STOP_EXPOSURE:
+            {
                 pn_log("Timer reports safe to shutdown camera");
                 shutdown_camera();
-            break;
+                break;
+            }
             default:
+            {
                 pn_log("Unknown packet type %02x", gps_packet_type);
+            }
         }
 
     resetpacket:
@@ -396,7 +416,7 @@ void *pn_simulated_timer_thread(void *unused)
         time_t cur_unixtime = time(NULL);
         if (cur_unixtime != last_unixtime)
         {
-            struct tm *t = gmtime(&cur_unixtime);
+            struct tm *pc_time = gmtime(&cur_unixtime);
             if (gps->simulated_exptime > 0)
                 gps->simulated_remaining -= (int)(cur_unixtime - last_unixtime);
 
@@ -404,39 +424,40 @@ void *pn_simulated_timer_thread(void *unused)
             if (gps->simulated_remaining <= 0 && gps->simulated_exptime > 0)
             {
                 gps->simulated_remaining = gps->simulated_exptime;
-                pthread_mutex_lock(&gps->read_mutex);
-                gps->download_timestamp.year = t->tm_year + 1900;
-                gps->download_timestamp.month = t->tm_mon;
-                gps->download_timestamp.day = t->tm_wday;
-                gps->download_timestamp.hours = t->tm_hour;
-                gps->download_timestamp.minutes = t->tm_min;
-                gps->download_timestamp.seconds = t->tm_sec;
-                gps->download_timestamp.locked = 1;
-                gps->download_timestamp.remaining_exposure = 0;
-                gps->download_timestamp.valid = true;
-                pn_log("Simulated Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)",
-                       gps->download_timestamp.year, // Year
-                       gps->download_timestamp.month,   // Month
-                       gps->download_timestamp.day,   // Day
-                       gps->download_timestamp.hours,   // Hour
-                       gps->download_timestamp.minutes,   // Minute
-                       gps->download_timestamp.seconds,   // Second
-                       gps->download_timestamp.locked); // Locked
+                PNGPSTimestamp t = (PNGPSTimestamp)
+                {
+                    .year = pc_time->tm_year + 1900,
+                    .month = pc_time->tm_mon,
+                    .day = pc_time->tm_wday,
+                    .hours = pc_time->tm_hour,
+                    .minutes = pc_time->tm_min,
+                    .seconds = pc_time->tm_sec,
+                    .locked = 1,
+                    .remaining_exposure = 0,
+                    .valid = true
+                };
+                pn_log("Simulated Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t.year, t.month, t.day, t.hours, t.minutes, t.seconds, t.locked);
+                pn_gps_push_trigger(t);
 
+                pthread_mutex_lock(&gps->read_mutex);
                 gps->camera_downloading = true;
                 pthread_mutex_unlock(&gps->read_mutex);
             }
 
             pthread_mutex_lock(&gps->read_mutex);
-            gps->current_timestamp.year = t->tm_year + 1900;
-            gps->current_timestamp.month = t->tm_mon;
-            gps->current_timestamp.day = t->tm_wday;
-            gps->current_timestamp.hours = t->tm_hour;
-            gps->current_timestamp.minutes = t->tm_min;
-            gps->current_timestamp.seconds = t->tm_sec;
-            gps->current_timestamp.locked = 1;
-            gps->current_timestamp.remaining_exposure = gps->simulated_remaining;
-            gps->current_timestamp.valid = true;
+            gps->current_timestamp = (PNGPSTimestamp)
+            {
+                .year = pc_time->tm_year + 1900,
+                .month = pc_time->tm_mon,
+                .day = pc_time->tm_wday,
+                .hours = pc_time->tm_hour,
+                .minutes = pc_time->tm_min,
+                .seconds = pc_time->tm_sec,
+                .locked = 1,
+                .remaining_exposure = gps->simulated_remaining,
+                .valid = true
+            };
+
             pthread_mutex_unlock(&gps->read_mutex);
 
             last_unixtime = cur_unixtime;
@@ -495,3 +516,52 @@ PNGPSTimestamp pn_timestamp_subtract_seconds(PNGPSTimestamp ts, int seconds)
     return ret;
 }
 
+/*
+ * Add a timestamp to the trigger timestamp queue
+ */
+void pn_gps_push_trigger(PNGPSTimestamp timestamp)
+{
+    struct PNGPSTimestampQueue *tail = malloc(sizeof(struct PNGPSTimestampQueue));
+    if (tail == NULL)
+        gps_error("Memory allocation error");
+
+    tail->timestamp = timestamp;
+    tail->next = NULL;
+
+    pthread_mutex_lock(&gps->read_mutex);
+    // Empty queue
+    if (gps->trigger_queue == NULL)
+        gps->trigger_queue = tail;
+    else
+    {
+        // Find tail of queue - queue is assumed to be short
+        struct PNGPSTimestampQueue *item = gps->trigger_queue;
+        while (item->next != NULL)
+            item = item->next;
+        item->next = tail;
+    }
+    pthread_mutex_unlock(&gps->read_mutex);
+}
+
+/*
+ * Fetch the first timestamp from the trigger timestamp queue
+ */
+PNGPSTimestamp pn_gps_pop_trigger()
+{
+    // No timestamps in queue
+    if (gps->trigger_queue == NULL)
+    {
+        pn_log("No trigger timestamp available");
+        return (PNGPSTimestamp) {.valid = false};
+    }
+
+    // Pop the head timestamp from the trigger queue
+    pthread_mutex_lock(&gps->read_mutex);
+    struct PNGPSTimestampQueue *head = gps->trigger_queue;
+    gps->trigger_queue = gps->trigger_queue->next;
+    pthread_mutex_unlock(&gps->read_mutex);
+
+    PNGPSTimestamp ts = head->timestamp;
+    free(head);
+    return ts;
+}

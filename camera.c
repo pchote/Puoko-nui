@@ -57,9 +57,7 @@ void set_mode(PNCameraMode mode)
 // Decide what to do with an acquired frame
 void frame_downloaded(PNFrame *frame)
 {
-    pthread_mutex_lock(&gps->read_mutex);
-    PNGPSTimestamp timestamp = gps->download_timestamp;
-    pthread_mutex_unlock(&gps->read_mutex);
+    PNGPSTimestamp timestamp = pn_gps_pop_trigger();
     camera->first_frame = false;
 
 #ifdef USE_PVCAM

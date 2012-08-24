@@ -148,21 +148,22 @@ void pn_save_frame(PNFrame *frame, PNGPSTimestamp timestamp)
     PNGPSTimestamp end = timestamp;
 #endif
 
-    char datebuf[15];
-    sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
-    fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
+    if (timestamp.valid)
+    {
+        char datebuf[15];
+        sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
+        fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
 
-    char gpstimebuf[15];
-    sprintf(gpstimebuf, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
-    fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
+        char gpstimebuf[15];
+        sprintf(gpstimebuf, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
+        fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
 
-    sprintf(gpstimebuf, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
-    fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
-    fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
-
-    // The timestamp may not be valid (spurious downloads, etc)
-    if (!timestamp.valid)
-        fits_update_key(fptr, TLOGICAL, "GPS-VALID", &timestamp.valid, "GPS timestamp has been used already", &status);
+        sprintf(gpstimebuf, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
+        fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
+        fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
+    }
+    else
+        fits_update_key(fptr, TLOGICAL, "GPS-VALID", &timestamp.valid, "GPS timestamp unavailable", &status);
 
     time_t pcend = time(NULL);
     time_t pcstart = pcend - exposure_time;

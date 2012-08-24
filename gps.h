@@ -58,7 +58,7 @@ typedef struct
     struct ftdi_context *context;
     bool shutdown;
     PNGPSTimestamp current_timestamp;
-    PNGPSTimestamp download_timestamp;
+    struct PNGPSTimestampQueue *trigger_queue;
     int camera_downloading;
     pthread_mutex_t read_mutex;
 
@@ -75,5 +75,7 @@ void *pn_simulated_timer_thread(void *);
 void pn_gps_start_exposure(unsigned char exptime);
 void pn_gps_stop_exposure();
 PNGPSTimestamp pn_timestamp_subtract_seconds(PNGPSTimestamp ts, int seconds);
+void pn_gps_push_trigger(PNGPSTimestamp timestamp);
+PNGPSTimestamp pn_gps_pop_trigger();
 
 #endif
