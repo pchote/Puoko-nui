@@ -490,11 +490,6 @@ static void start_acquiring()
 
     commit_camera_params();
 
-    // Add a delay to allow the timer to catch the camera ready
-    // level transition.
-    // TODO: This is a nasty hack - FIXME
-    millisleep(1000);
-
     error = Picam_StartAcquisition(model_handle);
     if (error != PicamError_None)
     {
