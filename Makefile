@@ -1,7 +1,10 @@
-#CAMERA_TYPE := NONE
+CAMERA_TYPE := NONE
 #CAMERA_TYPE := PVCAM
-CAMERA_TYPE := PICAM
-USE_XPA := YES
+#CAMERA_TYPE := PICAM
+#XPA_TYPE := API
+XPA_TYPE := EXTERNAL
+#XPA_TYPE := NONE
+
 
 CC = gcc
 CFLAGS = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
@@ -34,9 +37,13 @@ ifeq ($(CAMERA_TYPE),PICAM)
     endif
 endif
 
-ifeq ($(USE_XPA),YES)
-    CFLAGS += -DUSE_XPA
+ifeq ($(XPA_TYPE),API)
+    CFLAGS += -DUSE_XPA_API
     LFLAGS += -lxpa
+endif
+
+ifeq ($(XPA_TYPE),EXTERNAL)
+    CFLAGS += -DUSE_XPA_EXTERNAL
 endif
 
 ifeq ($(MSYSTEM),MINGW32)
