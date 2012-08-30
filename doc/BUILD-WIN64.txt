@@ -37,6 +37,7 @@ Run msys.bat and execute
 $ cd /mingw/bin
 $ for i in `ls x86_64-w64-mingw32-*`; do cp "$i" "${i:19}"; done
 
+TODO: Cover installing pthreads
 
 ==================== DOWNLOAD PUOKO-NUI CODE ====================
 Check out a copy of the code using git (if you have it installed, which I won't cover here)
@@ -54,6 +55,7 @@ c:\mingw\msys\home\<USERNAME>\puoko-nui
 
 Following references to <puoko-nui> means this directory
 
+TODO: Cover new proem branch, and updating makefile to point at ftdi, cfitsio, ncurses
 
 ==================== BUILD DEPENDENCIES ====================
 Download 64-bit libftdi binaries from
@@ -68,7 +70,7 @@ Download ncurses source from
 http://ftp.gnu.org/pub/gnu/ncurses/ncurses-5.9.tar.gz
 
 Compile with
-$ configure --enable-term-driver --enable-sp-funcs --prefix=c:/mingw/msys/home/<USERNAME>/puoko-nui/ncurses
+$ configure --enable-term-driver --enable-sp-funcs --without-cxx-binding --without-ada --without-manpages --without-tests --disable-ext-mouse --prefix=c:/mingw/msys/home/<USERNAME>/puoko-nui/ncurses
 $ make
 $ make install
 
