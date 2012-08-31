@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "imagehandler.h"
 
 #ifndef CAMERA_H
 #define CAMERA_H
@@ -34,14 +35,6 @@ typedef enum
     ACQUIRE_STOP,
     SHUTDOWN,
 } PNCameraMode;
-
-// Represents an aquired frame
-typedef struct
-{
-    uint16_t width;
-    uint16_t height;
-    uint16_t *data; // Pointer to the start of the frame data
-} PNFrame;
 
 // Holds the state of a camera
 typedef struct

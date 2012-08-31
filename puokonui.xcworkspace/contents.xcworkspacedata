@@ -20,6 +20,12 @@
       location = "group:main.c">
    </FileRef>
    <FileRef
+      location = "group:imagehandler.c">
+   </FileRef>
+   <FileRef
+      location = "group:imagehandler.h">
+   </FileRef>
+   <FileRef
       location = "group:Makefile">
    </FileRef>
    <FileRef

@@ -9,7 +9,7 @@ XPA_TYPE := EXTERNAL
 CC = gcc
 CFLAGS = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
 LFLAGS = -lpanel -lncurses -lcfitsio -lpthread -lftdi -lm
-SRC = main.c camera.c gps.c preferences.c ui.c platform.c
+SRC = main.c camera.c gps.c preferences.c ui.c imagehandler.c platform.c
 
 ifeq ($(CAMERA_TYPE),PVCAM)
 	CFLAGS += -DUSE_PVCAM
