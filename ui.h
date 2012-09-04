@@ -5,6 +5,8 @@
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
 
+#include <stdbool.h>
+
 #ifndef UI_H
 #define UI_H
 
@@ -25,6 +27,8 @@ typedef enum
 
 void init_log_gui();
 void add_log_line(char *msg);
-void pn_ui_run();
+void pn_ui_new();
+bool pn_ui_update();
+void pn_ui_free();
 
 #endif

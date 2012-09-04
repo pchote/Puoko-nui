@@ -101,9 +101,18 @@ int main(int argc, char *argv[])
     camera_thread_initialized = true;
 
     //
-    // Main program loop is run by the ui code
+    // Main program loop
     //
-    pn_ui_run();
+    pn_ui_new();
+
+    for (;;)
+    {
+        bool request_shutdown = pn_ui_update();
+        if (request_shutdown)
+            break;
+    }
+
+    pn_ui_free();
 
     //
     // Shutdown hardware and cleanup

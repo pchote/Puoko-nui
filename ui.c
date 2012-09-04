@@ -479,7 +479,8 @@ int last_calibration_framecount;
 int last_run_number;
 int last_camera_downloading;
 PNUIInputType input_type = INPUT_MAIN;
-void pn_ui_run()
+
+void pn_ui_new()
 {
     initscr();
     noecho();
@@ -539,487 +540,490 @@ void pn_ui_run()
     // Only wait for 100ms for input so we can keep the ui up to date
     // *and* respond timely to input
     timeout(100);
-    for (;;)
+}
+
+bool pn_ui_update()
+{
+    int ch = ERR;
+    if (camera->fatal_error != NULL || gps->fatal_error != NULL)
     {
-        int ch = ERR;
-        if (camera->fatal_error != NULL || gps->fatal_error != NULL)
+        char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps->fatal_error;
+        pn_log("Fatal error: %s", msg);
+
+        WINDOW *error_window = create_error_window(msg);
+        PANEL *error_panel = new_panel(error_window);
+        int row,col;
+        getmaxyx(stdscr, row, col);
+        timeout(250);
+
+
+        // Blink the screen annoyingly fast to grab attention until a key is pressed
+        while (ch == ERR)
         {
-            char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps->fatal_error;
-            pn_log("Fatal error: %s", msg);
-
-            WINDOW *error_window = create_error_window(msg);
-            PANEL *error_panel = new_panel(error_window);
-            int row,col;
-            getmaxyx(stdscr, row, col);
-            timeout(250);
-
-
-            // Blink the screen annoyingly fast to grab attention until a key is pressed
-            while (ch == ERR)
-            {
-                flash();
-                update_panels();
-                doupdate();
-                move(row-1, col-1);
-                ch = getch();
-            }
-            del_panel(error_panel);
-            delwin(error_window);
-
-            break;
-        }
-
-        // Read once at the start of the loop so values remain consistent
-        pthread_mutex_lock(&camera->read_mutex);
-        PNCameraMode camera_mode = camera->mode;
-        float camera_temperature = camera->temperature;
-        float camera_readout_time = camera->readout_time;
-        pthread_mutex_unlock(&camera->read_mutex);
-
-        // Check that the exposure time is greater than
-        // the camera readout, and change if necessary
-        if (camera_readout_time != last_camera_readout_time)
-        {
-            unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
-            if (exposure_time < camera_readout_time)
-            {
-	        unsigned char new_exposure = (unsigned char)(ceil(camera_readout_time));
-                pn_preference_set_char(EXPOSURE_TIME, new_exposure);
-	        pn_log("Increasing exposure time to %d seconds", new_exposure);
-                update_acquisition_window();
-            }
-            last_camera_readout_time = camera_readout_time;
-        }
-
-        pthread_mutex_lock(&gps->read_mutex);
-        int camera_downloading = gps->camera_downloading;
-        pthread_mutex_unlock(&gps->read_mutex);
-
-        unsigned char is_input = false;
-        while ((ch = getch()) != ERR)
-        {
-            // Resized terminal window
-            if (ch == 0x19a)
-            {
-                WINDOW *temp_win = time_window;
-                time_window = create_time_window();
-                replace_panel(time_panel, time_window);
-                delwin(temp_win);
-                update_time_window();
-
-                temp_win = camera_window;
-                camera_window = create_camera_window();
-                replace_panel(camera_panel, camera_window);
-                delwin(temp_win);
-                update_camera_window(camera_mode, camera_downloading, camera_temperature);
-
-                temp_win = acquisition_window;
-                acquisition_window = create_acquisition_window();
-                replace_panel(acquisition_panel, acquisition_window);
-                delwin(temp_win);
-                update_acquisition_window();
-
-                temp_win = command_window;
-                command_window = create_command_window();
-                replace_panel(command_panel, command_window);
-                delwin(temp_win);
-                update_command_window(camera_mode);
-
-                temp_win = metadata_window;
-                metadata_window = create_metadata_window();
-                replace_panel(metadata_panel, metadata_window);
-                delwin(temp_win);
-                update_metadata_window();
-
-                temp_win = log_window;
-                log_window = create_log_window();
-                replace_panel(log_panel, log_window);
-                delwin(temp_win);
-                update_log_window();
-
-                temp_win = status_window;
-                status_window = create_status_window();
-                replace_panel(status_panel, status_window);
-                delwin(temp_win);
-                update_status_window(camera_mode);
-
-                temp_win = separator_window;
-                separator_window = create_separator_window();
-                replace_panel(separator_panel, separator_window);
-                delwin(temp_win);
-
-                int row, col;
-                getmaxyx(stdscr, row, col);
-                move_panel(command_panel, row - 1, 0);
-                move_panel(input_panel, row - 1, 0);
-                move_panel(parameters_panel, row - 1, 0);
-                move_panel(frametype_panel, row - 1, 0);
-                continue;
-            }
-
-            switch (input_type)
-            {
-                case INPUT_MAIN:
-                    switch (ch)
-                    {
-                        case 0x01: // ^A - Toggle Acquire
-                            if (camera_mode == IDLE)
-                            {
-                                pthread_mutex_lock(&camera->read_mutex);
-                                camera->desired_mode = ACQUIRING;
-                                pthread_mutex_unlock(&camera->read_mutex);
-
-                                pn_gps_start_exposure(pn_preference_char(EXPOSURE_TIME));
-                            }
-                            else if (camera_mode == ACQUIRING)
-                            {
-                                pthread_mutex_lock(&camera->read_mutex);
-                                camera->desired_mode = ACQUIRE_WAIT;
-                                pthread_mutex_unlock(&camera->read_mutex);
-
-                                pn_gps_stop_exposure();
-                            }
-                            break;
-                        case 0x05: // ^E - Set Exposure
-                            if (camera_mode != IDLE)
-                                break;
-
-                            input_type = INPUT_EXPOSURE;
-
-                            input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_char(EXPOSURE_TIME));
-                            set_input_window_msg("Enter an exposure time: ");
-                            update_input_window();
-
-                            hide_panel(command_panel);
-                            show_panel(input_panel);
-                        break;
-                        case 0x10: // ^P - Edit Parameters
-                            if (pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save())
-                                break;
-
-                            input_type = INPUT_PARAMETERS;
-                            hide_panel(command_panel);
-                            update_parameters_window();
-                            show_panel(parameters_panel);
-                        break;
-                        case 0x13: // ^S - Toggle Save
-                            // Can't enable saving for calibration frames after the target count has been reached
-                            if (!pn_preference_allow_save())
-                            {
-                                add_log_line("Unable to toggle save: countdown is zero");
-                                break;
-                            }
-
-                            unsigned char save = pn_preference_toggle_save();
-                            update_status_window(camera_mode);
-                            update_command_window(camera_mode);
-                            pn_log("%s saving", save ? "Enabled" : "Disabled");
-                        break;
-                        case 0x03: // ^C - Quit
-                            should_quit = true;
-                            pn_log("Shutting down...");
-                            update_command_window(camera_mode);
-                        break;
-                    }
-                break;
-                case INPUT_PARAMETERS:
-                    switch (ch)
-                    {
-                        case '\n': // Back
-                            input_type = INPUT_MAIN;
-                            hide_panel(parameters_panel);
-                            show_panel(command_panel);
-                            break;
-                        case 0x10: // ^P - Run Prefix
-                            input_type = INPUT_RUN_PREFIX;
-
-                            input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(RUN_PREFIX));
-                            set_input_window_msg("Run Prefix: ");
-                            is_input = true;
-                            break;
-                        case 0x13: // ^S - Frame dir
-                            input_type = INPUT_FRAME_DIR;
-
-                            input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OUTPUT_DIR));
-                            set_input_window_msg("Output path: ");
-                            is_input = true;
-                            break;
-                        case 0x0f: // ^O - Object name
-                            input_type = INPUT_OBJECT_NAME;
-
-                            input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OBJECT_NAME));
-                            set_input_window_msg("Target Name: ");
-                            is_input = true;
-                            break;
-                        case 0x0e: // ^N - Frame #
-                            input_type = INPUT_FRAME_NUMBER;
-
-                            input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(RUN_NUMBER));
-                            set_input_window_msg("Frame #: ");
-                            is_input = true;
-                            break;
-                        case 0x14: // ^T - Frame Type
-                            input_type = INPUT_FRAME_TYPE;
-                            hide_panel(parameters_panel);
-                            show_panel(frametype_panel);
-                            break;
-                        case 0x04: // ^D - Countdown
-                            input_type = INPUT_COUNTDOWN_NUMBER;
-
-                            input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(CALIBRATION_COUNTDOWN));
-                            set_input_window_msg("Countdown #: ");
-                            is_input = true;
-                            break;
-                    }
-
-                    if (is_input && ch != '\n')
-                    {
-                        update_input_window();
-                        hide_panel(parameters_panel);
-                        show_panel(input_panel);
-                    }
-                    break;
-                case INPUT_EXPOSURE:
-                case INPUT_FRAME_NUMBER:
-                case INPUT_COUNTDOWN_NUMBER:
-                    if (ch == '\n')
-                    {
-                        input_entry_buf[input_entry_length] = '\0';
-                        int new = atoi(input_entry_buf);
-
-                        if (input_type == INPUT_EXPOSURE)
-                        {
-                            unsigned char oldexp = pn_preference_char(EXPOSURE_TIME);
-                            if (new < camera_readout_time || new > 255)
-                            {
-                                // Invalid entry
-                                if (new < camera_readout_time)
-                                    pn_log("Minimum exposure: %.2f seconds", camera_readout_time);
-                                else
-                                    pn_log("Maximum exposure: 255 seconds");
-
-                                input_entry_length = sprintf(input_entry_buf, "%d", oldexp);
-                            }
-                            else
-                            {
-                                input_type = INPUT_MAIN;
-                                hide_panel(input_panel);
-                                show_panel(command_panel);
-
-                                if (oldexp != new)
-                                {
-                                    // Update preferences
-                                    pn_preference_set_char(EXPOSURE_TIME, new);
-                                    update_acquisition_window();
-                                    pn_log("Exposure set to %d seconds", new);
-                                }
-                            }
-                        }
-                        else if (input_type == INPUT_FRAME_NUMBER)
-                        {
-                            unsigned char oldframe = pn_preference_int(RUN_NUMBER);
-                            if (new < 0)
-                            {
-                                // Invalid entry
-                                input_entry_length = sprintf(input_entry_buf, "%d", oldframe);
-                            }
-                            else
-                            {
-                                input_type = INPUT_PARAMETERS;
-                                hide_panel(input_panel);
-                                show_panel(parameters_panel);
-
-                                if (oldframe != new)
-                                {
-                                    // Update preferences
-                                    pn_preference_set_int(RUN_NUMBER, new);
-                                    update_acquisition_window();
-                                    pn_log("Frame # set to %d", new);
-                                }
-                            }
-                        }
-                        else if (input_type == INPUT_COUNTDOWN_NUMBER)
-                        {
-                            unsigned char oldcount = pn_preference_int(CALIBRATION_COUNTDOWN);
-                            if (new < 0)
-                            {
-                                // Invalid entry
-                                input_entry_length = sprintf(input_entry_buf, "%d", oldcount);
-                            }
-                            else
-                            {
-                                input_type = INPUT_PARAMETERS;
-                                hide_panel(input_panel);
-                                show_panel(parameters_panel);
-
-                                if (oldcount != new)
-                                {
-                                    // Update preferences
-                                    pn_preference_set_int(CALIBRATION_COUNTDOWN, new);
-                                    update_acquisition_window();
-                                    update_status_window(camera_mode);
-                                    update_command_window(camera_mode);
-                                    pn_log("Countdown # set to %d", new);
-                                }
-                            }
-                        }
-                    }
-                    else if ((ch == 0x7f || ch == 0x08) && input_entry_length > 0) // Backspace
-                        --input_entry_length;
-                    else if (isdigit(ch) && input_entry_length < 1024 - 1)
-                        input_entry_buf[input_entry_length++] = ch;
-
-                    update_input_window();
-                break;
-                case INPUT_FRAME_DIR:
-                case INPUT_RUN_PREFIX:
-                case INPUT_OBJECT_NAME:
-                    if (ch == '\n')
-                    {
-                        input_entry_buf[input_entry_length] = '\0';
-
-                        if (input_type == INPUT_RUN_PREFIX)
-                        {
-                            char *oldprefix = pn_preference_string(RUN_PREFIX);
-
-                            if (strcmp(oldprefix, input_entry_buf))
-                            {
-                                // Update preferences
-                                pn_preference_set_string(RUN_PREFIX, input_entry_buf);
-                                update_acquisition_window();
-                                pn_log("Run prefix set to `%s'", input_entry_buf);
-                            }
-                        }
-                        else if (input_type == INPUT_FRAME_DIR)
-                        {
-                            char *olddir = pn_preference_string(OUTPUT_DIR);
-                            char pathBuf[PATH_MAX];
-                            realpath(input_entry_buf, pathBuf);
-
-                            if (strcmp(olddir, pathBuf))
-                            {
-                                // Update preferences
-                                pn_preference_set_string(OUTPUT_DIR, pathBuf);
-                                update_acquisition_window();
-                                pn_log("Frame dir set to `%s'", pathBuf);
-                            }
-                        }
-                        else if (input_type == INPUT_OBJECT_NAME)
-                        {
-                            char *oldname = pn_preference_string(OBJECT_NAME);
-                            if (strcmp(oldname, input_entry_buf))
-                            {
-                                // Update preferences
-                                pn_preference_set_string(OBJECT_NAME, input_entry_buf);
-                                update_metadata_window();
-                                pn_log("Object name set to `%s'", input_entry_buf);
-                            }
-                        }
-                        input_type = INPUT_PARAMETERS;
-                        hide_panel(input_panel);
-                        show_panel(parameters_panel);
-                    }
-                    else if (ch == 0x7f || ch == 0x08) // Backspace
-                    {
-                        if (input_entry_length > 0)
-                            --input_entry_length;
-                    }
-                    else if (isascii(ch) && input_entry_length < 1024 - 1)
-                        input_entry_buf[input_entry_length++] = ch;
-                    
-                    update_input_window();
-                break;
-                case INPUT_FRAME_TYPE:
-                    if (!isalpha(ch))
-                        break;
-
-                    unsigned char type = 0xFF;
-                    char *type_name = "INVALID";
-                    switch (tolower(ch))
-                    {
-                        case 'd':
-                            type = OBJECT_DARK;
-                            type_name = "Dark";
-                        break;
-                        case 'f':
-                            type = OBJECT_FLAT;
-                            type_name = "Flat";
-                        break;
-                        case 't':
-                            type = OBJECT_TARGET;
-                            type_name = "Target";
-                        break;
-                    }
-                    if (type == 0xFF)
-                        break;
-
-                    unsigned char oldtype = pn_preference_char(OBJECT_TYPE);
-                    if (type != oldtype)
-                    {
-                        pn_preference_set_char(OBJECT_TYPE, type);
-                        update_acquisition_window();
-                        update_parameters_window();
-                        update_metadata_window();
-                        pn_log("Frame type set to `%s'", type_name);
-
-                        input_type = INPUT_PARAMETERS;
-                        hide_panel(input_panel);
-                        show_panel(parameters_panel);
-                    }
-                break;
-            }
-        }
-        update_time_window();
-
-        if (log_position != last_log_position)
-        {
-            update_log_window();
-            last_log_position = log_position;
-        }
-
-        if (last_camera_mode != camera_mode ||
-            last_camera_downloading != camera_downloading)
-        {
-            update_command_window(camera_mode);
-            update_status_window(camera_mode);
-            update_camera_window(camera_mode, camera_downloading, camera_temperature);
-            last_camera_mode = camera_mode;
-            last_camera_downloading = camera_downloading;
-        }
-
-        if (last_camera_temperature != camera_temperature)
-        {
-            update_camera_window(camera_mode, camera_downloading, camera_temperature);
-            last_camera_temperature = camera_temperature;
-        }
-
-        int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
-        int run_number = pn_preference_int(RUN_NUMBER);
-        if (remaining_frames != last_calibration_framecount ||
-            run_number != last_run_number)
-        {
-            update_acquisition_window();
-            update_status_window(camera_mode);
-            last_calibration_framecount = remaining_frames;
-            last_run_number = run_number;
-        }
-
-        update_panels();
-        doupdate();
-
-        if (input_type == INPUT_MAIN)
-        {
-            // curs_set(0) doesn't work properly when running via ssh from osx
-            // so put the cursor in the corner where it can't cause trouble
-            int row,col;
-            getmaxyx(stdscr, row, col);
+            flash();
+            update_panels();
+            doupdate();
             move(row-1, col-1);
+            ch = getch();
         }
+        del_panel(error_panel);
+        delwin(error_window);
 
-        if (should_quit)
-            break;
+        return true;
     }
 
+    // Read once at the start of the loop so values remain consistent
+    pthread_mutex_lock(&camera->read_mutex);
+    PNCameraMode camera_mode = camera->mode;
+    float camera_temperature = camera->temperature;
+    float camera_readout_time = camera->readout_time;
+    pthread_mutex_unlock(&camera->read_mutex);
+
+    // Check that the exposure time is greater than
+    // the camera readout, and change if necessary
+    if (camera_readout_time != last_camera_readout_time)
+    {
+        unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
+        if (exposure_time < camera_readout_time)
+        {
+        unsigned char new_exposure = (unsigned char)(ceil(camera_readout_time));
+            pn_preference_set_char(EXPOSURE_TIME, new_exposure);
+        pn_log("Increasing exposure time to %d seconds", new_exposure);
+            update_acquisition_window();
+        }
+        last_camera_readout_time = camera_readout_time;
+    }
+
+    pthread_mutex_lock(&gps->read_mutex);
+    int camera_downloading = gps->camera_downloading;
+    pthread_mutex_unlock(&gps->read_mutex);
+
+    unsigned char is_input = false;
+    while ((ch = getch()) != ERR)
+    {
+        // Resized terminal window
+        if (ch == 0x19a)
+        {
+            WINDOW *temp_win = time_window;
+            time_window = create_time_window();
+            replace_panel(time_panel, time_window);
+            delwin(temp_win);
+            update_time_window();
+
+            temp_win = camera_window;
+            camera_window = create_camera_window();
+            replace_panel(camera_panel, camera_window);
+            delwin(temp_win);
+            update_camera_window(camera_mode, camera_downloading, camera_temperature);
+
+            temp_win = acquisition_window;
+            acquisition_window = create_acquisition_window();
+            replace_panel(acquisition_panel, acquisition_window);
+            delwin(temp_win);
+            update_acquisition_window();
+
+            temp_win = command_window;
+            command_window = create_command_window();
+            replace_panel(command_panel, command_window);
+            delwin(temp_win);
+            update_command_window(camera_mode);
+
+            temp_win = metadata_window;
+            metadata_window = create_metadata_window();
+            replace_panel(metadata_panel, metadata_window);
+            delwin(temp_win);
+            update_metadata_window();
+
+            temp_win = log_window;
+            log_window = create_log_window();
+            replace_panel(log_panel, log_window);
+            delwin(temp_win);
+            update_log_window();
+
+            temp_win = status_window;
+            status_window = create_status_window();
+            replace_panel(status_panel, status_window);
+            delwin(temp_win);
+            update_status_window(camera_mode);
+
+            temp_win = separator_window;
+            separator_window = create_separator_window();
+            replace_panel(separator_panel, separator_window);
+            delwin(temp_win);
+
+            int row, col;
+            getmaxyx(stdscr, row, col);
+            move_panel(command_panel, row - 1, 0);
+            move_panel(input_panel, row - 1, 0);
+            move_panel(parameters_panel, row - 1, 0);
+            move_panel(frametype_panel, row - 1, 0);
+            continue;
+        }
+
+        switch (input_type)
+        {
+            case INPUT_MAIN:
+                switch (ch)
+                {
+                    case 0x01: // ^A - Toggle Acquire
+                        if (camera_mode == IDLE)
+                        {
+                            pthread_mutex_lock(&camera->read_mutex);
+                            camera->desired_mode = ACQUIRING;
+                            pthread_mutex_unlock(&camera->read_mutex);
+
+                            pn_gps_start_exposure(pn_preference_char(EXPOSURE_TIME));
+                        }
+                        else if (camera_mode == ACQUIRING)
+                        {
+                            pthread_mutex_lock(&camera->read_mutex);
+                            camera->desired_mode = ACQUIRE_WAIT;
+                            pthread_mutex_unlock(&camera->read_mutex);
+
+                            pn_gps_stop_exposure();
+                        }
+                        break;
+                    case 0x05: // ^E - Set Exposure
+                        if (camera_mode != IDLE)
+                            break;
+
+                        input_type = INPUT_EXPOSURE;
+
+                        input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_char(EXPOSURE_TIME));
+                        set_input_window_msg("Enter an exposure time: ");
+                        update_input_window();
+
+                        hide_panel(command_panel);
+                        show_panel(input_panel);
+                    break;
+                    case 0x10: // ^P - Edit Parameters
+                        if (pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save())
+                            break;
+
+                        input_type = INPUT_PARAMETERS;
+                        hide_panel(command_panel);
+                        update_parameters_window();
+                        show_panel(parameters_panel);
+                    break;
+                    case 0x13: // ^S - Toggle Save
+                        // Can't enable saving for calibration frames after the target count has been reached
+                        if (!pn_preference_allow_save())
+                        {
+                            add_log_line("Unable to toggle save: countdown is zero");
+                            break;
+                        }
+
+                        unsigned char save = pn_preference_toggle_save();
+                        update_status_window(camera_mode);
+                        update_command_window(camera_mode);
+                        pn_log("%s saving", save ? "Enabled" : "Disabled");
+                    break;
+                    case 0x03: // ^C - Quit
+                        should_quit = true;
+                        pn_log("Shutting down...");
+                        update_command_window(camera_mode);
+                    break;
+                }
+            break;
+            case INPUT_PARAMETERS:
+                switch (ch)
+                {
+                    case '\n': // Back
+                        input_type = INPUT_MAIN;
+                        hide_panel(parameters_panel);
+                        show_panel(command_panel);
+                        break;
+                    case 0x10: // ^P - Run Prefix
+                        input_type = INPUT_RUN_PREFIX;
+
+                        input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(RUN_PREFIX));
+                        set_input_window_msg("Run Prefix: ");
+                        is_input = true;
+                        break;
+                    case 0x13: // ^S - Frame dir
+                        input_type = INPUT_FRAME_DIR;
+
+                        input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OUTPUT_DIR));
+                        set_input_window_msg("Output path: ");
+                        is_input = true;
+                        break;
+                    case 0x0f: // ^O - Object name
+                        input_type = INPUT_OBJECT_NAME;
+
+                        input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OBJECT_NAME));
+                        set_input_window_msg("Target Name: ");
+                        is_input = true;
+                        break;
+                    case 0x0e: // ^N - Frame #
+                        input_type = INPUT_FRAME_NUMBER;
+
+                        input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(RUN_NUMBER));
+                        set_input_window_msg("Frame #: ");
+                        is_input = true;
+                        break;
+                    case 0x14: // ^T - Frame Type
+                        input_type = INPUT_FRAME_TYPE;
+                        hide_panel(parameters_panel);
+                        show_panel(frametype_panel);
+                        break;
+                    case 0x04: // ^D - Countdown
+                        input_type = INPUT_COUNTDOWN_NUMBER;
+
+                        input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(CALIBRATION_COUNTDOWN));
+                        set_input_window_msg("Countdown #: ");
+                        is_input = true;
+                        break;
+                }
+
+                if (is_input && ch != '\n')
+                {
+                    update_input_window();
+                    hide_panel(parameters_panel);
+                    show_panel(input_panel);
+                }
+                break;
+            case INPUT_EXPOSURE:
+            case INPUT_FRAME_NUMBER:
+            case INPUT_COUNTDOWN_NUMBER:
+                if (ch == '\n')
+                {
+                    input_entry_buf[input_entry_length] = '\0';
+                    int new = atoi(input_entry_buf);
+
+                    if (input_type == INPUT_EXPOSURE)
+                    {
+                        unsigned char oldexp = pn_preference_char(EXPOSURE_TIME);
+                        if (new < camera_readout_time || new > 255)
+                        {
+                            // Invalid entry
+                            if (new < camera_readout_time)
+                                pn_log("Minimum exposure: %.2f seconds", camera_readout_time);
+                            else
+                                pn_log("Maximum exposure: 255 seconds");
+
+                            input_entry_length = sprintf(input_entry_buf, "%d", oldexp);
+                        }
+                        else
+                        {
+                            input_type = INPUT_MAIN;
+                            hide_panel(input_panel);
+                            show_panel(command_panel);
+
+                            if (oldexp != new)
+                            {
+                                // Update preferences
+                                pn_preference_set_char(EXPOSURE_TIME, new);
+                                update_acquisition_window();
+                                pn_log("Exposure set to %d seconds", new);
+                            }
+                        }
+                    }
+                    else if (input_type == INPUT_FRAME_NUMBER)
+                    {
+                        unsigned char oldframe = pn_preference_int(RUN_NUMBER);
+                        if (new < 0)
+                        {
+                            // Invalid entry
+                            input_entry_length = sprintf(input_entry_buf, "%d", oldframe);
+                        }
+                        else
+                        {
+                            input_type = INPUT_PARAMETERS;
+                            hide_panel(input_panel);
+                            show_panel(parameters_panel);
+
+                            if (oldframe != new)
+                            {
+                                // Update preferences
+                                pn_preference_set_int(RUN_NUMBER, new);
+                                update_acquisition_window();
+                                pn_log("Frame # set to %d", new);
+                            }
+                        }
+                    }
+                    else if (input_type == INPUT_COUNTDOWN_NUMBER)
+                    {
+                        unsigned char oldcount = pn_preference_int(CALIBRATION_COUNTDOWN);
+                        if (new < 0)
+                        {
+                            // Invalid entry
+                            input_entry_length = sprintf(input_entry_buf, "%d", oldcount);
+                        }
+                        else
+                        {
+                            input_type = INPUT_PARAMETERS;
+                            hide_panel(input_panel);
+                            show_panel(parameters_panel);
+
+                            if (oldcount != new)
+                            {
+                                // Update preferences
+                                pn_preference_set_int(CALIBRATION_COUNTDOWN, new);
+                                update_acquisition_window();
+                                update_status_window(camera_mode);
+                                update_command_window(camera_mode);
+                                pn_log("Countdown # set to %d", new);
+                            }
+                        }
+                    }
+                }
+                else if ((ch == 0x7f || ch == 0x08) && input_entry_length > 0) // Backspace
+                    --input_entry_length;
+                else if (isdigit(ch) && input_entry_length < 1024 - 1)
+                    input_entry_buf[input_entry_length++] = ch;
+
+                update_input_window();
+            break;
+            case INPUT_FRAME_DIR:
+            case INPUT_RUN_PREFIX:
+            case INPUT_OBJECT_NAME:
+                if (ch == '\n')
+                {
+                    input_entry_buf[input_entry_length] = '\0';
+
+                    if (input_type == INPUT_RUN_PREFIX)
+                    {
+                        char *oldprefix = pn_preference_string(RUN_PREFIX);
+
+                        if (strcmp(oldprefix, input_entry_buf))
+                        {
+                            // Update preferences
+                            pn_preference_set_string(RUN_PREFIX, input_entry_buf);
+                            update_acquisition_window();
+                            pn_log("Run prefix set to `%s'", input_entry_buf);
+                        }
+                    }
+                    else if (input_type == INPUT_FRAME_DIR)
+                    {
+                        char *olddir = pn_preference_string(OUTPUT_DIR);
+                        char pathBuf[PATH_MAX];
+                        realpath(input_entry_buf, pathBuf);
+
+                        if (strcmp(olddir, pathBuf))
+                        {
+                            // Update preferences
+                            pn_preference_set_string(OUTPUT_DIR, pathBuf);
+                            update_acquisition_window();
+                            pn_log("Frame dir set to `%s'", pathBuf);
+                        }
+                    }
+                    else if (input_type == INPUT_OBJECT_NAME)
+                    {
+                        char *oldname = pn_preference_string(OBJECT_NAME);
+                        if (strcmp(oldname, input_entry_buf))
+                        {
+                            // Update preferences
+                            pn_preference_set_string(OBJECT_NAME, input_entry_buf);
+                            update_metadata_window();
+                            pn_log("Object name set to `%s'", input_entry_buf);
+                        }
+                    }
+                    input_type = INPUT_PARAMETERS;
+                    hide_panel(input_panel);
+                    show_panel(parameters_panel);
+                }
+                else if (ch == 0x7f || ch == 0x08) // Backspace
+                {
+                    if (input_entry_length > 0)
+                        --input_entry_length;
+                }
+                else if (isascii(ch) && input_entry_length < 1024 - 1)
+                    input_entry_buf[input_entry_length++] = ch;
+                
+                update_input_window();
+            break;
+            case INPUT_FRAME_TYPE:
+                if (!isalpha(ch))
+                    break;
+
+                unsigned char type = 0xFF;
+                char *type_name = "INVALID";
+                switch (tolower(ch))
+                {
+                    case 'd':
+                        type = OBJECT_DARK;
+                        type_name = "Dark";
+                    break;
+                    case 'f':
+                        type = OBJECT_FLAT;
+                        type_name = "Flat";
+                    break;
+                    case 't':
+                        type = OBJECT_TARGET;
+                        type_name = "Target";
+                    break;
+                }
+                if (type == 0xFF)
+                    break;
+
+                unsigned char oldtype = pn_preference_char(OBJECT_TYPE);
+                if (type != oldtype)
+                {
+                    pn_preference_set_char(OBJECT_TYPE, type);
+                    update_acquisition_window();
+                    update_parameters_window();
+                    update_metadata_window();
+                    pn_log("Frame type set to `%s'", type_name);
+
+                    input_type = INPUT_PARAMETERS;
+                    hide_panel(input_panel);
+                    show_panel(parameters_panel);
+                }
+            break;
+        }
+    }
+    update_time_window();
+
+    if (log_position != last_log_position)
+    {
+        update_log_window();
+        last_log_position = log_position;
+    }
+
+    if (last_camera_mode != camera_mode ||
+        last_camera_downloading != camera_downloading)
+    {
+        update_command_window(camera_mode);
+        update_status_window(camera_mode);
+        update_camera_window(camera_mode, camera_downloading, camera_temperature);
+        last_camera_mode = camera_mode;
+        last_camera_downloading = camera_downloading;
+    }
+
+    if (last_camera_temperature != camera_temperature)
+    {
+        update_camera_window(camera_mode, camera_downloading, camera_temperature);
+        last_camera_temperature = camera_temperature;
+    }
+
+    int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
+    int run_number = pn_preference_int(RUN_NUMBER);
+    if (remaining_frames != last_calibration_framecount ||
+        run_number != last_run_number)
+    {
+        update_acquisition_window();
+        update_status_window(camera_mode);
+        last_calibration_framecount = remaining_frames;
+        last_run_number = run_number;
+    }
+
+    update_panels();
+    doupdate();
+
+    if (input_type == INPUT_MAIN)
+    {
+        // curs_set(0) doesn't work properly when running via ssh from osx
+        // so put the cursor in the corner where it can't cause trouble
+        int row,col;
+        getmaxyx(stdscr, row, col);
+        move(row-1, col-1);
+    }
+
+    return should_quit;
+}
+
+void pn_ui_free()
+{
     // Destroy ui
     del_panel(time_panel);
     del_panel(camera_panel);
