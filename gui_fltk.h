@@ -12,6 +12,13 @@
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
 
+extern "C" {
+    #include "gps.h"
+    #include "camera.h"
+    #include "preferences.h"
+    #include "common.h"
+}
+
 #ifndef GUI_FLTK_H
 #define GUI_FLTK_H
 
@@ -33,6 +40,7 @@ public:
 	~FLTKGui();
     void addLogLine(const char *msg);
     void updateTimerGroup();
+    void updateCameraGroup(PNCameraMode mode, int camera_downloading, float temperature);
 
 private:
     static Fl_Group *createGroupBox(int y, int h, const char *label);

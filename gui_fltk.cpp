@@ -9,13 +9,6 @@
 
 #include "gui_fltk.h"
 
-extern "C" {
-    #include "gps.h"
-    #include "camera.h"
-    #include "preferences.h"
-    #include "common.h"
-}
-
 extern PNGPS *gps;
 extern PNCamera *camera;
 FLTKGui *gui;
@@ -77,14 +70,14 @@ bool pn_ui_update()
     {
         //update_command_window(camera_mode);
         //update_status_window(camera_mode);
-        //update_camera_window(camera_mode, camera_downloading, camera_temperature);
+        gui->updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
         last_camera_mode = camera_mode;
         last_camera_downloading = camera_downloading;
     }
 
     if (last_camera_temperature != camera_temperature)
     {
-        //update_camera_window(camera_mode, camera_downloading, camera_temperature);
+        gui->updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
         last_camera_temperature = camera_temperature;
     }
 
@@ -195,6 +188,46 @@ void FLTKGui::createCameraGroup()
     m_cameraGroup->end();
 }
 
+void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, float temperature)
+{
+    // Camera status
+    switch(mode)
+    {
+        default:
+        case INITIALISING:
+        case ACQUIRE_START:
+        case ACQUIRE_STOP:
+            m_cameraStatusOutput->value("Initialising");
+            break;
+        case IDLE:
+            m_cameraStatusOutput->value("Idle");
+            break;
+        case ACQUIRING:
+            if (camera_downloading)
+                m_cameraStatusOutput->value("Downloading");
+            else
+                m_cameraStatusOutput->value("Acquiring");
+            break;
+        case DOWNLOADING:
+            m_cameraStatusOutput->value("Downloading");
+            break;
+        case SHUTDOWN:
+            m_cameraStatusOutput->value("Closing");
+            break;
+    }
+
+    // Camera temperature
+    const char *tempstring = "Unavailable";
+    char tempbuf[30];
+
+    if (mode == ACQUIRING || mode == IDLE)
+    {
+        sprintf(tempbuf, "%0.02f C", temperature);
+        tempstring = tempbuf;
+    }
+    m_cameraTemperatureOutput->value(tempstring);
+}
+
 void FLTKGui::createAcquisitionGroup()
 {
     int y = 200, margin = 20;
@@ -225,6 +258,18 @@ FLTKGui::FLTKGui()
     createCameraGroup();
     createAcquisitionGroup();
     createLogGroup();
+
+    pthread_mutex_lock(&camera->read_mutex);
+    PNCameraMode camera_mode = camera->mode;
+    float camera_temperature = camera->temperature;
+    pthread_mutex_unlock(&camera->read_mutex);
+
+    pthread_mutex_lock(&gps->read_mutex);
+    int camera_downloading = gps->camera_downloading;
+    pthread_mutex_unlock(&gps->read_mutex);
+
+    updateTimerGroup();
+    updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
 
 	m_mainWindow->end();
 	m_mainWindow->show();
