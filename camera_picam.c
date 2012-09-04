@@ -131,7 +131,7 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
         frame.width = camera->frame_width;
         frame.height = camera->frame_height;
         frame.data = data->initial_readout;
-        frame_downloaded(&frame);
+        queue_framedata(&frame);
     }
 
     // Error

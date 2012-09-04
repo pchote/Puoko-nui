@@ -14,6 +14,7 @@
 #define COMMON_H
 
 void pn_log(const char * format, ...);
+void queue_framedata(PNFrame *frame);
 
 #endif
 

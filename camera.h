@@ -60,7 +60,6 @@ void pn_camera_free(PNCamera *cam);
 void *pn_simulated_camera_thread(void *);
 
 void set_mode(PNCameraMode mode);
-void frame_downloaded(PNFrame *frame);
 
 #ifdef USE_PVCAM
 void *pn_pvcam_camera_thread(void *);

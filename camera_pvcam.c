@@ -279,7 +279,17 @@ void *pn_pvcam_camera_thread(void *_unused)
             frame.width = camera->frame_width;
             frame.height = camera->frame_height;
             frame.data = camera_frame;
-            frame_downloaded(&frame);
+
+            // PVCAM triggers end the frame, and so the first frame
+            // will consist of the sync and align time period.
+            // Discard this frame.
+            if (camera->first_frame)
+            {
+                pn_log("Discarding first frame");
+                camera->first_frame = false;
+            }
+            else
+                queue_framedata(&frame);
 
             // Unlock the frame buffer for reuse
             if (!pl_exp_unlock_oldest_frame(handle))

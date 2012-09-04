@@ -54,35 +54,6 @@ void set_mode(PNCameraMode mode)
     pthread_mutex_unlock(&camera->read_mutex);
 }
 
-// Decide what to do with an acquired frame
-void frame_downloaded(PNFrame *frame)
-{
-    PNGPSTimestamp timestamp = pn_gps_pop_trigger();
-    camera->first_frame = false;
-
-#ifdef USE_PVCAM
-    // PVCAM triggers end the frame, and so the first frame
-    // will consist of the sync and align time period.
-    // Discard this frame.
-    if (camera->first_frame)
-    {
-        pn_log("Discarding first frame");
-        camera->first_frame = false;
-        return;
-    }
-#endif
-
-    pn_log("Frame downloaded");
-    if (pn_preference_char(SAVE_FRAMES))
-    {
-        pn_save_frame(frame, timestamp);
-        pn_preference_increment_framecount();
-    }
-
-    // Display the frame in ds9
-    pn_preview_frame(frame, timestamp);
-}
-
 #pragma mark Simulated Camera Routines
 static void *image_buffer = NULL;
 
@@ -156,7 +127,7 @@ void *pn_simulated_camera_thread(void *_unused)
             frame.width = camera->frame_width;
             frame.height = camera->frame_height;
             frame.data = image_buffer;
-            frame_downloaded(&frame);
+            queue_framedata(&frame);
 
             // There is no physical camera for the timer to monitor
             // so we must toggle this manually

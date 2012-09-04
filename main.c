@@ -25,8 +25,11 @@
     #include <xpa.h>
 #endif
 
+#include <assert.h>
+
 PNCamera *camera;
 PNGPS *gps;
+
 
 #pragma mark Main program logic
 
@@ -35,14 +38,73 @@ static bool timer_thread_initialized = false;
 static bool camera_thread_initialized = false;
 static bool shutdown = false;
 
-pthread_mutex_t log_mutex;
+pthread_mutex_t log_mutex, frame_queue_mutex;
 FILE *logFile;
+
+struct PNFrameQueue
+{
+    PNFrame *frame;
+    struct PNFrameQueue *next;
+};
+
+struct PNFrameQueue *frame_queue = NULL;
+
+// Take a copy of the framedata and store it for
+// processing on the main thread
+void queue_framedata(PNFrame *frame)
+{
+    // TODO: Replace asserts with something more hardware cleanup friendly
+    PNFrame *copy = malloc(sizeof(PNFrame));
+    assert(copy != NULL);
+    memcpy(copy, frame, sizeof(PNFrame));
+
+    // Add to frame queue
+    struct PNFrameQueue *tail = malloc(sizeof(struct PNFrameQueue));
+    assert(tail);
+
+    tail->frame = copy;
+    tail->next = NULL;
+
+    pthread_mutex_lock(&frame_queue_mutex);
+    // Empty queue
+    if (frame_queue == NULL)
+        frame_queue = tail;
+    else
+    {
+        // Find tail of queue - queue is assumed to be short
+        struct PNFrameQueue *item = frame_queue;
+        while (item->next != NULL)
+            item = item->next;
+        item->next = tail;
+    }
+    pthread_mutex_unlock(&frame_queue_mutex);
+}
+
+void process_framedata(PNFrame *frame)
+{
+    // Pop the head frame from the queue
+    PNGPSTimestamp timestamp = pn_gps_pop_trigger();
+
+    pn_log("Frame downloaded");
+    if (pn_preference_char(SAVE_FRAMES))
+    {
+        pn_save_frame(frame, timestamp);
+        pn_preference_increment_framecount();
+    }
+
+    // Display the frame in ds9
+    pn_preview_frame(frame, timestamp);
+
+    free(frame);
+}
+
 int main(int argc, char *argv[])
 {
     //
     // Initialization
     //
     pthread_mutex_init(&log_mutex, NULL);
+    pthread_mutex_init(&frame_queue_mutex, NULL);
 
     PNGPS _gps = pn_gps_new();
     gps = &_gps;
@@ -107,6 +169,29 @@ int main(int argc, char *argv[])
 
     for (;;)
     {
+        // Process stored frames
+        struct PNFrameQueue *head = NULL;
+        do
+        {
+            pthread_mutex_lock(&frame_queue_mutex);
+            head = frame_queue;
+
+            // No frames to process
+            if (head == NULL)
+            {
+                pthread_mutex_unlock(&frame_queue_mutex);
+                break;
+            }
+
+            // Pop the head frame
+            frame_queue = frame_queue->next;
+            pthread_mutex_unlock(&frame_queue_mutex);
+
+            PNFrame *frame = head->frame;
+            free(head);
+            process_framedata(frame);
+        } while (head != NULL);
+
         bool request_shutdown = pn_ui_update();
         if (request_shutdown)
             break;
@@ -137,7 +222,9 @@ int main(int argc, char *argv[])
     pn_camera_free(camera);
     pn_free_preferences();
     fclose(logFile);
+    pthread_mutex_destroy(&frame_queue_mutex);
     pthread_mutex_destroy(&log_mutex);
+
     return 0;
 }
 
