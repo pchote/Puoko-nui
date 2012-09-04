@@ -52,7 +52,13 @@ void launch_ds9()
     int available = 0;
     fscanf(fp, "%d", &available);
     if (!available)
+    {
+#if (defined _WIN32 || defined _WIN64)
+        system("START \"DS9_Command_Prompt\" /B ds9 -title Puoko-nui -port 0");
+#else
         system("ds9 -title Puoko-nui&");
+#endif
+    }
 #endif
 }
 
