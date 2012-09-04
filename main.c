@@ -12,7 +12,6 @@
 #include <time.h>
 #include <sys/time.h>
 #include <pthread.h>
-#include <fitsio.h>
 #include <string.h>
 #include "common.h"
 #include "camera.h"
@@ -82,16 +81,24 @@ void process_framedata(PNFrame *frame)
     PNGPSTimestamp timestamp = pn_gps_pop_trigger();
 
     pn_log("Frame downloaded");
-    if (pn_preference_char(SAVE_FRAMES))
-    {
-        pn_save_frame(frame, timestamp);
-        pn_preference_increment_framecount();
-    }
 
     // Display the frame in ds9
-    pn_preview_frame(frame, timestamp);
+    pn_save_preview(frame, timestamp);
+    pn_run_preview_script("preview.fits.gz");
 
-    free(frame);
+    if (pn_preference_char(SAVE_FRAMES))
+    {
+        const char *filename = pn_save_frame(frame, timestamp);
+        if (filename == NULL)
+        {
+            pn_log("Save failed. Discarding frame");
+            return;
+        }
+
+        pn_preference_increment_framecount();
+        pn_run_saved_script(filename);
+        free((char *)filename);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -120,7 +127,7 @@ int main(int argc, char *argv[])
     }
     init_log_gui();
 
-    launch_ds9();
+    pn_run_startup_script();
     pn_init_preferences("preferences.dat");
 
     bool simulate_camera = false;
@@ -186,6 +193,7 @@ int main(int argc, char *argv[])
             PNFrame *frame = head->frame;
             free(head);
             process_framedata(frame);
+            free(frame);
         } while (head != NULL);
 
         bool request_shutdown = pn_ui_update();

@@ -1,8 +1,7 @@
 CAMERA_TYPE := NONE
 #CAMERA_TYPE := PVCAM
 #CAMERA_TYPE := PICAM
-#PREVIEW_TYPE := NONE
-PREVIEW_TYPE := SCRIPT
+#DISABLE_PREVIEW := YES
 
 
 CC = gcc
@@ -34,10 +33,6 @@ ifeq ($(CAMERA_TYPE),PICAM)
         CFLAGS += -I/usr/local/picam/includes `apr-1-config --cflags --cppflags --includes`
         LFLAGS += -lpicam `apr-1-config --link-ld --libs`
     endif
-endif
-
-ifeq ($(PREVIEW_TYPE),SCRIPT)
-    CFLAGS += -DUSE_SCRIPT_PREVIEW
 endif
 
 ifeq ($(MSYSTEM),MINGW32)

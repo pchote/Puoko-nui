@@ -19,8 +19,11 @@ typedef struct
     uint16_t *data; // Pointer to the start of the frame data
 } PNFrame;
 
-void pn_save_frame(PNFrame *frame, PNGPSTimestamp timestamp);
-void pn_preview_frame(PNFrame *frame, PNGPSTimestamp timestamp);
-void launch_ds9();
+void pn_run_startup_script();
+void pn_run_preview_script(const char *filepath);
+void pn_run_saved_script(const char *filepath);
+
+const char *pn_save_frame(PNFrame *frame, PNGPSTimestamp timestamp);
+void pn_save_preview(PNFrame *frame, PNGPSTimestamp timestamp);
 
 #endif
