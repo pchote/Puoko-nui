@@ -9,19 +9,20 @@
 
 FLTKGui *gui;
 
+// HACK: This should be in pn_ui_new, but we need to enable the log earlier
 void init_log_gui()
 {
-    
+    gui = new FLTKGui();
 }
 
 void add_log_line(char *msg)
 {
-    
+    gui->addLogLine(msg);
 }
 
 void pn_ui_new()
 {
-    gui = new FLTKGui();
+
 }
 
 bool pn_ui_update()
@@ -32,6 +33,13 @@ bool pn_ui_update()
 void pn_ui_free()
 {
     delete gui;
+}
+
+void FLTKGui::addLogLine(const char *msg)
+{
+    m_logBuffer->append(msg);
+    m_logBuffer->append("\n");
+    // TODO: Scroll display if necessary
 }
 
 Fl_Group *FLTKGui::CreateGroupBox(int y, int h, const char *label)
@@ -92,6 +100,13 @@ void FLTKGui::CreateAcquisitionGroup()
     m_acquisitionGroup->end();
 }
 
+void FLTKGui::CreateLogGroup()
+{
+    m_logBuffer = new Fl_Text_Buffer();
+    m_logDisplay = new Fl_Text_Display(250, 10, 420, 335, NULL);
+    m_logDisplay->buffer(m_logBuffer);
+}
+
 FLTKGui::FLTKGui()
 {
 	// Create the main window
@@ -101,6 +116,7 @@ FLTKGui::FLTKGui()
     CreateTimerGroup();
     CreateCameraGroup();
     CreateAcquisitionGroup();
+    CreateLogGroup();
 
 	m_mainWindow->end();
 	m_mainWindow->show();

@@ -9,6 +9,7 @@
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Output.H>
 #include <FL/Fl_Box.H>
+#include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
 
 #ifndef GUI_FLTK_H
@@ -30,6 +31,7 @@ class FLTKGui
 public:
 	FLTKGui();
 	~FLTKGui();
+    void addLogLine(const char *msg);
 
 private:
     static Fl_Group *CreateGroupBox(int y, int h, const char *label);
@@ -37,8 +39,9 @@ private:
     void CreateTimerGroup();
     void CreateCameraGroup();
     void CreateAcquisitionGroup();
+    void CreateLogGroup();
 
-    Fl_Window*			m_mainWindow;
+    Fl_Window *m_mainWindow;
 
     // Timer info
     Fl_Group *m_timerGroup;
@@ -60,6 +63,10 @@ private:
     Fl_Output *m_acquisitionRemainingOutput;
     Fl_Output *m_acquisitionExposureOutput;
     Fl_Output *m_acquisitionFilenameOutput;
+    
+    // Log panel
+    Fl_Text_Buffer *m_logBuffer;
+    Fl_Text_Display *m_logDisplay;
 };
 
 #endif
