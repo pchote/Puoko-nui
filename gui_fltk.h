@@ -10,6 +10,7 @@
 #include <FL/Fl_Output.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
+#include <FL/Fl_Toggle_Button.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
 
@@ -90,8 +91,8 @@ private:
     // Action buttons
     Fl_Button *m_buttonMetadata;
     Fl_Button *m_buttonExposure;
-    Fl_Button *m_buttonAcquire;
-    Fl_Button *m_buttonSave;
+    Fl_Toggle_Button *m_buttonAcquire;
+    Fl_Toggle_Button *m_buttonSave;
     Fl_Button *m_buttonQuit;
  };
 

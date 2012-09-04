@@ -308,16 +308,46 @@ void FLTKGui::buttonExposurePressed(Fl_Widget* o, void *userdata)
 
 void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
 {
-	FLTKGui* gui = (FLTKGui *)userdata;
-    // TODO: Implement me
-    pn_log("Acquire pressed");
+    pthread_mutex_lock(&camera->read_mutex);
+    PNCameraMode camera_mode = camera->mode;
+    pthread_mutex_unlock(&camera->read_mutex);
+
+    if (camera_mode == IDLE)
+    {
+        pthread_mutex_lock(&camera->read_mutex);
+        camera->desired_mode = ACQUIRING;
+        pthread_mutex_unlock(&camera->read_mutex);
+
+        pn_gps_start_exposure(pn_preference_char(EXPOSURE_TIME));
+    }
+    else if (camera_mode == ACQUIRING)
+    {
+        pthread_mutex_lock(&camera->read_mutex);
+        camera->desired_mode = ACQUIRE_WAIT;
+        pthread_mutex_unlock(&camera->read_mutex);
+
+        pn_gps_stop_exposure();
+    }
 }
 
 void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
 {
-	FLTKGui* gui = (FLTKGui *)userdata;
-    // TODO: Implement me
-    pn_log("Save pressed");
+    FLTKGui* gui = (FLTKGui *)userdata;
+
+    pthread_mutex_lock(&camera->read_mutex);
+    PNCameraMode camera_mode = camera->mode;
+    pthread_mutex_unlock(&camera->read_mutex);
+
+    // Can't enable saving for calibration frames after the target count has been reached
+    if (!pn_preference_allow_save())
+    {
+        add_log_line("Unable to toggle save: countdown is zero");
+        return;
+    }
+
+    unsigned char save = pn_preference_toggle_save();
+    gui->updateButtonGroup(camera_mode);
+    pn_log("%s saving", save ? "Enabled" : "Disabled");
 }
 
 void FLTKGui::buttonQuitPressed(Fl_Widget* o, void *userdata)
@@ -337,11 +367,11 @@ void FLTKGui::createButtonGroup()
     m_buttonExposure->user_data((void*)(this));
     m_buttonExposure->callback(buttonExposurePressed);
 
-    m_buttonAcquire = new Fl_Button(270, 315, 120, 30, "Acquire");
+    m_buttonAcquire = new Fl_Toggle_Button(270, 315, 120, 30, "Acquire");
     m_buttonAcquire->user_data((void*)(this));
     m_buttonAcquire->callback(buttonAcquirePressed);
 
-    m_buttonSave = new Fl_Button(400, 315, 120, 30, "Save");
+    m_buttonSave = new Fl_Toggle_Button(400, 315, 120, 30, "Save");
     m_buttonSave->user_data((void*)(this));
     m_buttonSave->callback(buttonSavePressed);
 
@@ -350,9 +380,19 @@ void FLTKGui::createButtonGroup()
     m_buttonQuit->callback(buttonQuitPressed);
 }
 
-void FLTKGui::updateButtonGroup(PNCameraMode mode)
+void FLTKGui::updateButtonGroup(PNCameraMode camera_mode)
 {
+    bool save_pressed = pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save();
+    bool acquire_pressed = camera_mode != IDLE;
+    bool acquire_disabled = camera_mode != ACQUIRING && camera_mode != IDLE;
 
+    m_buttonAcquire->value(acquire_pressed);
+    if (acquire_disabled)
+        m_buttonAcquire->deactivate();
+    else
+        m_buttonAcquire->activate();
+
+    m_buttonSave->value(save_pressed);
 }
 
 FLTKGui::FLTKGui()
