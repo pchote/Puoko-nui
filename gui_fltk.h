@@ -9,6 +9,7 @@
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Output.H>
 #include <FL/Fl_Box.H>
+#include <FL/Fl_Button.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
 
@@ -42,6 +43,7 @@ public:
     void updateTimerGroup();
     void updateCameraGroup(PNCameraMode mode, int camera_downloading, float temperature);
     void updateAcquisitionGroup();
+    void updateButtonGroup(PNCameraMode mode);
 
 private:
     static Fl_Group *createGroupBox(int y, int h, const char *label);
@@ -50,6 +52,13 @@ private:
     void createCameraGroup();
     void createAcquisitionGroup();
     void createLogGroup();
+    void createButtonGroup();
+
+    static void buttonMetadataPressed(Fl_Widget* o, void* v);
+    static void buttonExposurePressed(Fl_Widget* o, void* v);
+    static void buttonAcquirePressed(Fl_Widget* o, void* v);
+    static void buttonSavePressed(Fl_Widget* o, void* v);
+    static void buttonQuitPressed(Fl_Widget* o, void* v);
 
     Fl_Window *m_mainWindow;
 
@@ -77,6 +86,13 @@ private:
     // Log panel
     Fl_Text_Buffer *m_logBuffer;
     Fl_Text_Display *m_logDisplay;
-};
+
+    // Action buttons
+    Fl_Button *m_buttonMetadata;
+    Fl_Button *m_buttonExposure;
+    Fl_Button *m_buttonAcquire;
+    Fl_Button *m_buttonSave;
+    Fl_Button *m_buttonQuit;
+ };
 
 #endif

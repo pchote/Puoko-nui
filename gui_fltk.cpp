@@ -68,8 +68,7 @@ bool pn_ui_update()
     if (last_camera_mode != camera_mode ||
         last_camera_downloading != camera_downloading)
     {
-        //update_command_window(camera_mode);
-        //update_status_window(camera_mode);
+        gui->updateButtonGroup(camera_mode);
         gui->updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
         last_camera_mode = camera_mode;
         last_camera_downloading = camera_downloading;
@@ -87,7 +86,7 @@ bool pn_ui_update()
         run_number != last_run_number)
     {
         gui->updateAcquisitionGroup();
-        //update_status_window(camera_mode);
+        gui->updateButtonGroup(camera_mode);
         last_calibration_framecount = remaining_frames;
         last_run_number = run_number;
     }
@@ -289,20 +288,84 @@ void FLTKGui::updateAcquisitionGroup()
 void FLTKGui::createLogGroup()
 {
     m_logBuffer = new Fl_Text_Buffer();
-    m_logDisplay = new Fl_Text_Display(250, 10, 420, 295, NULL);
+    m_logDisplay = new Fl_Text_Display(250, 10, 400, 295, NULL);
     m_logDisplay->buffer(m_logBuffer);
+}
+
+void FLTKGui::buttonMetadataPressed(Fl_Widget* o, void *userdata)
+{
+	FLTKGui* gui = (FLTKGui *)userdata;
+    // TODO: Implement me
+    pn_log("Metadata pressed");
+}
+
+void FLTKGui::buttonExposurePressed(Fl_Widget* o, void *userdata)
+{
+	FLTKGui* gui = (FLTKGui *)userdata;
+    // TODO: Implement me
+    pn_log("Exposure pressed");
+}
+
+void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
+{
+	FLTKGui* gui = (FLTKGui *)userdata;
+    // TODO: Implement me
+    pn_log("Acquire pressed");
+}
+
+void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
+{
+	FLTKGui* gui = (FLTKGui *)userdata;
+    // TODO: Implement me
+    pn_log("Save pressed");
+}
+
+void FLTKGui::buttonQuitPressed(Fl_Widget* o, void *userdata)
+{
+	FLTKGui* gui = (FLTKGui *)userdata;
+    // TODO: Implement me
+    pn_log("Quit pressed");
+}
+
+void FLTKGui::createButtonGroup()
+{
+    m_buttonMetadata = new Fl_Button(10, 315, 120, 30, "Set Metadata");
+    m_buttonMetadata->user_data((void*)(this));
+    m_buttonMetadata->callback(buttonMetadataPressed);
+
+    m_buttonExposure = new Fl_Button(140, 315, 120, 30, "Set Exposure");
+    m_buttonExposure->user_data((void*)(this));
+    m_buttonExposure->callback(buttonExposurePressed);
+
+    m_buttonAcquire = new Fl_Button(270, 315, 120, 30, "Acquire");
+    m_buttonAcquire->user_data((void*)(this));
+    m_buttonAcquire->callback(buttonAcquirePressed);
+
+    m_buttonSave = new Fl_Button(400, 315, 120, 30, "Save");
+    m_buttonSave->user_data((void*)(this));
+    m_buttonSave->callback(buttonSavePressed);
+
+    m_buttonQuit = new Fl_Button(530, 315, 120, 30, "Quit");
+    m_buttonQuit->user_data((void*)(this));
+    m_buttonQuit->callback(buttonQuitPressed);
+}
+
+void FLTKGui::updateButtonGroup(PNCameraMode mode)
+{
+
 }
 
 FLTKGui::FLTKGui()
 {
 	// Create the main window
-	m_mainWindow = new Fl_Window(680, 400, "Acquisition Control");
+	m_mainWindow = new Fl_Window(660, 355, "Acquisition Control");
     m_mainWindow->user_data((void*)(this));
 
     createTimerGroup();
     createCameraGroup();
     createAcquisitionGroup();
     createLogGroup();
+    createButtonGroup();
 
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode camera_mode = camera->mode;
@@ -316,6 +379,7 @@ FLTKGui::FLTKGui()
     updateTimerGroup();
     updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
     updateAcquisitionGroup();
+    updateButtonGroup(camera_mode);
 
 	m_mainWindow->end();
 	m_mainWindow->show();
