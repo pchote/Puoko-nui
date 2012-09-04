@@ -45,6 +45,8 @@ typedef enum
     CAMERA_OVERSCAN_SKIP_COLS,
     CAMERA_OVERSCAN_BIAS_COLS,
 
+    FRAME_PREVIEW_COMMAND,
+
 } PNPreferenceType;
 
 void pn_init_preferences(const char *path);

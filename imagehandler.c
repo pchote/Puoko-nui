@@ -27,7 +27,7 @@ extern PNGPS *gps;
 // Runs at program startup in the main thread, or on frame acquisition in the camera thread
 void launch_ds9()
 {
-#ifdef USE_XPA_API
+#ifdef USE_XPA_PREVIEW
     char *names[1];
     char *errs[1];
     int valid = XPAAccess(NULL, "Puoko-nui", NULL, NULL, names, errs, 1);
@@ -40,29 +40,120 @@ void launch_ds9()
     
     if (!valid)
         system("ds9 -title Puoko-nui&");
-#elif defined USE_XPA_EXTERNAL
-    // Query xpaacess to determine whether ds9 is already open
-    system("xpaaccess -n Puoko-nui > xpa.tmp");
-    FILE *fp = fopen("xpa.tmp", "r");
-    if (!fp)
-    {
-        pn_log("Error querying xpaacess for ds9 status");
-        return;
-    }
-    int available = 0;
-    fscanf(fp, "%d", &available);
-    if (!available)
-    {
-#if (defined _WIN32 || defined _WIN64)
-        system("START \"DS9_Command_Prompt\" /B ds9 -title Puoko-nui -port 0");
-#else
-        system("ds9 -title Puoko-nui&");
-#endif
-    }
+
+#elif defined USE_SCRIPT_PREVIEW
+    char *preview_command = pn_preference_string(FRAME_PREVIEW_COMMAND);
+    char *startup_command;
+    asprintf(&startup_command, "%s startup", preview_command);
+    system(startup_command);
+    free(startup_command);
+    free(preview_command);
 #endif
 }
 
 #pragma mark Frame Saving/Preview. Runs in camera thread
+
+// Display a frame in DS9
+void pn_preview_frame(PNFrame *frame, PNGPSTimestamp timestamp)
+{
+#ifdef USE_XPA_PREVIEW
+    fitsfile *fptr;
+    int status = 0;
+    void *fitsbuf;
+
+    // Create a new fits file in memory
+    // Size of the memory buffer = 1024*1024*2 bytes
+    // for pixels + 4096 for the header
+    size_t fitssize = 2101248;
+    fitsbuf = malloc(fitssize);
+    if (!fitsbuf)
+        return;
+
+    fits_create_memfile(&fptr, &fitsbuf, &fitssize, 2880, realloc, &status);
+
+    // Create the primary array image (16-bit short integer pixels
+    long size[2] = { frame->width, frame->height };
+    fits_create_img(fptr, USHORT_IMG, 2, size, &status);
+
+    // Write a message into the OBJECT header for ds9 to display
+#ifdef USE_PICAM
+    char *title = "Exposure starting %04d-%02d-%02d %02d:%02d:%02d";
+#else
+    char *title = "Exposure ending %04d-%02d-%02d %02d:%02d:%02d";
+#endif
+
+    char buf[128];
+    sprintf(buf, title,
+            timestamp.year, timestamp.month, timestamp.day,
+            timestamp.hours, timestamp.minutes, timestamp.seconds);
+    fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
+
+    // Write the frame data to the image
+    fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
+    fits_close_file(fptr, &status);
+
+    if (status)
+    {
+        // print out any error messages
+        char *fitserr = NULL;
+        while (fits_read_errmsg(fitserr))
+            pn_log("cfitsio error: %s", fitserr);
+    }
+    else
+    {
+        // Use XPA to display the image in ds9
+        if (0 == XPASet(NULL, "Puoko-nui", "fits", NULL, fitsbuf, fitssize, NULL, NULL, 1))
+        {
+            pn_log("ds9 not found. Attempting to open");
+            launch_ds9();
+        }
+    }
+    free(fitsbuf);
+#elif defined USE_SCRIPT_PREVIEW
+    fitsfile *fptr;
+    int status = 0;
+    char fitserr[128];
+
+    // Create a new fits file
+    if (fits_create_file(&fptr, "!preview.fits.gz", &status))
+    {
+        pn_log("Unable to save temporary file. fitsio error %d", status);
+        while (fits_read_errmsg(fitserr))
+            pn_log(fitserr);
+        return;
+    }
+
+    // Create the primary array image (16-bit short integer pixels
+    long size[2] = { frame->width, frame->height };
+    fits_create_img(fptr, USHORT_IMG, 2, size, &status);
+
+    // Write a message into the OBJECT header for ds9 to display
+#ifdef USE_PICAM
+    char *title = "Exposure starting %04d-%02d-%02d %02d:%02d:%02d";
+#else
+    char *title = "Exposure ending %04d-%02d-%02d %02d:%02d:%02d";
+#endif
+
+    char buf[128];
+    sprintf(buf, title,
+            timestamp.year, timestamp.month, timestamp.day,
+            timestamp.hours, timestamp.minutes, timestamp.seconds);
+    fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
+
+    // Write the frame data to the image and close the file
+    fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
+    fits_close_file(fptr, &status);
+
+    // Log any error messages
+    while (fits_read_errmsg(fitserr))
+        pn_log("cfitsio error: %s", fitserr);
+
+    char *preview_command = pn_preference_string(FRAME_PREVIEW_COMMAND);
+    system(preview_command);
+    free(preview_command);
+#endif
+}
+
 
 // Write frame data to a fits file
 void pn_save_frame(PNFrame *frame, PNGPSTimestamp timestamp)
@@ -210,104 +301,4 @@ void pn_save_frame(PNFrame *frame, PNGPSTimestamp timestamp)
     system(cmd);
     
     free(filepath);
-}
-
-// Display a frame in DS9
-void pn_preview_frame(PNFrame *frame, PNGPSTimestamp timestamp)
-{
-#ifdef USE_XPA_API
-    fitsfile *fptr;
-    int status = 0;
-    void *fitsbuf;
-    
-    // Create a new fits file in memory
-    // Size of the memory buffer = 1024*1024*2 bytes
-    // for pixels + 4096 for the header
-    size_t fitssize = 2101248;
-    fitsbuf = malloc(fitssize);
-    if (!fitsbuf)
-        return;
-    
-    fits_create_memfile(&fptr, &fitsbuf, &fitssize, 2880, realloc, &status);
-    
-    // Create the primary array image (16-bit short integer pixels
-    long size[2] = { frame->width, frame->height };
-    fits_create_img(fptr, USHORT_IMG, 2, size, &status);
-    
-    // Write a message into the OBJECT header for ds9 to display
-#ifdef USE_PICAM
-    char *title = "Exposure starting %04d-%02d-%02d %02d:%02d:%02d";
-#else
-    char *title = "Exposure ending %04d-%02d-%02d %02d:%02d:%02d";
-#endif
-    
-    char buf[128];
-    sprintf(buf, title,
-            timestamp.year, timestamp.month, timestamp.day,
-            timestamp.hours, timestamp.minutes, timestamp.seconds);
-    fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
-    
-    // Write the frame data to the image
-    fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
-    fits_close_file(fptr, &status);
-    
-    if (status)
-    {
-        // print out any error messages
-        char *fitserr = NULL;
-        while (fits_read_errmsg(fitserr))
-            pn_log("cfitsio error: %s", fitserr);
-    }
-    else
-    {
-        // Use XPA to display the image in ds9
-        if (0 == XPASet(NULL, "Puoko-nui", "fits", NULL, fitsbuf, fitssize, NULL, NULL, 1))
-        {
-            pn_log("ds9 not found. Attempting to open");
-            launch_ds9();
-        }
-    }
-    free(fitsbuf);
-#elif defined USE_XPA_EXTERNAL
-    fitsfile *fptr;
-    int status = 0;
-    char fitserr[128];
-    
-    // Create a new fits file
-    if (fits_create_file(&fptr, "!preview.fits.gz", &status))
-    {
-        pn_log("Unable to save temporary file. fitsio error %d", status);
-        while (fits_read_errmsg(fitserr))
-            pn_log(fitserr);
-        return;
-    }
-    
-    // Create the primary array image (16-bit short integer pixels
-    long size[2] = { frame->width, frame->height };
-    fits_create_img(fptr, USHORT_IMG, 2, size, &status);
-    
-    // Write a message into the OBJECT header for ds9 to display
-#ifdef USE_PICAM
-    char *title = "Exposure starting %04d-%02d-%02d %02d:%02d:%02d";
-#else
-    char *title = "Exposure ending %04d-%02d-%02d %02d:%02d:%02d";
-#endif
-    
-    char buf[128];
-    sprintf(buf, title,
-            timestamp.year, timestamp.month, timestamp.day,
-            timestamp.hours, timestamp.minutes, timestamp.seconds);
-    fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
-    
-    // Write the frame data to the image and close the file
-    fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
-    fits_close_file(fptr, &status);
-    
-    // Log any error messages
-    while (fits_read_errmsg(fitserr))
-        pn_log("cfitsio error: %s", fitserr);
-    
-    // TODO: Check for error
-    system("xpaset -p Puoko-nui file preview.fits.gz > xpa.tmp");
-#endif
 }
