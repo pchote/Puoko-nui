@@ -29,7 +29,7 @@ typedef enum
     RESET = 'G',
     DOWNLOADCOMPLETE = 'H',
     SIMULATE_CAMERA = 'I',
-    UNKNOWN_PACKET = 0,
+    UNKNOWN_PACKET = 0
 } PNGPSPacketType;
 
 // Represents a timestamp from the GPS

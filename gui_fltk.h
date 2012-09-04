@@ -32,14 +32,15 @@ public:
 	FLTKGui();
 	~FLTKGui();
     void addLogLine(const char *msg);
+    void updateTimerGroup();
 
 private:
-    static Fl_Group *CreateGroupBox(int y, int h, const char *label);
-    static Fl_Output *CreateOutputLabel(int y, const char *label);
-    void CreateTimerGroup();
-    void CreateCameraGroup();
-    void CreateAcquisitionGroup();
-    void CreateLogGroup();
+    static Fl_Group *createGroupBox(int y, int h, const char *label);
+    static Fl_Output *createOutputLabel(int y, const char *label);
+    void createTimerGroup();
+    void createCameraGroup();
+    void createAcquisitionGroup();
+    void createLogGroup();
 
     Fl_Window *m_mainWindow;
 

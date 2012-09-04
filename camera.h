@@ -33,7 +33,7 @@ typedef enum
     DOWNLOADING,
     ACQUIRE_WAIT,
     ACQUIRE_STOP,
-    SHUTDOWN,
+    SHUTDOWN
 } PNCameraMode;
 
 // Holds the state of a camera

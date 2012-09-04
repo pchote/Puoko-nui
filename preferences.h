@@ -43,7 +43,7 @@ typedef enum
 
     CAMERA_OVERSCAN_ENABLED,
     CAMERA_OVERSCAN_SKIP_COLS,
-    CAMERA_OVERSCAN_BIAS_COLS,
+    CAMERA_OVERSCAN_BIAS_COLS
 } PNPreferenceType;
 
 void pn_init_preferences(const char *path);
