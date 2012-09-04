@@ -47,8 +47,8 @@ ifeq ($(XPA_TYPE),EXTERNAL)
 endif
 
 ifeq ($(MSYSTEM),MINGW32)
-    CFLAGS += -DWIN32 -I/usr/local/include
-    LFLAGS += -L/usr/local/lib
+    CFLAGS += -DWIN32 -I/usr/local/include -Icfitsio/include -Incurses/include -Incurses/include/ncurses -Iftdi/include
+    LFLAGS += -L/usr/local/lib -Lcfitsio/lib -Lncurses/lib -Lftdi/lib
 endif
 
 OBJ = $(SRC:.c=.o)
