@@ -41,6 +41,7 @@ public:
     void addLogLine(const char *msg);
     void updateTimerGroup();
     void updateCameraGroup(PNCameraMode mode, int camera_downloading, float temperature);
+    void updateAcquisitionGroup();
 
 private:
     static Fl_Group *createGroupBox(int y, int h, const char *label);

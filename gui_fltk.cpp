@@ -54,7 +54,7 @@ bool pn_ui_update()
             unsigned char new_exposure = (unsigned char)(ceil(camera_readout_time));
             pn_preference_set_char(EXPOSURE_TIME, new_exposure);
             pn_log("Increasing exposure time to %d seconds", new_exposure);
-            //update_acquisition_window();
+            gui->updateAcquisitionGroup();
         }
         last_camera_readout_time = camera_readout_time;
     }
@@ -86,7 +86,7 @@ bool pn_ui_update()
     if (remaining_frames != last_calibration_framecount ||
         run_number != last_run_number)
     {
-        //update_acquisition_window();
+        gui->updateAcquisitionGroup();
         //update_status_window(camera_mode);
         last_calibration_framecount = remaining_frames;
         last_run_number = run_number;
@@ -231,20 +231,65 @@ void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, float
 void FLTKGui::createAcquisitionGroup()
 {
     int y = 200, margin = 20;
-    m_acquisitionGroup = createGroupBox(y, 145, "Acquisition"); y += 25;
-    m_acquisitionObserversOutput = createOutputLabel(y, "Observers:"); y += margin;
+    m_acquisitionGroup = createGroupBox(y, 105, "Acquisition"); y += 25;
     m_acquisitionTypeOutput = createOutputLabel(y, "Type:"); y += margin;
-    m_acquisitionTargetOutput = createOutputLabel(y, "Target:"); y += margin;
+    m_acquisitionTargetOutput = createOutputLabel(y, "Target:"); m_acquisitionTargetOutput->hide();
     m_acquisitionRemainingOutput = createOutputLabel(y, "Remaining:"); y += margin;
     m_acquisitionExposureOutput = createOutputLabel(y, "Exposure:"); y += margin;
     m_acquisitionFilenameOutput = createOutputLabel(y, "Filename:");
     m_acquisitionGroup->end();
 }
 
+void FLTKGui::updateAcquisitionGroup()
+{
+    PNFrameType type = (PNFrameType)pn_preference_char(OBJECT_TYPE);
+    unsigned char exptime = pn_preference_char(EXPOSURE_TIME);
+    int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
+    char *run_prefix = pn_preference_string(RUN_PREFIX);
+    int run_number = pn_preference_int(RUN_NUMBER);
+    char *object = pn_preference_string(OBJECT_NAME);
+
+    switch (type)
+    {
+        case OBJECT_DARK:
+            m_acquisitionTypeOutput->value("Dark");
+            break;
+        case OBJECT_FLAT:
+            m_acquisitionTypeOutput->value("Flat");
+            break;
+        case OBJECT_TARGET:
+            m_acquisitionTypeOutput->value("Target");
+            break;
+    }
+
+    char buf[100];
+    snprintf(buf, 100, "%d seconds", exptime);
+    m_acquisitionExposureOutput->value(buf);
+
+    if (type == OBJECT_TARGET)
+    {
+        m_acquisitionTargetOutput->show();
+        m_acquisitionTargetOutput->value(object);
+        m_acquisitionRemainingOutput->hide();
+    }
+    else
+    {
+        m_acquisitionTargetOutput->hide();
+        m_acquisitionRemainingOutput->show();
+        snprintf(buf, 100, "%d", remaining_frames);
+        m_acquisitionRemainingOutput->value(buf);
+    }
+
+    snprintf(buf, 100, "%s-%04d.fits.gz", run_prefix, run_number);
+    m_acquisitionFilenameOutput->value(buf);
+    free(object);
+    free(run_prefix);
+}
+
 void FLTKGui::createLogGroup()
 {
     m_logBuffer = new Fl_Text_Buffer();
-    m_logDisplay = new Fl_Text_Display(250, 10, 420, 335, NULL);
+    m_logDisplay = new Fl_Text_Display(250, 10, 420, 295, NULL);
     m_logDisplay->buffer(m_logBuffer);
 }
 
@@ -270,6 +315,7 @@ FLTKGui::FLTKGui()
 
     updateTimerGroup();
     updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
+    updateAcquisitionGroup();
 
 	m_mainWindow->end();
 	m_mainWindow->show();
