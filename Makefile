@@ -2,7 +2,6 @@ CAMERA_TYPE := NONE
 #CAMERA_TYPE := PVCAM
 #CAMERA_TYPE := PICAM
 #PREVIEW_TYPE := NONE
-#PREVIEW_TYPE := XPA
 PREVIEW_TYPE := SCRIPT
 
 
@@ -35,11 +34,6 @@ ifeq ($(CAMERA_TYPE),PICAM)
         CFLAGS += -I/usr/local/picam/includes `apr-1-config --cflags --cppflags --includes`
         LFLAGS += -lpicam `apr-1-config --link-ld --libs`
     endif
-endif
-
-ifeq ($(PREVIEW_TYPE),XPA)
-    CFLAGS += -DUSE_XPA_PREVIEW
-    LFLAGS += -lxpa
 endif
 
 ifeq ($(PREVIEW_TYPE),SCRIPT)

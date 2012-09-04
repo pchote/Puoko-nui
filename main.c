@@ -21,10 +21,6 @@
 #include "ui.h"
 #include "imagehandler.h"
 
-#ifdef USE_XPA_API
-    #include <xpa.h>
-#endif
-
 #include <assert.h>
 
 PNCamera *camera;
