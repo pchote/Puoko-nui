@@ -17,8 +17,13 @@
 #include "camera.h"
 #include "gps.h"
 #include "preferences.h"
-#include "ui.h"
 #include "imagehandler.h"
+
+#ifdef USE_FLTK_GUI
+    #include "gui_fltk.h"
+#else
+    #include "gui_ncurses.h"
+#endif
 
 #include <assert.h>
 

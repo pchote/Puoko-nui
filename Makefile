@@ -2,16 +2,18 @@ CAMERA_TYPE := NONE
 #CAMERA_TYPE := PVCAM
 #CAMERA_TYPE := PICAM
 #DISABLE_PREVIEW := YES
+GUI_TYPE := FLTK
 
-
-CC = gcc
-CFLAGS = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
-LFLAGS = -lpanel -lncurses -lcfitsio -lpthread -lftdi -lm
-SRC = main.c camera.c gps.c preferences.c ui.c imagehandler.c platform.c
+CC       = gcc
+CXX      = g++
+CCFLAGS  = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
+CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
+LFLAGS   = -lcfitsio -lpthread -lftdi -lm
+OBJS     = main.o camera.o gps.o preferences.o imagehandler.o platform.o
 
 ifeq ($(CAMERA_TYPE),PVCAM)
 	CFLAGS += -DUSE_PVCAM
-	SRC += camera_pvcam.c
+	OBJS += camera_pvcam.o
 
     ifeq ($(MSYSTEM),MINGW32)
         CFLAGS += -Ic:/Program\ Files/Princeton\ Instruments/PVCAM/SDK/
@@ -24,7 +26,7 @@ endif
 
 ifeq ($(CAMERA_TYPE),PICAM)
 	CFLAGS += -DUSE_PICAM
-	SRC += camera_picam.c
+	OBJS += camera_picam.o
 
     ifeq ($(MSYSTEM),MINGW32)
         CFLAGS += -Ic:/Program\ Files/Princeton\ Instruments/Picam/Includes
@@ -35,19 +37,29 @@ ifeq ($(CAMERA_TYPE),PICAM)
     endif
 endif
 
+ifeq ($(GUI_TYPE),FLTK)
+    CFLAGS += -D USE_FLTK_GUI
+    CXXFLAGS += $(shell fltk-config --cxxflags )
+    LFLAGS += $(shell fltk-config --ldflags )
+    OBJS += gui_fltk.o
+else
+    LFLAGS += -lpanel -lncurses
+    OBJS += gui_ncurses.o
+endif
+
 ifeq ($(MSYSTEM),MINGW32)
     CFLAGS += -DWIN32 -I/usr/local/include -Icfitsio/include -Incurses/include -Incurses/include/ncurses -Iftdi/include
     LFLAGS += -L/usr/local/lib -Lcfitsio/lib -Lncurses/lib -Lftdi/lib
 endif
 
-OBJ = $(SRC:.c=.o)
-
-puokonui: $(OBJ)
-	$(CC) -o $@ $(OBJ) $(LFLAGS)
+puokonui : $(OBJS)
+	$(CXX) -o $@ $(OBJS) $(LFLAGS)
 
 clean:
-	-rm $(OBJ) puokonui
+	-rm $(OBJS) puokonui
 
-.SUFFIXES: .c
-.c.o:
-	$(CC) $(CFLAGS) -c $< -o $@
+%.o : %.cpp
+	$(CXX) -c $(CXXFLAGS) $<
+
+%.o : %.c
+	$(CC) -c $(CCFLAGS) $<

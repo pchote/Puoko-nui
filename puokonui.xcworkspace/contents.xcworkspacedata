@@ -29,16 +29,22 @@
       location = "group:Makefile">
    </FileRef>
    <FileRef
+      location = "group:gui_fltk.cpp">
+   </FileRef>
+   <FileRef
+      location = "group:gui_fltk.h">
+   </FileRef>
+   <FileRef
       location = "group:preferences.c">
    </FileRef>
    <FileRef
       location = "group:preferences.h">
    </FileRef>
    <FileRef
-      location = "group:ui.c">
+      location = "group:gui_ncurses.c">
    </FileRef>
    <FileRef
-      location = "group:ui.h">
+      location = "group:gui_ncurses.h">
    </FileRef>
    <FileRef
       location = "group:camera_pvcam.c">

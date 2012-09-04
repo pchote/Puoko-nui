@@ -7,8 +7,8 @@
 
 #include <stdbool.h>
 
-#ifndef UI_H
-#define UI_H
+#ifndef GUI_NCURSES_H
+#define GUI_NCURSES_H
 
 // Input parsing modes
 typedef enum

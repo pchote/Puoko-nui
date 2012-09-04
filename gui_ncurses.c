@@ -20,7 +20,7 @@
     #include <panel.h>
 #endif
 
-#include "ui.h"
+#include "gui_ncurses.h"
 #include "gps.h"
 #include "camera.h"
 #include "preferences.h"
