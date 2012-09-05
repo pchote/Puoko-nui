@@ -212,4 +212,30 @@ char *realpath(const char *path, char resolved_path[PATH_MAX])
     return return_path;
 }
 #endif
+
+
+// Run a script in the background, without
+// showing a command window on Windows.
+// Simply wraps system() on other platforms
+void run_command_async(const char *cmd)
+{
+#if (defined _WIN32 || defined _WIN64)
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+
+    ZeroMemory( &si, sizeof(si) );
+    si.cb = sizeof(si);
+    ZeroMemory( &pi, sizeof(pi) );
+
+    if (!CreateProcess(NULL, cmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
+    {
+        pn_log("Failed to spawn script with errorcode: %d", GetLastError());
+        return;
+    }
+    CloseHandle( pi.hProcess );
+    CloseHandle( pi.hThread );
+#else
+    system(cmd);
+#endif
+}
 	

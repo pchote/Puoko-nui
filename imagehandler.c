@@ -28,9 +28,9 @@ void pn_run_startup_script()
 {
 #ifndef DISABLE_PREVIEW
     #if (defined _WIN32 || defined _WIN64)
-    system(".\\startup.bat");
+    run_command_async("powershell -sta -noProfile -NonInteractive  -nologo -command .\\startup.ps1");
     #else
-    system("./startup.sh");
+    run_command_async("./startup.sh");
     #endif
 #endif
 }
@@ -39,9 +39,9 @@ void pn_run_preview_script(const char *filepath)
 {
 #ifndef DISABLE_PREVIEW
 #if (defined _WIN32 || defined _WIN64)
-    system(".\\preview.bat");
+    run_command_async("powershell -sta -noProfile -NonInteractive  -nologo -command .\\preview.ps1");
 #else
-    system("./preview.sh");
+    run_command_async("./preview.sh");
 #endif
 #endif
 }
@@ -49,13 +49,14 @@ void pn_run_preview_script(const char *filepath)
 void pn_run_saved_script(const char *filepath)
 {
     // Call frame_available.sh to run the online reduction code
-    char cmd[PATH_MAX];
+    char *cmd;
 #if (defined _WIN32 || defined _WIN64)
-    sprintf(cmd, "./frame_available.bat %s", filepath);
+    asprintf(&cmd, "powershell -sta -noProfile -NonInteractive  -nologo -command \"./frame_available.ps1 %s \"", filepath);
 #else
-    sprintf(cmd, "./frame_available.sh %s&", filepath);
+    asprintf(&cmd, "./frame_available.sh %s&", filepath);
 #endif
-    system(cmd);
+    run_command_async(cmd);
+    free(cmd);
 }
 
 #pragma mark Frame Saving/Preview. Runs in camera thread

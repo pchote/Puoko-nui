@@ -21,4 +21,7 @@ int vasprintf (char **resultp, const char *format, va_list args);
 int asprintf(char **resultp, const char *format, ...);
 char *strndup(const char *s, size_t max);
 #endif
+
+void run_command_async(const char *cmd);
+
 #endif
