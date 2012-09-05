@@ -32,6 +32,13 @@ void pn_ui_log_line(char *msg)
 
 bool pn_ui_update()
 {
+    if (camera->fatal_error != NULL || gps->fatal_error != NULL)
+    {
+        char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps->fatal_error;
+        fl_alert("A fatal error has occurred and the program will now close:\n\n%s", msg);
+        return true;
+    }
+
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode camera_mode = camera->mode;
     float camera_temperature = camera->temperature;
