@@ -47,6 +47,9 @@
       location = "group:gui_ncurses.h">
    </FileRef>
    <FileRef
+      location = "group:gui.h">
+   </FileRef>
+   <FileRef
       location = "group:camera_pvcam.c">
    </FileRef>
    <FileRef

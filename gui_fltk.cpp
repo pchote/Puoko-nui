@@ -20,20 +20,14 @@ int last_calibration_framecount;
 int last_run_number;
 int last_camera_downloading;
 
-// HACK: This should be in pn_ui_new, but we need to enable the log earlier
-void init_log_gui()
+void pn_ui_new()
 {
     gui = new FLTKGui();
 }
 
-void add_log_line(char *msg)
+void pn_ui_log_line(char *msg)
 {
     gui->addLogLine(msg);
-}
-
-void pn_ui_new()
-{
-
 }
 
 bool pn_ui_update()
@@ -294,15 +288,11 @@ void FLTKGui::createLogGroup()
 
 void FLTKGui::buttonMetadataPressed(Fl_Widget* o, void *userdata)
 {
-	FLTKGui* gui = (FLTKGui *)userdata;
-    // TODO: Implement me
     pn_log("Metadata pressed");
 }
 
 void FLTKGui::buttonExposurePressed(Fl_Widget* o, void *userdata)
 {
-	FLTKGui* gui = (FLTKGui *)userdata;
-    // TODO: Implement me
     pn_log("Exposure pressed");
 }
 
@@ -341,7 +331,7 @@ void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
     // Can't enable saving for calibration frames after the target count has been reached
     if (!pn_preference_allow_save())
     {
-        add_log_line("Unable to toggle save: countdown is zero");
+        pn_log("Unable to toggle save: countdown is zero");
         return;
     }
 
@@ -352,8 +342,6 @@ void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
 
 void FLTKGui::buttonQuitPressed(Fl_Widget* o, void *userdata)
 {
-	FLTKGui* gui = (FLTKGui *)userdata;
-    // TODO: Implement me
     pn_log("Quit pressed");
 }
 

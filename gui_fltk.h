@@ -19,21 +19,11 @@ extern "C" {
     #include "camera.h"
     #include "preferences.h"
     #include "common.h"
+    #include "gui.h"
 }
 
 #ifndef GUI_FLTK_H
 #define GUI_FLTK_H
-
-extern "C"
-{
-    void init_log_gui();
-    void add_log_line(char *msg);
-    void pn_ui_new();
-    bool pn_ui_update();
-    void pn_ui_free();
-}
-
-
 
 class FLTKGui
 {

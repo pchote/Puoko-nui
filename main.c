@@ -19,11 +19,7 @@
 #include "preferences.h"
 #include "imagehandler.h"
 
-#ifdef USE_FLTK_GUI
-    #include "gui_fltk.h"
-#else
-    #include "gui_ncurses.h"
-#endif
+#include "gui.h"
 
 #include <assert.h>
 
@@ -111,6 +107,8 @@ int main(int argc, char *argv[])
     //
     // Initialization
     //
+    pn_init_preferences("preferences.dat");
+
     pthread_mutex_init(&log_mutex, NULL);
     pthread_mutex_init(&frame_queue_mutex, NULL);
 
@@ -130,10 +128,10 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Unable to create logfile %s\n", namebuf);
         exit(1);
     }
-    init_log_gui();
 
+    // Start ui early so it can catch log events
+    pn_ui_new();
     pn_run_startup_script();
-    pn_init_preferences("preferences.dat");
 
     bool simulate_camera = false;
     bool simulate_timer = false;
@@ -173,7 +171,6 @@ int main(int argc, char *argv[])
     //
     // Main program loop
     //
-    pn_ui_new();
 
     for (;;)
     {
@@ -204,6 +201,8 @@ int main(int argc, char *argv[])
         bool request_shutdown = pn_ui_update();
         if (request_shutdown)
             break;
+        
+        millisleep(100);
     }
 
     pn_ui_free();
@@ -246,8 +245,8 @@ void pn_log(const char * format, ...)
     // Log time
     struct timeval tv;
     gettimeofday(&tv, NULL);
-
-    struct tm* ptm = gmtime(&tv.tv_sec);
+    time_t seconds = tv.tv_sec;
+    struct tm *ptm = gmtime(&seconds);
     char timebuf[9];
     strftime(timebuf, 9, "%H:%M:%S", ptm);
 
@@ -256,7 +255,7 @@ void pn_log(const char * format, ...)
     // Construct log line
     char *msgbuf, *linebuf;
     vasprintf(&msgbuf, format, args);
-    asprintf(&linebuf, "[%s.%03d] %s", timebuf, tv.tv_usec / 1000, msgbuf);
+    asprintf(&linebuf, "[%s.%03d] %s", timebuf, (int)(tv.tv_usec / 1000), msgbuf);
     free(msgbuf);
 
     // Log to file
@@ -265,7 +264,7 @@ void pn_log(const char * format, ...)
 
     // Add to gui
     if (!shutdown)
-        add_log_line(linebuf);
+        pn_ui_log_line(linebuf);
 
     pthread_mutex_unlock(&log_mutex);
 

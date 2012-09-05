@@ -279,14 +279,7 @@ static void update_log_window()
     }
 }
 
-void init_log_gui()
-{
-    last_log_position = log_position = 0;
-    for (int i = 0; i < 256; i++)
-        log_messages[i] = NULL;
-}
-
-void add_log_line(char *msg)
+void pn_ui_log_line(char *msg)
 {
     log_position++;
     if (log_messages[log_position] != NULL)
@@ -482,6 +475,11 @@ PNUIInputType input_type = INPUT_MAIN;
 
 void pn_ui_new()
 {
+    // Initialize circular buffer for log display
+    last_log_position = log_position = 0;
+    for (int i = 0; i < 256; i++)
+        log_messages[i] = NULL;
+
     initscr();
     noecho();
     raw();
@@ -709,7 +707,7 @@ bool pn_ui_update()
                         // Can't enable saving for calibration frames after the target count has been reached
                         if (!pn_preference_allow_save())
                         {
-                            add_log_line("Unable to toggle save: countdown is zero");
+                            pn_log("Unable to toggle save: countdown is zero");
                             break;
                         }
 
