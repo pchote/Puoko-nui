@@ -6,7 +6,7 @@ GUI_TYPE := FLTK
 
 CC       = gcc
 CXX      = g++
-CCFLAGS  = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
+CFLAGS   = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
 LFLAGS   = -lcfitsio -lpthread -lftdi -lm
 OBJS     = main.o camera.o gps.o preferences.o imagehandler.o platform.o
@@ -62,4 +62,4 @@ clean:
 	$(CXX) -c $(CXXFLAGS) $<
 
 %.o : %.c
-	$(CC) -c $(CCFLAGS) $<
+	$(CC) -c $(CFLAGS) $<
