@@ -26,7 +26,6 @@ PNCamera pn_camera_new()
     cam.desired_mode = IDLE;
     cam.temperature = 0;
     cam.fatal_error = NULL;
-    cam.first_frame = true;
     cam.readout_time = 0;
     cam.simulated = false;
     cam.safe_to_stop_acquiring = false;
@@ -89,7 +88,6 @@ void *pn_simulated_camera_thread(void *_unused)
 {
     // Initialize the camera
     camera->simulated = true;
-    camera->first_frame = true;
     camera->safe_to_stop_acquiring = false;
     pn_log("Initialising simulated camera");
 

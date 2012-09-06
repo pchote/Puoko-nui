@@ -83,14 +83,8 @@ void pn_save_preview(PNFrame *frame, PNGPSTimestamp timestamp)
     fits_create_img(fptr, USHORT_IMG, 2, size, &status);
 
     // Write a message into the OBJECT header for ds9 to display
-#ifdef USE_PICAM
-    char *title = "Exposure starting %04d-%02d-%02d %02d:%02d:%02d";
-#else
-    char *title = "Exposure ending %04d-%02d-%02d %02d:%02d:%02d";
-#endif
-
     char buf[128];
-    sprintf(buf, title,
+    sprintf(buf, "Exposure starting %04d-%02d-%02d %02d:%02d:%02d",
             timestamp.year, timestamp.month, timestamp.day,
             timestamp.hours, timestamp.minutes, timestamp.seconds);
     fits_update_key(fptr, TSTRING, "OBJECT", &buf, NULL, &status);
@@ -191,15 +185,10 @@ const char *pn_save_frame(PNFrame *frame, PNGPSTimestamp timestamp)
         fits_update_key(fptr, TSTRING, "BIAS-RGN", buf, "Frame bias subregion", &status);
     }
 
-#ifdef USE_PICAM
     // Trigger timestamp defines the *start* of the frame
     PNGPSTimestamp start = timestamp;
-    PNGPSTimestamp end = pn_timestamp_subtract_seconds(timestamp, -exposure_time);
-#else
-    // Trigger timestamp defines the *end* of the frame
-    PNGPSTimestamp start = pn_timestamp_subtract_seconds(timestamp, exposure_time);
-    PNGPSTimestamp end = timestamp;
-#endif
+    PNGPSTimestamp end = start; end.seconds += exposure_time;
+    end = pn_timestamp_normalize(end);
 
     if (timestamp.valid)
     {

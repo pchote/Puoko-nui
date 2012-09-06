@@ -50,7 +50,6 @@ typedef struct
     float temperature;
     float readout_time;
     char *fatal_error;
-    bool first_frame;
     bool safe_to_stop_acquiring;
 
     pthread_mutex_t read_mutex;

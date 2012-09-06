@@ -506,10 +506,10 @@ void pn_gps_stop_exposure()
 }
 
 // Utility routine to subtract a number of seconds from a PNGPSTimestamp
-PNGPSTimestamp pn_timestamp_subtract_seconds(PNGPSTimestamp ts, int seconds)
+PNGPSTimestamp pn_timestamp_normalize(PNGPSTimestamp ts)
 {
     // Let gmtime/timegm do the hard work of normalizing the time
-    struct tm a = {ts.seconds - seconds, ts.minutes, ts.hours, ts.day, ts.month, ts.year - 1900,0,0,0};
+    struct tm a = {ts.seconds, ts.minutes, ts.hours, ts.day, ts.month, ts.year - 1900,0,0,0};
     normalize_tm(&a);
 
     // Construct a new timestamp to return
@@ -537,6 +537,7 @@ void pn_gps_push_trigger(PNGPSTimestamp timestamp)
     tail->next = NULL;
 
     pthread_mutex_lock(&gps->read_mutex);
+    size_t count = 0;
     // Empty queue
     if (gps->trigger_queue == NULL)
         gps->trigger_queue = tail;
@@ -545,10 +546,15 @@ void pn_gps_push_trigger(PNGPSTimestamp timestamp)
         // Find tail of queue - queue is assumed to be short
         struct PNGPSTimestampQueue *item = gps->trigger_queue;
         while (item->next != NULL)
+        {
             item = item->next;
+            count++;
+        }
         item->next = tail;
     }
+    count++;
     pthread_mutex_unlock(&gps->read_mutex);
+    pn_log("Pushed timestamp. %d in queue", count);
 }
 
 /*
@@ -571,5 +577,6 @@ PNGPSTimestamp pn_gps_pop_trigger()
 
     PNGPSTimestamp ts = head->timestamp;
     free(head);
+
     return ts;
 }

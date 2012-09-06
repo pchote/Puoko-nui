@@ -26,6 +26,12 @@ static int16 handle = -1;
 static void *image_buffer = NULL;
 static uns32 image_buffer_size = 0;
 
+// Used to determine and discard the first frame
+// corresponding to the exposure before the first
+// trigger. This allows us to count all download timestamps
+// as the beginning of the corresponding frame
+bool first_frame;
+
 // Generate a fatal error based on the pvcam error
 static void pvcam_error(const char *msg, int line)
 {
@@ -302,7 +308,7 @@ static void start_acquiring()
     // Sample initial temperature
     read_temperature();
 
-    camera->first_frame = true;
+    first_frame = true;
     camera->safe_to_stop_acquiring = false;
     set_mode(ACQUIRING);
 }
@@ -380,10 +386,10 @@ void *pn_pvcam_camera_thread(void *_unused)
             // PVCAM triggers end the frame, and so the first frame
             // will consist of the sync and align time period.
             // Discard this frame.
-            if (camera->first_frame)
+            if (first_frame)
             {
-                pn_log("Discarding first frame");
-                camera->first_frame = false;
+                pn_log("Discarding pre-exposure readout");
+                first_frame = false;
             }
             else
                 queue_framedata(&frame);

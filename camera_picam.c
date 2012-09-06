@@ -533,8 +533,6 @@ static void stop_acquiring()
     // Close the shutter until the next exposure sequence
     set_integer_param(PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
     commit_camera_params();
-
-    camera->first_frame = true;
     set_mode(IDLE);
 }
 
