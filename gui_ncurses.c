@@ -671,7 +671,7 @@ bool pn_ui_update()
                         }
                         else if (camera_mode == ACQUIRING)
                         {
-                            pn_camera_request_mode(ACQUIRE_WAIT);
+                            pn_camera_request_mode(IDLE);
                             pn_gps_stop_exposure();
                         }
                         break;

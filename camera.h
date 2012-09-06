@@ -31,7 +31,7 @@ typedef enum
     ACQUIRE_START,
     ACQUIRING,
     DOWNLOADING,
-    ACQUIRE_WAIT,
+    IDLE_WHEN_SAFE,
     ACQUIRE_STOP,
     SHUTDOWN
 } PNCameraMode;
@@ -51,6 +51,7 @@ typedef struct
     float readout_time;
     char *fatal_error;
     bool first_frame;
+    bool safe_to_stop_acquiring;
 
     pthread_mutex_t read_mutex;
 } PNCamera;
@@ -61,6 +62,7 @@ void *pn_simulated_camera_thread(void *);
 
 void set_mode(PNCameraMode mode);
 void pn_camera_request_mode(PNCameraMode mode);
+void pn_camera_notify_safe_to_stop();
 
 #ifdef USE_PVCAM
 void *pn_pvcam_camera_thread(void *);

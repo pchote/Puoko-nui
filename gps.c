@@ -371,7 +371,7 @@ void *pn_timer_thread(void *_unused)
             case STOP_EXPOSURE:
             {
                 pn_log("Timer reports safe to shutdown camera");
-                pn_camera_request_mode(IDLE);
+                pn_camera_notify_safe_to_stop();
                 break;
             }
             default:
@@ -392,6 +392,7 @@ void *pn_timer_thread(void *_unused)
 }
 
 // Main simulated timer thread loop
+static bool simulated_send_shutdown = false;
 void *pn_simulated_timer_thread(void *unused)
 {
     // Initialization
@@ -404,6 +405,17 @@ void *pn_simulated_timer_thread(void *unused)
     while (!gps->shutdown)
     {
         millisleep(100);
+
+        pthread_mutex_lock(&gps->read_mutex);
+        bool send_shutdown = simulated_send_shutdown;
+        simulated_send_shutdown = false;
+        pthread_mutex_unlock(&gps->read_mutex);
+        if (send_shutdown)
+        {
+            gps->simulated_exptime = 0;
+            gps->simulated_remaining = 0;
+            pn_camera_notify_safe_to_stop();
+        }
 
         time_t cur_unixtime = time(NULL);
         if (cur_unixtime != last_unixtime)
@@ -484,7 +496,11 @@ void pn_gps_stop_exposure()
 {
     pn_log("Stopping exposure");
     if (gps->simulated)
-        pn_camera_request_mode(IDLE);
+    {
+        pthread_mutex_lock(&gps->read_mutex);
+        simulated_send_shutdown = true;
+        pthread_mutex_unlock(&gps->read_mutex);
+    }
     else
         queue_data(STOP_EXPOSURE, NULL, 0);
 }

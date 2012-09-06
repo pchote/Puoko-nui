@@ -209,6 +209,7 @@ static void start_acquiring()
     read_temperature();
 
     camera->first_frame = true;
+    camera->safe_to_stop_acquiring = false;
     set_mode(ACQUIRING);
 }
 
@@ -252,6 +253,7 @@ void *pn_pvcam_camera_thread(void *_unused)
 
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode desired_mode = camera->desired_mode;
+    bool safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
     pthread_mutex_unlock(&camera->read_mutex);
 
     while (desired_mode != SHUTDOWN)
@@ -260,10 +262,11 @@ void *pn_pvcam_camera_thread(void *_unused)
         if (desired_mode == ACQUIRING && camera->mode == IDLE)
             start_acquiring();
 
-        if (desired_mode == ACQUIRE_WAIT && camera->mode == ACQUIRING)
-            camera->mode = ACQUIRE_WAIT;
+        if (desired_mode == IDLE && camera->mode == ACQUIRING)
+            camera->mode = IDLE_WHEN_SAFE;
 
-        if (desired_mode == IDLE && camera->mode == ACQUIRE_WAIT)
+        // Stop acquisition
+        if (camera->mode == IDLE_WHEN_SAFE && safe_to_stop_acquiring)
             stop_acquiring();
 
         // Check for new frame
@@ -306,11 +309,12 @@ void *pn_pvcam_camera_thread(void *_unused)
 
         pthread_mutex_lock(&camera->read_mutex);
         desired_mode = camera->desired_mode;
+        safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
         pthread_mutex_unlock(&camera->read_mutex);
     }
 
     // Shutdown camera
-    if (camera->mode == ACQUIRING || camera->mode == ACQUIRE_WAIT)
+    if (camera->mode == ACQUIRING || camera->mode == IDLE_WHEN_SAFE)
         stop_acquiring();
 
     // Close the PVCAM lib (which in turn closes the camera)

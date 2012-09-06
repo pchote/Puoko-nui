@@ -27,7 +27,9 @@ PNCamera pn_camera_new()
     cam.temperature = 0;
     cam.fatal_error = NULL;
     cam.first_frame = true;
+    cam.readout_time = 0;
     cam.simulated = false;
+    cam.safe_to_stop_acquiring = false;
     pthread_mutex_init(&cam.read_mutex, NULL);
 
     return cam;
@@ -63,6 +65,13 @@ void pn_camera_request_mode(PNCameraMode mode)
     pthread_mutex_unlock(&camera->read_mutex);
 }
 
+void pn_camera_notify_safe_to_stop()
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->safe_to_stop_acquiring = true;
+    pthread_mutex_unlock(&camera->read_mutex);
+}
+
 #pragma mark Simulated Camera Routines
 static void *image_buffer = NULL;
 
@@ -81,6 +90,7 @@ void *pn_simulated_camera_thread(void *_unused)
     // Initialize the camera
     camera->simulated = true;
     camera->first_frame = true;
+    camera->safe_to_stop_acquiring = false;
     pn_log("Initialising simulated camera");
 
     // Wait a bit to simulate hardware startup time
@@ -91,6 +101,7 @@ void *pn_simulated_camera_thread(void *_unused)
     // Loop and respond to user commands
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode desired_mode = camera->desired_mode;
+    bool safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
     pthread_mutex_unlock(&camera->read_mutex);
 
     while (desired_mode != SHUTDOWN)
@@ -115,11 +126,11 @@ void *pn_simulated_camera_thread(void *_unused)
 
         // Enter an intermediate waiting state while we wait for the
         // timer to say it is safe to stop the acquisition sequence
-        if (desired_mode == ACQUIRE_WAIT && camera->mode == ACQUIRING)
-            camera->mode = ACQUIRE_WAIT;
+        if (desired_mode == IDLE && camera->mode == ACQUIRING)
+            camera->mode = IDLE_WHEN_SAFE;
 
         // Stop acquisition
-        if (desired_mode == IDLE && camera->mode == ACQUIRE_WAIT)
+        if (camera->mode == IDLE_WHEN_SAFE && safe_to_stop_acquiring)
             stop_acquiring_simulated();
 
         // Check for new frame
@@ -148,6 +159,7 @@ void *pn_simulated_camera_thread(void *_unused)
         millisleep(100);
         pthread_mutex_lock(&camera->read_mutex);
         desired_mode = camera->desired_mode;
+        safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
         pthread_mutex_unlock(&camera->read_mutex);
     }
 
