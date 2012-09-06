@@ -21,8 +21,6 @@
 
 #include "gui.h"
 
-#include <assert.h>
-
 PNCamera *camera;
 TimerUnit *timer;
 
@@ -56,15 +54,16 @@ struct TimerTimestampQueue *trigger_timestamp_queue;
 // processing on the main thread
 void queue_framedata(PNFrame *frame)
 {
-    // TODO: Replace asserts with something more hardware cleanup friendly
     PNFrame *copy = malloc(sizeof(PNFrame));
-    assert(copy != NULL);
-    memcpy(copy, frame, sizeof(PNFrame));
+    struct PNFrameQueue *tail = malloc(sizeof(struct PNFrameQueue));
+    if (!copy || !tail)
+    {
+        trigger_fatal_error("Allocation error in queue_framedata");
+        return;
+    }
 
     // Add to frame queue
-    struct PNFrameQueue *tail = malloc(sizeof(struct PNFrameQueue));
-    assert(tail);
-
+    memcpy(copy, frame, sizeof(PNFrame));
     tail->frame = copy;
     tail->next = NULL;
 
@@ -124,7 +123,7 @@ void queue_trigger_timestamp(TimerTimestamp timestamp)
 {
     struct TimerTimestampQueue *tail = malloc(sizeof(struct TimerTimestampQueue));
     if (tail == NULL)
-        assert(tail != NULL);
+        trigger_fatal_error("Unexpected download - no timestamp available for frame");
 
     tail->timestamp = timestamp;
     tail->next = NULL;
