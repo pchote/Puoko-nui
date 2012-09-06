@@ -126,14 +126,6 @@ static void queue_data(unsigned char type, unsigned char *data, unsigned char le
     queue_send_byte('\n');
 }
 
-// Issue a camera stop-sequence command
-static void shutdown_camera()
-{
-    pthread_mutex_lock(&camera->read_mutex);
-    camera->desired_mode = IDLE;
-    pthread_mutex_unlock(&camera->read_mutex);
-}
-
 // Initialize the usb connection to the timer
 static void initialize_timer()
 {
@@ -379,7 +371,7 @@ void *pn_timer_thread(void *_unused)
             case STOP_EXPOSURE:
             {
                 pn_log("Timer reports safe to shutdown camera");
-                shutdown_camera();
+                pn_camera_request_mode(IDLE);
                 break;
             }
             default:
@@ -492,7 +484,7 @@ void pn_gps_stop_exposure()
 {
     pn_log("Stopping exposure");
     if (gps->simulated)
-        shutdown_camera();
+        pn_camera_request_mode(IDLE);
     else
         queue_data(STOP_EXPOSURE, NULL, 0);
 }

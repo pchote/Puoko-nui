@@ -47,10 +47,19 @@ extern PNCamera *camera;
 extern PNGPS *gps;
 
 // Set the camera mode to be read by the other threads in a threadsafe manner
+// Only to be used by camera implementations.
 void set_mode(PNCameraMode mode)
 {
     pthread_mutex_lock(&camera->read_mutex);
     camera->mode = mode;
+    pthread_mutex_unlock(&camera->read_mutex);
+}
+
+// Request a new camera mode from another thread
+void pn_camera_request_mode(PNCameraMode mode)
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = mode;
     pthread_mutex_unlock(&camera->read_mutex);
 }
 

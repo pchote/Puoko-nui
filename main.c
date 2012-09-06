@@ -213,9 +213,7 @@ int main(int argc, char *argv[])
     shutdown = true;
 
     // Tell the GPS and Camera threads to terminate themselves
-    pthread_mutex_lock(&camera->read_mutex);
-    camera->desired_mode = SHUTDOWN;
-    pthread_mutex_unlock(&camera->read_mutex);
+    pn_camera_request_mode(SHUTDOWN);
     gps->shutdown = true;
 
     // Wait for the GPS and Camera threads to terminate

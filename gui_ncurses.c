@@ -666,18 +666,12 @@ bool pn_ui_update()
                     case 0x01: // ^A - Toggle Acquire
                         if (camera_mode == IDLE)
                         {
-                            pthread_mutex_lock(&camera->read_mutex);
-                            camera->desired_mode = ACQUIRING;
-                            pthread_mutex_unlock(&camera->read_mutex);
-
+                            pn_camera_request_mode(ACQUIRING);
                             pn_gps_start_exposure(pn_preference_char(EXPOSURE_TIME));
                         }
                         else if (camera_mode == ACQUIRING)
                         {
-                            pthread_mutex_lock(&camera->read_mutex);
-                            camera->desired_mode = ACQUIRE_WAIT;
-                            pthread_mutex_unlock(&camera->read_mutex);
-
+                            pn_camera_request_mode(ACQUIRE_WAIT);
                             pn_gps_stop_exposure();
                         }
                         break;
