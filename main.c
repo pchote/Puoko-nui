@@ -20,6 +20,7 @@
 #include "imagehandler.h"
 
 #include "gui.h"
+#include "platform.h"
 
 PNCamera *camera;
 TimerUnit *timer;
@@ -103,7 +104,7 @@ void process_framedata(PNFrame *frame)
 
     if (pn_preference_char(SAVE_FRAMES))
     {
-        const char *filename = pn_save_frame(frame, timestamp);
+        const char *filename = pn_save_frame(frame, timestamp, camera);
         if (filename == NULL)
         {
             pn_log("Save failed. Discarding frame");

@@ -5,13 +5,12 @@
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
 
+#ifndef CAMERA_H
+#define CAMERA_H
+
 #include <pthread.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "imagehandler.h"
-
-#ifndef CAMERA_H
-#define CAMERA_H
 
 // Custom frame transfer mode options
 #define PARAM_FORCE_READOUT_MODE ((CLASS2<<16) + (TYPE_UNS32<<24) + 326)

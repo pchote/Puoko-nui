@@ -15,6 +15,7 @@
 #include "camera.h"
 #include "timer.h"
 #include "preferences.h"
+#include "platform.h"
 
 #pragma mark Creation and Destruction (Called from main thread)
 

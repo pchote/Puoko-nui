@@ -5,10 +5,10 @@
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
 
-#include <limits.h>
-
 #ifndef PREFERENCES_H
 #define PREFERENCES_H
+
+#include <limits.h>
 
 #define PREFERENCES_LENGTH 128
 

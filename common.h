@@ -5,13 +5,34 @@
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
 
-#include <stdarg.h>
-#include "platform.h"
-#include "camera.h"
-#include "timer.h"
-
 #ifndef COMMON_H
 #define COMMON_H
+
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+// Represents an aquired frame
+typedef struct
+{
+    uint16_t width;
+    uint16_t height;
+    uint16_t *data; // Pointer to the start of the frame data
+} PNFrame;
+
+// Represents a timestamp from the GPS
+typedef struct
+{
+    int year;
+    int month;
+    int day;
+    int hours;
+    int minutes;
+    int seconds;
+    bool locked;
+    int remaining_exposure; // for current time
+    bool valid; // true before initialisation and if the download time has been used
+} TimerTimestamp;
 
 void pn_log(const char * format, ...);
 void queue_framedata(PNFrame *frame);

@@ -5,10 +5,10 @@
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
 
-#include <stdbool.h>
-
 #ifndef GUI_NCURSES_H
 #define GUI_NCURSES_H
+
+#include <stdbool.h>
 
 // Input parsing modes
 typedef enum

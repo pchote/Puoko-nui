@@ -11,9 +11,11 @@
 #include <string.h>
 #include <sys/types.h>
 #include <ftdi.h>
+#include "timer.h"
 #include "common.h"
 #include "preferences.h"
-#include "timer.h"
+#include "platform.h"
+#include "camera.h"
 
 // Private struct implementation
 struct TimerUnit

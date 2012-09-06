@@ -5,6 +5,9 @@
  * published by the Free Software Foundation. For more information, see LICENSE.
  */
 
+#ifndef GUI_FLTK_H
+#define GUI_FLTK_H
+
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Output.H>
@@ -22,9 +25,6 @@ extern "C" {
     #include "common.h"
     #include "gui.h"
 }
-
-#ifndef GUI_FLTK_H
-#define GUI_FLTK_H
 
 class FLTKGui
 {

@@ -5,26 +5,13 @@
 * published by the Free Software Foundation. For more information, see LICENSE.
 */
 
-#include <time.h>
-#include <stdbool.h>
-#include <pthread.h>
-
 #ifndef GPS_H
 #define GPS_H
 
-// Represents a timestamp from the GPS
-typedef struct
-{
-    int year;
-    int month;
-    int day;
-    int hours;
-    int minutes;
-    int seconds;
-    bool locked;
-    int remaining_exposure; // for current time
-    bool valid; // true before initialisation and if the download time has been used
-} TimerTimestamp;
+#include <time.h>
+#include <stdbool.h>
+#include <pthread.h>
+#include "common.h"
 
 typedef struct TimerUnit TimerUnit;
 

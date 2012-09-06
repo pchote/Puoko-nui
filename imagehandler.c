@@ -17,8 +17,7 @@
 #include "imagehandler.h"
 #include "preferences.h"
 #include "common.h"
-
-extern PNCamera *camera;
+#include "platform.h"
 
 // A quick and dirty method for opening ds9
 // Beware of race conditions: it will take some time
@@ -95,7 +94,7 @@ void pn_save_preview(PNFrame *frame, TimerTimestamp timestamp)
 
 // Write frame data to a fits file
 // Returns the filepath of the saved frame, to be freed by the caller
-const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp)
+const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *camera)
 {
     fitsfile *fptr;
     int status = 0;

@@ -8,9 +8,6 @@
       location = "group:camera.h">
    </FileRef>
    <FileRef
-      location = "group:common.h">
-   </FileRef>
-   <FileRef
       location = "group:timer.c">
    </FileRef>
    <FileRef
@@ -18,6 +15,9 @@
    </FileRef>
    <FileRef
       location = "group:main.c">
+   </FileRef>
+   <FileRef
+      location = "group:common.h">
    </FileRef>
    <FileRef
       location = "group:imagehandler.c">
