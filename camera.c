@@ -25,7 +25,6 @@ PNCamera pn_camera_new()
     cam.mode = UNINITIALIZED;
     cam.desired_mode = IDLE;
     cam.temperature = 0;
-    cam.fatal_error = NULL;
     cam.readout_time = 0;
     cam.simulated = false;
     cam.safe_to_stop_acquiring = false;
@@ -37,8 +36,6 @@ PNCamera pn_camera_new()
 // Destroy a PNCamera struct.
 void pn_camera_free(PNCamera *cam)
 {
-    if (cam->fatal_error)
-        free(cam->fatal_error);
     pthread_mutex_destroy(&cam->read_mutex);
 }
 

@@ -25,7 +25,6 @@ PNGPS pn_gps_new()
     ret.shutdown = false;
     ret.send_length = 0;
     ret.camera_downloading = 0;
-    ret.fatal_error = NULL;
     ret.current_timestamp.valid = false;
     ret.current_timestamp.locked = false;
     ret.simulated = false;
@@ -39,9 +38,6 @@ PNGPS pn_gps_new()
 // Destroy a PNCamera struct.
 void pn_gps_free(PNGPS *_gps)
 {
-    if (_gps->fatal_error)
-        free(_gps->fatal_error);
-
     pthread_mutex_destroy(&_gps->read_mutex);
     pthread_mutex_destroy(&_gps->sendbuffer_mutex);
 }
@@ -57,7 +53,10 @@ static void check_ftdi(const char *message, char* file, int line, int status)
     if (status >= 0)
         return;
 
-    asprintf(&gps->fatal_error, "FATAL: %s line %d : %s, status = %d\n", file, line, message, status);
+    char *fatal_error;
+    asprintf(&fatal_error, "FATAL: %s line %d : %s, status = %d\n", file, line, message, status);
+    trigger_fatal_error(fatal_error);
+
     pthread_exit(NULL);
 }
 
@@ -65,11 +64,13 @@ static void check_ftdi(const char *message, char* file, int line, int status)
 // Sets the error message and kills the thread
 static void gps_error(char *msg, ...)
 {
+    char *fatal_error;
     va_list args;
     va_start(args, msg);
-    vasprintf(&gps->fatal_error, msg, args);
+    vasprintf(&fatal_error, msg, args);
     va_end(args);
 
+    trigger_fatal_error(fatal_error);
     pthread_exit(NULL);
 }
 
@@ -512,11 +513,6 @@ PNGPSTimestamp pn_gps_current_timestamp()
     PNGPSTimestamp ts = gps->current_timestamp;
     pthread_mutex_unlock(&gps->read_mutex);
     return ts;
-}
-
-char *pn_gps_fatal_error()
-{
-    return gps->fatal_error;
 }
 
 void pn_gps_request_shutdown()

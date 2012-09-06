@@ -535,37 +535,31 @@ void pn_ui_new()
     timeout(100);
 }
 
+void pn_ui_show_fatal_error(char *message)
+{
+    WINDOW *error_window = create_error_window(message);
+    PANEL *error_panel = new_panel(error_window);
+    int row,col;
+    getmaxyx(stdscr, row, col);
+    timeout(250);
+
+    // Blink the screen annoyingly fast to grab attention until a key is pressed
+    int ch = ERR;
+    while (ch == ERR)
+    {
+        flash();
+        update_panels();
+        doupdate();
+        move(row-1, col-1);
+        ch = getch();
+    }
+    del_panel(error_panel);
+    delwin(error_window);
+}
+
 bool pn_ui_update()
 {
     int ch = ERR;
-
-    char *gps_fatal_error = pn_gps_fatal_error();
-    if (camera->fatal_error != NULL || gps_fatal_error)
-    {
-        char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps_fatal_error;
-        pn_log("Fatal error: %s", msg);
-
-        WINDOW *error_window = create_error_window(msg);
-        PANEL *error_panel = new_panel(error_window);
-        int row,col;
-        getmaxyx(stdscr, row, col);
-        timeout(250);
-
-
-        // Blink the screen annoyingly fast to grab attention until a key is pressed
-        while (ch == ERR)
-        {
-            flash();
-            update_panels();
-            doupdate();
-            move(row-1, col-1);
-            ch = getch();
-        }
-        del_panel(error_panel);
-        delwin(error_window);
-
-        return true;
-    }
 
     // Read once at the start of the loop so values remain consistent
     pthread_mutex_lock(&camera->read_mutex);

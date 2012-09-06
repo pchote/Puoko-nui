@@ -52,7 +52,6 @@ typedef struct
     bool simulated;
     int simulated_exptime;
     int simulated_remaining;
-    char *fatal_error;
 
     struct usb_device *device;
     struct ftdi_context *context;
@@ -75,7 +74,6 @@ void pn_gps_start_exposure(unsigned char exptime);
 void pn_gps_stop_exposure();
 bool pn_gps_camera_downloading();
 PNGPSTimestamp pn_gps_current_timestamp();
-char *pn_gps_fatal_error();
 void pn_gps_request_shutdown();
 
 void pn_gps_set_simulated_camera_downloading(bool downloading);

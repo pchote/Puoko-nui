@@ -25,7 +25,9 @@ static pibyte *image_buffer = NULL;
 
 static void fatal_error(const char *msg, int line)
 {
-    asprintf(&camera->fatal_error, "FATAL: %s:%d -- %s\n", __FILE__, line, msg);
+    char *message;
+    asprintf(&message, "FATAL: %s:%d -- %s\n", __FILE__, line, msg);
+    trigger_fatal_error(message);
 
     // Attempt to die cleanly
     Picam_StopAcquisition(model_handle);

@@ -41,7 +41,9 @@ static void pvcam_error(const char *msg, int line)
     pvmsg[0] = '\0';
     pl_error_message(error, pvmsg);
 
-    asprintf(&camera->fatal_error, "FATAL: %s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);    
+    char *message;
+    asprintf(&message, "FATAL: %s %d PVCAM error: %d = %s; %s\n", __FILE__, line, error, pvmsg, msg);
+    trigger_fatal_error(message);
     pthread_exit(NULL);
 }
 
@@ -183,7 +185,7 @@ static void initialize_camera()
     pn_log("Found %d camera(s)", numCams);
     if (numCams == 0)
     {
-        camera->fatal_error = strdup("Camera not found");
+        trigger_fatal_error(strdup("Camera not found"));
         pthread_exit(NULL);
     }
 

@@ -150,6 +150,13 @@ void queue_trigger_timestamp(PNGPSTimestamp timestamp)
     pn_log("Pushed timestamp. %d in queue", count);
 }
 
+
+char *fatal_error = NULL;
+void trigger_fatal_error(char *message)
+{
+    fatal_error = message;
+}
+
 int main(int argc, char *argv[])
 {
     //
@@ -223,6 +230,12 @@ int main(int argc, char *argv[])
 
     for (;;)
     {
+        if (fatal_error)
+        {
+            pn_ui_show_fatal_error(fatal_error);
+            break;
+        }
+
         // Process stored frames
         struct PNFrameQueue *head = NULL;
         do
@@ -253,6 +266,11 @@ int main(int argc, char *argv[])
         
         millisleep(100);
     }
+
+    if (fatal_error)
+        free(fatal_error);
+
+    // TODO: Clear any buffered framedata or timestamps
 
     pn_ui_free();
 

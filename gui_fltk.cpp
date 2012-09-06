@@ -25,22 +25,18 @@ void pn_ui_new()
     gui = new FLTKGui();
 }
 
-void pn_ui_log_line(char *msg)
+void pn_ui_log_line(char *message)
 {
-    gui->addLogLine(msg);
+    gui->addLogLine(message);
+}
+
+void pn_ui_show_fatal_error(char *message)
+{
+    fl_alert("A fatal error has occurred and the program will now close:\n\n%s", message);
 }
 
 bool pn_ui_update()
 {
-    // TODO: This is a terrible abstraction
-    char *gps_fatal_error = pn_gps_fatal_error();
-    if (camera->fatal_error != NULL || gps_fatal_error)
-    {
-        char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps_fatal_error;
-        fl_alert("A fatal error has occurred and the program will now close:\n\n%s", msg);
-        return true;
-    }
-
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode camera_mode = camera->mode;
     float camera_temperature = camera->temperature;

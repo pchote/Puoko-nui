@@ -49,7 +49,6 @@ typedef struct
     uint16_t frame_height;
     float temperature;
     float readout_time;
-    char *fatal_error;
     bool safe_to_stop_acquiring;
 
     pthread_mutex_t read_mutex;
