@@ -9,7 +9,7 @@
 #define GUI_H
 
 void pn_ui_log_line(char *message);
-void pn_ui_new();
+void pn_ui_new(PNCamera *camera, TimerUnit *timer);
 bool pn_ui_update();
 void pn_ui_free();
 void pn_ui_show_fatal_error(char *message);

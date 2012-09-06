@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
     }
 
     // Start ui early so it can catch log events
-    pn_ui_new();
+    pn_ui_new(camera, timer);
     pn_run_startup_script();
 
     bool simulate_camera = false;

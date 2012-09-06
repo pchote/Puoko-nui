@@ -470,7 +470,7 @@ int last_run_number;
 int last_camera_downloading;
 PNUIInputType input_type = INPUT_MAIN;
 
-void pn_ui_new()
+void pn_ui_new(PNCamera *camera, TimerUnit *timer)
 {
     // Initialize circular buffer for log display
     last_log_position = log_position = 0;
