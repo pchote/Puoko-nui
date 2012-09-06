@@ -576,7 +576,7 @@ void *pn_picam_camera_thread(void *_unused)
     }
 
     // Stop aquisition sequence if necessary
-    if (camera->mode == ACQUIRING || camera->mode == ACQUIRE_WAIT)
+    if (camera->mode == ACQUIRING || camera->mode == IDLE_WHEN_SAFE)
         stop_acquiring();
 
     // Shutdown camera and PICAM
