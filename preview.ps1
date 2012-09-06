@@ -1,4 +1,11 @@
-$running = C:\ds9\xpaaccess -n Online_Preview
+# Add the directories containing the xpaset and ds9 binaries to the path
+$env:path += ';c:/ds9'
+
+# Preview is stored in the working dir, but xpaset requires forward-slash path separators
+$previewdir = $PWD -replace '\\','/'
+
+# Only update the preview if the appropriate ds9 window exists
+$running = xpaaccess -n Online_Preview
 if ($running -ne "0") {
-    & C:\ds9\xpaset -p Online_Preview file preview.fits.gz
+    & xpaset -p Online_Preview file "$previewdir/preview.fits.gz"
 }

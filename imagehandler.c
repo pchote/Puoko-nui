@@ -28,7 +28,7 @@ void pn_run_startup_script()
 {
 #ifndef DISABLE_PREVIEW
     #if (defined _WIN32 || defined _WIN64)
-    run_command_async("powershell -sta -noProfile -NonInteractive  -nologo -command .\\startup.ps1");
+    run_command_async("powershell -executionpolicy bypass -command .\\startup.ps1");
     #else
     run_command_async("./startup.sh &");
     #endif
@@ -39,7 +39,7 @@ void pn_run_preview_script(const char *filepath)
 {
 #ifndef DISABLE_PREVIEW
 #if (defined _WIN32 || defined _WIN64)
-    run_command_async("powershell -sta -noProfile -NonInteractive  -nologo -command .\\preview.ps1");
+    run_command_async("powershell -executionpolicy bypass -command .\\preview.ps1");
 #else
     run_command_async("./preview.sh &");
 #endif
@@ -51,7 +51,7 @@ void pn_run_saved_script(const char *filepath)
     // Call frame_available.sh to run the online reduction code
     char *cmd;
 #if (defined _WIN32 || defined _WIN64)
-    asprintf(&cmd, "powershell -sta -noProfile -NonInteractive  -nologo -command \"./frame_available.ps1 %s \"", filepath);
+    asprintf(&cmd, "powershell  -executionpolicy bypass -command \"./frame_available.ps1 %s \"", filepath);
 #else
     asprintf(&cmd, "./frame_available.sh %s&", filepath);
 #endif
