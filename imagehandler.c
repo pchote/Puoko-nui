@@ -21,8 +21,6 @@
 
 // A quick and dirty method for opening ds9
 // Beware of race conditions: it will take some time
-// between calling this, and ds9 actually being available
-// Runs at program startup in the main thread, or on frame acquisition in the camera thread
 void pn_run_startup_script()
 {
     #if (defined _WIN32 || defined _WIN64)
@@ -43,7 +41,6 @@ void pn_run_preview_script(const char *filepath)
 
 void pn_run_saved_script(const char *filepath)
 {
-    // Call frame_available.sh to run the online reduction code
     char *cmd;
 #if (defined _WIN32 || defined _WIN64)
     asprintf(&cmd, "powershell  -executionpolicy bypass -command \"./frame_available.ps1 %s \"", filepath);
@@ -166,7 +163,6 @@ const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *ca
 
     if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
     {
-        // TODO: Temporary hack - unhardcode me
         char buf[25];
         unsigned char skip = pn_preference_char(CAMERA_OVERSCAN_SKIP_COLS);
         unsigned char bias = pn_preference_char(CAMERA_OVERSCAN_BIAS_COLS);
