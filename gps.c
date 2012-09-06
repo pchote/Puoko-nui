@@ -15,24 +15,67 @@
 #include "preferences.h"
 #include "gps.h"
 
+// Private struct implementation
+struct PNGPS
+{
+    bool simulated;
+    int simulated_exptime;
+    int simulated_remaining;
+    bool simulated_send_shutdown;
+
+    struct usb_device *device;
+    struct ftdi_context *context;
+    bool shutdown;
+    PNGPSTimestamp current_timestamp;
+    bool camera_downloading;
+
+    unsigned char send_buffer[256];
+    unsigned char send_length;
+    pthread_mutex_t read_mutex;
+    pthread_mutex_t sendbuffer_mutex;
+};
+
+// GPS command types
+typedef enum
+{
+    CURRENTTIME = 'A',
+    DOWNLOADTIME = 'B',
+    DEBUG_STRING = 'C',
+    DEBUG_RAW = 'D',
+    START_EXPOSURE = 'E',
+    STOP_EXPOSURE = 'F',
+    RESET = 'G',
+    DOWNLOADCOMPLETE = 'H',
+    SIMULATE_CAMERA = 'I',
+    UNKNOWN_PACKET = 0
+} PNGPSPacketType;
+
 #pragma mark Creation and Destruction (Called from main thread)
 
 // Initialize a new PNGPS struct.
-PNGPS pn_gps_new()
+PNGPS *pn_gps_new()
 {
-    PNGPS ret;
-    ret.context = NULL;
-    ret.shutdown = false;
-    ret.send_length = 0;
-    ret.camera_downloading = 0;
-    ret.current_timestamp.valid = false;
-    ret.current_timestamp.locked = false;
-    ret.simulated = false;
+    PNGPS *gps = malloc(sizeof(struct PNGPS));
+    if (!gps)
+        trigger_fatal_error("Malloc failed while allocating timer");
 
-    pthread_mutex_init(&ret.read_mutex, NULL);
-    pthread_mutex_init(&ret.sendbuffer_mutex, NULL);
+    gps->simulated = false;
+    gps->simulated_exptime = 0;
+    gps->simulated_remaining = 0;
+    gps->simulated_send_shutdown = false;
 
-    return ret;
+    gps->device = NULL;
+    gps->context = NULL;
+    gps->shutdown = false;
+    gps->current_timestamp.valid = false;
+    gps->current_timestamp.locked = false;
+    gps->camera_downloading = 0;
+    gps->send_length = 0;
+
+    pthread_mutex_init(&gps->read_mutex, NULL);
+    pthread_mutex_init(&gps->sendbuffer_mutex, NULL);
+
+    return gps;
 }
 
 // Destroy a PNCamera struct.
@@ -385,7 +428,6 @@ void *pn_timer_thread(void *_gps)
 }
 
 // Main simulated timer thread loop
-static bool simulated_send_shutdown = false;
 void *pn_simulated_timer_thread(void *_gps)
 {
     PNGPS *gps = (PNGPS *)_gps;
@@ -402,8 +444,8 @@ void *pn_simulated_timer_thread(void *_gps)
         millisleep(100);
 
         pthread_mutex_lock(&gps->read_mutex);
-        bool send_shutdown = simulated_send_shutdown;
-        simulated_send_shutdown = false;
+        bool send_shutdown = gps->simulated_send_shutdown;
+        gps->simulated_send_shutdown = false;
         pthread_mutex_unlock(&gps->read_mutex);
         if (send_shutdown)
         {
@@ -493,7 +535,7 @@ void pn_gps_stop_exposure(PNGPS *gps)
     if (gps->simulated)
     {
         pthread_mutex_lock(&gps->read_mutex);
-        simulated_send_shutdown = true;
+        gps->simulated_send_shutdown = true;
         pthread_mutex_unlock(&gps->read_mutex);
     }
     else
