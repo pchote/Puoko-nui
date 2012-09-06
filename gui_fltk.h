@@ -13,7 +13,7 @@
 #include <FL/Fl_Toggle_Button.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
-#include <FL/Fl_Ask.H>
+#include <FL/fl_ask.H>
 
 extern "C" {
     #include "gps.h"
