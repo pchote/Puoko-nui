@@ -286,7 +286,8 @@ void FLTKGui::createLogGroup()
 
 void FLTKGui::buttonMetadataPressed(Fl_Widget* o, void *userdata)
 {
-    pn_log("Metadata pressed");
+    FLTKGui* gui = (FLTKGui *)userdata;
+    gui->showMetadataWindow();
 }
 
 void FLTKGui::buttonExposurePressed(Fl_Widget* o, void *userdata)
@@ -431,6 +432,30 @@ void FLTKGui::showExposureWindow()
     m_exposureWindow->show();
 }
 
+void FLTKGui::createMetadataWindow()
+{
+    m_metadataWindow = new Fl_Window(400, 200, "Set Metadata");
+    m_metadataWindow->user_data((void*)(this));
+
+    m_metadataButtonConfirm = new Fl_Button(340, 160, 50, 30, "Save");
+    m_metadataButtonConfirm->user_data((void*)(this));
+    m_metadataButtonConfirm->callback(buttonMetadataConfirmPressed);
+
+    m_metadataWindow->hide();
+}
+
+void FLTKGui::showMetadataWindow()
+{
+    // TODO: Update windows with preferences
+    m_metadataWindow->show();
+}
+
+void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
+{
+    // TODO: Update preferences from window
+    gui->m_metadataWindow->hide();
+}
+
 void FLTKGui::updateButtonGroup(PNCameraMode camera_mode)
 {
     bool save_pressed = pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save();
@@ -452,6 +477,13 @@ void FLTKGui::updateButtonGroup(PNCameraMode camera_mode)
         m_buttonExposure->activate();
 
     m_buttonSave->value(save_pressed);
+    if (save_pressed)
+    {
+        m_buttonMetadata->deactivate();
+        m_metadataWindow->hide();
+    }
+    else
+        m_buttonMetadata->activate();
 }
 
 void FLTKGui::closeMainWindowCallback(Fl_Widget *window, void *v)
@@ -466,6 +498,7 @@ void FLTKGui::closeMainWindowCallback(Fl_Widget *window, void *v)
     // The next Fl::check() call in pn_update_ui() will
     // return false, causing the program to shutdown.
     gui->m_exposureWindow->hide();
+    gui->m_metadataWindow->hide();
     window->hide();
 }
 
@@ -484,6 +517,7 @@ FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
     createButtonGroup();
 
     createExposureWindow();
+    createMetadataWindow();
 
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode camera_mode = camera->mode;

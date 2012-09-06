@@ -50,6 +50,8 @@ private:
 
     void createExposureWindow();
     void showExposureWindow();
+    void createMetadataWindow();
+    void showMetadataWindow();
 
     static void buttonMetadataPressed(Fl_Widget* o, void *v);
     static void buttonExposurePressed(Fl_Widget* o, void *v);
@@ -58,6 +60,8 @@ private:
     static void buttonQuitPressed(Fl_Widget* o, void *v);
 
     static void buttonExposureConfirmPressed(Fl_Widget* o, void *v);
+    static void buttonMetadataConfirmPressed(Fl_Widget* o, void *v);
+
     static void closeMainWindowCallback(Fl_Widget *window, void *v);
 
     PNCamera *m_cameraRef;
@@ -110,6 +114,9 @@ private:
     Fl_Value_Input *m_exposureInput;
     Fl_Button *m_exposureButtonConfirm;
 
+    // Metadata window
+    Fl_Window *m_metadataWindow;
+    Fl_Button *m_metadataButtonConfirm;
  };
 
 #endif
