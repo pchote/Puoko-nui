@@ -575,9 +575,9 @@ bool pn_ui_update()
         unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
         if (exposure_time < camera_readout_time)
         {
-        unsigned char new_exposure = (unsigned char)(ceil(camera_readout_time));
+            unsigned char new_exposure = (unsigned char)(ceil(camera_readout_time));
             pn_preference_set_char(EXPOSURE_TIME, new_exposure);
-        pn_log("Increasing exposure time to %d seconds", new_exposure);
+            pn_log("Increasing exposure time to %d seconds", new_exposure);
             update_acquisition_window();
         }
         last_camera_readout_time = camera_readout_time;

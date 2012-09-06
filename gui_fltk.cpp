@@ -291,7 +291,8 @@ void FLTKGui::buttonMetadataPressed(Fl_Widget* o, void *userdata)
 
 void FLTKGui::buttonExposurePressed(Fl_Widget* o, void *userdata)
 {
-    pn_log("Exposure pressed");
+    FLTKGui* gui = (FLTKGui *)userdata;
+    gui->showExposureWindow();
 }
 
 void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
@@ -363,6 +364,73 @@ void FLTKGui::createButtonGroup()
     m_buttonQuit->callback(buttonQuitPressed);
 }
 
+void FLTKGui::buttonExposureConfirmPressed(Fl_Widget* o, void *userdata)
+{
+    FLTKGui* gui = (FLTKGui *)userdata;
+    uint8_t oldexp = pn_preference_char(EXPOSURE_TIME);
+    int new_exposure = gui->m_exposureInput->value();
+
+    pthread_mutex_lock(&gui->m_cameraRef->read_mutex);
+    PNCameraMode camera_mode = gui->m_cameraRef->mode;
+    float camera_readout_time = gui->m_cameraRef->readout_time;
+    pthread_mutex_unlock(&gui->m_cameraRef->read_mutex);
+
+    if (camera_mode != IDLE)
+    {
+        pn_log("Cannot change exposure time while acquiring");
+        gui->m_exposureWindow->hide();
+        return;
+    }
+
+    if (new_exposure < camera_readout_time || new_exposure > 255)
+    {
+        // Invalid entry
+        if (new_exposure < camera_readout_time)
+            pn_log("Minimum exposure: %.2f seconds", camera_readout_time);
+        else
+            pn_log("Maximum exposure: 255 seconds");
+
+        return;
+    }
+    else
+    {
+        if (oldexp != new_exposure)
+        {
+            // Update preferences
+            pn_preference_set_char(EXPOSURE_TIME, new_exposure);
+            gui->updateAcquisitionGroup();
+            pn_log("Exposure set to %d seconds", new_exposure);
+        }
+    }
+    gui->m_exposureWindow->hide();
+}
+
+void FLTKGui::createExposureWindow()
+{
+    m_exposureWindow = new Fl_Window(150, 40, "Set Exposure");
+    m_exposureWindow->user_data((void*)(this));
+
+    m_exposureInput = new Fl_Value_Input(10, 10, 70, 20);
+    m_exposureInput->maximum(255);
+    m_exposureInput->minimum(0);
+    m_exposureInput->value(5);
+
+    m_exposureButtonConfirm = new Fl_Button(90, 10, 50, 20, "Set");
+    m_exposureButtonConfirm->user_data((void*)(this));
+    m_exposureButtonConfirm->callback(buttonExposureConfirmPressed);
+
+    m_exposureWindow->hide();
+}
+
+void FLTKGui::showExposureWindow()
+{
+    // Update and show the "Set Exposure" dialog
+    uint8_t minimum_exposure = (uint8_t)(ceil(m_cameraRef->readout_time));
+    m_exposureInput->minimum(minimum_exposure);
+    m_exposureInput->value(pn_preference_char(EXPOSURE_TIME));
+    m_exposureWindow->show();
+}
+
 void FLTKGui::updateButtonGroup(PNCameraMode camera_mode)
 {
     bool save_pressed = pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save();
@@ -375,18 +443,29 @@ void FLTKGui::updateButtonGroup(PNCameraMode camera_mode)
     else
         m_buttonAcquire->activate();
 
+    if (acquire_pressed)
+    {
+        m_buttonExposure->deactivate();
+        m_exposureWindow->hide();
+    }
+    else
+        m_buttonExposure->activate();
+
     m_buttonSave->value(save_pressed);
 }
 
 void FLTKGui::closeMainWindowCallback(Fl_Widget *window, void *v)
 {
+    FLTKGui* gui = (FLTKGui *)window->user_data();
+
     // User pressed escape
     if (Fl::event() == FL_SHORTCUT && Fl::event_key() == FL_Escape)
         return;
 
-    // Hide the window.
-    // TODO: Hide all other windows too?
-    // TODO: Show "Are you sure" dialog if exposing?
+    // Hide all windows.
+    // The next Fl::check() call in pn_update_ui() will
+    // return false, causing the program to shutdown.
+    gui->m_exposureWindow->hide();
     window->hide();
 }
 
@@ -403,6 +482,8 @@ FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
     createAcquisitionGroup();
     createLogGroup();
     createButtonGroup();
+
+    createExposureWindow();
 
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode camera_mode = camera->mode;

@@ -16,6 +16,7 @@
 #include <FL/Fl_Toggle_Button.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
+#include <FL/Fl_Value_Input.H>
 #include <FL/fl_ask.H>
 
 extern "C" {
@@ -47,12 +48,16 @@ private:
     void createLogGroup();
     void createButtonGroup();
 
+    void createExposureWindow();
+    void showExposureWindow();
+
     static void buttonMetadataPressed(Fl_Widget* o, void *v);
     static void buttonExposurePressed(Fl_Widget* o, void *v);
     static void buttonAcquirePressed(Fl_Widget* o, void *v);
     static void buttonSavePressed(Fl_Widget* o, void *v);
     static void buttonQuitPressed(Fl_Widget* o, void *v);
 
+    static void buttonExposureConfirmPressed(Fl_Widget* o, void *v);
     static void closeMainWindowCallback(Fl_Widget *window, void *v);
 
     PNCamera *m_cameraRef;
@@ -99,6 +104,12 @@ private:
     int last_calibration_framecount;
     int last_run_number;
     int last_camera_downloading;
+
+    // Exposure window
+    Fl_Window *m_exposureWindow;
+    Fl_Value_Input *m_exposureInput;
+    Fl_Button *m_exposureButtonConfirm;
+
  };
 
 #endif
