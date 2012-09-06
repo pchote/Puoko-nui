@@ -336,7 +336,8 @@ void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
 
 void FLTKGui::buttonQuitPressed(Fl_Widget* o, void *userdata)
 {
-    pn_log("Quit pressed");
+    FLTKGui* gui = (FLTKGui *)userdata;
+    closeMainWindowCallback(gui->m_mainWindow, NULL);
 }
 
 void FLTKGui::createButtonGroup()
