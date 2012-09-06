@@ -15,6 +15,7 @@
 
 void pn_log(const char * format, ...);
 void queue_framedata(PNFrame *frame);
+void queue_trigger_timestamp(PNGPSTimestamp timestamp);
 
 #endif
 

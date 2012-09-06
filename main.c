@@ -34,7 +34,7 @@ static bool timer_thread_initialized = false;
 static bool camera_thread_initialized = false;
 static bool shutdown = false;
 
-pthread_mutex_t log_mutex, frame_queue_mutex;
+pthread_mutex_t log_mutex, frame_queue_mutex, trigger_timestamp_queue_mutex;
 FILE *logFile;
 
 struct PNFrameQueue
@@ -43,7 +43,14 @@ struct PNFrameQueue
     struct PNFrameQueue *next;
 };
 
+struct PNGPSTimestampQueue
+{
+    PNGPSTimestamp timestamp;
+    struct PNGPSTimestampQueue *next;
+};
+
 struct PNFrameQueue *frame_queue = NULL;
+struct PNGPSTimestampQueue *trigger_timestamp_queue;
 
 // Take a copy of the framedata and store it for
 // processing on the main thread
@@ -79,7 +86,15 @@ void queue_framedata(PNFrame *frame)
 void process_framedata(PNFrame *frame)
 {
     // Pop the head frame from the queue
-    PNGPSTimestamp timestamp = pn_gps_pop_trigger();
+    PNGPSTimestamp timestamp = (PNGPSTimestamp) {.valid = false};
+    if (trigger_timestamp_queue != NULL)
+    {
+        pthread_mutex_lock(&trigger_timestamp_queue_mutex);
+        struct PNGPSTimestampQueue *head = trigger_timestamp_queue;
+        trigger_timestamp_queue = trigger_timestamp_queue->next;
+        pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
+        timestamp = head->timestamp;
+    }
 
     pn_log("Frame downloaded");
 
@@ -102,6 +117,39 @@ void process_framedata(PNFrame *frame)
     }
 }
 
+/*
+ * Add a timestamp to the trigger timestamp queue
+ */
+void queue_trigger_timestamp(PNGPSTimestamp timestamp)
+{
+    struct PNGPSTimestampQueue *tail = malloc(sizeof(struct PNGPSTimestampQueue));
+    if (tail == NULL)
+        assert(tail != NULL);
+
+    tail->timestamp = timestamp;
+    tail->next = NULL;
+
+    pthread_mutex_lock(&trigger_timestamp_queue_mutex);
+    size_t count = 0;
+    // Empty queue
+    if (trigger_timestamp_queue == NULL)
+        trigger_timestamp_queue = tail;
+    else
+    {
+        // Find tail of queue - queue is assumed to be short
+        struct PNGPSTimestampQueue *item = trigger_timestamp_queue;
+        while (item->next != NULL)
+        {
+            item = item->next;
+            count++;
+        }
+        item->next = tail;
+    }
+    count++;
+    pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
+    pn_log("Pushed timestamp. %d in queue", count);
+}
+
 int main(int argc, char *argv[])
 {
     //
@@ -111,6 +159,7 @@ int main(int argc, char *argv[])
 
     pthread_mutex_init(&log_mutex, NULL);
     pthread_mutex_init(&frame_queue_mutex, NULL);
+    pthread_mutex_init(&trigger_timestamp_queue_mutex, NULL);
 
     PNGPS _gps = pn_gps_new();
     gps = &_gps;
@@ -228,6 +277,7 @@ int main(int argc, char *argv[])
     pn_camera_free(camera);
     pn_free_preferences();
     fclose(logFile);
+    pthread_mutex_destroy(&trigger_timestamp_queue_mutex);
     pthread_mutex_destroy(&frame_queue_mutex);
     pthread_mutex_destroy(&log_mutex);
 

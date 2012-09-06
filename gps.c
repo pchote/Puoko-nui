@@ -17,25 +17,18 @@
 
 #pragma mark Creation and Destruction (Called from main thread)
 
-struct PNGPSTimestampQueue
-{
-    PNGPSTimestamp timestamp;
-    struct PNGPSTimestampQueue *next;
-};
-
 // Initialize a new PNGPS struct.
 PNGPS pn_gps_new()
 {
     PNGPS ret;
     ret.context = NULL;
     ret.shutdown = false;
-    ret.current_timestamp.valid = false;
-    ret.current_timestamp.locked = false;
-    ret.trigger_queue = NULL;
     ret.send_length = 0;
-    ret.simulated = false;
     ret.camera_downloading = 0;
     ret.fatal_error = NULL;
+    ret.current_timestamp.valid = false;
+    ret.current_timestamp.locked = false;
+    ret.simulated = false;
 
     pthread_mutex_init(&ret.read_mutex, NULL);
     pthread_mutex_init(&ret.sendbuffer_mutex, NULL);
@@ -341,7 +334,7 @@ void *pn_timer_thread(void *_unused)
                     .valid = true
                 };
                 pn_log("Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t.year, t.month, t.day, t.hours, t.minutes, t.seconds, t.locked);
-                pn_gps_push_trigger(t);
+                queue_trigger_timestamp(t);
 
                 // Mark the camera as downloading for UI feedback and shutdown purposes
                 pthread_mutex_lock(&gps->read_mutex);
@@ -440,7 +433,7 @@ void *pn_simulated_timer_thread(void *unused)
                     .valid = true
                 };
                 pn_log("Simulated Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t.year, t.month, t.day, t.hours, t.minutes, t.seconds, t.locked);
-                pn_gps_push_trigger(t);
+                queue_trigger_timestamp(t);
 
                 pthread_mutex_lock(&gps->read_mutex);
                 gps->camera_downloading = true;
@@ -539,61 +532,4 @@ PNGPSTimestamp pn_timestamp_normalize(PNGPSTimestamp ts)
     ret.year = a.tm_year + 1900;
 
     return ret;
-}
-
-/*
- * Add a timestamp to the trigger timestamp queue
- */
-void pn_gps_push_trigger(PNGPSTimestamp timestamp)
-{
-    struct PNGPSTimestampQueue *tail = malloc(sizeof(struct PNGPSTimestampQueue));
-    if (tail == NULL)
-        gps_error("Memory allocation error");
-
-    tail->timestamp = timestamp;
-    tail->next = NULL;
-
-    pthread_mutex_lock(&gps->read_mutex);
-    size_t count = 0;
-    // Empty queue
-    if (gps->trigger_queue == NULL)
-        gps->trigger_queue = tail;
-    else
-    {
-        // Find tail of queue - queue is assumed to be short
-        struct PNGPSTimestampQueue *item = gps->trigger_queue;
-        while (item->next != NULL)
-        {
-            item = item->next;
-            count++;
-        }
-        item->next = tail;
-    }
-    count++;
-    pthread_mutex_unlock(&gps->read_mutex);
-    pn_log("Pushed timestamp. %d in queue", count);
-}
-
-/*
- * Fetch the first timestamp from the trigger timestamp queue
- */
-PNGPSTimestamp pn_gps_pop_trigger()
-{
-    // No timestamps in queue
-    if (gps->trigger_queue == NULL)
-    {
-        pn_log("No trigger timestamp available");
-        return (PNGPSTimestamp) {.valid = false};
-    }
-
-    // Pop the head timestamp from the trigger queue
-    pthread_mutex_lock(&gps->read_mutex);
-    struct PNGPSTimestampQueue *head = gps->trigger_queue;
-    gps->trigger_queue = gps->trigger_queue->next;
-    pthread_mutex_unlock(&gps->read_mutex);
-
-    PNGPSTimestamp ts = head->timestamp;
-    free(head);
-
-    return ts;
 }
