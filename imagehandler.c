@@ -26,23 +26,19 @@ extern PNCamera *camera;
 // Runs at program startup in the main thread, or on frame acquisition in the camera thread
 void pn_run_startup_script()
 {
-#ifndef DISABLE_PREVIEW
     #if (defined _WIN32 || defined _WIN64)
     run_command_async("powershell -executionpolicy bypass -command .\\startup.ps1");
     #else
     run_command_async("./startup.sh &");
     #endif
-#endif
 }
 
 void pn_run_preview_script(const char *filepath)
 {
-#ifndef DISABLE_PREVIEW
 #if (defined _WIN32 || defined _WIN64)
     run_command_async("powershell -executionpolicy bypass -command .\\preview.ps1");
 #else
     run_command_async("./preview.sh &");
-#endif
 #endif
 }
 
@@ -64,7 +60,6 @@ void pn_run_saved_script(const char *filepath)
 // Display a frame in DS9
 void pn_save_preview(PNFrame *frame, PNGPSTimestamp timestamp)
 {
-#ifndef DISABLE_PREVIEW
     fitsfile *fptr;
     int status = 0;
     char fitserr[128];
@@ -96,7 +91,6 @@ void pn_save_preview(PNFrame *frame, PNGPSTimestamp timestamp)
     // Log any error messages
     while (fits_read_errmsg(fitserr))
         pn_log("cfitsio error: %s", fitserr);
-#endif
 }
 
 // Write frame data to a fits file
