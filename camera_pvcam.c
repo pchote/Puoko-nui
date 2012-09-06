@@ -64,6 +64,100 @@ static bool frame_available()
     return (status == FRAME_AVAILABLE);
 }
 
+
+static void set_readout_port()
+{
+    char str[100];
+    int32 value;
+
+    // Set readout port by constraint index
+    uns32 port_count;
+	if (!pl_get_param(handle, PARAM_READOUT_PORT, ATTR_COUNT, (void*)&port_count))
+        pvcam_error("Error querying readout port count", __LINE__);
+
+    pn_log("Available Readout Ports:");
+    for (size_t i = 0; i < port_count; i++)
+    {
+        if (!pl_get_enum_param(handle, PARAM_READOUT_PORT, i, &value, str, 100))
+            pvcam_error("Error querying readout port value", __LINE__);
+        pn_log("   %d = %s", i, str);
+    }
+
+    // Can only configure cameras with multiple ports
+    if (port_count == 1)
+        return;
+
+    const size_t readport_id = pn_preference_char(CAMERA_READPORT_MODE);
+    if (readport_id < port_count)
+    {
+        if (!pl_set_param(handle, PARAM_READOUT_PORT, (void*)&readport_id))
+            pvcam_error("Error setting readout port", __LINE__);
+
+        if (!pl_get_enum_param(handle, PARAM_READOUT_PORT, readport_id, &value, str, 100))
+            pvcam_error("Error querying readout port value", __LINE__);
+        pn_log("Readout Port set to %s", str);
+    }
+    else
+        pn_log("Invalid Readout Port requested: %d", readport_id);
+}
+
+// Readout speed and gain
+static void set_speed_table()
+{
+    int16 speed_min, speed_max;
+    if (!pl_get_param(handle, PARAM_SPDTAB_INDEX, ATTR_MIN, (void*)&speed_min));
+        pvcam_error("Error querying readout speed value", __LINE__);
+    if (!pl_get_param(handle, PARAM_SPDTAB_INDEX, ATTR_MAX, (void*)&speed_max));
+        pvcam_error("Error querying readout speed value", __LINE__);
+
+    pn_log("Available Readout Modes:");
+    for (int16 i = speed_min; i <= speed_max; i++)
+    {
+        if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (void*)&i))
+            pvcam_error("Error setting readout value", __LINE__);
+
+        int16 gain_min, gain_max, pix_time;
+        if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MIN, (void*)&gain_min));
+            pvcam_error("Error querying gain value", __LINE__);
+        if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MAX, (void*)&gain_max));
+            pvcam_error("Error querying gain value", __LINE__);
+        if (!pl_get_param(handle, PARAM_PIX_TIME, ATTR_CURRENT, (void*)&pix_time))
+            pvcam_error("Error querying pixel time", __LINE__);
+
+        pn_log("   %d = %0.1f MHz; Gain ids %d-%d", i, 1.0e3/pix_time, gain_min, gain_max);
+    }
+
+    const int16 readspeed_id = pn_preference_char(CAMERA_READSPEED_MODE);
+    const int16 gain_id = pn_preference_char(CAMERA_GAIN_MODE);
+    if (speed_min <= readspeed_id && readspeed_id <= speed_max)
+    {
+        if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (void*)&readspeed_id))
+            pvcam_error("Error setting readout value", __LINE__);
+
+        int16 gain_min, gain_max, pix_time;
+        if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MIN, (void*)&gain_min));
+            pvcam_error("Error querying gain value", __LINE__);
+        if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MAX, (void*)&gain_max));
+            pvcam_error("Error querying gain value", __LINE__);
+        if (!pl_get_param(handle, PARAM_PIX_TIME, ATTR_CURRENT, (void*)&pix_time))
+            pvcam_error("Error querying pixel time", __LINE__);
+
+        pn_log("Set readout speed to %0.1f MHz", 1.0e3/pix_time);
+
+        if (gain_min <= gain_id && gain_id <= gain_max)
+        {
+            if (!pl_set_param(handle, PARAM_GAIN_INDEX, (void*)&gain_id))
+                pvcam_error("Error setting gain value", __LINE__);
+
+            pn_log("Set gain index to %d", gain_id);
+        }
+        else
+            pn_log("Invalid gain index requested: %d", gain_id);
+    }
+    else
+        pn_log("Invalid Readout speed index requested: %d", readspeed_id);
+}
+
 // Initialize PVCAM and the camera hardware
 static void initialize_camera()
 {
@@ -136,9 +230,8 @@ static void initialize_camera()
     if (!pl_set_param(handle, PARAM_TEMP_SETPOINT, (void*) &(int){pn_preference_int(CAMERA_TEMPERATURE)}))
         pvcam_error("Error setting PARAM_TEMP_SETPOINT", __LINE__);
 
-    // Set readout speed
-    if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (void*) &(int){pn_preference_char(CAMERA_READSPEED_MODE)}))
-        pvcam_error("Error setting PARAM_SPDTAB_INDEX", __LINE__);
+    set_readout_port();
+    set_speed_table();
 
     pn_log("Camera initialized");
     set_mode(IDLE);
