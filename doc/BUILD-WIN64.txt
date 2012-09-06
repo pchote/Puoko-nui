@@ -50,53 +50,62 @@ https://github.com/pchote/Puoko-nui/zipball/picam
 This will create the directory puokonui with the source code.
 I will merge the picam changes into the main codebase soon, so the above will change
 
-The following assumes that you have the puoko-nui directory in your msys home directory at
-c:\mingw\msys\home\<USERNAME>\puoko-nui
+The following assumes that you have the puokonui directory in your msys home directory at
+c:\mingw\msys\home\<USERNAME>\puokonui
 
-Following references to <puoko-nui> means this directory
-
-TODO: Cover new proem branch, and updating makefile to point at ftdi, cfitsio, ncurses
+Following references to <puokonui> means this directory
 
 ==================== BUILD DEPENDENCIES ====================
 Download 64-bit libftdi binaries from
 http://picusb.googlecode.com/files/libftdi_0.19_devkit_MinGW64_20August2011.zip
 
-Copy include to <puoko-nui>\ftdi\include
-Copy lib\lib64 to <puoko-nui>\ftdi\lib
-Copy bin\bin64\libftdi.dll to <puoko-nui>
+Copy include to <puokonui>\ftdi\include
+Copy lib\lib64 to <puokonui>\ftdi\lib
+Copy bin\bin64\libftdi.dll to <puokonui>
 
+Download ds9 and XPA binaries from:
+http://hea-www.harvard.edu/saord/download/ds9/windows/SAOImage%20DS9%207.0.2%20Install.exe
+http://hea-www.harvard.edu/saord/download/ds9/windows/XPA%202.1.14%20Install.exe
 
-Download ncurses source from 
-http://ftp.gnu.org/pub/gnu/ncurses/ncurses-5.9.tar.gz
+and install to C:\ds9
 
-Compile with
-$ configure --enable-term-driver --enable-sp-funcs --without-cxx-binding --without-ada --without-manpages --without-tests --disable-ext-mouse --prefix=c:/mingw/msys/home/<USERNAME>/puoko-nui/ncurses
-$ make
-$ make install
-
+Note: I have had mixed results in getting xpa to work correctly under windows. You may need
+to manually run xpans.exe before running any xpa enabled programs if you want them to be able to communicate. 
 
 Download cfitsio from
 ftp://heasarc.gsfc.nasa.gov/software/fitsio/c/cfit3290.zip
 
 Compile with
-$ configure --prefix=c:/mingw/msys/home/<USERNAME>/puoko-nui/cfitsio
+$ configure --prefix=c:/mingw/msys/home/<USERNAME>/puokonui/cfitsio
 $ make
 $ make install
 
 
+Download and compile libfltk 1.3.0
+./configure
+make
+make install
+
+if make fails with an error about libstdc++-6.dll, copy the following files from C:\MinGW\mingw\lib to c:\MinGW\msys\home\<USERNAME>\fltk-1.3.0\fluid:
+   libstdc++-6.dll
+   libgcc_s_sjlj-1.dll
+
+
+Copy the above two dlls into the <puokonui> directory now, as the next step will need them.
+
 ==================== BUILD/INSTALL PUOKO-NUI ====================
+
 Compile with
-$ make
+$ make CAMERA_TYPE=PICAM GUI_TYPE=FLTK
 
 (Optional) Copy binaries to a separate location to run from, <run dir>
 Copy puokonui.exe to <run dir>
 Copy libftdi.dll to <run dir>
+Copy libstdc++-6.dll to <run dir>
+Copy libgcc_s_sjlj-1.dll to <run dir>
 Copy c:\mingw\bin\pthreadGC2-w64.dll to <run dir>
 Create directory <run dir>\logs
 
-
 ==================== RUN ====================
 Make sure that the logs directory exists in the same location as puokonui.exe, it won't run if it isn't present.
-Double click puokonui.exe to run it - it should pop up a console window.
-IMPORTANT: Don't click inside the terminal window, this will cause it to freeze up. This seems to be a bug with ncurses under windows...
-Make sure to reset the frame dir to a location that exists before acquiring frames (ctrl-p then ctrl-s. Set to . to select the program dir)
+Double click puokonui.exe to run it - it should pop up a graphical window.
