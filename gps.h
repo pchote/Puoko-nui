@@ -67,16 +67,16 @@ typedef struct
 
 PNGPS pn_gps_new();
 void pn_gps_free(PNGPS *gps);
-void *pn_timer_thread(void *);
-void *pn_simulated_timer_thread(void *);
+void *pn_timer_thread(void *gps);
+void *pn_simulated_timer_thread(void *gps);
 
-void pn_gps_start_exposure(unsigned char exptime);
-void pn_gps_stop_exposure();
-bool pn_gps_camera_downloading();
-PNGPSTimestamp pn_gps_current_timestamp();
-void pn_gps_request_shutdown();
+void pn_gps_start_exposure(PNGPS *gps, unsigned char exptime);
+void pn_gps_stop_exposure(PNGPS *gps);
+bool pn_gps_camera_downloading(PNGPS *gps);
+PNGPSTimestamp pn_gps_current_timestamp(PNGPS *gps);
+void pn_gps_request_shutdown(PNGPS *gps);
 
-void pn_gps_set_simulated_camera_downloading(bool downloading);
+void pn_gps_set_simulated_camera_downloading(PNGPS *gps, bool downloading);
 PNGPSTimestamp pn_timestamp_normalize(PNGPSTimestamp ts);
 
 #endif

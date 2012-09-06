@@ -204,22 +204,22 @@ int main(int argc, char *argv[])
 
     // Timer unit
     if (simulate_timer)
-        pthread_create(&timer_thread, NULL, pn_simulated_timer_thread, (void *)&gps);
+        pthread_create(&timer_thread, NULL, pn_simulated_timer_thread, (void *)gps);
     else
-        pthread_create(&timer_thread, NULL, pn_timer_thread, (void *)&gps);
+        pthread_create(&timer_thread, NULL, pn_timer_thread, (void *)gps);
 
     timer_thread_initialized = true;
 
     if (simulate_camera)
-        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)&camera);
+        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)gps);
     else
     {
         #ifdef USE_PVCAM
-        pthread_create(&camera_thread, NULL, pn_pvcam_camera_thread, (void *)&camera);
+        pthread_create(&camera_thread, NULL, pn_pvcam_camera_thread, (void *)gps);
 		#elif defined USE_PICAM
-		pthread_create(&camera_thread, NULL, pn_picam_camera_thread, (void *)&camera);
+		pthread_create(&camera_thread, NULL, pn_picam_camera_thread, (void *)gps);
         #else
-        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)&camera);
+        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)gps);
         #endif
     }
     camera_thread_initialized = true;
@@ -281,7 +281,7 @@ int main(int argc, char *argv[])
 
     // Tell the GPS and Camera threads to terminate themselves
     pn_camera_request_mode(SHUTDOWN);
-    pn_gps_request_shutdown();
+    pn_gps_request_shutdown(gps);
 
     // Wait for the GPS and Camera threads to terminate
     void **retval = NULL;

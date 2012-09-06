@@ -85,8 +85,10 @@ static void stop_acquiring_simulated()
 }
 
 // Main simulated camera thread loop
-void *pn_simulated_camera_thread(void *_unused)
+void *pn_simulated_camera_thread(void *_gps)
 {
+    PNGPS *gps = (PNGPS *)_gps;
+
     // Initialize the camera
     camera->simulated = true;
     camera->safe_to_stop_acquiring = false;
@@ -133,7 +135,7 @@ void *pn_simulated_camera_thread(void *_unused)
             stop_acquiring_simulated();
 
         // Check for new frame
-        bool downloading = pn_gps_camera_downloading();
+        bool downloading = pn_gps_camera_downloading(gps);
 
         if (camera->mode == ACQUIRING && downloading)
         {
@@ -149,7 +151,7 @@ void *pn_simulated_camera_thread(void *_unused)
             // There is no physical camera for the timer to monitor
             // so we must toggle this manually
 
-            pn_gps_set_simulated_camera_downloading(false);
+            pn_gps_set_simulated_camera_downloading(gps, false);
         }
 
         millisleep(100);

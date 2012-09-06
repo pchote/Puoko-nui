@@ -58,7 +58,7 @@ bool pn_ui_update()
         last_camera_readout_time = camera_readout_time;
     }
 
-    bool camera_downloading = pn_gps_camera_downloading();
+    bool camera_downloading = pn_gps_camera_downloading(gps);
     gui->updateTimerGroup();
 
     if (last_camera_mode != camera_mode ||
@@ -146,7 +146,7 @@ void FLTKGui::updateTimerGroup()
     m_timerPCTimeOutput->value(strtime);
 
     // GPS time
-    PNGPSTimestamp ts = pn_gps_current_timestamp();
+    PNGPSTimestamp ts = pn_gps_current_timestamp(gps);
     m_timerStatusOutput->value((ts.locked ? "Locked  " : "Unlocked"));
 
     if (ts.valid)
@@ -304,12 +304,12 @@ void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
     if (camera_mode == IDLE)
     {
         pn_camera_request_mode(ACQUIRING);
-        pn_gps_start_exposure(pn_preference_char(EXPOSURE_TIME));
+        pn_gps_start_exposure(gps, pn_preference_char(EXPOSURE_TIME));
     }
     else if (camera_mode == ACQUIRING)
     {
         pn_camera_request_mode(IDLE);
-        pn_gps_stop_exposure();
+        pn_gps_stop_exposure(gps);
     }
 }
 
@@ -393,7 +393,7 @@ FLTKGui::FLTKGui()
     float camera_temperature = camera->temperature;
     pthread_mutex_unlock(&camera->read_mutex);
 
-    bool camera_downloading = pn_gps_camera_downloading();
+    bool camera_downloading = pn_gps_camera_downloading(gps);
     updateTimerGroup();
     updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
     updateAcquisitionGroup();
