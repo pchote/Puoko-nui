@@ -15,7 +15,7 @@
 #include <string.h>
 #include "common.h"
 #include "camera.h"
-#include "gps.h"
+#include "timer.h"
 #include "preferences.h"
 #include "imagehandler.h"
 
@@ -24,7 +24,7 @@
 #include <assert.h>
 
 PNCamera *camera;
-PNGPS *gps;
+TimerUnit *timer;
 
 
 #pragma mark Main program logic
@@ -43,14 +43,14 @@ struct PNFrameQueue
     struct PNFrameQueue *next;
 };
 
-struct PNGPSTimestampQueue
+struct TimerTimestampQueue
 {
-    PNGPSTimestamp timestamp;
-    struct PNGPSTimestampQueue *next;
+    TimerTimestamp timestamp;
+    struct TimerTimestampQueue *next;
 };
 
 struct PNFrameQueue *frame_queue = NULL;
-struct PNGPSTimestampQueue *trigger_timestamp_queue;
+struct TimerTimestampQueue *trigger_timestamp_queue;
 
 // Take a copy of the framedata and store it for
 // processing on the main thread
@@ -86,11 +86,11 @@ void queue_framedata(PNFrame *frame)
 void process_framedata(PNFrame *frame)
 {
     // Pop the head frame from the queue
-    PNGPSTimestamp timestamp = (PNGPSTimestamp) {.valid = false};
+    TimerTimestamp timestamp = (TimerTimestamp) {.valid = false};
     if (trigger_timestamp_queue != NULL)
     {
         pthread_mutex_lock(&trigger_timestamp_queue_mutex);
-        struct PNGPSTimestampQueue *head = trigger_timestamp_queue;
+        struct TimerTimestampQueue *head = trigger_timestamp_queue;
         trigger_timestamp_queue = trigger_timestamp_queue->next;
         pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
         timestamp = head->timestamp;
@@ -120,9 +120,9 @@ void process_framedata(PNFrame *frame)
 /*
  * Add a timestamp to the trigger timestamp queue
  */
-void queue_trigger_timestamp(PNGPSTimestamp timestamp)
+void queue_trigger_timestamp(TimerTimestamp timestamp)
 {
-    struct PNGPSTimestampQueue *tail = malloc(sizeof(struct PNGPSTimestampQueue));
+    struct TimerTimestampQueue *tail = malloc(sizeof(struct TimerTimestampQueue));
     if (tail == NULL)
         assert(tail != NULL);
 
@@ -137,7 +137,7 @@ void queue_trigger_timestamp(PNGPSTimestamp timestamp)
     else
     {
         // Find tail of queue - queue is assumed to be short
-        struct PNGPSTimestampQueue *item = trigger_timestamp_queue;
+        struct TimerTimestampQueue *item = trigger_timestamp_queue;
         while (item->next != NULL)
         {
             item = item->next;
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&frame_queue_mutex, NULL);
     pthread_mutex_init(&trigger_timestamp_queue_mutex, NULL);
 
-    gps = pn_gps_new();
+    timer = timer_new();
     
     PNCamera _camera = pn_camera_new();
     camera = &_camera;
@@ -203,22 +203,22 @@ int main(int argc, char *argv[])
 
     // Timer unit
     if (simulate_timer)
-        pthread_create(&timer_thread, NULL, pn_simulated_timer_thread, (void *)gps);
+        pthread_create(&timer_thread, NULL, pn_simulated_timer_thread, (void *)timer);
     else
-        pthread_create(&timer_thread, NULL, pn_timer_thread, (void *)gps);
+        pthread_create(&timer_thread, NULL, pn_timer_thread, (void *)timer);
 
     timer_thread_initialized = true;
 
     if (simulate_camera)
-        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)gps);
+        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)timer);
     else
     {
         #ifdef USE_PVCAM
-        pthread_create(&camera_thread, NULL, pn_pvcam_camera_thread, (void *)gps);
+        pthread_create(&camera_thread, NULL, pn_pvcam_camera_thread, (void *)timer);
 		#elif defined USE_PICAM
-		pthread_create(&camera_thread, NULL, pn_picam_camera_thread, (void *)gps);
+		pthread_create(&camera_thread, NULL, pn_picam_camera_thread, (void *)timer);
         #else
-        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)gps);
+        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)timer);
         #endif
     }
     camera_thread_initialized = true;
@@ -280,7 +280,7 @@ int main(int argc, char *argv[])
 
     // Tell the GPS and Camera threads to terminate themselves
     pn_camera_request_mode(SHUTDOWN);
-    pn_gps_request_shutdown(gps);
+    timer_request_shutdown(timer);
 
     // Wait for the GPS and Camera threads to terminate
     void **retval = NULL;
@@ -290,7 +290,7 @@ int main(int argc, char *argv[])
         pthread_join(timer_thread, retval);
 
     // Final cleanup
-    pn_gps_free(gps);
+    timer_free(timer);
     pn_camera_free(camera);
     pn_free_preferences();
     fclose(logFile);

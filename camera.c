@@ -13,7 +13,7 @@
 
 #include "common.h"
 #include "camera.h"
-#include "gps.h"
+#include "timer.h"
 #include "preferences.h"
 
 #pragma mark Creation and Destruction (Called from main thread)
@@ -85,9 +85,9 @@ static void stop_acquiring_simulated()
 }
 
 // Main simulated camera thread loop
-void *pn_simulated_camera_thread(void *_gps)
+void *pn_simulated_camera_thread(void *_timer)
 {
-    PNGPS *gps = (PNGPS *)_gps;
+    TimerUnit *timer = (TimerUnit *)_timer;
 
     // Initialize the camera
     camera->simulated = true;
@@ -135,7 +135,7 @@ void *pn_simulated_camera_thread(void *_gps)
             stop_acquiring_simulated();
 
         // Check for new frame
-        bool downloading = pn_gps_camera_downloading(gps);
+        bool downloading = timer_camera_downloading(timer);
 
         if (camera->mode == ACQUIRING && downloading)
         {
@@ -151,7 +151,7 @@ void *pn_simulated_camera_thread(void *_gps)
             // There is no physical camera for the timer to monitor
             // so we must toggle this manually
 
-            pn_gps_set_simulated_camera_downloading(gps, false);
+            timer_set_simulated_camera_downloading(timer, false);
         }
 
         millisleep(100);

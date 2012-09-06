@@ -16,7 +16,7 @@
 #include <FL/fl_ask.H>
 
 extern "C" {
-    #include "gps.h"
+    #include "timer.h"
     #include "camera.h"
     #include "preferences.h"
     #include "common.h"

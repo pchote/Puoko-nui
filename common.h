@@ -8,14 +8,14 @@
 #include <stdarg.h>
 #include "platform.h"
 #include "camera.h"
-#include "gps.h"
+#include "timer.h"
 
 #ifndef COMMON_H
 #define COMMON_H
 
 void pn_log(const char * format, ...);
 void queue_framedata(PNFrame *frame);
-void queue_trigger_timestamp(PNGPSTimestamp timestamp);
+void queue_trigger_timestamp(TimerTimestamp timestamp);
 void trigger_fatal_error(char *message);
 #endif
 

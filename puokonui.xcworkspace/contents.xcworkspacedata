@@ -11,10 +11,10 @@
       location = "group:common.h">
    </FileRef>
    <FileRef
-      location = "group:gps.c">
+      location = "group:timer.c">
    </FileRef>
    <FileRef
-      location = "group:gps.h">
+      location = "group:timer.h">
    </FileRef>
    <FileRef
       location = "group:main.c">

@@ -24,22 +24,22 @@ typedef struct
     bool locked;
     int remaining_exposure; // for current time
     bool valid; // true before initialisation and if the download time has been used
-} PNGPSTimestamp;
+} TimerTimestamp;
 
-typedef struct PNGPS PNGPS;
+typedef struct TimerUnit TimerUnit;
 
-PNGPS *pn_gps_new();
-void pn_gps_free(PNGPS *gps);
-void *pn_timer_thread(void *gps);
-void *pn_simulated_timer_thread(void *gps);
+TimerUnit *timer_new();
+void timer_free(TimerUnit *timer);
+void *pn_timer_thread(void *timer);
+void *pn_simulated_timer_thread(void *timer);
 
-void pn_gps_start_exposure(PNGPS *gps, unsigned char exptime);
-void pn_gps_stop_exposure(PNGPS *gps);
-bool pn_gps_camera_downloading(PNGPS *gps);
-PNGPSTimestamp pn_gps_current_timestamp(PNGPS *gps);
-void pn_gps_request_shutdown(PNGPS *gps);
-void pn_gps_set_simulated_camera_downloading(PNGPS *gps, bool downloading);
+void timer_start_exposure(TimerUnit *timer, unsigned char exptime);
+void timer_stop_exposure(TimerUnit *timer);
+bool timer_camera_downloading(TimerUnit *timer);
+TimerTimestamp timer_current_timestamp(TimerUnit *timer);
+void timer_request_shutdown(TimerUnit *timer);
+void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading);
 
-PNGPSTimestamp pn_timestamp_normalize(PNGPSTimestamp ts);
+TimerTimestamp pn_timestamp_normalize(TimerTimestamp ts);
 
 #endif

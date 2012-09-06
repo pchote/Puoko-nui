@@ -58,7 +58,7 @@ void pn_run_saved_script(const char *filepath)
 #pragma mark Frame Saving/Preview. Runs in camera thread
 
 // Display a frame in DS9
-void pn_save_preview(PNFrame *frame, PNGPSTimestamp timestamp)
+void pn_save_preview(PNFrame *frame, TimerTimestamp timestamp)
 {
     fitsfile *fptr;
     int status = 0;
@@ -95,7 +95,7 @@ void pn_save_preview(PNFrame *frame, PNGPSTimestamp timestamp)
 
 // Write frame data to a fits file
 // Returns the filepath of the saved frame, to be freed by the caller
-const char *pn_save_frame(PNFrame *frame, PNGPSTimestamp timestamp)
+const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp)
 {
     fitsfile *fptr;
     int status = 0;
@@ -180,8 +180,8 @@ const char *pn_save_frame(PNFrame *frame, PNGPSTimestamp timestamp)
     }
 
     // Trigger timestamp defines the *start* of the frame
-    PNGPSTimestamp start = timestamp;
-    PNGPSTimestamp end = start; end.seconds += exposure_time;
+    TimerTimestamp start = timestamp;
+    TimerTimestamp end = start; end.seconds += exposure_time;
     end = pn_timestamp_normalize(end);
 
     if (timestamp.valid)

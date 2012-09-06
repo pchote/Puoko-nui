@@ -21,12 +21,12 @@
 #endif
 
 #include "gui_ncurses.h"
-#include "gps.h"
+#include "timer.h"
 #include "camera.h"
 #include "preferences.h"
 #include "common.h"
 
-extern PNGPS *gps;
+extern TimerUnit *timer;
 extern PNCamera *camera;
 
 WINDOW  *time_window, *camera_window, *acquisition_window,
@@ -74,7 +74,7 @@ static void update_time_window()
     mvwaddstr(time_window, 2, 13, strtime);
 
     // GPS time
-    PNGPSTimestamp ts = pn_gps_current_timestamp(gps);
+    TimerTimestamp ts = timer_current_timestamp(timer);
     mvwaddstr(time_window, 1, 13, (ts.locked ? "Locked  " : "Unlocked"));
 
     if (ts.valid)
@@ -521,7 +521,7 @@ void pn_ui_new()
     update_command_window(last_camera_mode);
     update_metadata_window();
 
-    last_camera_downloading = pn_gps_camera_downloading(gps);
+    last_camera_downloading = timer_camera_downloading(timer);
 
     update_acquisition_window();
     update_time_window();
@@ -583,7 +583,7 @@ bool pn_ui_update()
         last_camera_readout_time = camera_readout_time;
     }
 
-    bool camera_downloading = pn_gps_camera_downloading(gps);
+    bool camera_downloading = timer_camera_downloading(timer);
     unsigned char is_input = false;
     while ((ch = getch()) != ERR)
     {
@@ -655,12 +655,12 @@ bool pn_ui_update()
                         if (camera_mode == IDLE)
                         {
                             pn_camera_request_mode(ACQUIRING);
-                            pn_gps_start_exposure(gps, pn_preference_char(EXPOSURE_TIME));
+                            timer_start_exposure(timer, pn_preference_char(EXPOSURE_TIME));
                         }
                         else if (camera_mode == ACQUIRING)
                         {
                             pn_camera_request_mode(IDLE);
-                            pn_gps_stop_exposure(gps);
+                            timer_stop_exposure(timer);
                         }
                         break;
                     case 0x05: // ^E - Set Exposure
