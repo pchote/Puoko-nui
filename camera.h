@@ -62,6 +62,7 @@ void *pn_simulated_camera_thread(void *);
 void set_mode(PNCameraMode mode);
 void pn_camera_request_mode(PNCameraMode mode);
 void pn_camera_notify_safe_to_stop();
+bool pn_camera_is_simulated();
 
 #ifdef USE_PVCAM
 void *pn_pvcam_camera_thread(void *);

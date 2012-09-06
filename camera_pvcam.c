@@ -13,14 +13,12 @@
 
 #include "common.h"
 #include "camera.h"
-#include "gps.h"
 #include "preferences.h"
 
 #include <master.h>
 #include <pvcam.h>
 
 extern PNCamera *camera;
-extern PNGPS *gps;
 
 static int16 handle = -1;
 static void *image_buffer = NULL;

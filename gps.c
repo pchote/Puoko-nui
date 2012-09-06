@@ -56,7 +56,6 @@ void pn_gps_free(PNGPS *_gps)
 #pragma mark Timer Routines (Called from Timer thread)
 
 extern PNGPS *gps;
-extern PNCamera *camera;
 
 // Check the ftdi return code for a fatal error
 // If an error occured, set the error message and kill the thread
@@ -482,7 +481,7 @@ void pn_gps_start_exposure(unsigned char exptime)
         gps->simulated_remaining = gps->simulated_exptime = exptime;
     else
     {
-        unsigned char simulate_camera = camera->simulated || !pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
+        unsigned char simulate_camera = pn_camera_is_simulated() || !pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
         if (simulate_camera)
             pn_log("WARNING: USING SIMULATED CAMERA STATUS");
 
@@ -503,6 +502,24 @@ void pn_gps_stop_exposure()
     }
     else
         queue_data(STOP_EXPOSURE, NULL, 0);
+}
+
+// Returns the status of the camera logic output
+bool pn_gps_camera_downloading()
+{
+    pthread_mutex_lock(&gps->read_mutex);
+    bool downloading = gps->camera_downloading;
+    pthread_mutex_unlock(&gps->read_mutex);
+    return downloading;
+}
+
+// Callback to notify that the simulated camera has read out
+// TODO: This is a crappy abstraction
+void pn_gps_set_simulated_camera_downloading(bool downloading)
+{
+    pthread_mutex_lock(&gps->read_mutex);
+    gps->camera_downloading = downloading;
+    pthread_mutex_unlock(&gps->read_mutex);
 }
 
 // Utility routine to subtract a number of seconds from a PNGPSTimestamp

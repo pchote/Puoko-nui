@@ -15,12 +15,10 @@
 
 #include "common.h"
 #include "camera.h"
-#include "gps.h"
 #include "preferences.h"
 
 #pragma mark Camera Routines (Called from camera thread)
 extern PNCamera *camera;
-extern PNGPS *gps;
 static PicamHandle device_handle = NULL;
 static PicamHandle model_handle = NULL;
 static pibyte *image_buffer = NULL;

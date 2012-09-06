@@ -45,7 +45,6 @@ void pn_camera_free(PNCamera *cam)
 
 #pragma mark Camera Routines (Called from camera thread)
 extern PNCamera *camera;
-extern PNGPS *gps;
 
 // Set the camera mode to be read by the other threads in a threadsafe manner
 // Only to be used by camera implementations.
@@ -69,6 +68,11 @@ void pn_camera_notify_safe_to_stop()
     pthread_mutex_lock(&camera->read_mutex);
     camera->safe_to_stop_acquiring = true;
     pthread_mutex_unlock(&camera->read_mutex);
+}
+
+bool pn_camera_is_simulated()
+{
+    return camera->simulated;
 }
 
 #pragma mark Simulated Camera Routines
@@ -132,9 +136,7 @@ void *pn_simulated_camera_thread(void *_unused)
             stop_acquiring_simulated();
 
         // Check for new frame
-        pthread_mutex_lock(&gps->read_mutex);
-        int downloading = gps->camera_downloading;
-        pthread_mutex_unlock(&gps->read_mutex);
+        bool downloading = pn_gps_camera_downloading();
 
         if (camera->mode == ACQUIRING && downloading)
         {
@@ -149,9 +151,8 @@ void *pn_simulated_camera_thread(void *_unused)
 
             // There is no physical camera for the timer to monitor
             // so we must toggle this manually
-            pthread_mutex_lock(&gps->read_mutex);
-            gps->camera_downloading = false;
-            pthread_mutex_unlock(&gps->read_mutex);
+
+            pn_gps_set_simulated_camera_downloading(false);
         }
 
         millisleep(100);
