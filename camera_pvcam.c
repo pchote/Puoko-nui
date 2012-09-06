@@ -119,7 +119,7 @@ static void initialize_camera()
 
     // Set camera parameters
     if (!pl_set_param(handle, PARAM_SHTR_CLOSE_DELAY, (void*) &(uns16){0}))
-        pvcam_error("Error setting PARAM_SHTR_CLOSE_DELAY]", __LINE__);
+        pvcam_error("Error setting PARAM_SHTR_CLOSE_DELAY", __LINE__);
 
     if (!pl_set_param(handle, PARAM_LOGIC_OUTPUT, (void*) &(int){OUTPUT_NOT_SCAN}))
         pvcam_error("Error setting OUTPUT_NOT_SCAN", __LINE__);
@@ -137,7 +137,7 @@ static void initialize_camera()
         pvcam_error("Error setting PARAM_TEMP_SETPOINT", __LINE__);
 
     // Set readout speed
-    if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (void*) &(int){pn_preference_char(CAMERA_READOUT_MODE)}))
+    if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (void*) &(int){pn_preference_char(CAMERA_READSPEED_MODE)}))
         pvcam_error("Error setting PARAM_SPDTAB_INDEX", __LINE__);
 
     pn_log("Camera initialized");
@@ -156,8 +156,7 @@ static void start_acquiring()
     if (!pl_get_param(handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *)&camera->frame_height))
         pvcam_error("Error querying camera height", __LINE__);
 
-    unsigned char superpixel_size = pn_preference_char(SUPERPIXEL_SIZE);
-    pn_log("Superpixel size: %d", superpixel_size);
+    unsigned char superpixel_size = pn_preference_char(CAMERA_PIXEL_SIZE);
 
     if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
     {
@@ -187,6 +186,8 @@ static void start_acquiring()
     // Divide the chip size by the bin size to find the frame dimensions
     camera->frame_height /= superpixel_size;
     camera->frame_width /= superpixel_size;
+
+    pn_log("Pixel size set to %dx%d", superpixel_size, superpixel_size);
 
     // Init exposure control libs
     if (!pl_exp_init_seq())
