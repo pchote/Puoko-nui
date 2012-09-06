@@ -74,10 +74,7 @@ static void update_time_window()
     mvwaddstr(time_window, 2, 13, strtime);
 
     // GPS time
-    pthread_mutex_lock(&gps->read_mutex);
-    PNGPSTimestamp ts = gps->current_timestamp;
-    pthread_mutex_unlock(&gps->read_mutex);
-
+    PNGPSTimestamp ts = pn_gps_current_timestamp();
     mvwaddstr(time_window, 1, 13, (ts.locked ? "Locked  " : "Unlocked"));
 
     if (ts.valid)
@@ -524,9 +521,7 @@ void pn_ui_new()
     update_command_window(last_camera_mode);
     update_metadata_window();
 
-    pthread_mutex_lock(&gps->read_mutex);
-    last_camera_downloading = gps->camera_downloading;
-    pthread_mutex_unlock(&gps->read_mutex);
+    last_camera_downloading = pn_gps_camera_downloading();
 
     update_acquisition_window();
     update_time_window();
@@ -543,9 +538,11 @@ void pn_ui_new()
 bool pn_ui_update()
 {
     int ch = ERR;
-    if (camera->fatal_error != NULL || gps->fatal_error != NULL)
+
+    char *gps_fatal_error = pn_gps_fatal_error();
+    if (camera->fatal_error != NULL || gps_fatal_error)
     {
-        char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps->fatal_error;
+        char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps_fatal_error;
         pn_log("Fatal error: %s", msg);
 
         WINDOW *error_window = create_error_window(msg);
@@ -592,10 +589,7 @@ bool pn_ui_update()
         last_camera_readout_time = camera_readout_time;
     }
 
-    pthread_mutex_lock(&gps->read_mutex);
-    int camera_downloading = gps->camera_downloading;
-    pthread_mutex_unlock(&gps->read_mutex);
-
+    bool camera_downloading = pn_gps_camera_downloading();
     unsigned char is_input = false;
     while ((ch = getch()) != ERR)
     {

@@ -506,6 +506,24 @@ bool pn_gps_camera_downloading()
     return downloading;
 }
 
+PNGPSTimestamp pn_gps_current_timestamp()
+{
+    pthread_mutex_lock(&gps->read_mutex);
+    PNGPSTimestamp ts = gps->current_timestamp;
+    pthread_mutex_unlock(&gps->read_mutex);
+    return ts;
+}
+
+char *pn_gps_fatal_error()
+{
+    return gps->fatal_error;
+}
+
+void pn_gps_request_shutdown()
+{
+    gps->shutdown = true;
+}
+
 // Callback to notify that the simulated camera has read out
 // TODO: This is a crappy abstraction
 void pn_gps_set_simulated_camera_downloading(bool downloading)

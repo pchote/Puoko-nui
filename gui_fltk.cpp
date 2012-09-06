@@ -32,9 +32,11 @@ void pn_ui_log_line(char *msg)
 
 bool pn_ui_update()
 {
-    if (camera->fatal_error != NULL || gps->fatal_error != NULL)
+    // TODO: This is a terrible abstraction
+    char *gps_fatal_error = pn_gps_fatal_error();
+    if (camera->fatal_error != NULL || gps_fatal_error)
     {
-        char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps->fatal_error;
+        char *msg = camera->fatal_error != NULL ? camera->fatal_error : gps_fatal_error;
         fl_alert("A fatal error has occurred and the program will now close:\n\n%s", msg);
         return true;
     }
@@ -60,10 +62,7 @@ bool pn_ui_update()
         last_camera_readout_time = camera_readout_time;
     }
 
-    pthread_mutex_lock(&gps->read_mutex);
-    int camera_downloading = gps->camera_downloading;
-    pthread_mutex_unlock(&gps->read_mutex);
-
+    bool camera_downloading = pn_gps_camera_downloading();
     gui->updateTimerGroup();
 
     if (last_camera_mode != camera_mode ||
@@ -151,10 +150,7 @@ void FLTKGui::updateTimerGroup()
     m_timerPCTimeOutput->value(strtime);
 
     // GPS time
-    pthread_mutex_lock(&gps->read_mutex);
-    PNGPSTimestamp ts = gps->current_timestamp;
-    pthread_mutex_unlock(&gps->read_mutex);
-
+    PNGPSTimestamp ts = pn_gps_current_timestamp();
     m_timerStatusOutput->value((ts.locked ? "Locked  " : "Unlocked"));
 
     if (ts.valid)
@@ -401,10 +397,7 @@ FLTKGui::FLTKGui()
     float camera_temperature = camera->temperature;
     pthread_mutex_unlock(&camera->read_mutex);
 
-    pthread_mutex_lock(&gps->read_mutex);
-    int camera_downloading = gps->camera_downloading;
-    pthread_mutex_unlock(&gps->read_mutex);
-
+    bool camera_downloading = pn_gps_camera_downloading();
     updateTimerGroup();
     updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
     updateAcquisitionGroup();
