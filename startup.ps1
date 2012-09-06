@@ -1,4 +1,2 @@
-$running = C:\ds9\xpaaccess -n Online_Preview
-if ($running -eq "0") {
-    & C:\ds9\ds9 -title Online_Preview
-}
+# Do Nothing. Launching ds9 from powershell doesn't
+# start xpa, so require the user to do this manually.

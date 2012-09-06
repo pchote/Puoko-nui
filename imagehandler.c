@@ -30,7 +30,7 @@ void pn_run_startup_script()
     #if (defined _WIN32 || defined _WIN64)
     run_command_async("powershell -sta -noProfile -NonInteractive  -nologo -command .\\startup.ps1");
     #else
-    run_command_async("./startup.sh");
+    run_command_async("./startup.sh &");
     #endif
 #endif
 }
@@ -41,7 +41,7 @@ void pn_run_preview_script(const char *filepath)
 #if (defined _WIN32 || defined _WIN64)
     run_command_async("powershell -sta -noProfile -NonInteractive  -nologo -command .\\preview.ps1");
 #else
-    run_command_async("./preview.sh");
+    run_command_async("./preview.sh &");
 #endif
 #endif
 }
