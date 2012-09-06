@@ -377,12 +377,25 @@ void FLTKGui::updateButtonGroup(PNCameraMode camera_mode)
     m_buttonSave->value(save_pressed);
 }
 
+void FLTKGui::closeMainWindowCallback(Fl_Widget *window, void *v)
+{
+    // User pressed escape
+    if (Fl::event() == FL_SHORTCUT && Fl::event_key() == FL_Escape)
+        return;
+
+    // Hide the window.
+    // TODO: Hide all other windows too?
+    // TODO: Show "Are you sure" dialog if exposing?
+    window->hide();
+}
+
 FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
     : m_cameraRef(camera), m_timerRef(timer)
 {
 	// Create the main window
 	m_mainWindow = new Fl_Window(660, 355, "Acquisition Control");
     m_mainWindow->user_data((void*)(this));
+    m_mainWindow->callback(closeMainWindowCallback);
 
     createTimerGroup();
     createCameraGroup();

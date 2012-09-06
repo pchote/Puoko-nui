@@ -47,11 +47,13 @@ private:
     void createLogGroup();
     void createButtonGroup();
 
-    static void buttonMetadataPressed(Fl_Widget* o, void* v);
-    static void buttonExposurePressed(Fl_Widget* o, void* v);
-    static void buttonAcquirePressed(Fl_Widget* o, void* v);
-    static void buttonSavePressed(Fl_Widget* o, void* v);
-    static void buttonQuitPressed(Fl_Widget* o, void* v);
+    static void buttonMetadataPressed(Fl_Widget* o, void *v);
+    static void buttonExposurePressed(Fl_Widget* o, void *v);
+    static void buttonAcquirePressed(Fl_Widget* o, void *v);
+    static void buttonSavePressed(Fl_Widget* o, void *v);
+    static void buttonQuitPressed(Fl_Widget* o, void *v);
+
+    static void closeMainWindowCallback(Fl_Widget *window, void *v);
 
     PNCamera *m_cameraRef;
     TimerUnit *m_timerRef;
