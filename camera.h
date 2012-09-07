@@ -12,15 +12,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Custom frame transfer mode options
-#define PARAM_FORCE_READOUT_MODE ((CLASS2<<16) + (TYPE_UNS32<<24) + 326)
-enum ForceReadOut {
-    ALWAYS_CHECK_EXP,
-    MAKE_FULL,
-    MAKE_FRAME_TRANSFER,
-    MAKE_AUTOMATIC
-};
-
 // Represents the current state of the camera
 typedef enum
 {

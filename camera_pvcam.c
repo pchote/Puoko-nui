@@ -23,6 +23,15 @@ static int16 handle = -1;
 static void *image_buffer = NULL;
 static uns32 image_buffer_size = 0;
 
+// Custom frame transfer mode options
+#define PARAM_FORCE_READOUT_MODE ((CLASS2<<16) + (TYPE_UNS32<<24) + 326)
+enum ForceReadOut {
+    ALWAYS_CHECK_EXP,
+    MAKE_FULL,
+    MAKE_FRAME_TRANSFER,
+    MAKE_AUTOMATIC
+};
+
 // Used to determine and discard the first frame
 // corresponding to the exposure before the first
 // trigger. This allows us to count all download timestamps
