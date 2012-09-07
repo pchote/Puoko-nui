@@ -266,11 +266,6 @@ int main(int argc, char *argv[])
         millisleep(100);
     }
 
-    if (fatal_error)
-        free(fatal_error);
-
-    // TODO: Clear any buffered framedata or timestamps
-
     pn_ui_free();
 
     //
@@ -290,6 +285,27 @@ int main(int argc, char *argv[])
         pthread_join(timer_thread, retval);
 
     // Final cleanup
+    if (fatal_error)
+        free(fatal_error);
+
+    // Other threads have closed, so don't worry about locking
+    while (frame_queue != NULL)
+    {
+        struct PNFrameQueue *next = frame_queue->next;
+        free(frame_queue->frame);
+        free(frame_queue);
+        frame_queue = next;
+        pn_log("Discarding queued framedata");
+    }
+
+    while (trigger_timestamp_queue != NULL)
+    {
+        struct TimerTimestampQueue *next = trigger_timestamp_queue->next;
+        free(trigger_timestamp_queue);
+        trigger_timestamp_queue = next;
+        pn_log("Discarding queued timestamp");
+    }
+
     timer_free(timer);
     pn_camera_free(camera);
     pn_free_preferences();
