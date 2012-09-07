@@ -37,6 +37,30 @@ void pn_ui_free()
     delete gui;
 }
 
+
+static void populate_string_preference(Fl_Input *input, PNPreferenceType key)
+{
+    char *val = pn_preference_string(key);
+    input->value(val);
+    free(val);
+}
+
+static void populate_char_preference(Fl_Int_Input *input, PNPreferenceType key)
+{
+    char *buf;
+    asprintf(&buf, "%d", pn_preference_char(key));
+    input->value(buf);
+    free(buf);
+}
+
+static void populate_int_preference(Fl_Int_Input *input, PNPreferenceType key)
+{
+    char *buf;
+    asprintf(&buf, "%d", pn_preference_int(key));
+    input->value(buf);
+    free(buf);
+}
+
 #pragma mark C++ Implementation
 
 void FLTKGui::addLogLine(const char *msg)
@@ -369,7 +393,7 @@ void FLTKGui::buttonExposureConfirmPressed(Fl_Widget* o, void *userdata)
 {
     FLTKGui* gui = (FLTKGui *)userdata;
     uint8_t oldexp = pn_preference_char(EXPOSURE_TIME);
-    int new_exposure = gui->m_exposureInput->value();
+    int new_exposure = atoi(gui->m_exposureInput->value());
 
     pthread_mutex_lock(&gui->m_cameraRef->read_mutex);
     PNCameraMode camera_mode = gui->m_cameraRef->mode;
@@ -411,10 +435,7 @@ void FLTKGui::createExposureWindow()
     m_exposureWindow = new Fl_Window(150, 40, "Set Exposure");
     m_exposureWindow->user_data((void*)(this));
 
-    m_exposureInput = new Fl_Value_Input(10, 10, 70, 20);
-    m_exposureInput->maximum(255);
-    m_exposureInput->minimum(0);
-    m_exposureInput->value(5);
+    m_exposureInput = new Fl_Int_Input(10, 10, 70, 20);
 
     m_exposureButtonConfirm = new Fl_Button(90, 10, 50, 20, "Set");
     m_exposureButtonConfirm->user_data((void*)(this));
@@ -426,18 +447,70 @@ void FLTKGui::createExposureWindow()
 void FLTKGui::showExposureWindow()
 {
     // Update and show the "Set Exposure" dialog
-    uint8_t minimum_exposure = (uint8_t)(ceil(m_cameraRef->readout_time));
-    m_exposureInput->minimum(minimum_exposure);
-    m_exposureInput->value(pn_preference_char(EXPOSURE_TIME));
+    populate_char_preference(m_exposureInput, EXPOSURE_TIME);
     m_exposureWindow->show();
+}
+
+void FLTKGui::metadataFrameTypeChangedCallback(Fl_Widget *input, void *userdata)
+{
+    FLTKGui* gui = (FLTKGui *)userdata;
+
+    if (((Fl_Choice *)input)->value() == 2)
+    {
+        gui->m_metadataTargetInput->show();
+        gui->m_metadataCountdownInput->hide();
+    }
+    else
+    {
+        gui->m_metadataTargetInput->hide();
+        gui->m_metadataCountdownInput->show();
+    }
 }
 
 void FLTKGui::createMetadataWindow()
 {
-    m_metadataWindow = new Fl_Window(400, 200, "Set Metadata");
+    m_metadataWindow = new Fl_Window(420, 155, "Set Metadata");
     m_metadataWindow->user_data((void*)(this));
 
-    m_metadataButtonConfirm = new Fl_Button(340, 160, 50, 30, "Save");
+    // File output
+    Fl_Group *outputGroup = new Fl_Group(10, 10, 400, 55, "Output Filename");
+    outputGroup->box(FL_ENGRAVED_BOX);
+    outputGroup->align(FL_ALIGN_INSIDE|FL_ALIGN_TOP);
+    outputGroup->labelsize(14);
+    outputGroup->labelfont(FL_BOLD);
+
+    int x = 20, y = 35, h = 20, margin = 25;
+    m_metadataOutputDir = new Fl_Input(x, y, 170, h); x+= 180;
+    m_metadataRunPrefix = new Fl_Input(x, y, 100, h, "/"); x+= 110;
+    m_metadataRunNumber = new Fl_Int_Input(x, y, 50, h, "-"); x+= 95;
+
+    // Dirty hack... FLTK doesn't have a standalone label widget!?!
+    new Fl_Input(x, y, 0, h, ".fits.gz");
+
+    outputGroup->end();
+
+    x = 90;
+    y = 75;
+    int w = 110;
+
+    m_metadataFrameTypeInput = new Fl_Choice(x, y, w, h, "Type:"); y += margin;
+    m_metadataFrameTypeInput->add("Dark");
+    m_metadataFrameTypeInput->add("Flat");
+    m_metadataFrameTypeInput->add("Target");
+    m_metadataFrameTypeInput->callback(metadataFrameTypeChangedCallback);
+    m_metadataFrameTypeInput->user_data((void*)(this));
+
+    m_metadataTargetInput = new Fl_Input(x, y, w, h, "Target:");
+    m_metadataCountdownInput = new Fl_Int_Input(x, y, w, h, "Countdown:"); y += margin;
+    m_metadataCountdownInput->hide();
+    m_metadataObserversInput = new Fl_Input(x, y, w, h, "Observers:");
+
+    x = 300;
+    y = 75;
+    m_metadataObservatoryInput = new Fl_Input(x, y, w, h, "Observatory:"); y += margin;
+    m_metadataTelecopeInput = new Fl_Input(x, y, w, h, "Telescope:"); y += margin;
+
+    m_metadataButtonConfirm = new Fl_Button(x, y, w, h, "Save");
     m_metadataButtonConfirm->user_data((void*)(this));
     m_metadataButtonConfirm->callback(buttonMetadataConfirmPressed);
 
@@ -446,7 +519,29 @@ void FLTKGui::createMetadataWindow()
 
 void FLTKGui::showMetadataWindow()
 {
-    // TODO: Update windows with preferences
+    // Update windows with preferences
+    populate_string_preference(m_metadataOutputDir, OUTPUT_DIR);
+    populate_string_preference(m_metadataRunPrefix, RUN_PREFIX);
+    populate_int_preference(m_metadataRunNumber, RUN_NUMBER);
+
+    uint8_t frame_type = pn_preference_char(OBJECT_TYPE);
+    m_metadataFrameTypeInput->value(frame_type);
+    if (frame_type == 2)
+    {
+        m_metadataTargetInput->show();
+        m_metadataCountdownInput->hide();
+    }
+    else
+    {
+        m_metadataTargetInput->hide();
+        m_metadataCountdownInput->show();
+    }
+
+    populate_string_preference(m_metadataTargetInput, OBJECT_NAME);
+    populate_int_preference(m_metadataCountdownInput, CALIBRATION_COUNTDOWN);
+    populate_string_preference(m_metadataObserversInput, OBSERVERS);
+    populate_string_preference(m_metadataObservatoryInput, OBSERVATORY);
+    populate_string_preference(m_metadataTelecopeInput, TELESCOPE);
     m_metadataWindow->show();
 }
 

@@ -16,7 +16,8 @@
 #include <FL/Fl_Toggle_Button.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
-#include <FL/Fl_Value_Input.H>
+#include <FL/Fl_Int_Input.H>
+#include <FL/Fl_Choice.H>
 #include <FL/fl_ask.H>
 
 extern "C" {
@@ -61,6 +62,8 @@ private:
 
     static void buttonExposureConfirmPressed(Fl_Widget* o, void *v);
     static void buttonMetadataConfirmPressed(Fl_Widget* o, void *v);
+
+    static void metadataFrameTypeChangedCallback(Fl_Widget *input, void *v);
 
     static void closeMainWindowCallback(Fl_Widget *window, void *v);
 
@@ -111,12 +114,23 @@ private:
 
     // Exposure window
     Fl_Window *m_exposureWindow;
-    Fl_Value_Input *m_exposureInput;
+    Fl_Int_Input *m_exposureInput;
     Fl_Button *m_exposureButtonConfirm;
 
     // Metadata window
     Fl_Window *m_metadataWindow;
     Fl_Button *m_metadataButtonConfirm;
+
+    Fl_Input *m_metadataOutputDir;
+    Fl_Input *m_metadataRunPrefix;
+    Fl_Int_Input *m_metadataRunNumber;
+
+    Fl_Choice *m_metadataFrameTypeInput;
+    Fl_Input *m_metadataTargetInput;
+    Fl_Int_Input *m_metadataCountdownInput;
+    Fl_Input *m_metadataObserversInput;
+    Fl_Input *m_metadataObservatoryInput;
+    Fl_Input *m_metadataTelecopeInput;
  };
 
 #endif
