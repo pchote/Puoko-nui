@@ -22,16 +22,6 @@
 #include "gui.h"
 #include "platform.h"
 
-PNCamera *camera;
-TimerUnit *timer;
-
-
-#pragma mark Main program logic
-static bool shutdown = false;
-
-pthread_mutex_t log_mutex, frame_queue_mutex, trigger_timestamp_queue_mutex;
-FILE *logFile;
-
 struct PNFrameQueue
 {
     PNFrame *frame;
@@ -44,8 +34,13 @@ struct TimerTimestampQueue
     struct TimerTimestampQueue *next;
 };
 
+pthread_mutex_t log_mutex, frame_queue_mutex, trigger_timestamp_queue_mutex;
+FILE *logFile;
+PNCamera *camera;
+TimerUnit *timer;
 struct PNFrameQueue *frame_queue = NULL;
 struct TimerTimestampQueue *trigger_timestamp_queue;
+char *fatal_error = NULL;
 
 // Take a copy of the framedata and store it for
 // processing on the main thread
@@ -146,8 +141,6 @@ void queue_trigger_timestamp(TimerTimestamp timestamp)
     pn_log("Pushed timestamp. %d in queue", count);
 }
 
-
-char *fatal_error = NULL;
 void trigger_fatal_error(char *message)
 {
     fatal_error = message;
@@ -155,10 +148,9 @@ void trigger_fatal_error(char *message)
 
 int main(int argc, char *argv[])
 {
+    // Parse the commandline args
     bool simulate_camera = false;
     bool simulate_timer = false;
-
-    // Parse the commandline args
     for (int i = 0; i < argc; i++)
     {
         if (strcmp(argv[i], "--simulate-camera") == 0)
@@ -168,17 +160,10 @@ int main(int argc, char *argv[])
             simulate_timer = true;
     }
 
-    //
     // Initialization
-    //
-    pn_init_preferences("preferences.dat");
-
     pthread_mutex_init(&log_mutex, NULL);
     pthread_mutex_init(&frame_queue_mutex, NULL);
     pthread_mutex_init(&trigger_timestamp_queue_mutex, NULL);
-
-    timer = timer_new(simulate_timer);
-    camera = pn_camera_new(simulate_camera);
 
     // Open the log file for writing
     time_t start = time(NULL);
@@ -191,6 +176,10 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    pn_init_preferences("preferences.dat");
+    timer = timer_new(simulate_timer);
+    camera = pn_camera_new(simulate_camera);
+
     // Start ui early so it can catch log events
     pn_ui_new(camera, timer);
     pn_run_startup_script();
@@ -202,10 +191,7 @@ int main(int argc, char *argv[])
     timer_spawn_thread(timer, &args);
     pn_camera_spawn_thread(camera, &args);
 
-    //
     // Main program loop
-    //
-
     for (;;)
     {
         if (fatal_error)
@@ -245,13 +231,6 @@ int main(int argc, char *argv[])
         millisleep(100);
     }
 
-    pn_ui_free();
-
-    //
-    // Shutdown hardware and cleanup
-    //
-    shutdown = true;
-
     // Wait for camera and timer threads to terminate
     pn_camera_shutdown(camera);
     timer_shutdown(timer);
@@ -281,7 +260,9 @@ int main(int argc, char *argv[])
     timer_free(timer);
     pn_camera_free(camera);
     pn_free_preferences();
+    pn_ui_free();
     fclose(logFile);
+
     pthread_mutex_destroy(&trigger_timestamp_queue_mutex);
     pthread_mutex_destroy(&frame_queue_mutex);
     pthread_mutex_destroy(&log_mutex);
@@ -316,8 +297,7 @@ void pn_log(const char * format, ...)
     fprintf(logFile, "\n");
 
     // Add to gui
-    if (!shutdown)
-        pn_ui_log_line(linebuf);
+    pn_ui_log_line(linebuf);
 
     pthread_mutex_unlock(&log_mutex);
 
