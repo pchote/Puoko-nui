@@ -13,6 +13,7 @@
 #include "common.h"
 #include "camera.h"
 #include "preferences.h"
+#include "platform.h"
 
 #include <master.h>
 #include <pvcam.h>
