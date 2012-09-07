@@ -210,9 +210,7 @@ const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *ca
     fits_update_key(fptr, TSTRING, "PC-END", (void *)timebuf, "Exposure end time (PC)", &status);
 
     // Camera temperature
-    pthread_mutex_lock(&camera->read_mutex);
-    sprintf(timebuf, "%0.02f", camera->temperature);
-    pthread_mutex_unlock(&camera->read_mutex);
+    sprintf(timebuf, "%0.02f", pn_camera_temperature());
 
     fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)timebuf, "CCD temperature at end of exposure in deg C", &status);
 

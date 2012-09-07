@@ -524,11 +524,9 @@ void pn_ui_new(PNCamera *camera, TimerUnit *timer)
     frametype_panel = new_panel(frametype_window);
 
     // Set initial state
-    pthread_mutex_lock(&camera->read_mutex);
-    last_camera_mode = camera->mode;
-    last_camera_temperature = camera->temperature;
-    last_camera_readout_time = camera->readout_time;
-    pthread_mutex_unlock(&camera->read_mutex);
+    last_camera_mode = pn_camera_mode();
+    last_camera_temperature = pn_camera_temperature();
+    last_camera_readout_time = pn_camera_readout_time();
 
     update_log_window();
     update_status_window(last_camera_mode);
@@ -576,11 +574,9 @@ bool pn_ui_update()
     int ch = ERR;
 
     // Read once at the start of the loop so values remain consistent
-    pthread_mutex_lock(&camera->read_mutex);
-    PNCameraMode camera_mode = camera->mode;
-    float camera_temperature = camera->temperature;
-    float camera_readout_time = camera->readout_time;
-    pthread_mutex_unlock(&camera->read_mutex);
+    PNCameraMode camera_mode = pn_camera_mode();
+    float camera_temperature = pn_camera_temperature();
+    float camera_readout_time = pn_camera_readout_time();
 
     // Check that the exposure time is greater than
     // the camera readout, and change if necessary

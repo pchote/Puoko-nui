@@ -70,7 +70,34 @@ void pn_camera_notify_safe_to_stop()
 
 bool pn_camera_is_simulated()
 {
+    // Not touched by camera thread, so safe to access without locks
     return camera->simulated;
+}
+
+float pn_camera_temperature()
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    float temperature = camera->temperature;
+    pthread_mutex_unlock(&camera->read_mutex);
+    return temperature;
+}
+
+float pn_camera_readout_time()
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    float readout_time = camera->readout_time;
+    pthread_mutex_unlock(&camera->read_mutex);
+    return readout_time;
+}
+
+// TODO: This is a temporary measure - callers shouldn't
+// know about PNCameraMode
+PNCameraMode pn_camera_mode()
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    PNCameraMode mode = camera->mode;
+    pthread_mutex_unlock(&camera->read_mutex);
+    return mode;
 }
 
 #pragma mark Simulated Camera Routines

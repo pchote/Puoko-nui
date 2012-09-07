@@ -672,10 +672,8 @@ FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
     createExposureWindow();
     createMetadataWindow();
 
-    pthread_mutex_lock(&camera->read_mutex);
-    PNCameraMode camera_mode = camera->mode;
-    float camera_temperature = camera->temperature;
-    pthread_mutex_unlock(&camera->read_mutex);
+    PNCameraMode camera_mode = pn_camera_mode();
+    float camera_temperature = pn_camera_temperature();
 
     bool camera_downloading = timer_camera_downloading(timer);
     updateTimerGroup();
