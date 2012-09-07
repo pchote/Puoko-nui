@@ -75,11 +75,9 @@ void FLTKGui::addLogLine(const char *msg)
 
 bool FLTKGui::update()
 {
-    pthread_mutex_lock(&m_cameraRef->read_mutex);
-    PNCameraMode camera_mode = m_cameraRef->mode;
-    float camera_temperature = m_cameraRef->temperature;
-    float camera_readout_time = m_cameraRef->readout_time;
-    pthread_mutex_unlock(&m_cameraRef->read_mutex);
+    PNCameraMode camera_mode = pn_camera_mode();
+    float camera_temperature = pn_camera_temperature();
+    float camera_readout_time = pn_camera_readout_time();
 
     // Check that the exposure time is greater than
     // the camera readout, and change if necessary
