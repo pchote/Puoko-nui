@@ -28,9 +28,8 @@ TimerUnit *timer;
 
 #pragma mark Main program logic
 
-static pthread_t timer_thread, camera_thread;
+static pthread_t timer_thread;
 static bool timer_thread_initialized = false;
-static bool camera_thread_initialized = false;
 static bool shutdown = false;
 
 pthread_mutex_t log_mutex, frame_queue_mutex, trigger_timestamp_queue_mutex;
@@ -159,6 +158,19 @@ void trigger_fatal_error(char *message)
 
 int main(int argc, char *argv[])
 {
+    bool simulate_camera = false;
+    bool simulate_timer = false;
+
+    // Parse the commandline args
+    for (int i = 0; i < argc; i++)
+    {
+        if (strcmp(argv[i], "--simulate-camera") == 0)
+            simulate_camera = true;
+
+        if (strcmp(argv[i], "--simulate-timer") == 0)
+            simulate_timer = true;
+    }
+
     //
     // Initialization
     //
@@ -169,7 +181,7 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&trigger_timestamp_queue_mutex, NULL);
 
     timer = timer_new();
-    camera = pn_camera_new();
+    camera = pn_camera_new(simulate_camera);
 
     // Open the log file for writing
     time_t start = time(NULL);
@@ -186,18 +198,9 @@ int main(int argc, char *argv[])
     pn_ui_new(camera, timer);
     pn_run_startup_script();
 
-    bool simulate_camera = false;
-    bool simulate_timer = false;
-
-    // Parse the commandline args
-    for (int i = 0; i < argc; i++)
-    {
-        if (strcmp(argv[i], "--simulate-camera") == 0)
-            simulate_camera = true;
-
-        if (strcmp(argv[i], "--simulate-timer") == 0)
-            simulate_timer = true;
-    }
+    ThreadCreationArgs args;
+    args.camera = camera;
+    args.timer = timer;
 
     // Timer unit
     if (simulate_timer)
@@ -207,19 +210,7 @@ int main(int argc, char *argv[])
 
     timer_thread_initialized = true;
 
-    if (simulate_camera)
-        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)timer);
-    else
-    {
-        #ifdef USE_PVCAM
-        pthread_create(&camera_thread, NULL, pn_pvcam_camera_thread, (void *)timer);
-		#elif defined USE_PICAM
-		pthread_create(&camera_thread, NULL, pn_picam_camera_thread, (void *)timer);
-        #else
-        pthread_create(&camera_thread, NULL, pn_simulated_camera_thread, (void *)timer);
-        #endif
-    }
-    camera_thread_initialized = true;
+    pn_camera_spawn_thread(camera, &args);
 
     //
     // Main program loop
@@ -272,13 +263,11 @@ int main(int argc, char *argv[])
     shutdown = true;
 
     // Tell the GPS and Camera threads to terminate themselves
-    pn_camera_shutdown();
+    pn_camera_shutdown(camera);
     timer_request_shutdown(timer);
 
     // Wait for the GPS and Camera threads to terminate
     void **retval = NULL;
-    if (camera_thread_initialized)
-        pthread_join(camera_thread, retval);
     if (timer_thread_initialized)
         pthread_join(timer_thread, retval);
 

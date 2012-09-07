@@ -321,8 +321,11 @@ static void calculate_readout_time()
 }
 
 // Initialize PICAM and the camera hardware
-static void initialize_camera()
+static void initialize_camera(void *_args)
 {
+    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
+    PNCamera *camera = args->camera;
+
     set_mode(INITIALISING);
     Picam_InitializeLibrary();
 

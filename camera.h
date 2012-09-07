@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "common.h"
 
 // Represents the current state of the camera
 typedef enum
@@ -27,8 +28,11 @@ typedef enum
 } PNCameraMode;
 
 // Holds the state of a camera
-typedef struct
+struct PNCamera
 {
+    pthread_t camera_thread;
+    bool thread_initialized;
+
     // read/write
     PNCameraMode desired_mode;
 
@@ -42,28 +46,23 @@ typedef struct
     bool safe_to_stop_acquiring;
 
     pthread_mutex_t read_mutex;
-} PNCamera;
+};
 
-PNCamera *pn_camera_new();
-void pn_camera_free(PNCamera *cam);
-void *pn_simulated_camera_thread(void *);
+typedef struct PNCamera PNCamera;
+
+PNCamera *pn_camera_new(bool simulate_hardware);
+void pn_camera_free(PNCamera *camera);
+void pn_camera_spawn_thread(PNCamera *camera, ThreadCreationArgs *args);
+void pn_camera_shutdown(PNCamera *camera);
 
 void set_mode(PNCameraMode mode);
 void pn_camera_notify_safe_to_stop();
 bool pn_camera_is_simulated();
 void pn_camera_start_exposure();
 void pn_camera_stop_exposure();
-void pn_camera_shutdown();
 
 float pn_camera_temperature();
 float pn_camera_readout_time();
 PNCameraMode pn_camera_mode();
-
-#ifdef USE_PVCAM
-void *pn_pvcam_camera_thread(void *);
-#endif
-#ifdef USE_PICAM
-void *pn_picam_camera_thread(void *);
-#endif
 
 #endif

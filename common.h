@@ -12,6 +12,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+typedef struct
+{
+    struct PNCamera *camera;
+    struct TimerUnit *timer;
+} ThreadCreationArgs;
+
 // Represents an aquired frame
 typedef struct
 {

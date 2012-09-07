@@ -352,8 +352,11 @@ static void stop_acquiring()
 }
 
 // Main camera thread loop
-void *pn_pvcam_camera_thread(void *_unused)
+void *pn_pvcam_camera_thread(void *_args)
 {
+    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
+    PNCamera *camera = args->camera;
+
     // Initialize the camera
     initialize_camera();
 

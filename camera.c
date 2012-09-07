@@ -17,10 +17,19 @@
 #include "preferences.h"
 #include "platform.h"
 
+
+#ifdef USE_PVCAM
+void *pn_pvcam_camera_thread(void *);
+#endif
+#ifdef USE_PICAM
+void *pn_picam_camera_thread(void *);
+#endif
+void *pn_simulated_camera_thread(void *);
+
 #pragma mark Creation and Destruction (Called from main thread)
 
 // Initialize a new PNCamera struct.
-PNCamera *pn_camera_new()
+PNCamera *pn_camera_new(bool simulate_hardware)
 {
     PNCamera *camera = malloc(sizeof(PNCamera));
     if (!camera)
@@ -30,8 +39,9 @@ PNCamera *pn_camera_new()
     camera->desired_mode = IDLE;
     camera->temperature = 0;
     camera->readout_time = 0;
-    camera->simulated = false;
+    camera->simulated = simulate_hardware;
     camera->safe_to_stop_acquiring = false;
+    camera->thread_initialized = false;
     pthread_mutex_init(&camera->read_mutex, NULL);
 
     return camera;
@@ -43,6 +53,36 @@ void pn_camera_free(PNCamera *camera)
     pthread_mutex_destroy(&camera->read_mutex);
 }
 
+void pn_camera_spawn_thread(PNCamera *camera, ThreadCreationArgs *args)
+{
+    if (camera->simulated)
+        pthread_create(&camera->camera_thread, NULL, pn_simulated_camera_thread, (void *)args);
+    else
+    {
+#ifdef USE_PVCAM
+        pthread_create(&camera->camera_thread, NULL, pn_pvcam_camera_thread, (void *)args);
+#elif defined USE_PICAM
+		pthread_create(&camera->camera_thread, NULL, pn_picam_camera_thread, (void *)args);
+#else
+        pthread_create(&camera->camera_thread, NULL, pn_simulated_camera_thread, (void *)args);
+#endif
+    }
+    camera->thread_initialized = true;
+}
+
+// Tell camera to shutdown and block until it completes
+void pn_camera_shutdown(PNCamera *camera)
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = SHUTDOWN;
+    pthread_mutex_unlock(&camera->read_mutex);
+
+    void **retval = NULL;
+    if (camera->thread_initialized)
+        pthread_join(camera->camera_thread, retval);
+
+    camera->thread_initialized = false;
+}
 
 #pragma mark Camera Routines (Called from camera thread)
 extern PNCamera *camera;
@@ -68,13 +108,6 @@ void pn_camera_stop_exposure()
 {
     pthread_mutex_lock(&camera->read_mutex);
     camera->desired_mode = IDLE;
-    pthread_mutex_unlock(&camera->read_mutex);
-}
-
-void pn_camera_shutdown()
-{
-    pthread_mutex_lock(&camera->read_mutex);
-    camera->desired_mode = SHUTDOWN;
     pthread_mutex_unlock(&camera->read_mutex);
 }
 
@@ -130,12 +163,13 @@ static void stop_acquiring_simulated()
 }
 
 // Main simulated camera thread loop
-void *pn_simulated_camera_thread(void *_timer)
+void *pn_simulated_camera_thread(void *_args)
 {
-    TimerUnit *timer = (TimerUnit *)_timer;
+    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
+    TimerUnit *timer = args->timer;
+    PNCamera *camera = args->camera;
 
     // Initialize the camera
-    camera->simulated = true;
     camera->safe_to_stop_acquiring = false;
     pn_log("Initialising simulated camera");
 
