@@ -67,7 +67,12 @@ void FLTKGui::addLogLine(const char *msg)
 {
     m_logBuffer->append(msg);
     m_logBuffer->append("\n");
-    // TODO: Scroll display if necessary
+
+    // Scroll to bottom by moving the insert cursor
+    // then scrolling to show the cursor position
+    while (m_logDisplay->move_down());
+    m_logDisplay->move_up();
+    m_logDisplay->show_insert_position();
 }
 
 bool FLTKGui::update()
@@ -306,6 +311,7 @@ void FLTKGui::createLogGroup()
     m_logBuffer = new Fl_Text_Buffer();
     m_logDisplay = new Fl_Text_Display(250, 10, 400, 295, NULL);
     m_logDisplay->buffer(m_logBuffer);
+    m_logDisplay->hide_cursor();
 }
 
 void FLTKGui::buttonMetadataPressed(Fl_Widget* o, void *userdata)
@@ -568,7 +574,6 @@ void _set_int(PNPreferenceType key, const char *name, int newval)
         pn_log("%s set to `%d'", name, newval);
     }
 }
-
 
 void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
 {
