@@ -36,7 +36,6 @@ void pn_ui_free()
     delete gui;
 }
 
-
 static void populate_string_preference(Fl_Input *input, PNPreferenceType key)
 {
     char *val = pn_preference_string(key);
@@ -64,13 +63,13 @@ static void populate_int_preference(Fl_Int_Input *input, PNPreferenceType key)
 
 void FLTKGui::addLogLine(const char *msg)
 {
+    if (m_logBuffer->length())
+        m_logBuffer->append("\n");
     m_logBuffer->append(msg);
-    m_logBuffer->append("\n");
 
     // Scroll to bottom by moving the insert cursor
     // then scrolling to show the cursor position
     while (m_logDisplay->move_down());
-    m_logDisplay->move_up();
     m_logDisplay->show_insert_position();
 }
 
