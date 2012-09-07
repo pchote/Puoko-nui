@@ -25,6 +25,7 @@ extern "C" {
     #include "camera.h"
     #include "preferences.h"
     #include "common.h"
+    #include "platform.h"
     #include "gui.h"
 }
 
