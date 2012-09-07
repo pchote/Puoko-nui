@@ -334,6 +334,7 @@ void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
 
     if (camera_mode == IDLE)
     {
+        clear_queued_data();
         pn_camera_start_exposure();
         timer_start_exposure(gui->m_timerRef, pn_preference_char(EXPOSURE_TIME));
     }

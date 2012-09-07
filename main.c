@@ -74,38 +74,24 @@ void queue_framedata(PNFrame *frame)
     pthread_mutex_unlock(&frame_queue_mutex);
 }
 
-void process_framedata(PNFrame *frame)
+static PNFrame *pop_framedata()
 {
-    // Pop the head frame from the queue
-    TimerTimestamp timestamp = (TimerTimestamp) {.valid = false};
-    if (trigger_timestamp_queue != NULL)
+    pthread_mutex_lock(&frame_queue_mutex);
+    if (frame_queue == NULL)
     {
-        pthread_mutex_lock(&trigger_timestamp_queue_mutex);
-        struct TimerTimestampQueue *head = trigger_timestamp_queue;
-        trigger_timestamp_queue = trigger_timestamp_queue->next;
-        pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
-        timestamp = head->timestamp;
+        pthread_mutex_unlock(&frame_queue_mutex);
+        return NULL;
     }
 
-    pn_log("Frame downloaded");
+    // Pop the head frame
+    struct PNFrameQueue *head = frame_queue;
+    frame_queue = frame_queue->next;
+    pthread_mutex_unlock(&frame_queue_mutex);
 
-    // Display the frame in ds9
-    pn_save_preview(frame, timestamp);
-    pn_run_preview_script("preview.fits.gz");
+    PNFrame *frame = head->frame;
+    free(head);
 
-    if (pn_preference_char(SAVE_FRAMES))
-    {
-        const char *filename = pn_save_frame(frame, timestamp, camera);
-        if (filename == NULL)
-        {
-            pn_log("Save failed. Discarding frame");
-            return;
-        }
-
-        pn_preference_increment_framecount();
-        pn_run_saved_script(filename);
-        free((char *)filename);
-    }
+    return frame;
 }
 
 /*
@@ -139,6 +125,78 @@ void queue_trigger_timestamp(TimerTimestamp timestamp)
     count++;
     pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
     pn_log("Pushed timestamp. %d in queue", count);
+}
+
+static TimerTimestamp pop_trigger_timestamp()
+{
+    pthread_mutex_lock(&trigger_timestamp_queue_mutex);
+    if (trigger_timestamp_queue == NULL)
+    {
+        pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
+        return (TimerTimestamp) {.valid = false};
+    }
+
+    // Pop the head frame
+    struct TimerTimestampQueue *head = trigger_timestamp_queue;
+    trigger_timestamp_queue = trigger_timestamp_queue->next;
+    pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
+
+    TimerTimestamp timestamp = head->timestamp;
+    free(head);
+
+    return timestamp;
+}
+
+// Remove all queued frames or timestamps atomically
+void clear_queued_data()
+{
+    pthread_mutex_lock(&frame_queue_mutex);
+    pthread_mutex_lock(&trigger_timestamp_queue_mutex);
+
+    // Other threads have closed, so don't worry about locking
+    while (frame_queue != NULL)
+    {
+        struct PNFrameQueue *next = frame_queue->next;
+        free(frame_queue->frame);
+        free(frame_queue);
+        frame_queue = next;
+        pn_log("Discarding queued framedata");
+    }
+
+    while (trigger_timestamp_queue != NULL)
+    {
+        struct TimerTimestampQueue *next = trigger_timestamp_queue->next;
+        free(trigger_timestamp_queue);
+        trigger_timestamp_queue = next;
+        pn_log("Discarding queued timestamp");
+    }
+
+    pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
+    pthread_mutex_unlock(&frame_queue_mutex);
+}
+
+void process_framedata(PNFrame *frame)
+{
+    TimerTimestamp timestamp = pop_trigger_timestamp();
+    pn_log("Frame downloaded");
+
+    // Display the frame in ds9
+    pn_save_preview(frame, timestamp);
+    pn_run_preview_script("preview.fits.gz");
+
+    if (pn_preference_char(SAVE_FRAMES))
+    {
+        const char *filename = pn_save_frame(frame, timestamp, camera);
+        if (filename == NULL)
+        {
+            pn_log("Save failed. Discarding frame");
+            return;
+        }
+
+        pn_preference_increment_framecount();
+        pn_run_saved_script(filename);
+        free((char *)filename);
+    }
 }
 
 void trigger_fatal_error(char *message)
@@ -201,28 +259,13 @@ int main(int argc, char *argv[])
         }
 
         // Process stored frames
-        struct PNFrameQueue *head = NULL;
-        do
+        PNFrame *frame = pop_framedata();
+        while (frame != NULL)
         {
-            pthread_mutex_lock(&frame_queue_mutex);
-            head = frame_queue;
-
-            // No frames to process
-            if (head == NULL)
-            {
-                pthread_mutex_unlock(&frame_queue_mutex);
-                break;
-            }
-
-            // Pop the head frame
-            frame_queue = frame_queue->next;
-            pthread_mutex_unlock(&frame_queue_mutex);
-
-            PNFrame *frame = head->frame;
-            free(head);
             process_framedata(frame);
             free(frame);
-        } while (head != NULL);
+            frame = pop_framedata();
+        }
 
         bool request_shutdown = pn_ui_update();
         if (request_shutdown)
@@ -239,23 +282,7 @@ int main(int argc, char *argv[])
     if (fatal_error)
         free(fatal_error);
 
-    // Other threads have closed, so don't worry about locking
-    while (frame_queue != NULL)
-    {
-        struct PNFrameQueue *next = frame_queue->next;
-        free(frame_queue->frame);
-        free(frame_queue);
-        frame_queue = next;
-        pn_log("Discarding queued framedata");
-    }
-
-    while (trigger_timestamp_queue != NULL)
-    {
-        struct TimerTimestampQueue *next = trigger_timestamp_queue->next;
-        free(trigger_timestamp_queue);
-        trigger_timestamp_queue = next;
-        pn_log("Discarding queued timestamp");
-    }
+    clear_queued_data();
 
     timer_free(timer);
     pn_camera_free(camera);

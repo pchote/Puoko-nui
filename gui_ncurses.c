@@ -664,6 +664,7 @@ bool pn_ui_update()
                     case 0x01: // ^A - Toggle Acquire
                         if (camera_mode == IDLE)
                         {
+                            clear_queued_data();
                             pn_camera_start_exposure();
                             timer_start_exposure(timer, pn_preference_char(EXPOSURE_TIME));
                         }
