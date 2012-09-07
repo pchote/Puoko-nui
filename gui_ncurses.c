@@ -20,11 +20,25 @@
     #include <panel.h>
 #endif
 
-#include "gui_ncurses.h"
+#include "gui.h"
 #include "timer.h"
 #include "camera.h"
 #include "preferences.h"
 #include "common.h"
+
+// Input parsing modes
+typedef enum
+{
+    INPUT_MAIN,
+    INPUT_EXPOSURE,
+    INPUT_PARAMETERS,
+    INPUT_RUN_PREFIX,
+    INPUT_FRAME_DIR,
+    INPUT_FRAME_NUMBER,
+    INPUT_OBJECT_NAME,
+    INPUT_FRAME_TYPE,
+    INPUT_COUNTDOWN_NUMBER
+} PNUIInputType;
 
 extern TimerUnit *timer;
 extern PNCamera *camera;

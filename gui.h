@@ -8,6 +8,9 @@
 #ifndef GUI_H
 #define GUI_H
 
+#include "camera.h"
+#include "timer.h"
+
 void pn_ui_log_line(char *message);
 void pn_ui_new(PNCamera *camera, TimerUnit *timer);
 bool pn_ui_update();

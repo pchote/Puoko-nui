@@ -8,6 +8,12 @@
       location = "group:camera.h">
    </FileRef>
    <FileRef
+      location = "group:camera_pvcam.c">
+   </FileRef>
+   <FileRef
+      location = "group:camera_picam.c">
+   </FileRef>
+   <FileRef
       location = "group:timer.c">
    </FileRef>
    <FileRef
@@ -29,31 +35,22 @@
       location = "group:Makefile">
    </FileRef>
    <FileRef
+      location = "group:gui.h">
+   </FileRef>
+   <FileRef
       location = "group:gui_fltk.cpp">
    </FileRef>
    <FileRef
       location = "group:gui_fltk.h">
    </FileRef>
    <FileRef
+      location = "group:gui_ncurses.c">
+   </FileRef>
+   <FileRef
       location = "group:preferences.c">
    </FileRef>
    <FileRef
       location = "group:preferences.h">
-   </FileRef>
-   <FileRef
-      location = "group:gui_ncurses.c">
-   </FileRef>
-   <FileRef
-      location = "group:gui_ncurses.h">
-   </FileRef>
-   <FileRef
-      location = "group:gui.h">
-   </FileRef>
-   <FileRef
-      location = "group:camera_pvcam.c">
-   </FileRef>
-   <FileRef
-      location = "group:camera_picam.c">
    </FileRef>
    <FileRef
       location = "group:platform.c">
