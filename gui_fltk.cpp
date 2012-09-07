@@ -545,9 +545,63 @@ void FLTKGui::showMetadataWindow()
     m_metadataWindow->show();
 }
 
+#define set_string_from_input(a,b) _set_string_from_input(a, # a, b)
+void _set_string_from_input(PNPreferenceType key, const char *name, Fl_Input *input)
+{
+    char *oldval = pn_preference_string(key);
+    const char *newval = input->value();
+    if (strcmp(oldval, newval))
+    {
+        pn_preference_set_string(key, newval);
+        pn_log("%s set to `%s'", name, newval);
+    }
+    free(oldval);
+}
+
+#define set_int(a,b) _set_int(a, # a, b)
+void _set_int(PNPreferenceType key, const char *name, int newval)
+{
+    int oldval = pn_preference_int(key);
+    if (oldval != newval)
+    {
+        pn_preference_set_int(key, newval);
+        pn_log("%s set to `%d'", name, newval);
+    }
+}
+
+
 void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
 {
-    // TODO: Update preferences from window
+    FLTKGui* gui = (FLTKGui *)userdata;
+
+    // Validate parameters
+    int run_number = atoi(gui->m_metadataRunNumber->value());
+    int calibration_countdown = atoi(gui->m_metadataCountdownInput->value());
+    if (run_number < 0)
+    {
+        pn_log("RUN_NUMBER number must be positive");
+        return;
+    }
+
+    if (calibration_countdown < 0)
+    {
+        pn_log("CALIBRATION_COUNTDOWN must be positive");
+        return;
+    }
+
+    // Update preferences from fields
+    set_string_from_input(OUTPUT_DIR, gui->m_metadataOutputDir);
+    set_string_from_input(RUN_PREFIX, gui->m_metadataRunPrefix);
+    set_int(RUN_NUMBER, run_number);
+
+    pn_preference_set_char(OBJECT_TYPE, gui->m_metadataFrameTypeInput->value());
+    set_string_from_input(OBJECT_NAME, gui->m_metadataTargetInput);
+    set_string_from_input(OBSERVERS, gui->m_metadataObserversInput);
+    set_string_from_input(OBSERVATORY, gui->m_metadataObservatoryInput);
+    set_string_from_input(TELESCOPE, gui->m_metadataTelecopeInput);
+    set_int(CALIBRATION_COUNTDOWN, calibration_countdown);
+
+    gui->updateAcquisitionGroup();
     gui->m_metadataWindow->hide();
 }
 
