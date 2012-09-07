@@ -53,7 +53,7 @@ typedef struct
     pthread_mutex_t read_mutex;
 } PNCamera;
 
-PNCamera pn_camera_new();
+PNCamera *pn_camera_new();
 void pn_camera_free(PNCamera *cam);
 void *pn_simulated_camera_thread(void *);
 

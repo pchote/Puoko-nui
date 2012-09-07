@@ -20,24 +20,27 @@
 #pragma mark Creation and Destruction (Called from main thread)
 
 // Initialize a new PNCamera struct.
-PNCamera pn_camera_new()
+PNCamera *pn_camera_new()
 {
-    PNCamera cam;
-    cam.mode = UNINITIALIZED;
-    cam.desired_mode = IDLE;
-    cam.temperature = 0;
-    cam.readout_time = 0;
-    cam.simulated = false;
-    cam.safe_to_stop_acquiring = false;
-    pthread_mutex_init(&cam.read_mutex, NULL);
+    PNCamera *camera = malloc(sizeof(PNCamera));
+    if (!camera)
+        trigger_fatal_error("Malloc failed while allocating timer");
 
-    return cam;
+    camera->mode = UNINITIALIZED;
+    camera->desired_mode = IDLE;
+    camera->temperature = 0;
+    camera->readout_time = 0;
+    camera->simulated = false;
+    camera->safe_to_stop_acquiring = false;
+    pthread_mutex_init(&camera->read_mutex, NULL);
+
+    return camera;
 }
 
 // Destroy a PNCamera struct.
-void pn_camera_free(PNCamera *cam)
+void pn_camera_free(PNCamera *camera)
 {
-    pthread_mutex_destroy(&cam->read_mutex);
+    pthread_mutex_destroy(&camera->read_mutex);
 }
 
 

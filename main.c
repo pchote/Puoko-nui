@@ -169,9 +169,7 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&trigger_timestamp_queue_mutex, NULL);
 
     timer = timer_new();
-    
-    PNCamera _camera = pn_camera_new();
-    camera = &_camera;
+    camera = pn_camera_new();
 
     // Open the log file for writing
     time_t start = time(NULL);
