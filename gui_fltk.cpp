@@ -335,12 +335,12 @@ void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
 
     if (camera_mode == IDLE)
     {
-        pn_camera_request_mode(ACQUIRING);
+        pn_camera_start_exposure();
         timer_start_exposure(gui->m_timerRef, pn_preference_char(EXPOSURE_TIME));
     }
     else if (camera_mode == ACQUIRING)
     {
-        pn_camera_request_mode(IDLE);
+        pn_camera_stop_exposure();
         timer_stop_exposure(gui->m_timerRef);
     }
 }

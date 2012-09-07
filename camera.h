@@ -58,9 +58,11 @@ void pn_camera_free(PNCamera *cam);
 void *pn_simulated_camera_thread(void *);
 
 void set_mode(PNCameraMode mode);
-void pn_camera_request_mode(PNCameraMode mode);
 void pn_camera_notify_safe_to_stop();
 bool pn_camera_is_simulated();
+void pn_camera_start_exposure();
+void pn_camera_stop_exposure();
+void pn_camera_shutdown();
 
 float pn_camera_temperature();
 float pn_camera_readout_time();

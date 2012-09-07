@@ -54,10 +54,24 @@ void set_mode(PNCameraMode mode)
 }
 
 // Request a new camera mode from another thread
-void pn_camera_request_mode(PNCameraMode mode)
+void pn_camera_start_exposure()
 {
     pthread_mutex_lock(&camera->read_mutex);
-    camera->desired_mode = mode;
+    camera->desired_mode = ACQUIRING;
+    pthread_mutex_unlock(&camera->read_mutex);
+}
+
+void pn_camera_stop_exposure()
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = IDLE;
+    pthread_mutex_unlock(&camera->read_mutex);
+}
+
+void pn_camera_shutdown()
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = SHUTDOWN;
     pthread_mutex_unlock(&camera->read_mutex);
 }
 

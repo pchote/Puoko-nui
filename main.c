@@ -274,7 +274,7 @@ int main(int argc, char *argv[])
     shutdown = true;
 
     // Tell the GPS and Camera threads to terminate themselves
-    pn_camera_request_mode(SHUTDOWN);
+    pn_camera_shutdown();
     timer_request_shutdown(timer);
 
     // Wait for the GPS and Camera threads to terminate
