@@ -20,6 +20,9 @@
 // Private struct implementation
 struct TimerUnit
 {
+    pthread_t timer_thread;
+    bool thread_initialized;
+
     bool simulated;
     int simulated_exptime;
     int simulated_remaining;
@@ -52,16 +55,19 @@ typedef enum
     UNKNOWN_PACKET = 0
 } TimerUnitPacketType;
 
+
+void *pn_timer_thread(void *timer);
+void *pn_simulated_timer_thread(void *args);
 #pragma mark Creation and Destruction (Called from main thread)
 
 // Initialize a new TimerUnit struct.
-TimerUnit *timer_new()
+TimerUnit *timer_new(bool simulate_hardware)
 {
     TimerUnit *timer = malloc(sizeof(struct TimerUnit));
     if (!timer)
         trigger_fatal_error("Malloc failed while allocating timer");
 
-    timer->simulated = false;
+    timer->simulated = simulate_hardware;
     timer->simulated_exptime = 0;
     timer->simulated_remaining = 0;
     timer->simulated_send_shutdown = false;
@@ -85,6 +91,16 @@ void timer_free(TimerUnit *timer)
 {
     pthread_mutex_destroy(&timer->read_mutex);
     pthread_mutex_destroy(&timer->sendbuffer_mutex);
+}
+
+void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args)
+{
+    if (timer->simulated)
+        pthread_create(&timer->timer_thread, NULL, pn_simulated_timer_thread, (void *)args);
+    else
+        pthread_create(&timer->timer_thread, NULL, pn_timer_thread, (void *)args);
+
+    timer->thread_initialized = true;
 }
 
 #pragma mark Timer Routines (Called from Timer thread)
@@ -244,9 +260,10 @@ static void log_raw_data(unsigned char *data, int len)
 }
 
 // Main timer thread loop
-void *pn_timer_thread(void *_timer)
+void *pn_timer_thread(void *_args)
 {
-    TimerUnit *timer = (TimerUnit *)_timer;
+    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
+    TimerUnit *timer = args->timer;
 
     // Store recieved bytes in a 256 byte circular buffer indexed by an unsigned char
     // This ensures the correct circular behavior on over/underflow
@@ -430,13 +447,13 @@ void *pn_timer_thread(void *_timer)
 }
 
 // Main simulated timer thread loop
-void *pn_simulated_timer_thread(void *_timer)
+void *pn_simulated_timer_thread(void *_args)
 {
-    TimerUnit *timer = (TimerUnit *)_timer;
+    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
+    TimerUnit *timer = args->timer;
 
     // Initialization
     pn_log("Simulating GPS");
-    timer->simulated = true;
     timer->simulated_remaining = timer->simulated_exptime = 0;
     time_t last_unixtime = time(NULL);
 
@@ -561,9 +578,14 @@ TimerTimestamp timer_current_timestamp(TimerUnit *timer)
     return ts;
 }
 
-void timer_request_shutdown(TimerUnit *timer)
+void timer_shutdown(TimerUnit *timer)
 {
     timer->shutdown = true;
+    void **retval = NULL;
+    if (timer->thread_initialized)
+        pthread_join(timer->timer_thread, retval);
+
+    timer->thread_initialized = false;
 }
 
 // Callback to notify that the simulated camera has read out

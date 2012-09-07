@@ -15,16 +15,15 @@
 
 typedef struct TimerUnit TimerUnit;
 
-TimerUnit *timer_new();
+TimerUnit *timer_new(bool simulate_hardware);
 void timer_free(TimerUnit *timer);
-void *pn_timer_thread(void *timer);
-void *pn_simulated_timer_thread(void *timer);
+void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args);
 
 void timer_start_exposure(TimerUnit *timer, unsigned char exptime);
 void timer_stop_exposure(TimerUnit *timer);
 bool timer_camera_downloading(TimerUnit *timer);
 TimerTimestamp timer_current_timestamp(TimerUnit *timer);
-void timer_request_shutdown(TimerUnit *timer);
+void timer_shutdown(TimerUnit *timer);
 void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading);
 
 TimerTimestamp pn_timestamp_normalize(TimerTimestamp ts);

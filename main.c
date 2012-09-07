@@ -27,9 +27,6 @@ TimerUnit *timer;
 
 
 #pragma mark Main program logic
-
-static pthread_t timer_thread;
-static bool timer_thread_initialized = false;
 static bool shutdown = false;
 
 pthread_mutex_t log_mutex, frame_queue_mutex, trigger_timestamp_queue_mutex;
@@ -180,7 +177,7 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&frame_queue_mutex, NULL);
     pthread_mutex_init(&trigger_timestamp_queue_mutex, NULL);
 
-    timer = timer_new();
+    timer = timer_new(simulate_timer);
     camera = pn_camera_new(simulate_camera);
 
     // Open the log file for writing
@@ -202,14 +199,7 @@ int main(int argc, char *argv[])
     args.camera = camera;
     args.timer = timer;
 
-    // Timer unit
-    if (simulate_timer)
-        pthread_create(&timer_thread, NULL, pn_simulated_timer_thread, (void *)timer);
-    else
-        pthread_create(&timer_thread, NULL, pn_timer_thread, (void *)timer);
-
-    timer_thread_initialized = true;
-
+    timer_spawn_thread(timer, &args);
     pn_camera_spawn_thread(camera, &args);
 
     //
@@ -262,14 +252,9 @@ int main(int argc, char *argv[])
     //
     shutdown = true;
 
-    // Tell the GPS and Camera threads to terminate themselves
+    // Wait for camera and timer threads to terminate
     pn_camera_shutdown(camera);
-    timer_request_shutdown(timer);
-
-    // Wait for the GPS and Camera threads to terminate
-    void **retval = NULL;
-    if (timer_thread_initialized)
-        pthread_join(timer_thread, retval);
+    timer_shutdown(timer);
 
     // Final cleanup
     if (fatal_error)
