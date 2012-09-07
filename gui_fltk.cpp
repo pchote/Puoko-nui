@@ -670,14 +670,18 @@ FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
     createExposureWindow();
     createMetadataWindow();
 
-    PNCameraMode camera_mode = pn_camera_mode();
-    float camera_temperature = pn_camera_temperature();
+    // Set initial state
+    last_camera_mode = pn_camera_mode();
+    last_camera_temperature = pn_camera_temperature();
+    last_camera_readout_time = pn_camera_readout_time();
+    last_calibration_framecount = pn_preference_int(CALIBRATION_COUNTDOWN);
+    last_run_number = pn_preference_int(RUN_NUMBER);
+    last_camera_downloading = timer_camera_downloading(timer);
 
-    bool camera_downloading = timer_camera_downloading(timer);
     updateTimerGroup();
-    updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
+    updateCameraGroup(last_camera_mode, last_camera_downloading, last_camera_temperature);
     updateAcquisitionGroup();
-    updateButtonGroup(camera_mode);
+    updateButtonGroup(last_camera_mode);
 
 	m_mainWindow->end();
 	m_mainWindow->show();
