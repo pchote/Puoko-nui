@@ -196,18 +196,14 @@ const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *ca
     else
         fits_update_key(fptr, TLOGICAL, "GPS-VALID", &timestamp.valid, "GPS timestamp unavailable", &status);
 
-    time_t pcend = time(NULL);
-    time_t pcstart = pcend - exposure_time;
+    time_t pctime = time(NULL);
 
     char timebuf[15];
-    strftime(timebuf, 15, "%Y-%m-%d", gmtime(&pcstart));
-    fits_update_key(fptr, TSTRING, "PC-DATE", (void *)timebuf, "Exposure start date (PC)", &status);
+    strftime(timebuf, 15, "%Y-%m-%d", gmtime(&pctime));
+    fits_update_key(fptr, TSTRING, "PC-DATE", (void *)timebuf, "PC Date when frame was saved to disk", &status);
 
-    strftime(timebuf, 15, "%H:%M:%S", gmtime(&pcstart));
-    fits_update_key(fptr, TSTRING, "PC-BEG", (void *)timebuf, "Exposure start time (PC)", &status);
-
-    strftime(timebuf, 15, "%H:%M:%S", gmtime(&pcend));
-    fits_update_key(fptr, TSTRING, "PC-END", (void *)timebuf, "Exposure end time (PC)", &status);
+    strftime(timebuf, 15, "%H:%M:%S", gmtime(&pctime));
+    fits_update_key(fptr, TSTRING, "PC-TIME", (void *)timebuf, "PC Time when frame was saved to disk", &status);
 
     // Camera temperature
     sprintf(timebuf, "%0.02f", pn_camera_temperature());
