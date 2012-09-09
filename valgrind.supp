@@ -1,0 +1,14 @@
+{
+   libz.so.1.2.3.4
+   Memcheck:Cond
+   obj:*libz.so.1.2.3.4
+   obj:*libz.so.1.2.3.4
+   obj:*libz.so.1.2.3.4
+}
+{
+   libfontconfig.so.1.4.4
+   Memcheck:Cond
+   obj:*libfontconfig.so.1.4.4
+   obj:*libfontconfig.so.1.4.4
+   obj:*libfontconfig.so.1.4.4
+}
