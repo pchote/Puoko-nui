@@ -689,5 +689,8 @@ FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
 
 FLTKGui::~FLTKGui()
 {
-
+    // The window destructor cleans up all child widgets
+    delete m_mainWindow;
+    delete m_exposureWindow;
+    delete m_metadataWindow;
 }
