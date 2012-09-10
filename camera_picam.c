@@ -16,6 +16,7 @@
 #include "common.h"
 #include "camera.h"
 #include "preferences.h"
+#include "platform.h"
 
 #pragma mark Camera Routines (Called from camera thread)
 extern PNCamera *camera;
@@ -321,11 +322,8 @@ static void calculate_readout_time()
 }
 
 // Initialize PICAM and the camera hardware
-static void initialize_camera(void *_args)
+static void initialize_camera()
 {
-    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
-    PNCamera *camera = args->camera;
-
     set_mode(INITIALISING);
     Picam_InitializeLibrary();
 
@@ -540,8 +538,11 @@ static void stop_acquiring()
 }
 
 // Main camera thread loop
-void *pn_picam_camera_thread(void *_unused)
+void *pn_picam_camera_thread(void *_args)
 {
+    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
+    PNCamera *camera = args->camera;
+
     // Initialize the camera
     initialize_camera();
 
