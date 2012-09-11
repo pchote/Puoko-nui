@@ -181,12 +181,16 @@ const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *ca
 
     if (timestamp.valid)
     {
-        char datebuf[15];
+        char datebuf[15], gpstimebuf[15];
         sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
-        fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
-
-        char gpstimebuf[15];
         sprintf(gpstimebuf, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
+
+        // Used by ImageJ and other programs
+        fits_update_key(fptr, TSTRING, "UT_DATE", datebuf, "Exposure start date (GPS)", &status);
+        fits_update_key(fptr, TSTRING, "UT_TIME", gpstimebuf, "Exposure start time (GPS)", &status);
+
+        // Used by tsreduce
+        fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
         fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
 
         sprintf(gpstimebuf, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
