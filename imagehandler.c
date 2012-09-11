@@ -159,7 +159,9 @@ const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *ca
     free(telescope);
 
     fits_update_key(fptr, TSTRING, "PROGRAM", "puoko-nui", "Data acquistion program", &status);
-    fits_update_key(fptr, TSTRING, "INSTRUME", "puoko-nui", "Instrument", &status);
+    char *instrument = pn_preference_string(INSTRUMENT);
+    fits_update_key(fptr, TSTRING, "INSTRUME", (void *)instrument, "Instrument name", &status);
+    free(instrument);
 
     if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
     {

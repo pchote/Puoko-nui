@@ -27,6 +27,7 @@ typedef enum
     OBSERVERS,
     OBSERVATORY,
     TELESCOPE,
+    INSTRUMENT,
     EXPOSURE_TIME,
     SAVE_FRAMES,
     OBJECT_TYPE,

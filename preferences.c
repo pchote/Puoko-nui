@@ -43,6 +43,7 @@ PNPreferenceStore prefs[] =
     {OBSERVERS,   STRING, .value.s = "DJS, PC",         "Observers: %s\n"},
     {OBSERVATORY, STRING, .value.s = "MJUO",            "Observatory: %s\n"},
     {TELESCOPE,   STRING, .value.s = "MJUO 1-meter",    "Telescope: %s\n"},
+    {INSTRUMENT,  STRING, .value.s = "Puoko-nui",       "Instrument: %s\n"},
 
     {EXPOSURE_TIME,             CHAR, .value.c = 5,     "ExposureTime: %hhu\n"},
     {SAVE_FRAMES,               CHAR, .value.c = false, "SaveFrames: %hhu\n"},
