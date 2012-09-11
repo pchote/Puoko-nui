@@ -214,9 +214,12 @@ const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *ca
     fits_update_key(fptr, TSTRING, "PC-TIME", (void *)timebuf, "PC Time when frame was saved to disk", &status);
 
     // Camera temperature
-    sprintf(timebuf, "%0.02f", pn_camera_temperature());
-
-    fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)timebuf, "CCD temperature at end of exposure in deg C", &status);
+    char tempbuf[15];
+    sprintf(tempbuf, "%0.02f", pn_camera_temperature());
+    fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)tempbuf, "CCD temperature at end of exposure in deg C", &status);
+    fits_update_key(fptr, TBYTE,   "CCD-PORT", (uint8_t[]){pn_preference_char(CAMERA_READPORT_MODE)},  "CCD Readout port index", &status);
+    fits_update_key(fptr, TBYTE,   "CCD-RATE", (uint8_t[]){pn_preference_char(CAMERA_READSPEED_MODE)}, "CCD Readout rate index", &status);
+    fits_update_key(fptr, TBYTE,   "CCD-GAIN", (uint8_t[]){pn_preference_char(CAMERA_GAIN_MODE)},      "CCD Readout gain index", &status);
 
     // Write the frame data to the image and close the file
     fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
