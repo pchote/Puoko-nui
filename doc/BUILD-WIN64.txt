@@ -16,21 +16,21 @@ Allow the driver to install if windows shows an "Unsigned Driver" warning
 ==================== INSTALL TOOLCHAIN ====================
 Download MinGW-w64 binaries from
 http://cdnetworks-us-2.dl.sourceforge.net/project/mingw-w64/Toolchains%20targetting%20Win64/Automated%20Builds/mingw-w64-bin_i686-mingw_20111220.zip
-Extract to c:\mingw
+Extract to c:/MinGW
 
 Download MSYS binaries from
 http://voxel.dl.sourceforge.net/project/mingw-w64/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29/MSYS-20111123.zip
-Extract to c:\mingw\msys
+Extract to c:/MinGW/msys
 
 
-Copy c:\mingw\bin\x86_64-w64-mingw32-gcc.exe and rename it to gcc.exe
+Copy c:/MinGW/bin/x86_64-w64-mingw32-gcc.exe and rename it to gcc.exe
 
-Run (double-click) c:\mingw\msys\postinstall\pi.bat
+Run (double-click) c:/MinGW/msys/postinstall/pi.bat
 Continue with post install (y)
 We do have MinGW installed (y)
-MinGW Installation is at c:/mingw/
+MinGW Installation is at c:/MinGW/
 
-Create a shortcut to c:\mingw\msys\msys.bat somewhere convenient. All following commands starting with a '$' are run from this shell
+Create a shortcut to c:/MinGW/msys/msys.bat somewhere convenient. All following commands starting with a '$' are run from this shell
 
 We don't plan on installing 32-bit toolchain, so we will remove the prefix from the 64-bit tools to avoid having to prefix everything later
 Run msys.bat and execute
@@ -39,35 +39,35 @@ $ for i in `ls x86_64-w64-mingw32-*`; do cp "$i" "${i:19}"; done
 
 TODO: Cover installing pthreads
 
+Download Git/msysGit from http://code.google.com/p/msysgit/downloads/list
+When it asks about adjusting the PATH environment, choose the second option
+(Run Git from the Windows Command Prompt).
+
+To allow git to be used from msys, create a file called .bash_profile in ~ with the following contents:
+export PATH=$PATH:/c/"Program Files (x86)"/Git/bin
+
+The settings will only be applied to new command windows, so close all open command windows to avoid confusion.
+
 ==================== DOWNLOAD PUOKO-NUI CODE ====================
-Check out a copy of the code using git (if you have it installed, which I won't cover here)
-git clone https://github.com/pchote/Puoko-nui.git
-git checkout -b origin/picam picam
+Open a new msys terminal and in the home directory check out a copy of the code using git
+git clone https://github.com/pchote/Puoko-nui.git puokonui
 
-Or download and extract a zipball
-https://github.com/pchote/Puoko-nui/zipball/picam
-
-This will create the directory puokonui with the source code.
-I will merge the picam changes into the main codebase soon, so the above will change
-
-The following assumes that you have the puokonui directory in your msys home directory at
-c:\mingw\msys\home\<USERNAME>\puokonui
-
-Following references to <puokonui> means this directory
+The home directory should be located in c:/MinGW/msys/home/
+In the following, '~' refers to this directory.
 
 ==================== BUILD DEPENDENCIES ====================
 Download 64-bit libftdi binaries from
 http://picusb.googlecode.com/files/libftdi_0.19_devkit_MinGW64_20August2011.zip
 
-Copy include to <puokonui>\ftdi\include
-Copy lib\lib64 to <puokonui>\ftdi\lib
-Copy bin\bin64\libftdi.dll to <puokonui>
+Copy include to ~/puokonui/ftdi/include
+Copy lib/lib64 to ~/puokonui/ftdi/lib
+Copy bin/bin64/libftdi.dll to ~/puokonui
 
 Download ds9 and XPA binaries from:
 http://hea-www.harvard.edu/saord/download/ds9/windows/SAOImage%20DS9%207.0.2%20Install.exe
 http://hea-www.harvard.edu/saord/download/ds9/windows/XPA%202.1.14%20Install.exe
 
-and install to C:\ds9
+and install to C:/ds9
 
 Note: I have had mixed results in getting xpa to work correctly under windows. You may need
 to manually run xpans.exe before running any xpa enabled programs if you want them to be able to communicate. 
@@ -76,22 +76,22 @@ Download cfitsio from
 ftp://heasarc.gsfc.nasa.gov/software/fitsio/c/cfit3290.zip
 
 Compile with
-$ configure --prefix=c:/mingw/msys/home/<USERNAME>/puokonui/cfitsio
+$ ./configure --prefix=/usr/local
 $ make
 $ make install
 
 
 Download and compile libfltk 1.3.0
-./configure
-make
-make install
+$ ./configure
+$ make
+$ make install
 
-if make fails with an error about libstdc++-6.dll, copy the following files from C:\MinGW\mingw\lib to c:\MinGW\msys\home\<USERNAME>\fltk-1.3.0\fluid:
+if make fails with an error about libstdc++-6.dll, copy the following files from C:/MinGW/mingw/lib to ~/fltk-1.3.0fluid:
    libstdc++-6.dll
    libgcc_s_sjlj-1.dll
 
 
-Copy the above two dlls into the <puokonui> directory now, as the next step will need them.
+Copy the above two dlls into ~/puokonui now, as the next step will need them.
 
 ==================== BUILD/INSTALL PUOKO-NUI ====================
 

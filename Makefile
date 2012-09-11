@@ -49,15 +49,15 @@ else
 endif
 
 ifeq ($(MSYSTEM),MINGW32)
-    CFLAGS += -DWIN32 -I/usr/local/include -Icfitsio/include -Incurses/include -Incurses/include/ncurses -Iftdi/include
-    LFLAGS += -L/usr/local/lib -Lcfitsio/lib -Lncurses/lib -Lftdi/lib
+    CFLAGS += -DWIN32 -I/usr/local/include -Iftdi/include
+    LFLAGS += -L/usr/local/lib -Lftdi/lib
 endif
 
 puokonui : $(OBJS)
 	$(CXX) -o $@ $(OBJS) $(LFLAGS)
 
 clean:
-	-rm $(OBJS) puokonui
+	-rm $(OBJS) puokonui puokonui.exe
 
 # Force version.o to be recompiled every time
 version.o: .FORCE
