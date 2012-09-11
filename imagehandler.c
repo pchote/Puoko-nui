@@ -18,6 +18,7 @@
 #include "preferences.h"
 #include "common.h"
 #include "platform.h"
+#include "version.h"
 
 // A quick and dirty method for opening ds9
 // Beware of race conditions: it will take some time
@@ -158,10 +159,11 @@ const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *ca
     fits_update_key(fptr, TSTRING, "TELESCOP", (void *)telescope, "Telescope name", &status);
     free(telescope);
 
-    fits_update_key(fptr, TSTRING, "PROGRAM", "puoko-nui", "Data acquistion program", &status);
     char *instrument = pn_preference_string(INSTRUMENT);
     fits_update_key(fptr, TSTRING, "INSTRUME", (void *)instrument, "Instrument name", &status);
     free(instrument);
+
+    fits_update_key(fptr, TSTRING, "PROG-VER", (void *)program_version() , "Acquisition program version reported by git", &status);
 
     if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
     {

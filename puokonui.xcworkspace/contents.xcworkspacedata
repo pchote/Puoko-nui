@@ -58,4 +58,10 @@
    <FileRef
       location = "group:platform.h">
    </FileRef>
+   <FileRef
+      location = "group:version.c">
+   </FileRef>
+   <FileRef
+      location = "group:version.h">
+   </FileRef>
 </Workspace>

@@ -3,12 +3,14 @@ CAMERA_TYPE := NONE
 #CAMERA_TYPE := PICAM
 GUI_TYPE := FLTK
 
+
+GIT_SHA1 = $(shell sh -c 'git describe --dirty --always')
 CC       = gcc
 CXX      = g++
-CFLAGS   = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE
+CFLAGS   = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
 LFLAGS   = -lcfitsio -lpthread -lftdi -lm
-OBJS     = main.o camera.o timer.o preferences.o imagehandler.o platform.o
+OBJS     = main.o camera.o timer.o preferences.o imagehandler.o platform.o version.o
 
 ifeq ($(CAMERA_TYPE),PVCAM)
 	CFLAGS += -DUSE_PVCAM
@@ -56,6 +58,11 @@ puokonui : $(OBJS)
 
 clean:
 	-rm $(OBJS) puokonui
+
+# Force version.o to be recompiled every time
+version.o: .FORCE
+.FORCE:
+.PHONY: .FORCE
 
 %.o : %.cpp
 	$(CXX) -c $(CXXFLAGS) $<
