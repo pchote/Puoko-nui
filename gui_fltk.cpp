@@ -6,6 +6,9 @@
  */
 
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "gui_fltk.h"
 
 FLTKGui *gui;
