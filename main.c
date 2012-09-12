@@ -204,6 +204,7 @@ void process_framedata(PNFrame *frame)
 
 void trigger_fatal_error(char *message)
 {
+    pn_log("Fatal Error: %s", message);
     fatal_error = message;
 }
 
