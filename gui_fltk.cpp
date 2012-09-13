@@ -426,7 +426,7 @@ void FLTKGui::buttonExposureConfirmPressed(Fl_Widget* o, void *userdata)
 
 void FLTKGui::createExposureWindow()
 {
-    m_exposureWindow = new Fl_Window(150, 40, "Set Exposure");
+    m_exposureWindow = new Fl_Double_Window(150, 40, "Set Exposure");
     m_exposureWindow->user_data((void*)(this));
 
     m_exposureInput = new Fl_Int_Input(10, 10, 70, 20);
@@ -462,7 +462,7 @@ void FLTKGui::metadataFrameTypeChangedCallback(Fl_Widget *input, void *userdata)
 
 void FLTKGui::createMetadataWindow()
 {
-    m_metadataWindow = new Fl_Window(420, 155, "Set Metadata");
+    m_metadataWindow = new Fl_Double_Window(420, 155, "Set Metadata");
     m_metadataWindow->user_data((void*)(this));
 
     // File output
@@ -646,7 +646,7 @@ FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
     : m_cameraRef(camera), m_timerRef(timer)
 {
 	// Create the main window
-	m_mainWindow = new Fl_Window(660, 355, "Acquisition Control");
+	m_mainWindow = new Fl_Double_Window(660, 355, "Acquisition Control");
     m_mainWindow->user_data((void*)(this));
     m_mainWindow->callback(closeMainWindowCallback);
 

@@ -9,7 +9,7 @@
 #define GUI_FLTK_H
 
 #include <FL/Fl.H>
-#include <FL/Fl_Window.H>
+#include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Output.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
@@ -71,7 +71,7 @@ private:
     PNCamera *m_cameraRef;
     TimerUnit *m_timerRef;
 
-    Fl_Window *m_mainWindow;
+    Fl_Double_Window *m_mainWindow;
 
     // Timer info
     Fl_Group *m_timerGroup;
@@ -113,12 +113,12 @@ private:
     int last_camera_downloading;
 
     // Exposure window
-    Fl_Window *m_exposureWindow;
+    Fl_Double_Window *m_exposureWindow;
     Fl_Int_Input *m_exposureInput;
     Fl_Button *m_exposureButtonConfirm;
 
     // Metadata window
-    Fl_Window *m_metadataWindow;
+    Fl_Double_Window *m_metadataWindow;
     Fl_Button *m_metadataButtonConfirm;
 
     Fl_Input *m_metadataOutputDir;
