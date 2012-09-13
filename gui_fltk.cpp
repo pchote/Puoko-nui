@@ -443,8 +443,7 @@ void FLTKGui::createExposureWindow()
     m_exposureButtonConfirm = new Fl_Button(90, 10, 50, 20, "Set");
     m_exposureButtonConfirm->user_data((void*)(this));
     m_exposureButtonConfirm->callback(buttonExposureConfirmPressed);
-
-    m_exposureWindow->hide();
+    m_exposureWindow->end();
 }
 
 void FLTKGui::showExposureWindow()
@@ -516,8 +515,7 @@ void FLTKGui::createMetadataWindow()
     m_metadataButtonConfirm = new Fl_Button(x, y, w, h, "Save");
     m_metadataButtonConfirm->user_data((void*)(this));
     m_metadataButtonConfirm->callback(buttonMetadataConfirmPressed);
-
-    m_metadataWindow->hide();
+    m_metadataWindow->end();
 }
 
 void FLTKGui::showMetadataWindow()
@@ -669,6 +667,7 @@ FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
 
     createExposureWindow();
     createMetadataWindow();
+	m_mainWindow->end();
 
     // Set initial state
     last_camera_mode = pn_camera_mode();
@@ -683,7 +682,6 @@ FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
     updateAcquisitionGroup();
     updateButtonGroup(last_camera_mode);
 
-	m_mainWindow->end();
 	m_mainWindow->show();
 }
 
