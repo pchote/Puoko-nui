@@ -44,7 +44,7 @@ void pn_run_saved_script(const char *filepath)
 {
     char *cmd;
 #if (defined _WIN32 || defined _WIN64)
-    asprintf(&cmd, "powershell  -executionpolicy bypass -command \"./frame_available.ps1 %s \"", filepath);
+    asprintf(&cmd, "powershell  -executionpolicy bypass -command ./frame_available.ps1 \"%s\"", filepath);
 #else
     asprintf(&cmd, "./frame_available.sh %s&", filepath);
 #endif
