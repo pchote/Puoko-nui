@@ -14,7 +14,7 @@
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Toggle_Button.H>
-#include <FL/Fl_Text_Buffer.H>
+#include <FL/Fl_Multi_Browser.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/Fl_Int_Input.H>
 #include <FL/Fl_Choice.H>
@@ -95,8 +95,7 @@ private:
     Fl_Output *m_acquisitionFilenameOutput;
     
     // Log panel
-    Fl_Text_Buffer *m_logBuffer;
-    Fl_Text_Display *m_logDisplay;
+    Fl_Multi_Browser *m_logDisplay;
 
     // Action buttons
     Fl_Button *m_buttonMetadata;
