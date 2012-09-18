@@ -35,6 +35,12 @@
       location = "group:Makefile">
    </FileRef>
    <FileRef
+      location = "group:scripting.c">
+   </FileRef>
+   <FileRef
+      location = "group:scripting.h">
+   </FileRef>
+   <FileRef
       location = "group:gui.h">
    </FileRef>
    <FileRef

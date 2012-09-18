@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include "common.h"
 
 #if (defined _WIN32 || defined _WIN64)
     #include <windows.h>
@@ -237,5 +238,39 @@ void run_command_async(const char *cmd)
 #else
     system(cmd);
 #endif
+}
+
+// Run a command synchronously, logging output with a given prefix
+int run_command(const char *cmd, char *log_prefix)
+{
+    FILE *process = popen(cmd, "r");
+    if (!process)
+    {
+        pn_log("%sError invoking read process: %s", log_prefix, cmd);
+        return 1;
+    }
+
+    char buffer[1024];
+    while (!feof(process))
+    {
+        if (fgets(buffer, 1024, process) != NULL)
+        {
+            // Split log messages on newlines
+            char *str = buffer, *end;
+            while ((end = strstr(str, "\n")) != NULL)
+            {
+                char *next = end + 1;
+                end = '\0';
+                if (strlen(str) > 0)
+                    pn_log("%s%s", log_prefix, str);
+                str = next;
+            }
+
+            if (strlen(str) > 0)
+                pn_log("%s%s", log_prefix, str);
+        }
+    }
+
+    return pclose(process);
 }
 	

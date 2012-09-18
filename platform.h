@@ -23,5 +23,6 @@ char *strndup(const char *s, size_t max);
 #endif
 
 void run_command_async(const char *cmd);
+int run_command(const char *cmd, char *log_prefix);
 
 #endif

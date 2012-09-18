@@ -116,7 +116,7 @@ void *reduction_thread(void *_scripting)
             } while (next != NULL);
 
             pn_log("Scripting: Running reduction script");
-            run_command_async(command);
+            run_command(command, "Reduction Script: ");
             pn_log("Scripting: Reduction script complete");
 
             free(command);
@@ -133,10 +133,12 @@ void *preview_thread(void *_scripting)
     // Run startup script
     pn_log("Scripting: Running startup script");
 #if (defined _WIN32 || defined _WIN64)
-    run_command_async("powershell -executionpolicy bypass -command .\\startup.ps1");
+    char *cmd = "powershell -executionpolicy bypass -command .\\startup.ps1";
 #else
-    run_command_async("./startup.sh");
+    char *cmd = "./startup.sh";
 #endif
+    run_command(cmd, "Startup Script: ");
+
     pn_log("Scripting: Startup script complete");
 
     // Loop until shutdown, parsing incoming data
@@ -156,15 +158,15 @@ void *preview_thread(void *_scripting)
         {
             pn_log("Scripting: Running preview script");
 #if (defined _WIN32 || defined _WIN64)
-            run_command_async("powershell -executionpolicy bypass -command .\\preview.ps1");
+            char *cmd = "powershell -executionpolicy bypass -command .\\preview.ps1";
 #else
-            run_command_async("./preview.sh &");
+            char *cmd = "./preview.sh";
 #endif
+            run_command(cmd, "Preview script: ");
             pn_log("Scripting: Preview script complete");
-
         }
     }
-    
+
     return NULL;
 }
 
