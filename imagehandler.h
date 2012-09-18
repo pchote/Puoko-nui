@@ -16,7 +16,7 @@ void pn_run_startup_script();
 void pn_run_preview_script(const char *filepath);
 void pn_run_saved_script(const char *filepath);
 
-const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *camera);
+char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *camera);
 void pn_save_preview(PNFrame *frame, TimerTimestamp timestamp);
 
 #endif

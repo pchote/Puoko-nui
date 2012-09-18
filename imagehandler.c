@@ -20,38 +20,6 @@
 #include "platform.h"
 #include "version.h"
 
-// A quick and dirty method for opening ds9
-// Beware of race conditions: it will take some time
-void pn_run_startup_script()
-{
-    #if (defined _WIN32 || defined _WIN64)
-    run_command_async("powershell -executionpolicy bypass -command .\\startup.ps1");
-    #else
-    run_command_async("./startup.sh &");
-    #endif
-}
-
-void pn_run_preview_script(const char *filepath)
-{
-#if (defined _WIN32 || defined _WIN64)
-    run_command_async("powershell -executionpolicy bypass -command .\\preview.ps1");
-#else
-    run_command_async("./preview.sh &");
-#endif
-}
-
-void pn_run_saved_script(const char *filepath)
-{
-    char *cmd;
-#if (defined _WIN32 || defined _WIN64)
-    asprintf(&cmd, "powershell  -executionpolicy bypass -command ./frame_available.ps1 \"%s\"", filepath);
-#else
-    asprintf(&cmd, "./frame_available.sh %s&", filepath);
-#endif
-    run_command_async(cmd);
-    free(cmd);
-}
-
 #pragma mark Frame Saving/Preview. Runs in camera thread
 
 // Display a frame in DS9
@@ -92,7 +60,7 @@ void pn_save_preview(PNFrame *frame, TimerTimestamp timestamp)
 
 // Write frame data to a fits file
 // Returns the filepath of the saved frame, to be freed by the caller
-const char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *camera)
+char *pn_save_frame(PNFrame *frame, TimerTimestamp timestamp, PNCamera *camera)
 {
     fitsfile *fptr;
     int status = 0;
