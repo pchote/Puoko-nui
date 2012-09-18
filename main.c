@@ -16,6 +16,7 @@
 #include "common.h"
 #include "camera.h"
 #include "timer.h"
+#include "scripting.h"
 #include "preferences.h"
 #include "imagehandler.h"
 
@@ -38,6 +39,8 @@ pthread_mutex_t log_mutex, frame_queue_mutex, trigger_timestamp_queue_mutex;
 FILE *logFile;
 PNCamera *camera;
 TimerUnit *timer;
+ScriptingInterface *scripting;
+
 struct PNFrameQueue *frame_queue = NULL;
 struct TimerTimestampQueue *trigger_timestamp_queue;
 char *fatal_error = NULL;
@@ -182,11 +185,11 @@ void process_framedata(PNFrame *frame)
 
     // Display the frame in ds9
     pn_save_preview(frame, timestamp);
-    pn_run_preview_script("preview.fits.gz");
+    scripting_update_preview(scripting);
 
     if (pn_preference_char(SAVE_FRAMES))
     {
-        const char *filename = pn_save_frame(frame, timestamp, camera);
+        char *filename = pn_save_frame(frame, timestamp, camera);
         if (filename == NULL)
         {
             pn_log("Save failed. Discarding frame");
@@ -194,8 +197,8 @@ void process_framedata(PNFrame *frame)
         }
 
         pn_preference_increment_framecount();
-        pn_run_saved_script(filename);
-        free((char *)filename);
+        scripting_notify_frame(scripting, filename);
+        free(filename);
     }
 }
 
@@ -237,15 +240,16 @@ int main(int argc, char *argv[])
     pn_init_preferences("preferences.dat");
     timer = timer_new(simulate_timer);
     camera = pn_camera_new(simulate_camera);
+    scripting = scripting_new();
 
     // Start ui early so it can catch log events
     pn_ui_new(camera, timer);
-    pn_run_startup_script();
 
     ThreadCreationArgs args;
     args.camera = camera;
     args.timer = timer;
 
+    scripting_spawn_thread(scripting, &args);
     timer_spawn_thread(timer, &args);
     pn_camera_spawn_thread(camera, &args);
 
@@ -277,6 +281,7 @@ int main(int argc, char *argv[])
     // Wait for camera and timer threads to terminate
     pn_camera_shutdown(camera);
     timer_shutdown(timer);
+    scripting_shutdown(scripting);
 
     // Final cleanup
     if (fatal_error)
@@ -286,6 +291,7 @@ int main(int argc, char *argv[])
 
     timer_free(timer);
     pn_camera_free(camera);
+    scripting_free(scripting);
     pn_free_preferences();
     pn_ui_free();
     fclose(logFile);
