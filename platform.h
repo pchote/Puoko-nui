@@ -15,7 +15,6 @@
 void normalize_tm(struct tm *t);
 void millisleep(int ms);
 char *canonicalize_path(const char *path);
-void run_command_async(const char *cmd);
 int run_command(const char *cmd, char *log_prefix);
 
 #if (defined _WIN32 || defined _WIN64)
