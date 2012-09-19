@@ -14,15 +14,14 @@
 
 void normalize_tm(struct tm *t);
 void millisleep(int ms);
+char *canonicalize_path(const char *path);
+void run_command_async(const char *cmd);
+int run_command(const char *cmd, char *log_prefix);
 
 #if (defined _WIN32 || defined _WIN64)
-char *realpath(const char *path, char resolved_path[]);
 int vasprintf (char **resultp, const char *format, va_list args);
 int asprintf(char **resultp, const char *format, ...);
 char *strndup(const char *s, size_t max);
 #endif
-
-void run_command_async(const char *cmd);
-int run_command(const char *cmd, char *log_prefix);
 
 #endif

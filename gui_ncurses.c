@@ -887,16 +887,16 @@ bool pn_ui_update()
                     else if (input_type == INPUT_FRAME_DIR)
                     {
                         char *olddir = pn_preference_string(OUTPUT_DIR);
-                        char pathBuf[PATH_MAX];
-                        realpath(input_entry_buf, pathBuf);
+                        char *path = canonicalize_path(input_entry_buf);
 
-                        if (strcmp(olddir, pathBuf))
+                        if (strcmp(olddir, path))
                         {
                             // Update preferences
                             pn_preference_set_string(OUTPUT_DIR, pathBuf);
                             update_acquisition_window();
                             pn_log("Frame dir set to `%s'", pathBuf);
                         }
+                        free(path);
                     }
                     else if (input_type == INPUT_OBJECT_NAME)
                     {
