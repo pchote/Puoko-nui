@@ -73,9 +73,97 @@ char *canonicalize_path(const char *path)
     return strdup(path_buf);
 }
 
+
 // Run a command synchronously, logging output with a given prefix
 int run_command(const char *cmd, char *log_prefix)
 {
+#if (defined _WIN32 || defined _WIN64)
+    // Create pipe for stdout/stderr
+    SECURITY_ATTRIBUTES saAttr;
+    saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+    saAttr.bInheritHandle = TRUE;
+    saAttr.lpSecurityDescriptor = NULL;
+    HANDLE stdout_read, stdout_write, stdin_read, stdin_write;
+    if (!CreatePipe(&stdout_read, &stdout_write, &saAttr, 0))
+    {
+        pn_log("Failed to create stdout pipe");
+        return 1;
+    }
+
+    if (!SetHandleInformation(stdout_read, HANDLE_FLAG_INHERIT, 0))
+    {
+        pn_log("Failed to create stdout pipe");
+        return 1;
+    }
+
+    if (!CreatePipe(&stdin_read, &stdin_write, &saAttr, 0))
+    {
+        pn_log("Failed to create stdout pipe");
+        return 1;
+    }
+
+    if (!SetHandleInformation(stdin_write, HANDLE_FLAG_INHERIT, 0))
+    {
+        pn_log("Failed to create stdout pipe");
+        return 1;
+    }
+
+    // Create process
+    STARTUPINFO si;
+    ZeroMemory(&si, sizeof(STARTUPINFO));
+    si.cb = sizeof(STARTUPINFO);
+    si.hStdError = stdout_write;
+    si.hStdOutput = stdout_write;
+    si.hStdInput = stdin_read;
+    si.dwFlags |= STARTF_USESTDHANDLES;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&pi, sizeof(pi));
+    if (!CreateProcess(NULL, (char *)cmd, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
+    {
+        pn_log("Failed to spawn script with errorcode: %d", GetLastError());
+        return 1;
+    }
+
+    CloseHandle(pi.hThread);
+    CloseHandle(stdin_write);
+
+    // Read output until process terminates
+    CloseHandle(stdout_write);
+    CHAR buffer[1024];
+    DWORD bytes_read;
+
+    for (;;)
+    {
+        if (!ReadFile(stdout_read, buffer, 1023, &bytes_read, NULL))
+            break;
+
+        buffer[bytes_read] = '\0';
+
+        // Split log messages on newlines
+        char *str = buffer, *end;
+        while ((end = strstr(str, "\n")) != NULL)
+        {
+            char *next = end + 1;
+            end = '\0';
+            if (strlen(str) > 0)
+                pn_log("%s%s", log_prefix, str);
+            str = next;
+        }
+
+        if (strlen(str) > 0)
+            pn_log("%s%s", log_prefix, str);
+    }
+
+    CloseHandle(stdout_read);
+    CloseHandle(stdin_read);
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    DWORD exit_code;
+    GetExitCodeProcess(pi.hProcess, &exit_code);
+    CloseHandle(pi.hProcess);
+
+    return (int)exit_code;
+#else
     FILE *process = popen(cmd, "r");
     if (!process)
     {
@@ -105,5 +193,6 @@ int run_command(const char *cmd, char *log_prefix)
     }
 
     return pclose(process);
+#endif
 }
 	
