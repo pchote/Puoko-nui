@@ -44,7 +44,10 @@ typedef enum
 
     CAMERA_OVERSCAN_ENABLED,
     CAMERA_OVERSCAN_SKIP_COLS,
-    CAMERA_OVERSCAN_BIAS_COLS
+    CAMERA_OVERSCAN_BIAS_COLS,
+#if (defined _WIN32)
+    MSYS_BASH_PATH
+#endif
 } PNPreferenceType;
 
 void pn_init_preferences(const char *path);

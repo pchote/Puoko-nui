@@ -63,6 +63,10 @@ PNPreferenceStore prefs[] =
     {CAMERA_OVERSCAN_ENABLED,   CHAR, .value.c = false, "CameraOverscanEnabled: %d\n"},
     {CAMERA_OVERSCAN_SKIP_COLS, CHAR, .value.c = 24,    "CameraOverscanSkipCols: %d\n"},
     {CAMERA_OVERSCAN_BIAS_COLS, CHAR, .value.c = 24,    "CameraOverscanBiasCols: %d\n"},
+
+#if (defined _WIN32)
+    {MSYS_BASH_PATH, STRING, .value.s = "C:/MinGW/MSYS/bin/bash.exe",    "msys_bash_path: %s\n"}
+#endif
 };
 int pref_count = sizeof(prefs) / sizeof(prefs[0]);
 

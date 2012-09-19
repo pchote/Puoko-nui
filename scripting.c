@@ -15,8 +15,6 @@
 #include "preferences.h"
 #include "platform.h"
 
-
-
 // Private struct implementation
 struct FilepathQueue
 {
@@ -36,6 +34,26 @@ struct ScriptingInterface
     bool preview_available;
     pthread_mutex_t read_mutex;
 };
+
+static int run_script(char *script, char *log_prefix)
+{
+#if (defined _WIN32)
+    char *msys_bash_path = pn_preference_string(MSYS_BASH_PATH);
+    char *cwd = getcwd(NULL, 0);
+    char *path = canonicalize_path(cwd);
+    free(cwd);
+    char *cmd;
+    asprintf(&cmd, "%s --login -c \"cd \\\"%s\\\" && %s", msys_bash_path, path, script);
+    free(path);
+    free(msys_bash_path);
+
+    int ret = run_command(cmd, log_prefix);
+    free(cmd);
+    return ret;
+#else
+    return run_command(script, log_prefix);
+#endif
+}
 
 void *reduction_thread(void *args);
 void *preview_thread(void *args);
@@ -85,11 +103,7 @@ void *reduction_thread(void *_scripting)
         {
             // Create command string to send to the script
             // This consists of a base command, and a list of arguments (one per frame)
-#if (defined _WIN32 || defined _WIN64)
-            char *base = "powershell  -executionpolicy bypass -command ./frame_available.ps1";
-#else
             char *base = "./frame_available.sh";
-#endif
             size_t command_length = strlen(base) + 1;
             struct FilepathQueue *next = new_frames;
             do
@@ -116,7 +130,7 @@ void *reduction_thread(void *_scripting)
             } while (next != NULL);
 
             pn_log("Scripting: Running reduction script");
-            run_command(command, "Reduction Script: ");
+            run_script(command, "Reduction Script: ");
             pn_log("Scripting: Reduction script complete");
 
             free(command);
@@ -132,13 +146,7 @@ void *preview_thread(void *_scripting)
 
     // Run startup script
     pn_log("Scripting: Running startup script");
-#if (defined _WIN32 || defined _WIN64)
-    char *cmd = "powershell -executionpolicy bypass -command .\\startup.ps1";
-#else
-    char *cmd = "./startup.sh";
-#endif
-    run_command(cmd, "Startup Script: ");
-
+    run_script("./startup.sh", "Startup Script: ");
     pn_log("Scripting: Startup script complete");
 
     // Loop until shutdown, parsing incoming data
@@ -157,12 +165,7 @@ void *preview_thread(void *_scripting)
         if (preview_available)
         {
             pn_log("Scripting: Running preview script");
-#if (defined _WIN32 || defined _WIN64)
-            char *cmd = "powershell -executionpolicy bypass -command .\\preview.ps1";
-#else
-            char *cmd = "./preview.sh";
-#endif
-            run_command(cmd, "Preview script: ");
+            run_script("./preview.sh", "Preview script: ");
             pn_log("Scripting: Preview script complete");
         }
     }
