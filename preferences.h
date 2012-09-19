@@ -46,8 +46,9 @@ typedef enum
     CAMERA_OVERSCAN_SKIP_COLS,
     CAMERA_OVERSCAN_BIAS_COLS,
 #if (defined _WIN32)
-    MSYS_BASH_PATH
+    MSYS_BASH_PATH,
 #endif
+    LIST_END // Dummy entry to workaround c++ not allowing list end with ','
 } PNPreferenceType;
 
 void pn_init_preferences(const char *path);
