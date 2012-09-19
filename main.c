@@ -329,6 +329,9 @@ void pn_log(const char * format, ...)
     fprintf(logFile, "%s", linebuf);
     fprintf(logFile, "\n");
 
+    // Flush output to disk
+    fflush(logFile);
+
     // Add to gui
     pn_ui_log_line(linebuf);
 
