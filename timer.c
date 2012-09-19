@@ -443,7 +443,7 @@ void *pn_timer_thread(void *_args)
 
     // Uninitialize the timer connection and exit
     uninitialize_timer(timer);
-    pthread_exit(NULL);
+    return NULL;
 }
 
 // Main simulated timer thread loop
@@ -525,7 +525,7 @@ void *pn_simulated_timer_thread(void *_args)
     }
 
     pn_log("Closing simulated GPS");
-    pthread_exit(NULL);
+    return NULL;
 }
 
 #pragma mark Timer communication Routines (Called from any thread)

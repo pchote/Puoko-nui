@@ -597,6 +597,6 @@ void *pn_picam_camera_thread(void *_args)
     Picam_UninitializeLibrary();
 
     pn_log("Camera uninitialized");
-    pthread_exit(NULL);
+    return NULL;
 }
 

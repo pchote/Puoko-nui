@@ -244,6 +244,6 @@ void *pn_simulated_camera_thread(void *_args)
     if (camera->mode == ACQUIRING)
         stop_acquiring_simulated();
 
-    pthread_exit(NULL);
+    return NULL;
 }
 

@@ -437,5 +437,5 @@ void *pn_pvcam_camera_thread(void *_args)
         pn_log("PVCAM uninitialized");
     }
 
-    pthread_exit(NULL);
+    return NULL;
 }
