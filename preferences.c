@@ -10,6 +10,7 @@
 #include <string.h>
 #include <pthread.h>
 #include "preferences.h"
+#include "platform.h"
 #include "common.h"
 
 static char *filename;
