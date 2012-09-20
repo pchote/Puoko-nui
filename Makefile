@@ -39,7 +39,7 @@ ifeq ($(CAMERA_TYPE),PICAM)
 endif
 
 ifeq ($(GUI_TYPE),FLTK)
-    CFLAGS += -D USE_FLTK_GUI
+    CFLAGS += -DUSE_FLTK_GUI
     CXXFLAGS += $(shell fltk-config --cxxflags )
     LFLAGS += $(shell fltk-config --ldflags )
     OBJS += gui_fltk.o
@@ -49,8 +49,8 @@ else
 endif
 
 ifeq ($(MSYSTEM),MINGW32)
-    CFLAGS += -DWIN32 -I/usr/local/include -Iftdi/include
-    LFLAGS += -L/usr/local/lib -Lftdi/lib
+    CFLAGS += -DWIN32 -I/usr/local/include -Iftdi/include -Incurses/include -Incurses/include/ncurses
+    LFLAGS += -L/usr/local/lib -Lftdi/lib -Lncurses/lib
 endif
 
 puokonui : $(OBJS)
