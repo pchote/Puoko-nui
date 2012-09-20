@@ -892,9 +892,9 @@ bool pn_ui_update()
                         if (strcmp(olddir, path))
                         {
                             // Update preferences
-                            pn_preference_set_string(OUTPUT_DIR, pathBuf);
+                            pn_preference_set_string(OUTPUT_DIR, path);
                             update_acquisition_window();
-                            pn_log("Frame dir set to `%s'", pathBuf);
+                            pn_log("Frame dir set to `%s'", path);
                         }
                         free(path);
                     }
@@ -1000,15 +1000,6 @@ bool pn_ui_update()
 
     update_panels();
     doupdate();
-
-    if (input_type == INPUT_MAIN)
-    {
-        // curs_set(0) doesn't work properly when running via ssh from osx
-        // so put the cursor in the corner where it can't cause trouble
-        int row,col;
-        getmaxyx(stdscr, row, col);
-        move(row-1, col-1);
-    }
 
     return should_quit;
 }
