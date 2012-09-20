@@ -20,7 +20,7 @@ if [ -f ${FILE} ]; then
 		PLOTDEVICE='online_ts.gif/gif online_dft.gif/gif'
 	fi
 
-	tsreduce plot ${FILE} PLOTDEVICE &> last_plot.log
+	tsreduce plot ${FILE} ${PLOTDEVICE} &> last_plot.log
 	if [ "$?" != '0' ]; then
 		echo 'tsreduce plot FAILED. See last_plot.log'
 	fi
