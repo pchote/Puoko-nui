@@ -309,7 +309,7 @@ void *pn_timer_thread(void *_args)
         unsigned char recvbuf[256];
         int ret = ftdi_read_data(timer->context, recvbuf, 256);
         if (ret < 0)
-            fatal_timer_error(timer, "Bad response from timer. return code 0x%x",ret);
+            fatal_timer_error(timer, "Bad response from timer. return code %d",ret);
 
         // Copy recieved bytes into the circular input buffer
         for (int i = 0; i < ret; i++)
