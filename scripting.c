@@ -64,6 +64,12 @@ ScriptingInterface *scripting_new()
     if (!scripting)
         trigger_fatal_error("Malloc failed while allocating scripting");
 
+    scripting->reduction_thread_initialized = false;
+    scripting->preview_thread_initialized = false;
+    scripting->shutdown = false;
+    scripting->preview_available = false;
+    scripting->new_frames = false;
+
     pthread_mutex_init(&scripting->read_mutex, NULL);
     return scripting;
 }
