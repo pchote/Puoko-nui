@@ -35,6 +35,12 @@ struct TimerTimestampQueue
     struct TimerTimestampQueue *next;
 };
 
+struct LogMessageQueue
+{
+    char *message;
+    struct LogMessageQueue *next;
+};
+
 pthread_mutex_t log_mutex, frame_queue_mutex, trigger_timestamp_queue_mutex;
 FILE *logFile;
 PNCamera *camera;
@@ -42,7 +48,8 @@ TimerUnit *timer;
 ScriptingInterface *scripting;
 
 struct PNFrameQueue *frame_queue = NULL;
-struct TimerTimestampQueue *trigger_timestamp_queue;
+struct TimerTimestampQueue *trigger_timestamp_queue = NULL;
+struct LogMessageQueue *log_queue = NULL;
 char *fatal_error = NULL;
 
 // Take a copy of the framedata and store it for
@@ -272,6 +279,21 @@ int main(int argc, char *argv[])
             frame = pop_framedata();
         }
 
+        // Update UI with queued log messages
+        pthread_mutex_lock(&log_mutex);
+        struct LogMessageQueue *log = log_queue;
+        log_queue = NULL;
+        pthread_mutex_unlock(&log_mutex);
+
+        while (log != NULL)
+        {
+            pn_ui_log_line(log->message);
+            struct LogMessageQueue *next = log->next;
+            free(log->message);
+            free(log);
+            log = next;
+        }
+
         bool request_shutdown = pn_ui_update();
         if (request_shutdown)
             break;
@@ -308,7 +330,6 @@ int main(int argc, char *argv[])
 void pn_log(const char * format, ...)
 {
     va_list args;
-    va_start(args, format);
 
     // Log time
     struct timeval tv;
@@ -318,26 +339,44 @@ void pn_log(const char * format, ...)
     char timebuf[9];
     strftime(timebuf, 9, "%H:%M:%S", ptm);
 
-    pthread_mutex_lock(&log_mutex);
-
     // Construct log line
     char *msgbuf, *linebuf;
+    va_start(args, format);
     vasprintf(&msgbuf, format, args);
+    va_end(args);
+
     asprintf(&linebuf, "[%s.%03d] %s", timebuf, (int)(tv.tv_usec / 1000), msgbuf);
     free(msgbuf);
 
+    pthread_mutex_lock(&log_mutex);
+
     // Log to file
-    fprintf(logFile, "%s", linebuf);
-    fprintf(logFile, "\n");
+    fprintf(logFile, "%s\n", linebuf);
 
     // Flush output to disk
     fflush(logFile);
 
-    // Add to gui
-    pn_ui_log_line(linebuf);
+    // Store messages to update log from main thread
+    // in next UI update
+    struct LogMessageQueue *tail = malloc(sizeof(struct LogMessageQueue));
+    if (tail)
+    {
+        tail->message = linebuf;
+        tail->next = NULL;
+        // Empty queue
+        if (log_queue == NULL)
+            log_queue = tail;
+        else
+        {
+            // Find tail of queue - queue is assumed to be short
+            struct LogMessageQueue *item = log_queue;
+            while (item->next != NULL)
+                item = item->next;
+            item->next = tail;
+        }
+    }
+    else
+        free(linebuf);
 
     pthread_mutex_unlock(&log_mutex);
-
-    free(linebuf);
-    va_end(args);
 }
