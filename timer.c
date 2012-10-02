@@ -28,7 +28,6 @@ struct TimerUnit
     int simulated_remaining;
     bool simulated_send_shutdown;
 
-    struct usb_device *device;
     struct ftdi_context *context;
     bool shutdown;
     TimerTimestamp current_timestamp;
@@ -72,7 +71,6 @@ TimerUnit *timer_new(bool simulate_hardware)
     timer->simulated_remaining = 0;
     timer->simulated_send_shutdown = false;
 
-    timer->device = NULL;
     timer->context = NULL;
     timer->shutdown = false;
     timer->current_timestamp.valid = false;
@@ -181,30 +179,6 @@ static void queue_data(TimerUnit *timer, unsigned char type, unsigned char *data
 // Initialize the usb connection to the timer
 static void initialize_timer(TimerUnit *timer)
 {
-    struct ftdi_device_list* devices = NULL;
-    const int vendorId = 0x0403;  // FTDI USB vendor identifier
-    const int productId = 0x6001; // FT232 USB product identifier
-
-    // Get the list of FTDI devices on the system
-    int numDevices = ftdi_usb_find_all(NULL, &devices, vendorId, productId);
-    check_ftdi(timer, "ftdi_usb_find_all() returned an error code", __FILE__, __LINE__, numDevices);
-    pn_log("Found %d FTDI device(s)", numDevices);
-
-    // Assume that the first device is the timer unit
-    if (numDevices == 0)
-    {
-        ftdi_list_free(&devices);
-        fatal_timer_error(timer, "Timer not found");
-    }
-
-    timer->device = devices->dev;
-    ftdi_list_free(&devices);
-
-    pn_log("Opened FTDI device `%s`", timer->device->filename);
-
-    if (timer->context != NULL)
-        fatal_timer_error(timer, "device %s is already open", timer->device->filename);
-
     timer->context = ftdi_new();
     if (timer->context == NULL)
         fatal_timer_error(timer, "ftdi_new failed");
@@ -212,11 +186,16 @@ static void initialize_timer(TimerUnit *timer)
     int status = ftdi_init(timer->context);
     check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
 
-    // Prepare the device for use with libftdi library calls.
-    status = ftdi_usb_open_dev(timer->context, timer->device);
-    check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
+    // Open the first available FTDI device, under the
+    // assumption that it is the timer
+    while (!timer->shutdown)
+    {
+        if (ftdi_usb_open(timer->context, 0x0403, 0x6001) == 0)
+            break;
 
-    //ftdi_enable_bitbang(pContext, 0xFF);
+        pn_log("Waiting for timer...");
+        millisleep(500);
+    }
 
     status = ftdi_set_baudrate(timer->context, 250000);
     check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
@@ -227,20 +206,18 @@ static void initialize_timer(TimerUnit *timer)
     status = ftdi_setflowctrl(timer->context, SIO_DISABLE_FLOW_CTRL);
     check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
 
-    unsigned char latency = 1; // the latency in milliseconds before partially full bit buffers are sent.
-    status = ftdi_set_latency_timer(timer->context, latency);
+    // the latency in milliseconds before partially full bit buffers are sent.
+    status = ftdi_set_latency_timer(timer->context, 1);
     check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
 }
 
 // Close the usb connection to the timer
 static void uninitialize_timer(TimerUnit *timer)
 {
-    pn_log("Closing device %s", timer->device->filename);
-    if (timer->context == NULL)
-        pn_log("device %s is already closed @ %s:%d", timer->device->filename, __FILE__, __LINE__);
+    pn_log("Closing timer");
 
     int status = ftdi_usb_close(timer->context);
-    check_ftdi(timer, "ftdi_usb_close() returned an error code", __FILE__, __LINE__, status);
+    check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
 
     ftdi_deinit(timer->context);
     ftdi_free(timer->context);
