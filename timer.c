@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
-#include <ftdi.h>
+#include <ftd2xx.h>
 #include "timer.h"
 #include "common.h"
 #include "preferences.h"
@@ -28,7 +28,7 @@ struct TimerUnit
     int simulated_remaining;
     bool simulated_send_shutdown;
 
-    struct ftdi_context *context;
+    FT_HANDLE handle;
     bool shutdown;
     TimerTimestamp current_timestamp;
     bool camera_downloading;
@@ -71,7 +71,7 @@ TimerUnit *timer_new(bool simulate_hardware)
     timer->simulated_remaining = 0;
     timer->simulated_send_shutdown = false;
 
-    timer->context = NULL;
+    timer->handle = 0;
     timer->shutdown = false;
     timer->current_timestamp.valid = false;
     timer->current_timestamp.locked = false;
@@ -102,20 +102,6 @@ void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args)
 }
 
 #pragma mark Timer Routines (Called from Timer thread)
-
-// Check the ftdi return code for a fatal error
-// If an error occured, set the error message and kill the thread
-static void check_ftdi(TimerUnit *timer, const char *message, char* file, int line, int status)
-{
-    if (status >= 0)
-        return;
-
-    char *fatal_error;
-    asprintf(&fatal_error, "FATAL: %s line %d : %s, status = %d\n", file, line, message, status);
-    trigger_fatal_error(fatal_error);
-
-    pthread_exit(NULL);
-}
 
 // Trigger a fatal error
 // Sets the error message and kills the thread
@@ -179,49 +165,35 @@ static void queue_data(TimerUnit *timer, unsigned char type, unsigned char *data
 // Initialize the usb connection to the timer
 static void initialize_timer(TimerUnit *timer)
 {
-    timer->context = ftdi_new();
-    if (timer->context == NULL)
-        fatal_timer_error(timer, "ftdi_new failed");
-
-    int status = ftdi_init(timer->context);
-    check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
-
     // Open the first available FTDI device, under the
     // assumption that it is the timer
     while (!timer->shutdown)
     {
-        if (ftdi_usb_open(timer->context, 0x0403, 0x6001) == 0)
+        if (FT_Open(0, &timer->handle) == FT_OK)
             break;
 
         pn_log("Waiting for timer...");
-        millisleep(500);
+        millisleep(1000);
     }
 
-    status = ftdi_set_baudrate(timer->context, 250000);
-    check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
+    // Set baud rate to 250k (matches internal USB<->UART rate within the timer)
+    if (FT_SetBaudRate(timer->handle, 250000) != FT_OK)
+        fatal_timer_error(timer, "Error setting timer baudrate");
 
-    status = ftdi_set_line_property(timer->context, BITS_8, STOP_BIT_1, NONE);
-    check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
+    // Set data frame: 8N1
+    if (FT_SetDataCharacteristics(timer->handle, FT_BITS_8, FT_STOP_BITS_1, FT_PARITY_NONE) != FT_OK)
+        fatal_timer_error(timer, "Error setting timer data characteristics");
 
-    status = ftdi_setflowctrl(timer->context, SIO_DISABLE_FLOW_CTRL);
-    check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
-
-    // the latency in milliseconds before partially full bit buffers are sent.
-    status = ftdi_set_latency_timer(timer->context, 1);
-    check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
+    // Set read timeout to 1ms, write timeout unchanged
+    if (FT_SetTimeouts(timer->handle, 1, 0) != FT_OK)
+        fatal_timer_error(timer, "Error setting timer read timeout");
 }
 
 // Close the usb connection to the timer
 static void uninitialize_timer(TimerUnit *timer)
 {
     pn_log("Closing timer");
-
-    int status = ftdi_usb_close(timer->context);
-    check_ftdi(timer, timer->context->error_str, __FILE__, __LINE__, status);
-
-    ftdi_deinit(timer->context);
-    ftdi_free(timer->context);
-    timer->context = NULL;
+    FT_Close(timer->handle);
 }
 
 static void log_raw_data(unsigned char *data, int len)
@@ -273,8 +245,14 @@ void *pn_timer_thread(void *_args)
         pthread_mutex_lock(&timer->sendbuffer_mutex);
         if (timer->send_length > 0)
         {
-            if (ftdi_write_data(timer->context, timer->send_buffer, timer->send_length) != timer->send_length)
-                pn_log("Error sending send buffer");
+            unsigned int bytes_written;
+            FT_STATUS status = FT_Write(timer->handle, timer->send_buffer, timer->send_length, &bytes_written);
+            if (status != FT_OK)
+                fatal_timer_error(timer, "Error sending timer buffer. FT error code: %d", status);
+
+            if (bytes_written != timer->send_length)
+                fatal_timer_error(timer, "Error sending timer buffer. %d of %d bytes were sent", bytes_written, timer->send_length);
+
             timer->send_length = 0;
         }
         pthread_mutex_unlock(&timer->sendbuffer_mutex);
@@ -282,15 +260,20 @@ void *pn_timer_thread(void *_args)
         if (timer->shutdown)
             break;
 
-        // Grab any data accumulated by ftdi
-        unsigned char recvbuf[256];
-        int ret = ftdi_read_data(timer->context, recvbuf, 256);
-        if (ret < 0)
-            fatal_timer_error(timer, "Bad response from timer. return code %d",ret);
+        // Check for new data
+        unsigned int bytes_read;
+        unsigned char read_buffer[256];
+
+        if (FT_Read(timer->handle, read_buffer, 256, &bytes_read) != FT_OK)
+            fatal_timer_error(timer, "Timer I/O Error");
+
+        if (bytes_read == 0)
+            continue;
 
         // Copy recieved bytes into the circular input buffer
-        for (int i = 0; i < ret; i++)
-            input_buf[write_index++] = recvbuf[i];
+        for (int i = 0; i < bytes_read; i++)
+            input_buf[write_index++] = read_buffer[i];
+
 
         // Sync to the start of a data packet
         for (; packet_type == UNKNOWN_PACKET && read_index != write_index; read_index++)

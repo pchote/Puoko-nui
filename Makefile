@@ -9,7 +9,7 @@ CC       = gcc
 CXX      = g++
 CFLAGS   = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
-LFLAGS   = -lcfitsio -lpthread -lftdi -lm
+LFLAGS   = -lcfitsio -lpthread -lftd2xx -lm
 OBJS     = main.o camera.o timer.o preferences.o scripting.o imagehandler.o platform.o version.o
 
 ifeq ($(CAMERA_TYPE),PVCAM)
