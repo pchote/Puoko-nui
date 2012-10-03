@@ -10,6 +10,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
+
+#if (defined _WIN32 || defined _WIN64)
+// Required by ftd2xx.h under windows
+#include <windows.h>
+#endif
+
 #include <ftd2xx.h>
 #include "timer.h"
 #include "common.h"

@@ -49,8 +49,8 @@ else
 endif
 
 ifeq ($(MSYSTEM),MINGW32)
-    CFLAGS += -DWIN32 -I/usr/local/include -Iftdi/include -Incurses/include -Incurses/include/ncurses
-    LFLAGS += -L/usr/local/lib -Lftdi/lib -Lncurses/lib
+    CFLAGS += -DWIN32 -I. -I/usr/local/include -Incurses/include -Incurses/include/ncurses
+    LFLAGS += -L. -L/usr/local/lib -Lncurses/lib
 endif
 
 puokonui : $(OBJS)
