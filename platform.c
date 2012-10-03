@@ -42,7 +42,7 @@ void millisleep(int ms)
     #if (defined _WIN32 || defined _WIN64)
         Sleep(ms);
     #else
-        nanosleep(&(struct timespec){0, ms*1e6}, NULL);
+        nanosleep(&(struct timespec){ms / 1000, (ms % 1000)*1e6}, NULL);
     #endif
 }
 
