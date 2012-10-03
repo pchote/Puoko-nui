@@ -226,6 +226,8 @@ void *pn_timer_thread(void *_args)
     unsigned char packet_expected_length = 0;
     TimerUnitPacketType packet_type = UNKNOWN_PACKET;
 
+    unsigned char error_count = 0;
+
     // Initialization
     initialize_timer(timer);
 
@@ -237,6 +239,9 @@ void *pn_timer_thread(void *_args)
     {
         millisleep(100);
 
+        if (error_count >= 10)
+            fatal_timer_error(timer, "Maximum error count reached. Exiting");
+
         // Reset the timer before shutting down
         if (timer->shutdown)
             queue_data(timer, RESET, NULL, 0);
@@ -247,13 +252,10 @@ void *pn_timer_thread(void *_args)
         {
             unsigned int bytes_written;
             FT_STATUS status = FT_Write(timer->handle, timer->send_buffer, timer->send_length, &bytes_written);
-            if (status != FT_OK)
-                fatal_timer_error(timer, "Error sending timer buffer. FT error code: %d", status);
-
-            if (bytes_written != timer->send_length)
-                fatal_timer_error(timer, "Error sending timer buffer. %d of %d bytes were sent", bytes_written, timer->send_length);
-
-            timer->send_length = 0;
+            if (status == FT_OK)
+                timer->send_length = 0;
+            else
+                pn_log("Error sending timer buffer. Current error count: %d", ++error_count);
         }
         pthread_mutex_unlock(&timer->sendbuffer_mutex);
 
@@ -265,7 +267,10 @@ void *pn_timer_thread(void *_args)
         unsigned char read_buffer[256];
 
         if (FT_Read(timer->handle, read_buffer, 256, &bytes_read) != FT_OK)
-            fatal_timer_error(timer, "Timer I/O Error");
+        {
+            pn_log("Error reading timer buffer. Current error count: %d", ++error_count);
+            bytes_read = 0;
+        }
 
         if (bytes_read == 0)
             continue;
