@@ -11,16 +11,10 @@
 #include <string.h>
 #include <pthread.h>
 #include "scripting.h"
+#include "atomicqueue.h"
 #include "main.h"
 #include "preferences.h"
 #include "platform.h"
-
-// Private struct implementation
-struct FilepathQueue
-{
-    char *filepath;
-    struct FilepathQueue *next;
-};
 
 struct ScriptingInterface
 {
@@ -30,9 +24,8 @@ struct ScriptingInterface
     bool preview_thread_initialized;
     bool shutdown;
 
-    struct FilepathQueue *new_frames;
+    struct atomicqueue *new_frames;
     bool preview_available;
-    pthread_mutex_t read_mutex;
 };
 
 static int run_script(char *script, char *log_prefix)
@@ -68,23 +61,23 @@ void *preview_thread(void *args);
 
 ScriptingInterface *scripting_new()
 {
-    ScriptingInterface *scripting = malloc(sizeof(struct ScriptingInterface));
+    ScriptingInterface *scripting = calloc(1, sizeof(struct ScriptingInterface));
     if (!scripting)
         return NULL;
 
-    scripting->reduction_thread_initialized = false;
-    scripting->preview_thread_initialized = false;
-    scripting->shutdown = false;
-    scripting->preview_available = false;
-    scripting->new_frames = false;
+    scripting->new_frames = atomicqueue_create();
+    if (!scripting->new_frames)
+    {
+        free(scripting);
+        return NULL;
+    }
 
-    pthread_mutex_init(&scripting->read_mutex, NULL);
     return scripting;
 }
 
 void scripting_free(ScriptingInterface *scripting)
 {
-    pthread_mutex_destroy(&scripting->read_mutex);
+    atomicqueue_destroy(scripting->new_frames);
 }
 
 void scripting_spawn_thread(ScriptingInterface *scripting, ThreadCreationArgs *args)
@@ -93,7 +86,6 @@ void scripting_spawn_thread(ScriptingInterface *scripting, ThreadCreationArgs *a
     scripting->reduction_thread_initialized = true;
     pthread_create(&scripting->preview_thread, NULL, preview_thread, (void *)scripting);
     scripting->preview_thread_initialized = true;
-
 }
 
 void *reduction_thread(void *_scripting)
@@ -107,52 +99,32 @@ void *reduction_thread(void *_scripting)
         if (scripting->shutdown)
             break;
 
-        // Check for new frames to notify
-        pthread_mutex_lock(&scripting->read_mutex);
-        struct FilepathQueue *new_frames = scripting->new_frames;
-        scripting->new_frames = NULL;
-        pthread_mutex_unlock(&scripting->read_mutex);
-
-        if (new_frames)
+        // Check for new frames to reduce
+        if (atomicqueue_length(scripting->new_frames))
         {
-            // Create command string to send to the script
-            // This consists of a base command, and a list of arguments (one per frame)
-            char *base = "./frame_available.sh";
-            size_t command_length = strlen(base) + 1;
-            struct FilepathQueue *next = new_frames;
-            do
+            char *command = strdup("./frame_available.sh ");
+            
+            char *frame;
+            while ((frame = atomicqueue_pop(scripting->new_frames)) != NULL)
             {
-                command_length += strlen(next->filepath) + 3;
-                next = next->next;
-            } while (next != NULL);
-
-            // Construct string
-            char *command = malloc(command_length*sizeof(char));
-            if (!command)
-            {
-                pn_log("ERROR: Unable to allocate reduction command string. Skipping reduction");
-                continue;
+                size_t command_len = strlen(command);
+                size_t frame_len = strlen(frame);
+                command = realloc(command, command_len + frame_len + 4);
+                if (!command)
+                {
+                    pn_log("Error allocating reduction command string. Skipping reduction");
+                    break;
+                }
+                snprintf(command + command_len, frame_len + 4, "\"%s\" ", frame);
             }
-            strcpy(command, base);
 
-            next = new_frames;
-            do
+            if (command)
             {
-                struct FilepathQueue *cur = next;
-                strcat(command, " \"");
-                strcat(command, cur->filepath);
-                strcat(command, "\"");
-
-                next = cur->next;
-                free (cur->filepath);
-                free (cur);
-            } while (next != NULL);
-
-            pn_log("Scripting: Running reduction script");
-            run_script(command, "Reduction Script: ");
-            pn_log("Scripting: Reduction script complete");
-
-            free(command);
+                pn_log("Scripting: Running reduction script");
+                run_script(command, "Reduction Script: ");
+                pn_log("Scripting: Reduction script complete");
+                free(command);
+            }
         }
     }
 
@@ -176,10 +148,8 @@ void *preview_thread(void *_scripting)
             break;
         
         // Check for new preview to call
-        pthread_mutex_lock(&scripting->read_mutex);
         bool preview_available = scripting->preview_available;
         scripting->preview_available = false;
-        pthread_mutex_unlock(&scripting->read_mutex);
 
         if (preview_available)
         {
@@ -195,36 +165,20 @@ void *preview_thread(void *_scripting)
 void scripting_update_preview(ScriptingInterface *scripting)
 {
     // TODO: Use signals so the preview thread can sleep
-    pthread_mutex_lock(&scripting->read_mutex);
     scripting->preview_available = true;
-    pthread_mutex_unlock(&scripting->read_mutex);
 }
 
 void scripting_notify_frame(ScriptingInterface *scripting, const char *filepath)
 {
-    struct FilepathQueue *tail = malloc(sizeof(struct FilepathQueue));
-    if (tail == NULL)
+    char *copy = strdup(filepath);
+    if (!copy)
     {
-        pn_log("Error allocating memory for scripting notification");
+        pn_log("Error duplicating filepath string. Skipping reduction notification");
         return;
     }
-    tail->filepath = strdup(filepath);
-    tail->next = NULL;
 
-    pthread_mutex_lock(&scripting->read_mutex);
-    // Empty queue
-    if (scripting->new_frames == NULL)
-        scripting->new_frames = tail;
-    else
-    {
-        // Find tail of queue - queue is assumed to be short
-        struct FilepathQueue *item = scripting->new_frames;
-        while (item->next != NULL)
-            item = item->next;
-
-        item->next = tail;
-    }
-    pthread_mutex_unlock(&scripting->read_mutex);
+    if (!atomicqueue_push(scripting->new_frames, copy))
+        pn_log("Error pushing filepath. Reduction notification has been ignored");
 }
 
 void scripting_shutdown(ScriptingInterface *scripting)
