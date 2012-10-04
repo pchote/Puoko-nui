@@ -26,6 +26,6 @@ TimerTimestamp timer_current_timestamp(TimerUnit *timer);
 void timer_shutdown(TimerUnit *timer);
 void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading);
 
-TimerTimestamp pn_timestamp_normalize(TimerTimestamp ts);
+void timestamp_normalize(TimerTimestamp *ts);
 
 #endif

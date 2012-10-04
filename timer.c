@@ -561,21 +561,18 @@ void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading)
     pthread_mutex_unlock(&timer->read_mutex);
 }
 
-// Utility routine to subtract a number of seconds from a TimerTimestamp
-TimerTimestamp pn_timestamp_normalize(TimerTimestamp ts)
+// Ensure all time components are within their allowed range
+void timestamp_normalize(TimerTimestamp *ts)
 {
     // Let gmtime/timegm do the hard work of normalizing the time
-    struct tm a = {ts.seconds, ts.minutes, ts.hours, ts.day, ts.month, ts.year - 1900,0,0,0};
+    struct tm a = {ts->seconds, ts->minutes, ts->hours, ts->day, ts->month, ts->year - 1900,0,0,0};
     normalize_tm(&a);
 
     // Construct a new timestamp to return
-    TimerTimestamp ret = ts;
-    ret.seconds = a.tm_sec;
-    ret.minutes = a.tm_min;
-    ret.hours = a.tm_hour;
-    ret.day = a.tm_mday;
-    ret.month = a.tm_mon;
-    ret.year = a.tm_year + 1900;
-
-    return ret;
+    ts->seconds = a.tm_sec;
+    ts->minutes = a.tm_min;
+    ts->hours = a.tm_hour;
+    ts->day = a.tm_mday;
+    ts->month = a.tm_mon;
+    ts->year = a.tm_year + 1900;
 }

@@ -146,7 +146,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     // Trigger timestamp defines the *start* of the frame
     TimerTimestamp start = timestamp;
     TimerTimestamp end = start; end.seconds += exposure_time;
-    end = pn_timestamp_normalize(end);
+    timestamp_normalize(&end);
 
     char datebuf[15], gpstimebuf[15];
     sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
