@@ -48,18 +48,16 @@ static void populate_string_preference(Fl_Input *input, PNPreferenceType key)
 
 static void populate_char_preference(Fl_Int_Input *input, PNPreferenceType key)
 {
-    char *buf;
-    asprintf(&buf, "%d", pn_preference_char(key));
+    char buf[32];
+    snprintf(buf, 32, "%d", pn_preference_char(key));
     input->value(buf);
-    free(buf);
 }
 
 static void populate_int_preference(Fl_Int_Input *input, PNPreferenceType key)
 {
-    char *buf;
-    asprintf(&buf, "%d", pn_preference_int(key));
+    char buf[32];
+    snprintf(buf, 32, "%d", pn_preference_int(key));
     input->value(buf);
-    free(buf);
 }
 
 #pragma mark C++ Implementation

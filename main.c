@@ -201,11 +201,12 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
     {
         // Construct the output filepath from the output dir, run prefix, and run number.
         // Saving will fail if a file with the same name already exists
-        char *filepath;
         int run_number = pn_preference_int(RUN_NUMBER);
         char *output_dir = pn_preference_string(OUTPUT_DIR);
         char *run_prefix = pn_preference_string(RUN_PREFIX);
-        asprintf(&filepath, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number);
+        size_t filepath_len = strlen(output_dir) + strlen(run_prefix) + 15;
+        char *filepath = malloc(filepath_len*sizeof(char));
+        snprintf(filepath, filepath_len, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number);
         free(run_prefix);
         free(output_dir);
 
@@ -365,29 +366,39 @@ int main(int argc, char *argv[])
 // Add a message to the gui and saved log files
 void pn_log(const char *format, ...)
 {
-    // Add timestamp to beginning of format string
-    size_t new_format_len = strlen(format) + 18;
-    char *new_format = malloc(new_format_len*sizeof(char));
-    if (!new_format)
-        return;
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf(NULL, 0, format, args);
+    va_end(args);
 
+    // Allocate message string with additional space for a timestamp
+    char *message = calloc(len+16,sizeof(char));
+    if (!message)
+    {
+        fprintf(stderr, "Failed to allocate format for log message\n");
+        return;
+    }
+
+    // Add timestamp to beginning of format string
     struct timeval tv;
     gettimeofday(&tv, NULL);
     time_t seconds = tv.tv_sec;
     struct tm *ptm = gmtime(&seconds);
-    char timebuf[9];
-    strftime(timebuf, 9, "%H:%M:%S", ptm);
-    snprintf(new_format, new_format_len, "[%s.%03d] %s", timebuf, (int)(tv.tv_usec / 1000), format);
 
     // Construct log line
-    char *message;
-    va_list args;
+    strcat(message, "[");
+    strftime(&message[1], 9, "%H:%M:%S", ptm);
+    snprintf(&message[9], 5, ".%03d", (int)(tv.tv_usec / 1000));
+    strcat(message, "] ");
+
     va_start(args, format);
-    vasprintf(&message, new_format, args);
+    vsnprintf(&message[15], len + 1, format, args);
     va_end(args);
-    free(new_format);
 
     // Store messages to update log from main thread
     if (!atomicqueue_push(log_queue, message))
+    {
+        fprintf(stderr, "Failed to push log message. Message has been ignored\n");
         free(message);
+    }
 }

@@ -56,24 +56,6 @@ void millisleep(int ms)
 }
 
 #if (defined _WIN32 || defined _WIN64)
-int vasprintf(char **bufptr, const char *fmt, va_list args)
-{
-    // Get length
-    int len = vsnprintf(NULL, 0, fmt, args);
-    if (len < 0 || (*bufptr = malloc(len + 1)) == NULL)
-        return -1;
-
-    return vsprintf(*bufptr, fmt, args);
-}
-
-int asprintf(char **bufptr, const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    int ret = vasprintf(bufptr, fmt, args);
-    va_end(args);
-    return ret;
-}
 
 char *strndup(const char *s, size_t max)
 {

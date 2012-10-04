@@ -94,13 +94,22 @@ void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args)
 
 // Trigger a fatal error
 // Sets the error message and kills the thread
-static void fatal_timer_error(TimerUnit *timer, char *msg, ...)
+static void fatal_timer_error(TimerUnit *timer, char *format, ...)
 {
-    char *fatal_error;
     va_list args;
-    va_start(args, msg);
-    vasprintf(&fatal_error, msg, args);
+    va_start(args, format);
+    int len = vsnprintf(NULL, 0, format, args);
     va_end(args);
+
+    char *fatal_error = malloc((len + 1)*sizeof(char));
+    if (fatal_error)
+    {
+        va_start(args, format);
+        vsnprintf(fatal_error, len + 1, format, args);
+        va_end(args);
+    }
+    else
+        pn_log("Failed to allocate memory for fatal error");
 
     trigger_fatal_error(fatal_error);
     pthread_exit(NULL);

@@ -24,11 +24,9 @@ static PicamHandle device_handle = NULL;
 static PicamHandle model_handle = NULL;
 static pibyte *image_buffer = NULL;
 
-static void fatal_error(const char *msg, int line)
+static void fatal_error(const char *msg)
 {
-    char *message;
-    asprintf(&message, "FATAL: %s:%d -- %s\n", __FILE__, line, msg);
-    trigger_fatal_error(message);
+    trigger_fatal_error(strdup(msg));
 
     // Attempt to die cleanly
     Picam_StopAcquisition(model_handle);
@@ -102,7 +100,7 @@ static void commit_camera_params()
                 Picam_DestroyString(name);
             }
             Picam_DestroyParameters(failed_params);
-            fatal_error("Parameter commit failed", __LINE__);
+            fatal_error("Parameter commit failed");
         }
         Picam_DestroyParameters(failed_params);
 
@@ -153,10 +151,10 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
     {
         // Print errors
         if (status->errors & PicamAcquisitionErrorsMask_DataLost)
-            pn_log("Error: Data lost", __LINE__);
+            pn_log("ERROR: Data lost. Continuing anyway");
 
         if (status->errors & PicamAcquisitionErrorsMask_ConnectionLost)
-            pn_log("Error: Camera connection lost", __LINE__);
+            pn_log("ERROR: Camera connection lost. Continuing anyway");
     }
 
     // Check for buffer overrun. Should never happen in practice, but we log this
@@ -228,7 +226,7 @@ static void set_readout_port()
     // Set readout port by constraint index
     const PicamCollectionConstraint *adc_port_constraint;
     if (Picam_GetParameterCollectionConstraint(model_handle, PicamParameter_AdcQuality, PicamConstraintCategory_Required, &adc_port_constraint) != PicamError_None)
-        fatal_error("Error determining AdcSpeed Constraints", __LINE__);
+        fatal_error("Error determining AdcSpeed Constraints");
 
     pn_log("Available Readout Ports:");
     for (size_t i = 0; i < adc_port_constraint->values_count; i++)
@@ -262,7 +260,7 @@ static void set_readout_speed()
 {
     const PicamCollectionConstraint *adc_speed_constraint;
     if (Picam_GetParameterCollectionConstraint(model_handle, PicamParameter_AdcSpeed, PicamConstraintCategory_Required, &adc_speed_constraint) != PicamError_None)
-        fatal_error("Error determining AdcSpeed Constraints", __LINE__);
+        fatal_error("Error determining AdcSpeed Constraints");
 
     pn_log("Available Readout Speeds:");
     for (size_t i = 0; i < adc_speed_constraint->values_count; i++)
@@ -288,7 +286,7 @@ static void set_readout_gain()
     // Set readout port by constraint index
     const PicamCollectionConstraint *adc_gain_constraint;
     if (Picam_GetParameterCollectionConstraint(model_handle, PicamParameter_AdcAnalogGain, PicamConstraintCategory_Required, &adc_gain_constraint) != PicamError_None)
-        fatal_error("Error determining AdcGain Constraints", __LINE__);
+        fatal_error("Error determining AdcGain Constraints");
 
     pn_log("Available Gain Settings:");
     for (size_t i = 0; i < adc_gain_constraint->values_count; i++)
@@ -393,7 +391,7 @@ static void initialize_camera()
     // Get chip dimensions
     const PicamRoisConstraint  *constraint;
     if (Picam_GetParameterRoisConstraint(model_handle, PicamParameter_Rois, PicamConstraintCategory_Required, &constraint) != PicamError_None)
-        fatal_error("Error determining ROIs Constraint", __LINE__);
+        fatal_error("Error determining ROIs Constraint");
 
     // Get region definition
     const PicamRois *region;
@@ -401,7 +399,7 @@ static void initialize_camera()
     {
         Picam_DestroyRoisConstraints(constraint);
         Picam_DestroyRois(region);
-        fatal_error("Error determining current ROI", __LINE__);
+        fatal_error("Error determining current ROI");
     }
 
     if (region->roi_count != 1)
@@ -409,7 +407,7 @@ static void initialize_camera()
         pn_log("region has %d ROIs", region->roi_count);
         Picam_DestroyRoisConstraints(constraint);
         Picam_DestroyRois(region);
-        fatal_error("Unsure how to proceed", __LINE__);
+        fatal_error("Unsure how to proceed");
     }
 
     // Set ROI to full chip, with requested binning
@@ -430,7 +428,7 @@ static void initialize_camera()
     {
     	Picam_DestroyRoisConstraints(constraint);
         Picam_DestroyRois(region);
-        fatal_error("Error setting ROI", __LINE__);
+        fatal_error("Error setting ROI");
     }
 
     Picam_DestroyRoisConstraints(constraint);
@@ -456,7 +454,7 @@ static void initialize_camera()
 
     image_buffer = (pibyte *)malloc(buffer_size*frame_stride*sizeof(pibyte));
     if (image_buffer == NULL)
-        fatal_error("Unable to allocate frame buffer", __LINE__);
+        fatal_error("Unable to allocate frame buffer");
 
     PicamAcquisitionBuffer buffer =
     {
@@ -468,7 +466,7 @@ static void initialize_camera()
     if (error != PicamError_None)
     {
         print_error("PicamAdvanced_SetAcquisitionBuffer failed", error);
-        fatal_error("Acquisition setup failed", __LINE__);
+        fatal_error("Acquisition setup failed");
     }
 
     // Commit parameter changes to hardware
@@ -508,7 +506,7 @@ static void start_acquiring()
     if (error != PicamError_None)
     {
         print_error("Picam_StartAcquisition failed", error);
-        fatal_error("Aquisition initialization failed", __LINE__);
+        fatal_error("Aquisition initialization failed");
     }
 
     camera->safe_to_stop_acquiring = false;

@@ -42,8 +42,16 @@ static int run_script(char *script, char *log_prefix)
     char *cwd = getcwd(NULL, 0);
     char *path = canonicalize_path(cwd);
     free(cwd);
-    char *cmd;
-    asprintf(&cmd, "%s --login -c \"cd \\\"%s\\\" && %s", msys_bash_path, path, script);
+
+    size_t cmd_len = strlen(msys_bash_path) + strlen(path) + strlen(script) + 26;
+    char *cmd = malloc(cmd_len*sizeof(char));
+    if (!cmd)
+    {
+        pn_log("ERROR: Unable to allocate script command string");
+        return 1;
+    }
+
+    snprintf(cmd, cmd_len, "%s --login -c \"cd \\\"%s\\\" && %s", msys_bash_path, path, script);
     free(path);
     free(msys_bash_path);
 
