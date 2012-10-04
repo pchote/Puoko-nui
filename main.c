@@ -41,23 +41,12 @@ void queue_framedata(CameraFrame *frame)
     pn_log("Pushed frame. %d in queue", atomicqueue_length(frame_queue));
 }
 
-/*
- * Add a timestamp to the trigger timestamp queue
- */
-void queue_trigger_timestamp(TimerTimestamp timestamp)
+void queue_trigger(TimerTimestamp *timestamp)
 {
-    TimerTimestamp *copy = malloc(sizeof(TimerTimestamp));
-    if (!copy)
-    {
-        trigger_fatal_error("Allocation error in queue_trigger_timestamp");
-        return;
-    }
-
-    memcpy(copy, &timestamp, sizeof(TimerTimestamp));
     pthread_mutex_lock(&reset_mutex);
-    atomicqueue_push(trigger_queue, copy);
+    atomicqueue_push(trigger_queue, timestamp);
     pthread_mutex_unlock(&reset_mutex);
-    pn_log("Pushed timestamp. %d in queue", atomicqueue_length(trigger_queue));
+    pn_log("Pushed trigger. %d in queue", atomicqueue_length(trigger_queue));
 }
 
 // Remove all queued frames and timestamps

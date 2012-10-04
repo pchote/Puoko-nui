@@ -350,19 +350,26 @@ void *pn_timer_thread(void *_args)
             }
             case DOWNLOADTIME:
             {
-                TimerTimestamp t = (TimerTimestamp)
+                TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
+                if (!t)
                 {
-                    .year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00),
-                    .month = data[4],
-                    .day = data[3],
-                    .hours = data[0],
-                    .minutes = data[1],
-                    .seconds = data[2],
-                    .locked = data[7],
-                    .valid = true
-                };
-                pn_log("Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t.year, t.month, t.day, t.hours, t.minutes, t.seconds, t.locked);
-                queue_trigger_timestamp(t);
+                    pn_log("Error allocating CameraFrame. Discarding trigger");
+                    break;
+                }
+
+                t->year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00);
+                t->month = data[4];
+                t->day = data[3];
+                t->hours = data[0];
+                t->minutes = data[1];
+                t->seconds = data[2];
+                t->locked = data[7];
+                t->remaining_exposure = 0;
+                t->valid = true;
+                pn_log("Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
+
+                // Pass ownership to main thread
+                queue_trigger(t);
 
                 // Mark the camera as downloading for UI feedback and shutdown purposes
                 pthread_mutex_lock(&timer->read_mutex);
@@ -449,20 +456,27 @@ void *pn_simulated_timer_thread(void *_args)
             if (timer->simulated_remaining <= 0 && timer->simulated_exptime > 0)
             {
                 timer->simulated_remaining = timer->simulated_exptime;
-                TimerTimestamp t = (TimerTimestamp)
+
+                TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
+                if (!t)
                 {
-                    .year = pc_time->tm_year + 1900,
-                    .month = pc_time->tm_mon,
-                    .day = pc_time->tm_wday,
-                    .hours = pc_time->tm_hour,
-                    .minutes = pc_time->tm_min,
-                    .seconds = pc_time->tm_sec,
-                    .locked = 1,
-                    .remaining_exposure = 0,
-                    .valid = true
-                };
-                pn_log("Simulated Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t.year, t.month, t.day, t.hours, t.minutes, t.seconds, t.locked);
-                queue_trigger_timestamp(t);
+                    pn_log("Error allocating CameraFrame. Discarding trigger");
+                    break;
+                }
+
+                t->year = pc_time->tm_year + 1900;
+                t->month = pc_time->tm_mon;
+                t->day = pc_time->tm_wday;
+                t->hours = pc_time->tm_hour;
+                t->minutes = pc_time->tm_min;
+                t->seconds = pc_time->tm_sec;
+                t->locked = true;
+                t->remaining_exposure = 0;
+                t->valid = true;
+                pn_log("Simulated Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
+
+                // Pass ownership to main thread
+                queue_trigger(t);
 
                 pthread_mutex_lock(&timer->read_mutex);
                 timer->camera_downloading = true;
