@@ -1,9 +1,14 @@
 #!/bin/bash
 
+
+# Load configuration overrides if defined
+if [ -f config.sh ]; then source ./config.sh; fi
+if [ -z "${REDUCTION_FILENAME}" ]; then REDUCTION_FILENAME="undefined.dat"; fi
+
 # Path to online reduction file to update
 # By default, look for the given name in the frame directory
 DIR=`dirname $1`
-FILE=${DIR}/undefined.dat
+FILE=${DIR}/${REDUCTION_FILENAME}
 
 # Do the reduction if the file is found
 if [ -f ${FILE} ]; then

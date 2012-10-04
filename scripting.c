@@ -102,7 +102,7 @@ void *reduction_thread(void *_scripting)
         // Check for new frames to reduce
         if (atomicqueue_length(scripting->new_frames))
         {
-            char *command = strdup("./frame_available.sh ");
+            char *command = strdup("./reduction.sh ");
             
             char *frame;
             while ((frame = atomicqueue_pop(scripting->new_frames)) != NULL)
