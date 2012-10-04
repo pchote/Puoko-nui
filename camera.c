@@ -64,6 +64,7 @@ void pn_camera_spawn_thread(PNCamera *camera, ThreadCreationArgs *args)
 #elif defined USE_PICAM
 		pthread_create(&camera->camera_thread, NULL, pn_picam_camera_thread, (void *)args);
 #else
+        camera->simulated = true;
         pthread_create(&camera->camera_thread, NULL, pn_simulated_camera_thread, (void *)args);
 #endif
     }
@@ -166,6 +167,7 @@ void *pn_simulated_camera_thread(void *_args)
     ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
     TimerUnit *timer = args->timer;
     PNCamera *camera = args->camera;
+    bool first_frame = true;
 
     // Initialize the camera
     camera->safe_to_stop_acquiring = false;
@@ -195,7 +197,7 @@ void *pn_simulated_camera_thread(void *_args)
             // Delay a bit to simulate hardware startup time
             millisleep(2000);
             pn_log("Simulated acquisition run started");
-
+            first_frame = true;
             set_mode(ACQUIRING);
         }
 
@@ -210,35 +212,41 @@ void *pn_simulated_camera_thread(void *_args)
 
         // Check for new frame
         bool downloading = timer_camera_downloading(timer);
-
         if (camera->mode == ACQUIRING && downloading)
         {
-            pn_log("Frame available @ %d", (int)time(NULL));
-
-            // Copy frame data and pass ownership to main thread
-            CameraFrame *frame = malloc(sizeof(CameraFrame));
-            if (frame)
+            if (first_frame)
             {
-                size_t frame_bytes = camera->frame_width*camera->frame_height*sizeof(uint16_t);
-                frame->data = malloc(frame_bytes);
-
-                if (frame->data)
-                {
-                    // Fill frame with random numbers
-                    for (size_t i = 0; i < camera->frame_width*camera->frame_height; i++)
-                        frame->data[i] = rand();
-
-                    frame->width = camera->frame_width;
-                    frame->height = camera->frame_height;
-                    frame->temperature = camera->temperature;
-                    queue_framedata(frame);
-                }
-                else
-                    pn_log("Error allocating CameraFrame->data. Discarding frame");
+                pn_log("Discarding pre-exposure readout");
+                first_frame = false;
             }
             else
-                pn_log("Error allocating CameraFrame. Discarding frame");
+            {
+                pn_log("Frame available @ %d", (int)time(NULL));
 
+                // Copy frame data and pass ownership to main thread
+                CameraFrame *frame = malloc(sizeof(CameraFrame));
+                if (frame)
+                {
+                    size_t frame_bytes = camera->frame_width*camera->frame_height*sizeof(uint16_t);
+                    frame->data = malloc(frame_bytes);
+
+                    if (frame->data)
+                    {
+                        // Fill frame with random numbers
+                        for (size_t i = 0; i < camera->frame_width*camera->frame_height; i++)
+                            frame->data[i] = rand();
+
+                        frame->width = camera->frame_width;
+                        frame->height = camera->frame_height;
+                        frame->temperature = camera->temperature;
+                        queue_framedata(frame);
+                    }
+                    else
+                        pn_log("Error allocating CameraFrame->data. Discarding frame");
+                }
+                else
+                    pn_log("Error allocating CameraFrame. Discarding frame");
+            }
             // There is no physical camera for the timer to monitor
             // so we must toggle this manually
             timer_set_simulated_camera_downloading(timer, false);
