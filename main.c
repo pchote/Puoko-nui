@@ -24,26 +24,19 @@
 #include "platform.h"
 #include "version.h"
 
-struct PNFrameQueue
-{
-    PNFrame *frame;
-    struct PNFrameQueue *next;
-};
-
 struct TimerTimestampQueue
 {
     TimerTimestamp timestamp;
     struct TimerTimestampQueue *next;
 };
 
-pthread_mutex_t frame_queue_mutex, trigger_timestamp_queue_mutex;
+pthread_mutex_t trigger_timestamp_queue_mutex;
 PNCamera *camera;
 TimerUnit *timer;
 ScriptingInterface *scripting;
 
-struct atomicqueue *log_queue;
+struct atomicqueue *log_queue, *frame_queue;
 
-struct PNFrameQueue *frame_queue = NULL;
 struct TimerTimestampQueue *trigger_timestamp_queue = NULL;
 char *fatal_error = NULL;
 
@@ -52,51 +45,13 @@ char *fatal_error = NULL;
 void queue_framedata(PNFrame *frame)
 {
     PNFrame *copy = malloc(sizeof(PNFrame));
-    struct PNFrameQueue *tail = malloc(sizeof(struct PNFrameQueue));
-    if (!copy || !tail)
+    if (!copy)
     {
         trigger_fatal_error("Allocation error in queue_framedata");
         return;
     }
-
-    // Add to frame queue
     memcpy(copy, frame, sizeof(PNFrame));
-    tail->frame = copy;
-    tail->next = NULL;
-
-    pthread_mutex_lock(&frame_queue_mutex);
-    // Empty queue
-    if (frame_queue == NULL)
-        frame_queue = tail;
-    else
-    {
-        // Find tail of queue - queue is assumed to be short
-        struct PNFrameQueue *item = frame_queue;
-        while (item->next != NULL)
-            item = item->next;
-        item->next = tail;
-    }
-    pthread_mutex_unlock(&frame_queue_mutex);
-}
-
-static PNFrame *pop_framedata()
-{
-    pthread_mutex_lock(&frame_queue_mutex);
-    if (frame_queue == NULL)
-    {
-        pthread_mutex_unlock(&frame_queue_mutex);
-        return NULL;
-    }
-
-    // Pop the head frame
-    struct PNFrameQueue *head = frame_queue;
-    frame_queue = frame_queue->next;
-    pthread_mutex_unlock(&frame_queue_mutex);
-
-    PNFrame *frame = head->frame;
-    free(head);
-
-    return frame;
+    atomicqueue_push(frame_queue, copy);
 }
 
 /*
@@ -152,21 +107,22 @@ static TimerTimestamp pop_trigger_timestamp()
     return timestamp;
 }
 
-// Remove all queued frames or timestamps atomically
+// Remove all queued frames or timestamps
 void clear_queued_data()
 {
-    pthread_mutex_lock(&frame_queue_mutex);
     pthread_mutex_lock(&trigger_timestamp_queue_mutex);
 
-    // Other threads have closed, so don't worry about locking
-    while (frame_queue != NULL)
+    // Not quite atomic, but close enough for our needs
+    struct atomicqueue *new_framequeue = atomicqueue_create();
+    if (!new_framequeue)
     {
-        struct PNFrameQueue *next = frame_queue->next;
-        free(frame_queue->frame);
-        free(frame_queue);
-        frame_queue = next;
-        pn_log("Discarding queued framedata");
+        trigger_fatal_error("Failed to allocate framequeue");
+        return;
     }
+
+    struct atomicqueue *old_framequeue = frame_queue;
+    frame_queue = new_framequeue;
+    atomicqueue_destroy(old_framequeue);
 
     while (trigger_timestamp_queue != NULL)
     {
@@ -177,7 +133,6 @@ void clear_queued_data()
     }
 
     pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
-    pthread_mutex_unlock(&frame_queue_mutex);
 }
 
 // Write frame data to a fits file
@@ -363,10 +318,16 @@ int main(int argc, char *argv[])
     }
 
     // Initialization
-    pthread_mutex_init(&frame_queue_mutex, NULL);
     pthread_mutex_init(&trigger_timestamp_queue_mutex, NULL);
 
     log_queue = atomicqueue_create();
+    frame_queue = atomicqueue_create();
+
+    if (!log_queue || !frame_queue)
+    {
+        printf("Failed to allocate queues\n");
+        return 1;
+    }
 
     // Open the log file for writing
     time_t start = time(NULL);
@@ -405,12 +366,11 @@ int main(int argc, char *argv[])
         }
 
         // Process stored frames
-        PNFrame *frame = pop_framedata();
-        while (frame != NULL)
+        PNFrame *frame;
+        while ((frame = atomicqueue_pop(frame_queue)) != NULL)
         {
             process_framedata(frame);
             free(frame);
-            frame = pop_framedata();
         }
 
         // Update UI with queued log messages
@@ -450,7 +410,7 @@ int main(int argc, char *argv[])
     fclose(logFile);
 
     pthread_mutex_destroy(&trigger_timestamp_queue_mutex);
-    pthread_mutex_destroy(&frame_queue_mutex);
+    atomicqueue_destroy(frame_queue);
     atomicqueue_destroy(log_queue);
 
     return 0;
