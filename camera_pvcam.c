@@ -206,20 +206,7 @@ static void initialize_camera()
     if (!pl_cam_open(cameraName, &handle, OPEN_EXCLUSIVE))
         pvcam_error("Cannot open the camera. Are you running as root?");
 
-    // Print the camera firmware version if available
-    char fwver_buf[16] = "Unknown";
-    uns16 fwver;
-    rs_bool avail = FALSE;
-    if (!pl_get_param(handle, PARAM_CAM_FW_VERSION, ATTR_AVAIL, (void *)&avail))
-        pvcam_error("Error querying camera fw version");
-
-    if (avail)
-    {
-        if (pl_get_param(handle, PARAM_CAM_FW_VERSION, ATTR_CURRENT, (void *)&fwver))
-            pvcam_error("Error querying camera fw version");
-        sprintf(fwver_buf, "%d.%d (0x%x)", fwver >> 8, fwver & 0x00FF, fwver);
-    }
-    pn_log("Opened camera `%s`: Firmware version %s", cameraName, fwver_buf);
+    pn_log("Opened camera `%s`", cameraName);
 
     // Check camera status
     if (!pl_cam_get_diags(handle))
