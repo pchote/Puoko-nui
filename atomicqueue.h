@@ -15,5 +15,6 @@ struct atomicqueue *atomicqueue_create();
 void atomicqueue_destroy(struct atomicqueue *queue);
 bool atomicqueue_push(struct atomicqueue *queue, void *object);
 void *atomicqueue_pop(struct atomicqueue *queue);
+size_t atomicqueue_length(struct atomicqueue *queue);
 
 #endif

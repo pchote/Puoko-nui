@@ -91,3 +91,18 @@ void *atomicqueue_pop(struct atomicqueue *queue)
 
     return object;
 }
+
+size_t atomicqueue_length(struct atomicqueue *queue)
+{
+    pthread_mutex_lock(&queue->mutex);
+    size_t count = 0;
+    if (queue->head != NULL)
+    {
+        count++;
+        struct atomicqueueitem *item = queue->head;
+        while ((item = item->next) != NULL)
+            count++;
+    }
+    pthread_mutex_unlock(&queue->mutex);
+    return count;
+}

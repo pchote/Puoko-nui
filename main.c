@@ -24,20 +24,13 @@
 #include "platform.h"
 #include "version.h"
 
-struct TimerTimestampQueue
-{
-    TimerTimestamp timestamp;
-    struct TimerTimestampQueue *next;
-};
 
-pthread_mutex_t trigger_timestamp_queue_mutex;
 PNCamera *camera;
 TimerUnit *timer;
 ScriptingInterface *scripting;
+pthread_mutex_t reset_mutex;
 
-struct atomicqueue *log_queue, *frame_queue;
-
-struct TimerTimestampQueue *trigger_timestamp_queue = NULL;
+struct atomicqueue *log_queue, *frame_queue, *trigger_queue;
 char *fatal_error = NULL;
 
 // Take a copy of the framedata and store it for
@@ -51,7 +44,10 @@ void queue_framedata(PNFrame *frame)
         return;
     }
     memcpy(copy, frame, sizeof(PNFrame));
+    pthread_mutex_lock(&reset_mutex);
     atomicqueue_push(frame_queue, copy);
+    pthread_mutex_unlock(&reset_mutex);
+    pn_log("Pushed frame. %d in queue", atomicqueue_length(frame_queue));
 }
 
 /*
@@ -59,80 +55,39 @@ void queue_framedata(PNFrame *frame)
  */
 void queue_trigger_timestamp(TimerTimestamp timestamp)
 {
-    struct TimerTimestampQueue *tail = malloc(sizeof(struct TimerTimestampQueue));
-    if (tail == NULL)
-        trigger_fatal_error("Unexpected download - no timestamp available for frame");
-
-    tail->timestamp = timestamp;
-    tail->next = NULL;
-
-    pthread_mutex_lock(&trigger_timestamp_queue_mutex);
-    size_t count = 0;
-    // Empty queue
-    if (trigger_timestamp_queue == NULL)
-        trigger_timestamp_queue = tail;
-    else
+    TimerTimestamp *copy = malloc(sizeof(TimerTimestamp));
+    if (!copy)
     {
-        // Find tail of queue - queue is assumed to be short
-        struct TimerTimestampQueue *item = trigger_timestamp_queue;
-        while (item->next != NULL)
-        {
-            item = item->next;
-            count++;
-        }
-        item->next = tail;
-    }
-    count++;
-    pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
-    pn_log("Pushed timestamp. %d in queue", count);
-}
-
-static TimerTimestamp pop_trigger_timestamp()
-{
-    pthread_mutex_lock(&trigger_timestamp_queue_mutex);
-    if (trigger_timestamp_queue == NULL)
-    {
-        pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
-        return (TimerTimestamp) {.valid = false};
-    }
-
-    // Pop the head frame
-    struct TimerTimestampQueue *head = trigger_timestamp_queue;
-    trigger_timestamp_queue = trigger_timestamp_queue->next;
-    pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
-
-    TimerTimestamp timestamp = head->timestamp;
-    free(head);
-
-    return timestamp;
-}
-
-// Remove all queued frames or timestamps
-void clear_queued_data()
-{
-    pthread_mutex_lock(&trigger_timestamp_queue_mutex);
-
-    // Not quite atomic, but close enough for our needs
-    struct atomicqueue *new_framequeue = atomicqueue_create();
-    if (!new_framequeue)
-    {
-        trigger_fatal_error("Failed to allocate framequeue");
+        trigger_fatal_error("Allocation error in queue_trigger_timestamp");
         return;
     }
 
-    struct atomicqueue *old_framequeue = frame_queue;
-    frame_queue = new_framequeue;
-    atomicqueue_destroy(old_framequeue);
+    memcpy(copy, &timestamp, sizeof(TimerTimestamp));
+    pthread_mutex_lock(&reset_mutex);
+    atomicqueue_push(trigger_queue, copy);
+    pthread_mutex_unlock(&reset_mutex);
+    pn_log("Pushed timestamp. %d in queue", atomicqueue_length(trigger_queue));
+}
 
-    while (trigger_timestamp_queue != NULL)
+// Remove all queued frames and timestamps
+void clear_queued_data()
+{
+    void *item;
+    pthread_mutex_lock(&reset_mutex);
+
+    while ((item = atomicqueue_pop(frame_queue)) != NULL)
     {
-        struct TimerTimestampQueue *next = trigger_timestamp_queue->next;
-        free(trigger_timestamp_queue);
-        trigger_timestamp_queue = next;
-        pn_log("Discarding queued timestamp");
+        pn_log("Discarding queued frame");
+        free(item);
     }
 
-    pthread_mutex_unlock(&trigger_timestamp_queue_mutex);
+    while ((item = atomicqueue_pop(trigger_queue)) != NULL)
+    {
+        pn_log("Discarding queued trigger");
+        free(item);
+    }
+
+    pthread_mutex_unlock(&reset_mutex);
 }
 
 // Write frame data to a fits file
@@ -262,9 +217,8 @@ bool save_frame(PNFrame *frame, TimerTimestamp timestamp, float camera_temperatu
     return true;
 }
 
-void process_framedata(PNFrame *frame)
+void process_framedata(PNFrame *frame, TimerTimestamp timestamp)
 {
-    TimerTimestamp timestamp = pop_trigger_timestamp();
     pn_log("Frame downloaded");
     float camera_temperature = pn_camera_temperature();
 
@@ -318,10 +272,11 @@ int main(int argc, char *argv[])
     }
 
     // Initialization
-    pthread_mutex_init(&trigger_timestamp_queue_mutex, NULL);
+    pthread_mutex_init(&reset_mutex, NULL);
 
     log_queue = atomicqueue_create();
     frame_queue = atomicqueue_create();
+    trigger_queue = atomicqueue_create();
 
     if (!log_queue || !frame_queue)
     {
@@ -369,7 +324,15 @@ int main(int argc, char *argv[])
         PNFrame *frame;
         while ((frame = atomicqueue_pop(frame_queue)) != NULL)
         {
-            process_framedata(frame);
+            TimerTimestamp trigger = {.valid = false};
+            TimerTimestamp *ts = atomicqueue_pop(trigger_queue);
+            if (ts)
+            {
+                trigger = *ts;
+                free(ts);
+            }
+
+            process_framedata(frame, trigger);
             free(frame);
         }
 
@@ -409,9 +372,10 @@ int main(int argc, char *argv[])
     pn_ui_free();
     fclose(logFile);
 
-    pthread_mutex_destroy(&trigger_timestamp_queue_mutex);
+    atomicqueue_destroy(trigger_queue);
     atomicqueue_destroy(frame_queue);
     atomicqueue_destroy(log_queue);
+    pthread_mutex_destroy(&reset_mutex);
 
     return 0;
 }
