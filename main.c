@@ -33,19 +33,10 @@ pthread_mutex_t reset_mutex;
 struct atomicqueue *log_queue, *frame_queue, *trigger_queue;
 char *fatal_error = NULL;
 
-// Take a copy of the framedata and store it for
-// processing on the main thread
-void queue_framedata(PNFrame *frame)
+void queue_framedata(CameraFrame *frame)
 {
-    PNFrame *copy = malloc(sizeof(PNFrame));
-    if (!copy)
-    {
-        trigger_fatal_error("Allocation error in queue_framedata");
-        return;
-    }
-    memcpy(copy, frame, sizeof(PNFrame));
     pthread_mutex_lock(&reset_mutex);
-    atomicqueue_push(frame_queue, copy);
+    atomicqueue_push(frame_queue, frame);
     pthread_mutex_unlock(&reset_mutex);
     pn_log("Pushed frame. %d in queue", atomicqueue_length(frame_queue));
 }
@@ -91,7 +82,7 @@ void clear_queued_data()
 }
 
 // Write frame data to a fits file
-bool save_frame(PNFrame *frame, TimerTimestamp timestamp, float camera_temperature, char *filepath)
+bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
 {
     fitsfile *fptr;
     int status = 0;
@@ -200,7 +191,7 @@ bool save_frame(PNFrame *frame, TimerTimestamp timestamp, float camera_temperatu
 
     // Camera temperature
     char tempbuf[15];
-    sprintf(tempbuf, "%0.02f", camera_temperature);
+    sprintf(tempbuf, "%0.02f", camera->temperature);
     fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)tempbuf, "CCD temperature at end of exposure in deg C", &status);
     fits_update_key(fptr, TBYTE,   "CCD-PORT", (uint8_t[]){pn_preference_char(CAMERA_READPORT_MODE)},  "CCD Readout port index", &status);
     fits_update_key(fptr, TBYTE,   "CCD-RATE", (uint8_t[]){pn_preference_char(CAMERA_READSPEED_MODE)}, "CCD Readout rate index", &status);
@@ -217,10 +208,9 @@ bool save_frame(PNFrame *frame, TimerTimestamp timestamp, float camera_temperatu
     return true;
 }
 
-void process_framedata(PNFrame *frame, TimerTimestamp timestamp)
+void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
 {
     pn_log("Frame downloaded");
-    float camera_temperature = pn_camera_temperature();
 
     if (pn_preference_char(SAVE_FRAMES))
     {
@@ -235,7 +225,7 @@ void process_framedata(PNFrame *frame, TimerTimestamp timestamp)
         free(output_dir);
 
         pn_log("Saving frame %s", filepath);
-        if (!save_frame(frame, timestamp, camera_temperature, filepath))
+        if (!save_frame(frame, timestamp, filepath))
         {
             pn_log("Save failed. Discarding frame");
             return;
@@ -247,7 +237,7 @@ void process_framedata(PNFrame *frame, TimerTimestamp timestamp)
     }
 
     // Update frame preview
-    save_frame(frame, timestamp, camera_temperature, "!preview.fits.gz");
+    save_frame(frame, timestamp, "!preview.fits.gz");
     scripting_update_preview(scripting);
 }
 
@@ -321,7 +311,7 @@ int main(int argc, char *argv[])
         }
 
         // Process stored frames
-        PNFrame *frame;
+        CameraFrame *frame;
         while ((frame = atomicqueue_pop(frame_queue)) != NULL)
         {
             TimerTimestamp trigger = {.valid = false};
@@ -333,6 +323,7 @@ int main(int argc, char *argv[])
             }
 
             process_framedata(frame, trigger);
+            free(frame->data);
             free(frame);
         }
 

@@ -23,8 +23,9 @@ typedef struct
 {
     uint16_t width;
     uint16_t height;
-    uint16_t *data; // Pointer to the start of the frame data
-} PNFrame;
+    uint16_t *data;
+    float temperature;
+} CameraFrame;
 
 // Represents a timestamp from the GPS
 typedef struct
@@ -41,7 +42,7 @@ typedef struct
 } TimerTimestamp;
 
 void pn_log(const char * format, ...);
-void queue_framedata(PNFrame *frame);
+void queue_framedata(CameraFrame *frame);
 void queue_trigger_timestamp(TimerTimestamp timestamp);
 void clear_queued_data();
 

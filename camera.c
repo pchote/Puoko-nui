@@ -151,13 +151,11 @@ PNCameraMode pn_camera_mode()
 }
 
 #pragma mark Simulated Camera Routines
-static void *image_buffer = NULL;
 
 // Stop an acquisition sequence
 static void stop_acquiring_simulated()
 {
     set_mode(ACQUIRE_STOP);
-    free(image_buffer);
     pn_log("Acquisition sequence uninitialized");
     set_mode(IDLE);
 }
@@ -194,9 +192,6 @@ void *pn_simulated_camera_thread(void *_args)
             camera->frame_height = 512;
             camera->frame_width = 512;
 
-            // Create a buffer to write a simulated frame to
-            image_buffer = (uint16_t*)malloc(512*512*2);
-
             // Delay a bit to simulate hardware startup time
             millisleep(2000);
             pn_log("Simulated acquisition run started");
@@ -220,16 +215,32 @@ void *pn_simulated_camera_thread(void *_args)
         {
             pn_log("Frame available @ %d", (int)time(NULL));
 
-            // Do something with the frame data
-            PNFrame frame;
-            frame.width = camera->frame_width;
-            frame.height = camera->frame_height;
-            frame.data = image_buffer;
-            queue_framedata(&frame);
+            // Copy frame data and pass ownership to main thread
+            CameraFrame *frame = malloc(sizeof(CameraFrame));
+            if (frame)
+            {
+                size_t frame_bytes = camera->frame_width*camera->frame_height*sizeof(uint16_t);
+                frame->data = malloc(frame_bytes);
+
+                if (frame->data)
+                {
+                    // Fill frame with random numbers
+                    for (size_t i = 0; i < camera->frame_width*camera->frame_height; i++)
+                        frame->data[i] = rand();
+
+                    frame->width = camera->frame_width;
+                    frame->height = camera->frame_height;
+                    frame->temperature = camera->temperature;
+                    queue_framedata(frame);
+                }
+                else
+                    pn_log("Error allocating CameraFrame->data. Discarding frame");
+            }
+            else
+                pn_log("Error allocating CameraFrame. Discarding frame");
 
             // There is no physical camera for the timer to monitor
             // so we must toggle this manually
-
             timer_set_simulated_camera_downloading(timer, false);
         }
 

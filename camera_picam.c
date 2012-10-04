@@ -127,12 +127,25 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
     {
         pn_log("Frame available @ %d", (int)time(NULL));
 
-        // Do something with the frame data
-        PNFrame frame;
-        frame.width = camera->frame_width;
-        frame.height = camera->frame_height;
-        frame.data = data->initial_readout;
-        queue_framedata(&frame);
+        // Copy frame data and pass ownership to main thread
+        CameraFrame *frame = malloc(sizeof(CameraFrame));
+        if (frame)
+        {
+            size_t frame_bytes = camera->frame_width*camera->frame_height*sizeof(uint16_t);
+            frame->data = malloc(frame_bytes);
+            if (frame->data)
+            {
+                memcpy(frame->data, data->initial_readout, frame_bytes);
+                frame->width = camera->frame_width;
+                frame->height = camera->frame_height;
+                frame->temperature = camera->temperature;
+                queue_framedata(frame);
+            }
+            else
+                pn_log("Error allocating CameraFrame->data. Discarding frame");
+        }
+        else
+            pn_log("Error allocating CameraFrame. Discarding frame");
     }
 
     // Error
