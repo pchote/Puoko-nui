@@ -15,6 +15,7 @@
 #include <string.h>
 #include <fitsio.h>
 #include "common.h"
+#include "atomicqueue.h"
 #include "camera.h"
 #include "timer.h"
 #include "scripting.h"
@@ -35,21 +36,15 @@ struct TimerTimestampQueue
     struct TimerTimestampQueue *next;
 };
 
-struct LogMessageQueue
-{
-    char *message;
-    struct LogMessageQueue *next;
-};
-
-pthread_mutex_t log_mutex, frame_queue_mutex, trigger_timestamp_queue_mutex;
-FILE *logFile;
+pthread_mutex_t frame_queue_mutex, trigger_timestamp_queue_mutex;
 PNCamera *camera;
 TimerUnit *timer;
 ScriptingInterface *scripting;
 
+struct atomicqueue *log_queue;
+
 struct PNFrameQueue *frame_queue = NULL;
 struct TimerTimestampQueue *trigger_timestamp_queue = NULL;
-struct LogMessageQueue *log_queue = NULL;
 char *fatal_error = NULL;
 
 // Take a copy of the framedata and store it for
@@ -368,15 +363,16 @@ int main(int argc, char *argv[])
     }
 
     // Initialization
-    pthread_mutex_init(&log_mutex, NULL);
     pthread_mutex_init(&frame_queue_mutex, NULL);
     pthread_mutex_init(&trigger_timestamp_queue_mutex, NULL);
+
+    log_queue = atomicqueue_create();
 
     // Open the log file for writing
     time_t start = time(NULL);
     char namebuf[32];
     strftime(namebuf, 32, "logs/%Y%m%d-%H%M%S.log", gmtime(&start));
-    logFile = fopen(namebuf, "w");
+    FILE *logFile = fopen(namebuf, "w");
     if (logFile == NULL)
     {
         fprintf(stderr, "Unable to create logfile %s\n", namebuf);
@@ -418,18 +414,14 @@ int main(int argc, char *argv[])
         }
 
         // Update UI with queued log messages
-        pthread_mutex_lock(&log_mutex);
-        struct LogMessageQueue *log = log_queue;
-        log_queue = NULL;
-        pthread_mutex_unlock(&log_mutex);
-
-        while (log != NULL)
+        char *log_message;
+        while ((log_message = atomicqueue_pop(log_queue)) != NULL)
         {
-            pn_ui_log_line(log->message);
-            struct LogMessageQueue *next = log->next;
-            free(log->message);
-            free(log);
-            log = next;
+            fprintf(logFile, "%s\n", log_message);
+            fflush(logFile);
+
+            pn_ui_log_line(log_message);
+            free(log_message);
         }
 
         bool request_shutdown = pn_ui_update();
@@ -459,62 +451,37 @@ int main(int argc, char *argv[])
 
     pthread_mutex_destroy(&trigger_timestamp_queue_mutex);
     pthread_mutex_destroy(&frame_queue_mutex);
-    pthread_mutex_destroy(&log_mutex);
+    atomicqueue_destroy(log_queue);
 
     return 0;
 }
 
 // Add a message to the gui and saved log files
-void pn_log(const char * format, ...)
+void pn_log(const char *format, ...)
 {
-    va_list args;
+    // Add timestamp to beginning of format string
+    size_t new_format_len = strlen(format) + 18;
+    char *new_format = malloc(new_format_len*sizeof(char));
+    if (!new_format)
+        return;
 
-    // Log time
     struct timeval tv;
     gettimeofday(&tv, NULL);
     time_t seconds = tv.tv_sec;
     struct tm *ptm = gmtime(&seconds);
     char timebuf[9];
     strftime(timebuf, 9, "%H:%M:%S", ptm);
+    snprintf(new_format, new_format_len, "[%s.%03d] %s", timebuf, (int)(tv.tv_usec / 1000), format);
 
     // Construct log line
-    char *msgbuf, *linebuf;
+    char *message;
+    va_list args;
     va_start(args, format);
-    vasprintf(&msgbuf, format, args);
+    vasprintf(&message, new_format, args);
     va_end(args);
-
-    asprintf(&linebuf, "[%s.%03d] %s", timebuf, (int)(tv.tv_usec / 1000), msgbuf);
-    free(msgbuf);
-
-    pthread_mutex_lock(&log_mutex);
-
-    // Log to file
-    fprintf(logFile, "%s\n", linebuf);
-
-    // Flush output to disk
-    fflush(logFile);
+    free(new_format);
 
     // Store messages to update log from main thread
-    // in next UI update
-    struct LogMessageQueue *tail = malloc(sizeof(struct LogMessageQueue));
-    if (tail)
-    {
-        tail->message = linebuf;
-        tail->next = NULL;
-        // Empty queue
-        if (log_queue == NULL)
-            log_queue = tail;
-        else
-        {
-            // Find tail of queue - queue is assumed to be short
-            struct LogMessageQueue *item = log_queue;
-            while (item->next != NULL)
-                item = item->next;
-            item->next = tail;
-        }
-    }
-    else
-        free(linebuf);
-
-    pthread_mutex_unlock(&log_mutex);
+    if (!atomicqueue_push(log_queue, message))
+        free(message);
 }
