@@ -105,8 +105,17 @@ void pn_init_preferences(const char *path)
                 if (prefs[i].type == STRING)
                 {
                     free(prefs[i].value.s);
-                    // Trim whitespace and the newline from the end of the string
-                    prefs[i].value.s = strndup(linebuf + compare + 2, strlen(linebuf) - compare - 3);
+
+                    // Value starts after the ': ' characters
+                    char *value = linebuf + compare + 2;
+                    size_t value_len = strlen(value);
+
+                    // Remove newline from input
+                    if (value_len > 0)
+                    {
+                        prefs[i].value.s = strdup(value);
+                        prefs[i].value.s[value_len - 1] = '\0';
+                    }
                 }
                 else
                     sscanf(linebuf, prefs[i].format, &prefs[i].value);

@@ -55,28 +55,6 @@ void millisleep(int ms)
     #endif
 }
 
-#if (defined _WIN32 || defined _WIN64)
-
-char *strndup(const char *s, size_t max)
-{
-#ifdef _WIN64
-    size_t len = strnlen(s, max);
-#else
-    size_t len = strlen(s);
-    if (len > max)
-        len = max;
-#endif
-    char *ret = malloc(len + 1);
-    if (ret == NULL)
-        return NULL;
-
-    memcpy(ret, s, len);
-    ret[len] = '\0';
-    return ret;
-}
-
-#endif
-
 // Cross platform equivalent of realpath()
 char *canonicalize_path(const char *path)
 {

@@ -18,8 +18,4 @@ void millisleep(int ms);
 char *canonicalize_path(const char *path);
 int run_command(const char *cmd, char *log_prefix);
 
-#if (defined _WIN32 || defined _WIN64)
-char *strndup(const char *s, size_t max);
-#endif
-
 #endif
