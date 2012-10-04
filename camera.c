@@ -33,7 +33,7 @@ PNCamera *pn_camera_new(bool simulate_hardware)
 {
     PNCamera *camera = malloc(sizeof(PNCamera));
     if (!camera)
-        trigger_fatal_error("Malloc failed while allocating timer");
+        return NULL;
 
     camera->mode = UNINITIALIZED;
     camera->desired_mode = IDLE;

@@ -70,7 +70,7 @@ ScriptingInterface *scripting_new()
 {
     ScriptingInterface *scripting = malloc(sizeof(struct ScriptingInterface));
     if (!scripting)
-        trigger_fatal_error("Malloc failed while allocating scripting");
+        return NULL;
 
     scripting->reduction_thread_initialized = false;
     scripting->preview_thread_initialized = false;
@@ -128,6 +128,11 @@ void *reduction_thread(void *_scripting)
 
             // Construct string
             char *command = malloc(command_length*sizeof(char));
+            if (!command)
+            {
+                pn_log("ERROR: Unable to allocate reduction command string. Skipping reduction");
+                continue;
+            }
             strcpy(command, base);
 
             next = new_frames;

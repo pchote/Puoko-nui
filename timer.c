@@ -64,7 +64,7 @@ TimerUnit *timer_new(bool simulate_hardware)
 {
     TimerUnit *timer = calloc(1, sizeof(struct TimerUnit));
     if (!timer)
-        trigger_fatal_error("Malloc failed while allocating timer");
+        return NULL;
 
     timer->simulated = simulate_hardware;
     pthread_mutex_init(&timer->read_mutex, NULL);
@@ -198,7 +198,10 @@ static void log_raw_data(unsigned char *data, int len)
 {
     char *msg = (char *)malloc((3*len+1)*sizeof(char));
     if (msg == NULL)
-        pn_log("Memory allocation error in log_raw_data");
+    {
+        pn_log("ERROR: Memory allocation error in log_raw_data. Ignoring log message");
+        return;
+    }
 
     for (unsigned char i = 0; i < len; i++)
         snprintf(msg+3*i, 4, "%02x ", data[i]);

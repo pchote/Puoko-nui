@@ -37,17 +37,30 @@ void queue_framedata(CameraFrame *frame)
 {
     frame->downloaded_time = timer_current_timestamp(timer);
     pthread_mutex_lock(&reset_mutex);
-    atomicqueue_push(frame_queue, frame);
+    bool success = atomicqueue_push(frame_queue, frame);
     pthread_mutex_unlock(&reset_mutex);
-    pn_log("Pushed frame. %d in queue", atomicqueue_length(frame_queue));
+
+    if (success)
+        pn_log("Pushed frame. %d in queue", atomicqueue_length(frame_queue));
+    else
+    {
+        pn_log("Error pushing frame. Frame has been ignored");
+        free(frame);
+    }
 }
 
 void queue_trigger(TimerTimestamp *timestamp)
 {
     pthread_mutex_lock(&reset_mutex);
-    atomicqueue_push(trigger_queue, timestamp);
+    bool success = atomicqueue_push(trigger_queue, timestamp);
     pthread_mutex_unlock(&reset_mutex);
-    pn_log("Pushed trigger. %d in queue", atomicqueue_length(trigger_queue));
+    if (success)
+        pn_log("Pushed trigger. %d in queue", atomicqueue_length(trigger_queue));
+    else
+    {
+        pn_log("Error pushing trigger. Frame has been ignored");
+        free(timestamp);
+    }
 }
 
 // Remove all queued frames and timestamps
@@ -205,6 +218,14 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
         char *run_prefix = pn_preference_string(RUN_PREFIX);
         size_t filepath_len = strlen(output_dir) + strlen(run_prefix) + 15;
         char *filepath = malloc(filepath_len*sizeof(char));
+        if (!filepath)
+        {
+            pn_log("filepath alloc failed. Discarding frame");
+            free(run_prefix);
+            free(output_dir);
+            return;
+        }
+
         snprintf(filepath, filepath_len, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number);
         free(run_prefix);
         free(output_dir);
@@ -243,7 +264,10 @@ int main(int argc, char *argv[])
             simulate_camera = true;
 
         if (strcmp(argv[i], "--simulate-timer") == 0)
+        {
             simulate_timer = true;
+            simulate_camera = true;
+        }
     }
 
     // Initialization
@@ -253,9 +277,9 @@ int main(int argc, char *argv[])
     frame_queue = atomicqueue_create();
     trigger_queue = atomicqueue_create();
 
-    if (!log_queue || !frame_queue)
+    if (!log_queue || !frame_queue || !trigger_queue)
     {
-        printf("Failed to allocate queues\n");
+        fprintf(stderr, "Failed to allocate queues\n");
         return 1;
     }
 
@@ -267,13 +291,19 @@ int main(int argc, char *argv[])
     if (logFile == NULL)
     {
         fprintf(stderr, "Unable to create logfile %s\n", namebuf);
-        exit(1);
+        return 1;
     }
 
     pn_init_preferences("preferences.dat");
     timer = timer_new(simulate_timer);
     camera = pn_camera_new(simulate_camera);
     scripting = scripting_new();
+
+    if (!timer || !camera || !scripting)
+    {
+        fprintf(stderr, "Failed to allocate thread components\n");
+        return 1;
+    }
 
     // Start ui early so it can catch log events
     pn_ui_new(camera, timer);

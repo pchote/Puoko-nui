@@ -293,6 +293,8 @@ static void start_acquiring()
 
     // Create a buffer big enough to hold 1 image
     image_buffer = (uns16*)malloc(image_buffer_size);
+    if (image_buffer == NULL)
+        fatal_error("Unable to allocate frame buffer");
 
     // Start waiting for sync pulses to trigger exposures
     if (!pl_exp_start_cont(handle, image_buffer, image_buffer_size))
