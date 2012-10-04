@@ -51,7 +51,7 @@ endif
 # Statically link libgcc and libstdc++ to avoid needing extra dlls under windows
 ifeq ($(MSYSTEM),MINGW32)
     CFLAGS += -DWIN32 -I/usr/local/include
-    LFLAGS += -L/usr/local/lib -Lftd2xx -static-libgcc -static-libstdc++
+    LFLAGS += -L/usr/local/lib -Lftd2xx/win32 -Lftd2xx/win64 -static-libgcc -static-libstdc++
 endif
 
 puokonui : $(OBJS)
