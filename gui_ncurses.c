@@ -24,6 +24,7 @@
 #include "timer.h"
 #include "camera.h"
 #include "preferences.h"
+#include "platform.h"
 #include "common.h"
 
 // Input parsing modes
