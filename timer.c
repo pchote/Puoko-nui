@@ -203,7 +203,7 @@ void *pn_timer_thread(void *_args)
     ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
     TimerUnit *timer = args->timer;
 
-    // Store recieved bytes in a 256 byte circular buffer indexed by an unsigned char
+    // Store received bytes in a 256 byte circular buffer indexed by an unsigned char
     // This ensures the correct circular behavior on over/underflow
     unsigned char input_buf[256];
     unsigned char write_index = 0;
@@ -264,7 +264,7 @@ void *pn_timer_thread(void *_args)
         if (bytes_read == 0)
             continue;
 
-        // Copy recieved bytes into the circular input buffer
+        // Copy received bytes into the circular input buffer
         for (int i = 0; i < bytes_read; i++)
             input_buf[write_index++] = read_buffer[i];
 
@@ -341,7 +341,7 @@ void *pn_timer_thread(void *_args)
                 TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
                 if (!t)
                 {
-                    pn_log("Error allocating CameraFrame. Discarding trigger");
+                    pn_log("Error allocating TimerTimestamp. Discarding trigger");
                     break;
                 }
 
@@ -447,7 +447,7 @@ void *pn_simulated_timer_thread(void *_args)
                 TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
                 if (!t)
                 {
-                    pn_log("Error allocating CameraFrame. Discarding trigger");
+                    pn_log("Error allocating TimerTimestamp. Discarding trigger");
                     break;
                 }
 
