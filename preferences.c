@@ -11,7 +11,7 @@
 #include <pthread.h>
 #include "preferences.h"
 #include "platform.h"
-#include "common.h"
+#include "main.h"
 
 static char *filename;
 static pthread_mutex_t access_mutex;

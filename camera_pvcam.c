@@ -10,7 +10,7 @@
 #include <pthread.h>
 #include <string.h>
 
-#include "common.h"
+#include "main.h"
 #include "camera.h"
 #include "preferences.h"
 #include "platform.h"

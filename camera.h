@@ -11,7 +11,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "common.h"
+#include "main.h"
 
 // Represents the current state of the camera
 typedef enum

@@ -14,7 +14,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <fitsio.h>
-#include "common.h"
+#include "main.h"
 #include "atomicqueue.h"
 #include "camera.h"
 #include "timer.h"

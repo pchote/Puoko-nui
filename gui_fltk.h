@@ -24,7 +24,7 @@ extern "C" {
     #include "timer.h"
     #include "camera.h"
     #include "preferences.h"
-    #include "common.h"
+    #include "main.h"
     #include "platform.h"
     #include "gui.h"
 }

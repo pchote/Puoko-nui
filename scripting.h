@@ -8,7 +8,7 @@
 #ifndef SCRIPTING_H
 #define SCRIPTING_H
 
-#include "common.h"
+#include "main.h"
 
 typedef struct ScriptingInterface ScriptingInterface;
 

@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include "common.h"
+#include "main.h"
 
 #if (defined _WIN32 || defined _WIN64)
     #include <windows.h>

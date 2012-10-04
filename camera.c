@@ -11,7 +11,7 @@
 #include <pthread.h>
 #include <string.h>
 
-#include "common.h"
+#include "main.h"
 #include "camera.h"
 #include "timer.h"
 #include "preferences.h"

@@ -11,7 +11,7 @@
 #include <string.h>
 #include <pthread.h>
 #include "scripting.h"
-#include "common.h"
+#include "main.h"
 #include "preferences.h"
 #include "platform.h"
 

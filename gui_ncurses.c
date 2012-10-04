@@ -25,7 +25,7 @@
 #include "camera.h"
 #include "preferences.h"
 #include "platform.h"
-#include "common.h"
+#include "main.h"
 
 // Input parsing modes
 typedef enum

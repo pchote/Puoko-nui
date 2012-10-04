@@ -12,7 +12,7 @@
 #include <sys/types.h>
 #include <ftd2xx.h>
 #include "timer.h"
-#include "common.h"
+#include "main.h"
 #include "preferences.h"
 #include "platform.h"
 #include "camera.h"

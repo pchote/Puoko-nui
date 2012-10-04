@@ -11,7 +11,7 @@
 #include <time.h>
 #include <stdbool.h>
 #include <pthread.h>
-#include "common.h"
+#include "main.h"
 
 typedef struct TimerUnit TimerUnit;
 
