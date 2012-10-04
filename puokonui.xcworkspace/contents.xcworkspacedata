@@ -23,6 +23,12 @@
       location = "group:main.c">
    </FileRef>
    <FileRef
+      location = "group:atomicqueue.c">
+   </FileRef>
+   <FileRef
+      location = "group:atomicqueue.h">
+   </FileRef>
+   <FileRef
       location = "group:common.h">
    </FileRef>
    <FileRef

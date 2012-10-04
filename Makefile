@@ -10,7 +10,7 @@ CXX      = g++
 CFLAGS   = -g -c -Wall -Wno-unknown-pragmas -Iftd2xx --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
 LFLAGS   = -lcfitsio -lpthread -lftd2xx -lm
-OBJS     = main.o camera.o timer.o preferences.o scripting.o platform.o version.o
+OBJS     = main.o camera.o timer.o preferences.o scripting.o platform.o atomicqueue.o version.o
 
 ifeq ($(CAMERA_TYPE),PVCAM)
 	CFLAGS += -DUSE_PVCAM
