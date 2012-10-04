@@ -148,26 +148,21 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     TimerTimestamp end = start; end.seconds += exposure_time;
     end = pn_timestamp_normalize(end);
 
-    if (timestamp.valid)
-    {
-        char datebuf[15], gpstimebuf[15];
-        sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
-        sprintf(gpstimebuf, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
+    char datebuf[15], gpstimebuf[15];
+    sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
+    sprintf(gpstimebuf, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
 
-        // Used by ImageJ and other programs
-        fits_update_key(fptr, TSTRING, "UT_DATE", datebuf, "Exposure start date (GPS)", &status);
-        fits_update_key(fptr, TSTRING, "UT_TIME", gpstimebuf, "Exposure start time (GPS)", &status);
+    // Used by ImageJ and other programs
+    fits_update_key(fptr, TSTRING, "UT_DATE", datebuf, "Exposure start date (GPS)", &status);
+    fits_update_key(fptr, TSTRING, "UT_TIME", gpstimebuf, "Exposure start time (GPS)", &status);
 
-        // Used by tsreduce
-        fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
-        fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
+    // Used by tsreduce
+    fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
+    fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
 
-        sprintf(gpstimebuf, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
-        fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
-        fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
-    }
-    else
-        fits_update_key(fptr, TLOGICAL, "GPS-VALID", &timestamp.valid, "GPS timestamp unavailable", &status);
+    sprintf(gpstimebuf, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
+    fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
+    fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
 
     time_t pctime = time(NULL);
 
@@ -299,19 +294,16 @@ int main(int argc, char *argv[])
             break;
         }
 
-        // Process stored frames
-        CameraFrame *frame;
-        while ((frame = atomicqueue_pop(frame_queue)) != NULL)
+        // Match frame with trigger and save to disk
+        while (atomicqueue_length(frame_queue) && atomicqueue_length(trigger_queue))
         {
-            TimerTimestamp trigger = {.valid = false};
-            TimerTimestamp *ts = atomicqueue_pop(trigger_queue);
-            if (ts)
-            {
-                trigger = *ts;
-                free(ts);
-            }
+            CameraFrame *frame = atomicqueue_pop(frame_queue);
+            TimerTimestamp *trigger = atomicqueue_pop(trigger_queue);
 
-            process_framedata(frame, trigger);
+            // TODO: Check that the trigger matches the frame
+
+            process_framedata(frame, *trigger);
+            free(trigger);
             free(frame->data);
             free(frame);
         }

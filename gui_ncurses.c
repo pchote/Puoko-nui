@@ -90,10 +90,10 @@ static void update_time_window()
 
     // GPS time
     TimerTimestamp ts = timer_current_timestamp(timer);
-    mvwaddstr(time_window, 1, 13, (ts.locked ? "Locked  " : "Unlocked"));
 
-    if (ts.valid)
+    if (ts.year > 0)
     {
+        mvwaddstr(time_window, 1, 13, (ts.locked ? "Locked     " : "Unlocked   "));
         mvwprintw(time_window, 3, 13, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
 
         if (ts.remaining_exposure > 0)
@@ -103,6 +103,7 @@ static void update_time_window()
     }
     else
     {
+        mvwaddstr(time_window, 1, 13, "Unavailable");
         mvwaddstr(time_window, 3, 13, "Unavailable");
         mvwaddstr(time_window, 4, 13, "Unavailable");
     }

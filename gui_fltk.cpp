@@ -170,7 +170,7 @@ void FLTKGui::updateTimerGroup()
     TimerTimestamp ts = timer_current_timestamp(m_timerRef);
     m_timerStatusOutput->value((ts.locked ? "Locked  " : "Unlocked"));
 
-    if (ts.valid)
+    if (ts.year > 0)
     {
         snprintf(strtime, 30, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
         m_timerUTCTimeOutput->value(strtime);
@@ -188,6 +188,7 @@ void FLTKGui::updateTimerGroup()
     {
         m_timerStatusOutput->value("Unavailable");
         m_timerUTCTimeOutput->value("Unavailable");
+        m_timerCountdownOutput->value("Unavailable");
     }
 }
 

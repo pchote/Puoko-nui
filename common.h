@@ -38,7 +38,6 @@ typedef struct
     int seconds;
     bool locked;
     int remaining_exposure; // for current time
-    bool valid; // true before initialisation and if the download time has been used
 } TimerTimestamp;
 
 void pn_log(const char * format, ...);

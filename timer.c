@@ -62,22 +62,11 @@ void *pn_simulated_timer_thread(void *args);
 // Initialize a new TimerUnit struct.
 TimerUnit *timer_new(bool simulate_hardware)
 {
-    TimerUnit *timer = malloc(sizeof(struct TimerUnit));
+    TimerUnit *timer = calloc(1, sizeof(struct TimerUnit));
     if (!timer)
         trigger_fatal_error("Malloc failed while allocating timer");
 
     timer->simulated = simulate_hardware;
-    timer->simulated_exptime = 0;
-    timer->simulated_remaining = 0;
-    timer->simulated_send_shutdown = false;
-
-    timer->handle = 0;
-    timer->shutdown = false;
-    timer->current_timestamp.valid = false;
-    timer->current_timestamp.locked = false;
-    timer->camera_downloading = 0;
-    timer->send_length = 0;
-
     pthread_mutex_init(&timer->read_mutex, NULL);
     pthread_mutex_init(&timer->sendbuffer_mutex, NULL);
 
@@ -343,7 +332,6 @@ void *pn_timer_thread(void *_args)
                     .seconds = data[2],
                     .locked = data[7],
                     .remaining_exposure = data[8],
-                    .valid = true
                 };
                 pthread_mutex_unlock(&timer->read_mutex);
                 break;
@@ -365,7 +353,6 @@ void *pn_timer_thread(void *_args)
                 t->seconds = data[2];
                 t->locked = data[7];
                 t->remaining_exposure = 0;
-                t->valid = true;
                 pn_log("Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
 
                 // Pass ownership to main thread
@@ -472,7 +459,6 @@ void *pn_simulated_timer_thread(void *_args)
                 t->seconds = pc_time->tm_sec;
                 t->locked = true;
                 t->remaining_exposure = 0;
-                t->valid = true;
                 pn_log("Simulated Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
 
                 // Pass ownership to main thread
@@ -494,7 +480,6 @@ void *pn_simulated_timer_thread(void *_args)
                 .seconds = pc_time->tm_sec,
                 .locked = 1,
                 .remaining_exposure = timer->simulated_remaining,
-                .valid = true
             };
 
             pthread_mutex_unlock(&timer->read_mutex);
