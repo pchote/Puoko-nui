@@ -8,7 +8,13 @@
 #ifndef GUI_FLTK_H
 #define GUI_FLTK_H
 
+// FLTK headers are full of (void *)0 instead of NULLs
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+
+#pragma GCC diagnostic ignored "-Wlong-long"
 #include <FL/Fl.H>
+#pragma GCC diagnostic warning "-Wlong-long"
+
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Output.H>
 #include <FL/Fl_Box.H>
@@ -19,6 +25,8 @@
 #include <FL/Fl_Int_Input.H>
 #include <FL/Fl_Choice.H>
 #include <FL/fl_ask.H>
+
+#pragma GCC diagnostic warning "-Wint-to-pointer-cast"
 
 extern "C" {
     #include "timer.h"
