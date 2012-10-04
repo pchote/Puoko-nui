@@ -10,12 +10,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
-
-#if (defined _WIN32 || defined _WIN64)
-// Required by ftd2xx.h under windows
-#include <windows.h>
-#endif
-
 #include <ftd2xx.h>
 #include "timer.h"
 #include "common.h"
@@ -256,7 +250,7 @@ void *pn_timer_thread(void *_args)
         pthread_mutex_lock(&timer->sendbuffer_mutex);
         if (timer->send_length > 0)
         {
-            unsigned int bytes_written;
+            DWORD bytes_written;
             FT_STATUS status = FT_Write(timer->handle, timer->send_buffer, timer->send_length, &bytes_written);
             if (status == FT_OK)
                 timer->send_length = 0;
@@ -269,7 +263,7 @@ void *pn_timer_thread(void *_args)
             break;
 
         // Check for new data
-        unsigned int bytes_read;
+        DWORD bytes_read;
         unsigned char read_buffer[256];
 
         if (FT_Read(timer->handle, read_buffer, 256, &bytes_read) != FT_OK)

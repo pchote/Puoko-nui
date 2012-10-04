@@ -7,7 +7,7 @@ GUI_TYPE := FLTK
 GIT_SHA1 = $(shell sh -c 'git describe --dirty --always')
 CC       = gcc
 CXX      = g++
-CFLAGS   = -g -c -Wall -Wno-unknown-pragmas -pedantic -Dlinux --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
+CFLAGS   = -g -c -Wall -Wno-unknown-pragmas -Iftd2xx --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
 LFLAGS   = -lcfitsio -lpthread -lftd2xx -lm
 OBJS     = main.o camera.o timer.o preferences.o scripting.o imagehandler.o platform.o version.o
@@ -20,7 +20,7 @@ ifeq ($(CAMERA_TYPE),PVCAM)
         CFLAGS += -Ic:/Program\ Files/Princeton\ Instruments/PVCAM/SDK/
         LFLAGS += -Lc:/Program\ Files/Princeton\ Instruments/PVCAM/SDK/ -lPvcam32
     else
-        CFLAGS += -Ipvcam
+        CFLAGS += -Dlinux -Ipvcam
         LFLAGS += -lpvcam -lraw1394 -ldl
     endif
 endif
@@ -48,9 +48,10 @@ else
     OBJS += gui_ncurses.o
 endif
 
+# Statically link libgcc and libstdc++ to avoid needing extra dlls under windows
 ifeq ($(MSYSTEM),MINGW32)
-    CFLAGS += -DWIN32 -I. -I/usr/local/include -Incurses/include -Incurses/include/ncurses
-    LFLAGS += -L. -L/usr/local/lib -Lncurses/lib
+    CFLAGS += -DWIN32 -I/usr/local/include
+    LFLAGS += -L/usr/local/lib -Lftd2xx -static-libgcc -static-libstdc++
 endif
 
 puokonui : $(OBJS)
