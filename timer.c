@@ -201,7 +201,7 @@ static void log_raw_data(unsigned char *data, int len)
         pn_log("Memory allocation error in log_raw_data");
 
     for (unsigned char i = 0; i < len; i++)
-        sprintf(msg+3*i, "%02x ", data[i]);
+        snprintf(msg+3*i, 4, "%02x ", data[i]);
     pn_log(msg);
     free(msg);
 }

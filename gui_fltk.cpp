@@ -175,8 +175,8 @@ void FLTKGui::updateTimerGroup()
 
         if (ts.remaining_exposure > 0)
         {
-            char buf[30];
-            sprintf(buf, "%03d", ts.remaining_exposure);
+            char buf[4];
+            snprintf(buf, 4, "%03d", ts.remaining_exposure);
             m_timerCountdownOutput->value(buf);
         }
         else
@@ -230,11 +230,11 @@ void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, float
 
     // Camera temperature
     const char *tempstring = "Unavailable";
-    char tempbuf[30];
+    char tempbuf[10];
 
     if (mode == ACQUIRING || mode == IDLE)
     {
-        sprintf(tempbuf, "%0.02f C", temperature);
+        snprintf(tempbuf, 10, "%0.02f C", temperature);
         tempstring = tempbuf;
     }
     m_cameraTemperatureOutput->value(tempstring);

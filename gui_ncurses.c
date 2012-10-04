@@ -159,11 +159,11 @@ static void update_camera_window(PNCameraMode mode, int camera_downloading, floa
 
     // Camera temperature
     char *tempstring = "Unavailable";
-    char tempbuf[30];
+    char tempbuf[10];
     
     if (mode == ACQUIRING || mode == IDLE)
     {
-        sprintf(tempbuf, "%0.02f C     ", temp);
+        snprintf(tempbuf, 10, "%0.02f C     ", temp);
         tempstring = tempbuf;
     }
     mvwaddstr(camera_window, 2, 15, tempstring);
@@ -454,6 +454,7 @@ static WINDOW *create_frametype_window()
 }
 
 int input_entry_margin = 0;
+const size_t input_entry_buf_len = 1024;
 char input_entry_buf[1024];
 int input_entry_length = 0;
 
@@ -682,7 +683,7 @@ bool pn_ui_update()
 
                         input_type = INPUT_EXPOSURE;
 
-                        input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_char(EXPOSURE_TIME));
+                        input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", pn_preference_char(EXPOSURE_TIME));
                         set_input_window_msg("Enter an exposure time: ");
                         update_input_window();
 
@@ -729,28 +730,28 @@ bool pn_ui_update()
                     case 0x10: // ^P - Run Prefix
                         input_type = INPUT_RUN_PREFIX;
 
-                        input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(RUN_PREFIX));
+                        input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%s", pn_preference_string(RUN_PREFIX));
                         set_input_window_msg("Run Prefix: ");
                         is_input = true;
                         break;
                     case 0x13: // ^S - Frame dir
                         input_type = INPUT_FRAME_DIR;
 
-                        input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OUTPUT_DIR));
+                        input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%s", pn_preference_string(OUTPUT_DIR));
                         set_input_window_msg("Output path: ");
                         is_input = true;
                         break;
                     case 0x0f: // ^O - Object name
                         input_type = INPUT_OBJECT_NAME;
 
-                        input_entry_length = sprintf(input_entry_buf, "%s", pn_preference_string(OBJECT_NAME));
+                        input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%s", pn_preference_string(OBJECT_NAME));
                         set_input_window_msg("Target Name: ");
                         is_input = true;
                         break;
                     case 0x0e: // ^N - Frame #
                         input_type = INPUT_FRAME_NUMBER;
 
-                        input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(RUN_NUMBER));
+                        input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", pn_preference_int(RUN_NUMBER));
                         set_input_window_msg("Frame #: ");
                         is_input = true;
                         break;
@@ -762,7 +763,7 @@ bool pn_ui_update()
                     case 0x04: // ^D - Countdown
                         input_type = INPUT_COUNTDOWN_NUMBER;
 
-                        input_entry_length = sprintf(input_entry_buf, "%d", pn_preference_int(CALIBRATION_COUNTDOWN));
+                        input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", pn_preference_int(CALIBRATION_COUNTDOWN));
                         set_input_window_msg("Countdown #: ");
                         is_input = true;
                         break;
@@ -794,7 +795,7 @@ bool pn_ui_update()
                             else
                                 pn_log("Maximum exposure: 255 seconds");
 
-                            input_entry_length = sprintf(input_entry_buf, "%d", oldexp);
+                            input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", oldexp);
                         }
                         else
                         {
@@ -817,7 +818,7 @@ bool pn_ui_update()
                         if (new < 0)
                         {
                             // Invalid entry
-                            input_entry_length = sprintf(input_entry_buf, "%d", oldframe);
+                            input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", oldframe);
                         }
                         else
                         {
@@ -840,7 +841,7 @@ bool pn_ui_update()
                         if (new < 0)
                         {
                             // Invalid entry
-                            input_entry_length = sprintf(input_entry_buf, "%d", oldcount);
+                            input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", oldcount);
                         }
                         else
                         {

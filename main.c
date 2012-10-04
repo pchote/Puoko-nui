@@ -137,10 +137,9 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
         unsigned char skip = pn_preference_char(CAMERA_OVERSCAN_SKIP_COLS);
         unsigned char bias = pn_preference_char(CAMERA_OVERSCAN_BIAS_COLS);
         unsigned char superpixel = pn_preference_char(CAMERA_PIXEL_SIZE);
-        sprintf(buf, "[%d, %d, %d, %d]", 0, frame->width - (skip + bias)/superpixel, 0, frame->height);
+        snprintf(buf, 25, "[%d, %d, %d, %d]", 0, frame->width - (skip + bias)/superpixel, 0, frame->height);
         fits_update_key(fptr, TSTRING, "IMAG-RGN", buf, "Frame image subregion", &status);
-
-        sprintf(buf, "[%d, %d, %d, %d]", frame->width - skip/superpixel, frame->width, 0, frame->height);
+        snprintf(buf, 25, "[%d, %d, %d, %d]", frame->width - skip/superpixel, frame->width, 0, frame->height);
         fits_update_key(fptr, TSTRING, "BIAS-RGN", buf, "Frame bias subregion", &status);
     }
 
@@ -150,8 +149,8 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     timestamp_normalize(&end);
 
     char datebuf[15], gpstimebuf[15];
-    sprintf(datebuf, "%04d-%02d-%02d", start.year, start.month, start.day);
-    sprintf(gpstimebuf, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
+    snprintf(datebuf, 15, "%04d-%02d-%02d", start.year, start.month, start.day);
+    snprintf(gpstimebuf, 15, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
 
     // Used by ImageJ and other programs
     fits_update_key(fptr, TSTRING, "UT_DATE", datebuf, "Exposure start date (GPS)", &status);
@@ -161,7 +160,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
     fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
 
-    sprintf(gpstimebuf, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
+    snprintf(gpstimebuf, 15, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
     fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
     fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
 
@@ -175,8 +174,8 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "PC-TIME", (void *)timebuf, "PC Time when frame was saved to disk", &status);
 
     // Camera temperature
-    char tempbuf[15];
-    sprintf(tempbuf, "%0.02f", camera->temperature);
+    char tempbuf[10];
+    snprintf(tempbuf, 10, "%0.02f", camera->temperature);
     fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)tempbuf, "CCD temperature at end of exposure in deg C", &status);
     fits_update_key(fptr, TBYTE,   "CCD-PORT", (uint8_t[]){pn_preference_char(CAMERA_READPORT_MODE)},  "CCD Readout port index", &status);
     fits_update_key(fptr, TBYTE,   "CCD-RATE", (uint8_t[]){pn_preference_char(CAMERA_READSPEED_MODE)}, "CCD Readout rate index", &status);
