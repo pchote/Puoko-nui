@@ -576,3 +576,9 @@ void timestamp_normalize(TimerTimestamp *ts)
     ts->month = a.tm_mon;
     ts->year = a.tm_year + 1900;
 }
+
+time_t timestamp_to_time_t(TimerTimestamp *ts)
+{
+    struct tm t = {ts->seconds, ts->minutes, ts->hours, ts->day, ts->month, ts->year - 1900,0,0,0};
+    return struct_tm_to_time_t(&t);
+}

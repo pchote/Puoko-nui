@@ -35,6 +35,7 @@ char *fatal_error = NULL;
 
 void queue_framedata(CameraFrame *frame)
 {
+    frame->downloaded_time = timer_current_timestamp(timer);
     pthread_mutex_lock(&reset_mutex);
     atomicqueue_push(frame_queue, frame);
     pthread_mutex_unlock(&reset_mutex);
@@ -300,9 +301,18 @@ int main(int argc, char *argv[])
             CameraFrame *frame = atomicqueue_pop(frame_queue);
             TimerTimestamp *trigger = atomicqueue_pop(trigger_queue);
 
-            // TODO: Check that the trigger matches the frame
-
-            process_framedata(frame, *trigger);
+            // Ensure that the trigger and frame download times are consistent
+            // TODO: This should take the camera readout time into account
+            if (timestamp_to_time_t(&frame->downloaded_time) >= timestamp_to_time_t(trigger))
+                process_framedata(frame, *trigger);
+            else
+            {
+                pn_log("WARNING: Frame downloaded before trigger was received");
+                pn_log("Download timestamp: %02d:%02d:%02d", frame->downloaded_time.hours, frame->downloaded_time.minutes, frame->downloaded_time.seconds);
+                pn_log("Trigger timestamp: %02d:%02d:%02d", trigger->hours, trigger->minutes, trigger->seconds);
+                pn_log("Discarding all stored frames and triggers");
+                clear_queued_data();
+            }
             free(trigger);
             free(frame->data);
             free(frame);

@@ -18,15 +18,6 @@ typedef struct
     struct TimerUnit *timer;
 } ThreadCreationArgs;
 
-// Represents an aquired frame
-typedef struct
-{
-    uint16_t width;
-    uint16_t height;
-    uint16_t *data;
-    float temperature;
-} CameraFrame;
-
 // Represents a timestamp from the GPS
 typedef struct
 {
@@ -39,6 +30,16 @@ typedef struct
     bool locked;
     int remaining_exposure; // for current time
 } TimerTimestamp;
+
+// Represents an aquired frame
+typedef struct
+{
+    uint16_t width;
+    uint16_t height;
+    uint16_t *data;
+    float temperature;
+    TimerTimestamp downloaded_time;
+} CameraFrame;
 
 void pn_log(const char * format, ...);
 void queue_framedata(CameraFrame *frame);

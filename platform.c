@@ -22,16 +22,25 @@
 
 #include "platform.h"
 
-void normalize_tm(struct tm *t)
+time_t struct_tm_to_time_t(struct tm *t)
 {
 #ifdef _WIN32
-    time_t b = mktime(t);
+    return mktime(t);
+#elif defined _WIN64
+    return _mkgmtime(t);
+#else
+    return timegm(t);
+#endif
+}
+
+void normalize_tm(struct tm *t)
+{
+    time_t b = struct_tm_to_time_t(t);
+#ifdef _WIN32
     *t = *localtime(&b);
 #elif defined _WIN64
-    time_t b = _mkgmtime(t);
     gmtime_s(&b, t);
 #else
-    time_t b = timegm(t);
     gmtime_r(&b, t);
 #endif
 }

@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include <time.h>
 
+time_t struct_tm_to_time_t(struct tm *t);
 void normalize_tm(struct tm *t);
 void millisleep(int ms);
 char *canonicalize_path(const char *path);
