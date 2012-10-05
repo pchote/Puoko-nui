@@ -297,6 +297,108 @@ static void read_data(TimerUnit *timer, uint8_t read_buffer[256], uint8_t *bytes
 #endif
 }
 
+static void parse_packet(TimerUnit *timer, uint8_t *packet, uint8_t packet_length)
+{
+    uint8_t packet_type = packet[2];
+    uint8_t data_length = packet[3];
+    uint8_t *data = &packet[4];
+    uint8_t data_checksum = packet[packet_length - 3];
+
+    // Check that the packet ends correctly
+    if (packet[packet_length - 2] != '\r' || packet[packet_length - 1] != '\n')
+    {
+        pn_log("Invalid packet length, expected %d", packet_length);
+        log_raw_data(packet, packet_length);
+        return;
+    }
+
+    // Verify packet checksum
+    unsigned char csm = checksum(data, data_length);
+    if (csm != data_checksum)
+    {
+        pn_log("Invalid packet checksum. Got 0x%02x, expected 0x%02x", csm, data_checksum);
+        return;
+    }
+
+    // Handle packet
+    switch (packet_type)
+    {
+        case CURRENTTIME:
+        {
+            pthread_mutex_lock(&timer->read_mutex);
+            timer->current_timestamp = (TimerTimestamp)
+            {
+                .year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00),
+                .month = data[4],
+                .day = data[3],
+                .hours = data[0],
+                .minutes = data[1],
+                .seconds = data[2],
+                .locked = data[7],
+                .remaining_exposure = data[8],
+            };
+            pthread_mutex_unlock(&timer->read_mutex);
+            break;
+        }
+        case DOWNLOADTIME:
+        {
+            TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
+            if (!t)
+            {
+                pn_log("Error allocating TimerTimestamp. Discarding trigger");
+                break;
+            }
+
+            t->year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00);
+            t->month = data[4];
+            t->day = data[3];
+            t->hours = data[0];
+            t->minutes = data[1];
+            t->seconds = data[2];
+            t->locked = data[7];
+            t->remaining_exposure = 0;
+            pn_log("Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
+
+            // Pass ownership to main thread
+            queue_trigger(t);
+
+            // Mark the camera as downloading for UI feedback and shutdown purposes
+            pthread_mutex_lock(&timer->read_mutex);
+            timer->camera_downloading = true;
+            pthread_mutex_unlock(&timer->read_mutex);
+            break;
+        }
+        case DOWNLOADCOMPLETE:
+        {
+            pthread_mutex_lock(&timer->read_mutex);
+            timer->camera_downloading = false;
+            pthread_mutex_unlock(&timer->read_mutex);
+            break;
+        }
+        case DEBUG_STRING:
+        {
+            packet[packet_length - 3] = '\0';
+            pn_log("GPS Debug: `%s`", data);
+            break;
+        }
+        case DEBUG_RAW:
+        {
+            log_raw_data(data, data_length);
+            break;
+        }
+        case STOP_EXPOSURE:
+        {
+            pn_log("Timer reports safe to shutdown camera");
+            pn_camera_notify_safe_to_stop();
+            break;
+        }
+        default:
+        {
+            pn_log("Unknown packet type %02x", packet_type);
+        }
+    }
+}
+
 // Main timer thread loop
 void *pn_timer_thread(void *_args)
 {
@@ -305,14 +407,14 @@ void *pn_timer_thread(void *_args)
 
     // Store received bytes in a 256 byte circular buffer indexed by an unsigned char
     // This ensures the correct circular behavior on over/underflow
-    unsigned char input_buf[256];
-    unsigned char write_index = 0;
-    unsigned char read_index = 0;
+    uint8_t input_buf[256];
+    uint8_t write_index = 0;
+    uint8_t read_index = 0;
 
     // Current packet storage
-    unsigned char packet[256];
-    unsigned char packet_length = 0;
-    unsigned char packet_expected_length = 0;
+    uint8_t packet[256];
+    uint8_t packet_length = 0;
+    uint8_t packet_expected_length = 0;
     TimerUnitPacketType packet_type = UNKNOWN_PACKET;
 
     // Initialization
@@ -342,15 +444,15 @@ void *pn_timer_thread(void *_args)
         read_data(timer, read_buffer, &bytes_read);
 
         // Copy received bytes into the circular input buffer
-        for (int i = 0; i < bytes_read; i++)
+        for (uint8_t i = 0; i < bytes_read; i++)
             input_buf[write_index++] = read_buffer[i];
 
         // Sync to the start of a data packet
         for (; packet_type == UNKNOWN_PACKET && read_index != write_index; read_index++)
         {
-            if (input_buf[(unsigned char)(read_index - 3)] == '$' &&
-                input_buf[(unsigned char)(read_index - 2)] == '$' &&
-                input_buf[(unsigned char)(read_index - 1)] != '$')
+            if (input_buf[(uint8_t)(read_index - 3)] == '$' &&
+                input_buf[(uint8_t)(read_index - 2)] == '$' &&
+                input_buf[(uint8_t)(read_index - 1)] != '$')
             {
                 packet_type = input_buf[(unsigned char)(read_index - 1)];
                 packet_expected_length = input_buf[read_index] + 7;
@@ -365,115 +467,14 @@ void *pn_timer_thread(void *_args)
         for (; read_index != write_index && packet_length != packet_expected_length; read_index++)
             packet[packet_length++] = input_buf[read_index];
 
-        // Waiting for more data
-        if (packet_type == UNKNOWN_PACKET || packet_length < packet_expected_length)
-            continue;
-
-        //
-        // End of packet
-        //
-        unsigned char data_length = packet[3];
-        unsigned char *data = &packet[4];
-        unsigned char data_checksum = packet[packet_length - 3];
-
-        // Check that the packet ends correctly
-        if (packet[packet_length - 2] != '\r' || packet[packet_length - 1] != '\n')
+        // Packet ready to parse
+        if (packet_length == packet_expected_length && packet_type != UNKNOWN_PACKET)
         {
-            pn_log("Invalid packet length, expected %d", packet_expected_length);
-            log_raw_data(packet, packet_expected_length);
-            goto resetpacket;
+            parse_packet(timer, packet, packet_length);
+            packet_length = 0;
+            packet_expected_length = 0;
+            packet_type = UNKNOWN_PACKET;
         }
-
-        // Verify packet checksum
-        unsigned char csm = checksum(data, data_length);
-        if (csm != data_checksum)
-        {
-            pn_log("Invalid packet checksum. Got 0x%02x, expected 0x%02x", csm, data_checksum);
-            goto resetpacket;
-        }
-
-        // Handle packet
-        switch(packet_type)
-        {
-            case CURRENTTIME:
-            {
-                pthread_mutex_lock(&timer->read_mutex);
-                timer->current_timestamp = (TimerTimestamp)
-                {
-                    .year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00),
-                    .month = data[4],
-                    .day = data[3],
-                    .hours = data[0],
-                    .minutes = data[1],
-                    .seconds = data[2],
-                    .locked = data[7],
-                    .remaining_exposure = data[8],
-                };
-                pthread_mutex_unlock(&timer->read_mutex);
-                break;
-            }
-            case DOWNLOADTIME:
-            {
-                TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
-                if (!t)
-                {
-                    pn_log("Error allocating TimerTimestamp. Discarding trigger");
-                    break;
-                }
-
-                t->year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00);
-                t->month = data[4];
-                t->day = data[3];
-                t->hours = data[0];
-                t->minutes = data[1];
-                t->seconds = data[2];
-                t->locked = data[7];
-                t->remaining_exposure = 0;
-                pn_log("Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
-
-                // Pass ownership to main thread
-                queue_trigger(t);
-
-                // Mark the camera as downloading for UI feedback and shutdown purposes
-                pthread_mutex_lock(&timer->read_mutex);
-                timer->camera_downloading = true;
-                pthread_mutex_unlock(&timer->read_mutex);
-                break;
-            }
-            case DOWNLOADCOMPLETE:
-            {
-                pthread_mutex_lock(&timer->read_mutex);
-                timer->camera_downloading = false;
-                pthread_mutex_unlock(&timer->read_mutex);
-                break;
-            }
-            case DEBUG_STRING:
-            {
-                packet[packet_length - 3] = '\0';
-                pn_log("GPS Debug: `%s`", data);
-                break;
-            }
-            case DEBUG_RAW:
-            {
-                log_raw_data(data, data_length);
-                break;
-            }
-            case STOP_EXPOSURE:
-            {
-                pn_log("Timer reports safe to shutdown camera");
-                pn_camera_notify_safe_to_stop();
-                break;
-            }
-            default:
-            {
-                pn_log("Unknown packet type %02x", packet_type);
-            }
-        }
-
-    resetpacket:
-        packet_length = 0;
-        packet_expected_length = 0;
-        packet_type = UNKNOWN_PACKET;
     }
 
     // Uninitialize the timer connection and exit
