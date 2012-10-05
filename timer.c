@@ -447,33 +447,36 @@ void *pn_timer_thread(void *_args)
         for (uint8_t i = 0; i < bytes_read; i++)
             input_buf[write_index++] = read_buffer[i];
 
-        // Sync to the start of a data packet
-        for (; packet_type == UNKNOWN_PACKET && read_index != write_index; read_index++)
+        while (read_index != write_index)
         {
-            if (input_buf[(uint8_t)(read_index - 3)] == '$' &&
-                input_buf[(uint8_t)(read_index - 2)] == '$' &&
-                input_buf[(uint8_t)(read_index - 1)] != '$')
+            // Sync to the start of a data packet
+            for (; packet_type == UNKNOWN_PACKET && read_index != write_index; read_index++)
             {
-                packet_type = input_buf[(unsigned char)(read_index - 1)];
-                packet_expected_length = input_buf[read_index] + 7;
-                read_index -= 3;
+                if (input_buf[(uint8_t)(read_index - 3)] == '$' &&
+                    input_buf[(uint8_t)(read_index - 2)] == '$' &&
+                    input_buf[(uint8_t)(read_index - 1)] != '$')
+                {
+                    packet_type = input_buf[(unsigned char)(read_index - 1)];
+                    packet_expected_length = input_buf[read_index] + 7;
+                    read_index -= 3;
 
-                //pn_log("sync packet 0x%02x, length %d", packet_type, packet_expected_length);
-                break;
+                    //pn_log("sync packet 0x%02x, length %d", packet_type, packet_expected_length);
+                    break;
+                }
             }
-        }
 
-        // Copy packet data into a buffer for parsing
-        for (; read_index != write_index && packet_length != packet_expected_length; read_index++)
-            packet[packet_length++] = input_buf[read_index];
+            // Copy packet data into a buffer for parsing
+            for (; read_index != write_index && packet_length != packet_expected_length; read_index++)
+                packet[packet_length++] = input_buf[read_index];
 
-        // Packet ready to parse
-        if (packet_length == packet_expected_length && packet_type != UNKNOWN_PACKET)
-        {
-            parse_packet(timer, packet, packet_length);
-            packet_length = 0;
-            packet_expected_length = 0;
-            packet_type = UNKNOWN_PACKET;
+            // Packet ready to parse
+            if (packet_length == packet_expected_length && packet_type != UNKNOWN_PACKET)
+            {
+                parse_packet(timer, packet, packet_length);
+                packet_length = 0;
+                packet_expected_length = 0;
+                packet_type = UNKNOWN_PACKET;
+            }
         }
     }
 
