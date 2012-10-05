@@ -10,7 +10,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
-#include <ftd2xx.h>
+#ifdef USE_LIBFTDI
+#   include <ftdi.h>
+#else
+#   include <ftd2xx.h>
+#endif
 #include "timer.h"
 #include "main.h"
 #include "preferences.h"
@@ -28,7 +32,12 @@ struct TimerUnit
     int simulated_remaining;
     bool simulated_send_shutdown;
 
+#ifdef USE_LIBFTDI
+    struct ftdi_context *context;
+#else
     FT_HANDLE handle;
+#endif
+
     bool shutdown;
     TimerTimestamp current_timestamp;
     bool camera_downloading;
@@ -163,6 +172,38 @@ static void queue_data(TimerUnit *timer, unsigned char type, unsigned char *data
 // Initialize the usb connection to the timer
 static void initialize_timer(TimerUnit *timer)
 {
+#ifdef USE_LIBFTDI
+    timer->context = ftdi_new();
+    if (timer->context == NULL)
+        fatal_timer_error(timer, "Error creating timer context");
+
+    if (ftdi_init(timer->context) < 0)
+        fatal_timer_error(timer, "Error initializing timer context: %s", timer->context->error_str);
+
+    // Open the first available FTDI device, under the
+    // assumption that it is the timer
+    while (!timer->shutdown)
+    {
+        if (ftdi_usb_open(timer->context, 0x0403, 0x6001) == 0)
+            break;
+
+        pn_log("Waiting for timer...");
+        millisleep(500);
+    }
+
+    if (ftdi_set_baudrate(timer->context, 250000) < 0)
+        fatal_timer_error(timer, "Error setting timer baudrate: %s", timer->context->error_str);
+
+    if (ftdi_set_line_property(timer->context, BITS_8, STOP_BIT_1, NONE) < 0)
+        fatal_timer_error(timer, "Error setting timer data frame properties: %s", timer->context->error_str);
+
+    if (ftdi_setflowctrl(timer->context, SIO_DISABLE_FLOW_CTRL) < 0)
+        fatal_timer_error(timer, "Error setting timer flow control: %s", timer->context->error_str);
+
+    // the latency in milliseconds before partially full bit buffers are sent.
+    if (ftdi_set_latency_timer(timer->context, 1) < 0)
+        fatal_timer_error(timer, "Error setting timer read timeout: %s", timer->context->error_str);
+#else
     // Open the first available FTDI device, under the
     // assumption that it is the timer
     while (!timer->shutdown)
@@ -185,13 +226,23 @@ static void initialize_timer(TimerUnit *timer)
     // Set read timeout to 1ms, write timeout unchanged
     if (FT_SetTimeouts(timer->handle, 1, 0) != FT_OK)
         fatal_timer_error(timer, "Error setting timer read timeout");
+#endif
 }
 
 // Close the usb connection to the timer
 static void uninitialize_timer(TimerUnit *timer)
 {
     pn_log("Closing timer");
+#ifdef USE_LIBFTDI
+    if (ftdi_usb_close(timer->context) < 0)
+        fatal_timer_error(timer, "Error closing timer connection");
+
+    ftdi_deinit(timer->context);
+    ftdi_free(timer->context);
+    timer->context = NULL;
+#else
     FT_Close(timer->handle);
+#endif
 }
 
 static void log_raw_data(unsigned char *data, int len)
@@ -207,6 +258,43 @@ static void log_raw_data(unsigned char *data, int len)
         snprintf(msg+3*i, 4, "%02x ", data[i]);
     pn_log(msg);
     free(msg);
+}
+
+static void write_data(TimerUnit *timer)
+{
+    pthread_mutex_lock(&timer->sendbuffer_mutex);
+    if (timer->send_length > 0)
+    {
+#ifdef USE_LIBFTDI
+        if (ftdi_write_data(timer->context, timer->send_buffer, timer->send_length) == timer->send_length)
+            timer->send_length = 0;
+        else
+            pn_log("Error sending send buffer");
+#else
+        DWORD bytes_written;
+        FT_STATUS status = FT_Write(timer->handle, timer->send_buffer, timer->send_length, &bytes_written);
+        if (status == FT_OK && bytes_written == timer->send_length)
+            timer->send_length = 0;
+        else
+            pn_log("Error sending timer buffer");
+#endif
+    }
+    pthread_mutex_unlock(&timer->sendbuffer_mutex);
+}
+
+static void read_data(TimerUnit *timer, uint8_t read_buffer[256], uint8_t *bytes_read)
+{
+#ifdef USE_LIBFTDI
+    *bytes_read = ftdi_read_data(timer->context, read_buffer, 255);
+    if (bytes_read < 0)
+        fatal_timer_error(timer, "Timer I/O error");
+#else
+    DWORD read;
+    if (FT_Read(timer->handle, read_buffer, 255, &read) != FT_OK)
+        fatal_timer_error(timer, "Timer I/O error");
+
+    *bytes_read = (uint8_t)read;
+#endif
 }
 
 // Main timer thread loop
@@ -227,8 +315,6 @@ void *pn_timer_thread(void *_args)
     unsigned char packet_expected_length = 0;
     TimerUnitPacketType packet_type = UNKNOWN_PACKET;
 
-    unsigned char error_count = 0;
-
     // Initialization
     initialize_timer(timer);
 
@@ -240,46 +326,24 @@ void *pn_timer_thread(void *_args)
     {
         millisleep(100);
 
-        if (error_count >= 10)
-            fatal_timer_error(timer, "Maximum error count reached. Exiting");
-
         // Reset the timer before shutting down
         if (timer->shutdown)
             queue_data(timer, RESET, NULL, 0);
 
         // Send any data in the send buffer
-        pthread_mutex_lock(&timer->sendbuffer_mutex);
-        if (timer->send_length > 0)
-        {
-            DWORD bytes_written;
-            FT_STATUS status = FT_Write(timer->handle, timer->send_buffer, timer->send_length, &bytes_written);
-            if (status == FT_OK)
-                timer->send_length = 0;
-            else
-                pn_log("Error sending timer buffer. Current error count: %d", ++error_count);
-        }
-        pthread_mutex_unlock(&timer->sendbuffer_mutex);
+        write_data(timer);
 
         if (timer->shutdown)
             break;
 
         // Check for new data
-        DWORD bytes_read;
-        unsigned char read_buffer[256];
-
-        if (FT_Read(timer->handle, read_buffer, 256, &bytes_read) != FT_OK)
-        {
-            pn_log("Error reading timer buffer. Current error count: %d", ++error_count);
-            bytes_read = 0;
-        }
-
-        if (bytes_read == 0)
-            continue;
+        uint8_t bytes_read;
+        uint8_t read_buffer[256];
+        read_data(timer, read_buffer, &bytes_read);
 
         // Copy received bytes into the circular input buffer
         for (int i = 0; i < bytes_read; i++)
             input_buf[write_index++] = read_buffer[i];
-
 
         // Sync to the start of a data packet
         for (; packet_type == UNKNOWN_PACKET && read_index != write_index; read_index++)

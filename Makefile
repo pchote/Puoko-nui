@@ -2,14 +2,14 @@ CAMERA_TYPE := NONE
 #CAMERA_TYPE := PVCAM
 #CAMERA_TYPE := PICAM
 GUI_TYPE := FLTK
-
+USB_TYPE := LIBFTDI
 
 GIT_SHA1 = $(shell sh -c 'git describe --dirty --always')
 CC       = gcc
 CXX      = g++
-CFLAGS   = -g -c -Wall -Wno-unknown-pragmas -Iftd2xx --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
+CFLAGS   = -g -c -Wall -Wno-unknown-pragmas --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
-LFLAGS   = -lcfitsio -lpthread -lftd2xx -lm
+LFLAGS   = -lcfitsio -lpthread -lm
 OBJS     = main.o camera.o timer.o preferences.o scripting.o platform.o atomicqueue.o version.o
 
 ifeq ($(CAMERA_TYPE),PVCAM)
@@ -47,6 +47,15 @@ else
     LFLAGS += -lpanel -lncurses
     OBJS += gui_ncurses.o
 endif
+
+ifeq ($(USB_TYPE),LIBFTDI)
+    CFLAGS += -DUSE_LIBFTDI
+    LFLAGS += -lftdi
+else
+    CFLAGS += -Iftd2xx
+    LFLAGS += -lftd2xx
+endif
+
 
 # Statically link libgcc and libstdc++ to avoid needing extra dlls under windows
 ifeq ($(MSYSTEM),MINGW32)
