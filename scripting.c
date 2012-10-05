@@ -40,7 +40,7 @@ static int run_script(char *script, char *log_prefix)
     char *cmd = malloc(cmd_len*sizeof(char));
     if (!cmd)
     {
-        pn_log("ERROR: Unable to allocate script command string");
+        pn_log("Failed to allocate command string. Skipping script.");
         return 1;
     }
 
@@ -112,7 +112,7 @@ void *reduction_thread(void *_scripting)
                 command = realloc(command, command_len + frame_len + 4);
                 if (!command)
                 {
-                    pn_log("Error allocating reduction command string. Skipping reduction");
+                    pn_log("Failed to allocate reduction string. Skipping reduction");
                     break;
                 }
                 snprintf(command + command_len, frame_len + 4, "\"%s\" ", frame);
@@ -120,9 +120,7 @@ void *reduction_thread(void *_scripting)
 
             if (command)
             {
-                pn_log("Scripting: Running reduction script");
-                run_script(command, "Reduction Script: ");
-                pn_log("Scripting: Reduction script complete");
+                run_script(command, "Reduction: ");
                 free(command);
             }
         }
@@ -136,9 +134,7 @@ void *preview_thread(void *_scripting)
     ScriptingInterface *scripting = (ScriptingInterface *)_scripting;
 
     // Run startup script
-    pn_log("Scripting: Running startup script");
     run_script("./startup.sh", "Startup Script: ");
-    pn_log("Scripting: Startup script complete");
 
     // Loop until shutdown, parsing incoming data
     while (true)
@@ -153,9 +149,8 @@ void *preview_thread(void *_scripting)
 
         if (preview_available)
         {
-            pn_log("Scripting: Running preview script");
-            run_script("./preview.sh", "Preview script: ");
-            pn_log("Scripting: Preview script complete");
+            pn_log("Updating preview.");
+            run_script("./preview.sh", "Startup: ");
         }
     }
 
@@ -173,12 +168,12 @@ void scripting_notify_frame(ScriptingInterface *scripting, const char *filepath)
     char *copy = strdup(filepath);
     if (!copy)
     {
-        pn_log("Error duplicating filepath string. Skipping reduction notification");
+        pn_log("Failed to duplicate filepath. Skipping reduction notification");
         return;
     }
 
     if (!atomicqueue_push(scripting->new_frames, copy))
-        pn_log("Error pushing filepath. Reduction notification has been ignored");
+        pn_log("Failed to push filepath. Reduction notification has been ignored");
 }
 
 void scripting_shutdown(ScriptingInterface *scripting)

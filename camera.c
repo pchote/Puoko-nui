@@ -157,7 +157,7 @@ PNCameraMode pn_camera_mode()
 static void stop_acquiring_simulated()
 {
     set_mode(ACQUIRE_STOP);
-    pn_log("Acquisition sequence uninitialized");
+    pn_log("Camera is now idle.");
     set_mode(IDLE);
 }
 
@@ -171,11 +171,11 @@ void *pn_simulated_camera_thread(void *_args)
 
     // Initialize the camera
     camera->safe_to_stop_acquiring = false;
-    pn_log("Initialising simulated camera");
+    pn_log("Initialising simulated Camera.");
 
     // Wait a bit to simulate hardware startup time
     millisleep(2000);
-    pn_log("Camera initialized");
+    pn_log("Camera is now idle.");
     set_mode(IDLE);
 
     // Loop and respond to user commands
@@ -196,7 +196,7 @@ void *pn_simulated_camera_thread(void *_args)
 
             // Delay a bit to simulate hardware startup time
             millisleep(2000);
-            pn_log("Simulated acquisition run started");
+            pn_log("Camera is now acquiring.");
             first_frame = true;
             set_mode(ACQUIRING);
         }
@@ -216,13 +216,11 @@ void *pn_simulated_camera_thread(void *_args)
         {
             if (first_frame)
             {
-                pn_log("Discarding pre-exposure readout");
+                pn_log("Discarding pre-exposure readout.");
                 first_frame = false;
             }
             else
             {
-                pn_log("Frame available @ %d", (int)time(NULL));
-
                 // Copy frame data and pass ownership to main thread
                 CameraFrame *frame = malloc(sizeof(CameraFrame));
                 if (frame)
@@ -242,10 +240,10 @@ void *pn_simulated_camera_thread(void *_args)
                         queue_framedata(frame);
                     }
                     else
-                        pn_log("Error allocating CameraFrame->data. Discarding frame");
+                        pn_log("Failed to allocate CameraFrame->data. Discarding frame.");
                 }
                 else
-                    pn_log("Error allocating CameraFrame. Discarding frame");
+                    pn_log("Failed to allocate CameraFrame. Discarding frame.");
             }
             // There is no physical camera for the timer to monitor
             // so we must toggle this manually

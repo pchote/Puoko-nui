@@ -36,30 +36,38 @@ char *fatal_error = NULL;
 void queue_framedata(CameraFrame *frame)
 {
     frame->downloaded_time = timer_current_timestamp(timer);
+    TimerTimestamp *t = &frame->downloaded_time;
+
     pthread_mutex_lock(&reset_mutex);
     bool success = atomicqueue_push(frame_queue, frame);
     pthread_mutex_unlock(&reset_mutex);
 
     if (success)
-        pn_log("Pushed frame. %d in queue", atomicqueue_length(frame_queue));
+        pn_log("Frame @ %02d:%02d:%02d. %d queued.",
+               t->hours, t->minutes, t->seconds,
+               atomicqueue_length(frame_queue));
     else
     {
-        pn_log("Error pushing frame. Frame has been ignored");
+        pn_log("Failed to push frame. Discarding.");
         free(frame);
     }
 }
 
-void queue_trigger(TimerTimestamp *timestamp)
+void queue_trigger(TimerTimestamp *t)
 {
     pthread_mutex_lock(&reset_mutex);
-    bool success = atomicqueue_push(trigger_queue, timestamp);
+    bool success = atomicqueue_push(trigger_queue, t);
     pthread_mutex_unlock(&reset_mutex);
+
     if (success)
-        pn_log("Pushed trigger. %d in queue", atomicqueue_length(trigger_queue));
+        pn_log("Trigger @ %02d:%02d:%02d%s. %d queued.",
+               t->hours, t->minutes, t->seconds,
+               (t->locked ? "" : " (UNLOCKED)"),
+               atomicqueue_length(trigger_queue));
     else
     {
-        pn_log("Error pushing trigger. Frame has been ignored");
-        free(timestamp);
+        pn_log("Failed to push trigger. Discarding.");
+        free(t);
     }
 }
 
@@ -71,13 +79,13 @@ void clear_queued_data()
 
     while ((item = atomicqueue_pop(frame_queue)) != NULL)
     {
-        pn_log("Discarding queued frame");
+        pn_log("Discarding queued frame.");
         free(item);
     }
 
     while ((item = atomicqueue_pop(trigger_queue)) != NULL)
     {
-        pn_log("Discarding queued trigger");
+        pn_log("Discarding queued trigger.");
         free(item);
     }
 
@@ -94,7 +102,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     // Create a new fits file
     if (fits_create_file(&fptr, filepath, &status))
     {
-        pn_log("Unable to save file. fitsio error %d", status);
+        pn_log("Failed to save file. fitsio error %d.", status);
         while (fits_read_errmsg(fitserr))
             pn_log(fitserr);
 
@@ -200,15 +208,13 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
 
     // Log any error messages
     while (fits_read_errmsg(fitserr))
-        pn_log("cfitsio error: %s", fitserr);
+        pn_log("cfitsio error: %s.", fitserr);
 
     return true;
 }
 
 void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
 {
-    pn_log("Frame downloaded");
-
     if (pn_preference_char(SAVE_FRAMES))
     {
         // Construct the output filepath from the output dir, run prefix, and run number.
@@ -220,7 +226,7 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
         char *filepath = malloc(filepath_len*sizeof(char));
         if (!filepath)
         {
-            pn_log("filepath alloc failed. Discarding frame");
+            pn_log("Failed to allocate filepath. Discarding frame");
             free(run_prefix);
             free(output_dir);
             return;
@@ -230,10 +236,10 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
         free(run_prefix);
         free(output_dir);
 
-        pn_log("Saving frame %s", filepath);
+        pn_log("Saving `%s'.", filepath);
         if (!save_frame(frame, timestamp, filepath))
         {
-            pn_log("Save failed. Discarding frame");
+            pn_log("Save failed. Discarding frame.");
             return;
         }
 
@@ -343,10 +349,10 @@ int main(int argc, char *argv[])
                 process_framedata(frame, *trigger);
             else
             {
-                pn_log("WARNING: Frame downloaded before trigger was received");
+                pn_log("ERROR: Frame downloaded before trigger was received.");
                 pn_log("Download timestamp: %02d:%02d:%02d", frame->downloaded_time.hours, frame->downloaded_time.minutes, frame->downloaded_time.seconds);
                 pn_log("Trigger timestamp: %02d:%02d:%02d", trigger->hours, trigger->minutes, trigger->seconds);
-                pn_log("Discarding all stored frames and triggers");
+                pn_log("Discarding all stored frames and triggers.");
                 clear_queued_data();
             }
             free(trigger);

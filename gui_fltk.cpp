@@ -83,7 +83,7 @@ bool FLTKGui::update()
         {
             unsigned char new_exposure = (unsigned char)(ceil(camera_readout_time));
             pn_preference_set_char(EXPOSURE_TIME, new_exposure);
-            pn_log("Increasing exposure time to %d seconds", new_exposure);
+            pn_log("Increasing EXPOSURE_TIME to %d seconds.", new_exposure);
             updateAcquisitionGroup();
         }
         last_camera_readout_time = camera_readout_time;
@@ -347,13 +347,13 @@ void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
     // Can't enable saving for calibration frames after the target count has been reached
     if (!pn_preference_allow_save())
     {
-        pn_log("Unable to toggle save: countdown is zero");
+        pn_log("Failed to toggle save: countdown is zero.");
         return;
     }
 
     unsigned char save = pn_preference_toggle_save();
     gui->updateButtonGroup(camera_mode);
-    pn_log("%s saving", save ? "Enabled" : "Disabled");
+    pn_log("%s saving.", save ? "Enabled" : "Disabled");
 }
 
 void FLTKGui::buttonQuitPressed(Fl_Widget* o, void *userdata)
@@ -398,7 +398,7 @@ void FLTKGui::buttonExposureConfirmPressed(Fl_Widget* o, void *userdata)
 
     if (camera_mode != IDLE)
     {
-        pn_log("Cannot change exposure time while acquiring");
+        pn_log("Cannot change exposure time while acquiring.");
         gui->m_exposureWindow->hide();
         return;
     }
@@ -407,9 +407,9 @@ void FLTKGui::buttonExposureConfirmPressed(Fl_Widget* o, void *userdata)
     {
         // Invalid entry
         if (new_exposure < camera_readout_time)
-            pn_log("Minimum exposure: %.2f seconds", camera_readout_time);
+            pn_log("Failed to set exposure: Minimum is %.2f seconds.", camera_readout_time);
         else
-            pn_log("Maximum exposure: 255 seconds");
+            pn_log("Failed to set exposure: Maximum is 255 seconds.");
 
         return;
     }
@@ -420,7 +420,7 @@ void FLTKGui::buttonExposureConfirmPressed(Fl_Widget* o, void *userdata)
             // Update preferences
             pn_preference_set_char(EXPOSURE_TIME, new_exposure);
             gui->updateAcquisitionGroup();
-            pn_log("Exposure set to %d seconds", new_exposure);
+            pn_log("Exposure set to %d seconds.", new_exposure);
         }
     }
     gui->m_exposureWindow->hide();
@@ -547,7 +547,7 @@ void _set_string_from_input(PNPreferenceType key, const char *name, Fl_Input *in
     if (strcmp(oldval, newval))
     {
         pn_preference_set_string(key, newval);
-        pn_log("%s set to `%s'", name, newval);
+        pn_log("%s set to `%s'.", name, newval);
     }
     free(oldval);
 }
@@ -559,7 +559,7 @@ void _set_int(PNPreferenceType key, const char *name, int newval)
     if (oldval != newval)
     {
         pn_preference_set_int(key, newval);
-        pn_log("%s set to `%d'", name, newval);
+        pn_log("%s set to `%d'.", name, newval);
     }
 }
 
@@ -572,13 +572,13 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
     int calibration_countdown = atoi(gui->m_metadataCountdownInput->value());
     if (run_number < 0)
     {
-        pn_log("RUN_NUMBER number must be positive");
+        pn_log("RUN_NUMBER number must be positive.");
         return;
     }
 
     if (calibration_countdown < 0)
     {
-        pn_log("CALIBRATION_COUNTDOWN must be positive");
+        pn_log("CALIBRATION_COUNTDOWN must be positive.");
         return;
     }
 

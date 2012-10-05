@@ -118,7 +118,7 @@ static void fatal_timer_error(TimerUnit *timer, char *format, ...)
         va_end(args);
     }
     else
-        pn_log("Failed to allocate memory for fatal error");
+        pn_log("Failed to allocate memory for fatal error.");
 
     trigger_fatal_error(fatal_error);
     pthread_exit(NULL);
@@ -227,12 +227,13 @@ static void initialize_timer(TimerUnit *timer)
     if (FT_SetTimeouts(timer->handle, 1, 0) != FT_OK)
         fatal_timer_error(timer, "Error setting timer read timeout");
 #endif
+    pn_log("Timer is now active.");
 }
 
 // Close the usb connection to the timer
 static void uninitialize_timer(TimerUnit *timer)
 {
-    pn_log("Closing timer");
+    pn_log("Shutting down timer.");
 #ifdef USE_LIBFTDI
     if (ftdi_usb_close(timer->context) < 0)
         fatal_timer_error(timer, "Error closing timer connection");
@@ -250,7 +251,7 @@ static void log_raw_data(unsigned char *data, int len)
     char *msg = (char *)malloc((3*len+1)*sizeof(char));
     if (msg == NULL)
     {
-        pn_log("ERROR: Memory allocation error in log_raw_data. Ignoring log message");
+        pn_log("Failed to allocate log_raw_data. Ignoring message");
         return;
     }
 
@@ -269,14 +270,14 @@ static void write_data(TimerUnit *timer)
         if (ftdi_write_data(timer->context, timer->send_buffer, timer->send_length) == timer->send_length)
             timer->send_length = 0;
         else
-            pn_log("Error sending send buffer");
+            pn_log("Failed to send buffered data.");
 #else
         DWORD bytes_written;
         FT_STATUS status = FT_Write(timer->handle, timer->send_buffer, timer->send_length, &bytes_written);
         if (status == FT_OK && bytes_written == timer->send_length)
             timer->send_length = 0;
         else
-            pn_log("Error sending timer buffer");
+            pn_log("Failed to send buffered data.");
 #endif
     }
     pthread_mutex_unlock(&timer->sendbuffer_mutex);
@@ -287,11 +288,11 @@ static void read_data(TimerUnit *timer, uint8_t read_buffer[256], uint8_t *bytes
 #ifdef USE_LIBFTDI
     *bytes_read = ftdi_read_data(timer->context, read_buffer, 255);
     if (bytes_read < 0)
-        fatal_timer_error(timer, "Timer I/O error");
+        fatal_timer_error(timer, "Timer I/O error.");
 #else
     DWORD read;
     if (FT_Read(timer->handle, read_buffer, 255, &read) != FT_OK)
-        fatal_timer_error(timer, "Timer I/O error");
+        fatal_timer_error(timer, "Timer I/O error.");
 
     *bytes_read = (uint8_t)read;
 #endif
@@ -307,7 +308,7 @@ static void parse_packet(TimerUnit *timer, uint8_t *packet, uint8_t packet_lengt
     // Check that the packet ends correctly
     if (packet[packet_length - 2] != '\r' || packet[packet_length - 1] != '\n')
     {
-        pn_log("Invalid packet length, expected %d", packet_length);
+        pn_log("Invalid packet length, expected %d.", packet_length);
         log_raw_data(packet, packet_length);
         return;
     }
@@ -316,7 +317,7 @@ static void parse_packet(TimerUnit *timer, uint8_t *packet, uint8_t packet_lengt
     unsigned char csm = checksum(data, data_length);
     if (csm != data_checksum)
     {
-        pn_log("Invalid packet checksum. Got 0x%02x, expected 0x%02x", csm, data_checksum);
+        pn_log("Invalid packet checksum. Got 0x%02x, expected 0x%02x.", csm, data_checksum);
         return;
     }
 
@@ -345,7 +346,7 @@ static void parse_packet(TimerUnit *timer, uint8_t *packet, uint8_t packet_lengt
             TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
             if (!t)
             {
-                pn_log("Error allocating TimerTimestamp. Discarding trigger");
+                pn_log("Failed to allocate TimerTimestamp. Discarding trigger");
                 break;
             }
 
@@ -357,7 +358,6 @@ static void parse_packet(TimerUnit *timer, uint8_t *packet, uint8_t packet_lengt
             t->seconds = data[2];
             t->locked = data[7];
             t->remaining_exposure = 0;
-            pn_log("Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
 
             // Pass ownership to main thread
             queue_trigger(t);
@@ -378,7 +378,7 @@ static void parse_packet(TimerUnit *timer, uint8_t *packet, uint8_t packet_lengt
         case DEBUG_STRING:
         {
             packet[packet_length - 3] = '\0';
-            pn_log("GPS Debug: `%s`", data);
+            pn_log("Timer Debug: `%s`.", data);
             break;
         }
         case DEBUG_RAW:
@@ -388,13 +388,13 @@ static void parse_packet(TimerUnit *timer, uint8_t *packet, uint8_t packet_lengt
         }
         case STOP_EXPOSURE:
         {
-            pn_log("Timer reports safe to shutdown camera");
+            pn_log("Timer reports camera ready to stop sequence.");
             pn_camera_notify_safe_to_stop();
             break;
         }
         default:
         {
-            pn_log("Unknown packet type %02x", packet_type);
+            pn_log("Unknown packet type %02x.", packet_type);
         }
     }
 }
@@ -492,7 +492,7 @@ void *pn_simulated_timer_thread(void *_args)
     TimerUnit *timer = args->timer;
 
     // Initialization
-    pn_log("Simulating GPS");
+    pn_log("Initializing simulated Timer.");
     timer->simulated_remaining = timer->simulated_exptime = 0;
     time_t last_unixtime = time(NULL);
 
@@ -539,7 +539,6 @@ void *pn_simulated_timer_thread(void *_args)
                 t->seconds = pc_time->tm_sec;
                 t->locked = true;
                 t->remaining_exposure = 0;
-                pn_log("Simulated Trigger: %04d-%02d-%02d %02d:%02d:%02d (%d)", t->year, t->month, t->day, t->hours, t->minutes, t->seconds, t->locked);
 
                 // Pass ownership to main thread
                 queue_trigger(t);
@@ -568,7 +567,7 @@ void *pn_simulated_timer_thread(void *_args)
         }
     }
 
-    pn_log("Closing simulated GPS");
+    pn_log("Simulated Timer shutdown.");
     return NULL;
 }
 
@@ -577,14 +576,14 @@ void *pn_simulated_timer_thread(void *_args)
 // Start an exposure sequence with a specified exposure time
 void timer_start_exposure(TimerUnit *timer, unsigned char exptime)
 {
-    pn_log("Starting exposure @ %ds", exptime);
+    pn_log("Starting %ds exposures.", exptime);
     if (timer->simulated)
         timer->simulated_remaining = timer->simulated_exptime = exptime;
     else
     {
         unsigned char simulate_camera = pn_camera_is_simulated() || !pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
         if (simulate_camera)
-            pn_log("WARNING: USING SIMULATED CAMERA STATUS");
+            pn_log("WARNING: Timer monitor is disabled.");
 
         queue_data(timer, SIMULATE_CAMERA, &simulate_camera, 1);
         queue_data(timer, START_EXPOSURE, &exptime, 1);
@@ -594,7 +593,7 @@ void timer_start_exposure(TimerUnit *timer, unsigned char exptime)
 // Stop the current exposure sequence
 void timer_stop_exposure(TimerUnit *timer)
 {
-    pn_log("Stopping exposure");
+    pn_log("Stopping exposures.");
     if (timer->simulated)
     {
         pthread_mutex_lock(&timer->read_mutex);

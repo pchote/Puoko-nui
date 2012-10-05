@@ -590,7 +590,7 @@ bool pn_ui_update()
         {
             unsigned char new_exposure = (unsigned char)(ceil(camera_readout_time));
             pn_preference_set_char(EXPOSURE_TIME, new_exposure);
-            pn_log("Increasing exposure time to %d seconds", new_exposure);
+            pn_log("Increasing exposure time to %d seconds.", new_exposure);
             update_acquisition_window();
         }
         last_camera_readout_time = camera_readout_time;
@@ -703,14 +703,14 @@ bool pn_ui_update()
                         // Can't enable saving for calibration frames after the target count has been reached
                         if (!pn_preference_allow_save())
                         {
-                            pn_log("Unable to toggle save: countdown is zero");
+                            pn_log("Unable to toggle save: countdown is zero.");
                             break;
                         }
 
                         unsigned char save = pn_preference_toggle_save();
                         update_status_window(camera_mode);
                         update_command_window(camera_mode);
-                        pn_log("%s saving", save ? "Enabled" : "Disabled");
+                        pn_log("%s saving.", save ? "Enabled" : "Disabled");
                     break;
                     case 0x03: // ^C - Quit
                         should_quit = true;
@@ -791,9 +791,9 @@ bool pn_ui_update()
                         {
                             // Invalid entry
                             if (new < camera_readout_time)
-                                pn_log("Minimum exposure: %.2f seconds", camera_readout_time);
+                                pn_log("Minimum exposure: %.2f seconds.", camera_readout_time);
                             else
-                                pn_log("Maximum exposure: 255 seconds");
+                                pn_log("Maximum exposure: 255 seconds.");
 
                             input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", oldexp);
                         }
@@ -808,7 +808,7 @@ bool pn_ui_update()
                                 // Update preferences
                                 pn_preference_set_char(EXPOSURE_TIME, new);
                                 update_acquisition_window();
-                                pn_log("Exposure set to %d seconds", new);
+                                pn_log("Exposure set to %d seconds.", new);
                             }
                         }
                     }
@@ -831,7 +831,7 @@ bool pn_ui_update()
                                 // Update preferences
                                 pn_preference_set_int(RUN_NUMBER, new);
                                 update_acquisition_window();
-                                pn_log("Frame # set to %d", new);
+                                pn_log("Frame # set to %d.", new);
                             }
                         }
                     }
@@ -856,7 +856,7 @@ bool pn_ui_update()
                                 update_acquisition_window();
                                 update_status_window(camera_mode);
                                 update_command_window(camera_mode);
-                                pn_log("Countdown # set to %d", new);
+                                pn_log("Countdown # set to %d.", new);
                             }
                         }
                     }
@@ -884,7 +884,7 @@ bool pn_ui_update()
                             // Update preferences
                             pn_preference_set_string(RUN_PREFIX, input_entry_buf);
                             update_acquisition_window();
-                            pn_log("Run prefix set to `%s'", input_entry_buf);
+                            pn_log("Run prefix set to `%s'.", input_entry_buf);
                         }
                     }
                     else if (input_type == INPUT_FRAME_DIR)
@@ -897,7 +897,7 @@ bool pn_ui_update()
                             // Update preferences
                             pn_preference_set_string(OUTPUT_DIR, path);
                             update_acquisition_window();
-                            pn_log("Frame dir set to `%s'", path);
+                            pn_log("Frame dir set to `%s'.", path);
                         }
                         free(path);
                     }
@@ -909,7 +909,7 @@ bool pn_ui_update()
                             // Update preferences
                             pn_preference_set_string(OBJECT_NAME, input_entry_buf);
                             update_metadata_window();
-                            pn_log("Object name set to `%s'", input_entry_buf);
+                            pn_log("Object name set to `%s'.", input_entry_buf);
                         }
                     }
                     input_type = INPUT_PARAMETERS;
@@ -957,7 +957,7 @@ bool pn_ui_update()
                     update_acquisition_window();
                     update_parameters_window();
                     update_metadata_window();
-                    pn_log("Frame type set to `%s'", type_name);
+                    pn_log("Frame type set to `%s'.", type_name);
 
                     input_type = INPUT_PARAMETERS;
                     hide_panel(input_panel);
