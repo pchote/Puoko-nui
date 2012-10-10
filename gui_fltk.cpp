@@ -385,44 +385,71 @@ void FLTKGui::createButtonGroup()
     m_buttonQuit->callback(buttonQuitPressed);
 }
 
+#define set_string_from_input(a,b) _set_string_from_input(a, # a, b)
+void _set_string_from_input(PNPreferenceType key, const char *name, Fl_Input *input)
+{
+    char *oldval = pn_preference_string(key);
+    const char *newval = input->value();
+    if (strcmp(oldval, newval))
+    {
+        pn_preference_set_string(key, newval);
+        pn_log("%s set to `%s'.", name, newval);
+    }
+    free(oldval);
+}
+
+#define set_int(a,b) _set_int(a, # a, b)
+void _set_int(PNPreferenceType key, const char *name, int newval)
+{
+    int oldval = pn_preference_int(key);
+    if (oldval != newval)
+    {
+        pn_preference_set_int(key, newval);
+        pn_log("%s set to `%d'.", name, newval);
+    }
+}
+
+#define set_char(a,b) _set_char(a, # a, b)
+void _set_char(PNPreferenceType key, const char *name, int newval)
+{
+    char oldval = pn_preference_char(key);
+    if (oldval != newval)
+    {
+        pn_preference_set_char(key, newval);
+        pn_log("%s set to `%d'.", name, newval);
+    }
+}
+
 void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
 {
     FLTKGui* gui = (FLTKGui *)userdata;
-    uint8_t oldexp = pn_preference_char(EXPOSURE_TIME);
-    int new_exposure = atoi(gui->m_cameraExposureInput->value());
 
-    pthread_mutex_lock(&gui->m_cameraRef->read_mutex);
-    PNCameraMode camera_mode = gui->m_cameraRef->mode;
-    float camera_readout_time = gui->m_cameraRef->readout_time;
-    pthread_mutex_unlock(&gui->m_cameraRef->read_mutex);
-
-    if (camera_mode != IDLE)
+    if (pn_camera_mode() != IDLE)
     {
         pn_log("Cannot change camera parameters while acquiring.");
         gui->m_cameraWindow->hide();
         return;
     }
 
-    if (new_exposure < camera_readout_time || new_exposure > 255)
-    {
-        // Invalid entry
-        if (new_exposure < camera_readout_time)
-            pn_log("Failed to set exposure: Minimum is %.2f seconds.", camera_readout_time);
-        else
-            pn_log("Failed to set exposure: Maximum is 255 seconds.");
+    set_int(CAMERA_TEMPERATURE, (int)(atof(gui->m_cameraTemperatureInput->value())*100));
+    set_char(CAMERA_PIXEL_SIZE, atoi(gui->m_cameraBinningInput->value()));
 
-        return;
+    float readout_time = pn_camera_readout_time();
+    int exp = atoi(gui->m_cameraExposureInput->value());
+    if (exp < readout_time)
+    {
+        exp = (int)(readout_time + 1);
+        pn_log("Readout time: %.2f seconds. Exposure set to %d seconds.", readout_time, exp);
+    }
+    else if (exp > 255)
+    {
+        exp = 255;
+        pn_log("Maximum exposure time is 255 seconds. Exposure set to 255 seconds.");
     }
     else
-    {
-        if (oldexp != new_exposure)
-        {
-            // Update preferences
-            pn_preference_set_char(EXPOSURE_TIME, new_exposure);
-            gui->updateAcquisitionGroup();
-            pn_log("Exposure set to %d seconds.", new_exposure);
-        }
-    }
+        set_char(EXPOSURE_TIME, exp);
+
+    gui->updateAcquisitionGroup();
     gui->m_cameraWindow->hide();
 }
 
@@ -431,10 +458,12 @@ void FLTKGui::createCameraWindow()
     m_cameraWindow = new Fl_Double_Window(420, 155, "Set Camera Parameters");
     m_cameraWindow->user_data((void*)(this));
 
-    int x = 90, y = 125, w = 110, h = 20, margin = 25;
-    m_cameraExposureInput = new Fl_Int_Input(x, y, w, h, "Exposure:");
+    int x = 110, y = 75, w = 50, h = 20, margin = 25;
+    m_cameraExposureInput = new Fl_Int_Input(x, y, w, h, "Exposure (s):"); y += margin;
+    m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (ºC):"); y += margin;
+    m_cameraBinningInput = new Fl_Int_Input(x, y, w, h, "Binning (px):");
 
-    x = 300;
+    x = 300; y = 125;
     m_cameraButtonConfirm = new Fl_Button(x, y, w, h, "Save");
     m_cameraButtonConfirm->user_data((void*)(this));
     m_cameraButtonConfirm->callback(buttonCameraConfirmPressed);
@@ -444,6 +473,12 @@ void FLTKGui::createCameraWindow()
 void FLTKGui::showCameraWindow()
 {
     populate_char_preference(m_cameraExposureInput, EXPOSURE_TIME);
+    populate_char_preference(m_cameraBinningInput, CAMERA_PIXEL_SIZE);
+
+    char buf[32];
+    snprintf(buf, 32, "%.2f", pn_preference_int(CAMERA_TEMPERATURE) / 100.0);
+    m_cameraTemperatureInput->value(buf);
+
     m_cameraWindow->show();
 }
 
@@ -538,30 +573,6 @@ void FLTKGui::showMetadataWindow()
     populate_string_preference(m_metadataObservatoryInput, OBSERVATORY);
     populate_string_preference(m_metadataTelecopeInput, TELESCOPE);
     m_metadataWindow->show();
-}
-
-#define set_string_from_input(a,b) _set_string_from_input(a, # a, b)
-void _set_string_from_input(PNPreferenceType key, const char *name, Fl_Input *input)
-{
-    char *oldval = pn_preference_string(key);
-    const char *newval = input->value();
-    if (strcmp(oldval, newval))
-    {
-        pn_preference_set_string(key, newval);
-        pn_log("%s set to `%s'.", name, newval);
-    }
-    free(oldval);
-}
-
-#define set_int(a,b) _set_int(a, # a, b)
-void _set_int(PNPreferenceType key, const char *name, int newval)
-{
-    int oldval = pn_preference_int(key);
-    if (oldval != newval)
-    {
-        pn_preference_set_int(key, newval);
-        pn_log("%s set to `%d'.", name, newval);
-    }
 }
 
 void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
