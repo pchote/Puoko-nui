@@ -176,6 +176,29 @@ void *pn_simulated_camera_thread(void *_args)
     camera->safe_to_stop_acquiring = false;
     pn_log("Initialising simulated Camera.");
 
+    camera->port_count = 1;
+    camera->ports = calloc(1, sizeof(struct camera_readout_port));
+    camera->ports[0].id = 0;
+    camera->ports[0].name = strdup("Normal");
+    camera->ports[0].speed_count = 2;
+    camera->ports[0].speeds = calloc(2, sizeof(struct camera_readout_speed));
+    camera->ports[0].speeds[0].id = 0;
+    camera->ports[0].speeds[0].name = strdup("Slow");
+    camera->ports[0].speeds[0].gain_count = 2;
+    camera->ports[0].speeds[0].gains = calloc(2, sizeof(struct camera_readout_gain));
+    camera->ports[0].speeds[0].gains[0].id = 0;
+    camera->ports[0].speeds[0].gains[0].name = strdup("Low");
+    camera->ports[0].speeds[0].gains[1].id = 1;
+    camera->ports[0].speeds[0].gains[1].name = strdup("High");
+    camera->ports[0].speeds[1].id = 1;
+    camera->ports[0].speeds[1].name = strdup("Fast");
+    camera->ports[0].speeds[1].gain_count = 2;
+    camera->ports[0].speeds[1].gains = calloc(2, sizeof(struct camera_readout_gain));
+    camera->ports[0].speeds[1].gains[0].id = 0;
+    camera->ports[0].speeds[1].gains[0].name = strdup("Low");
+    camera->ports[0].speeds[1].gains[1].id = 0;
+    camera->ports[0].speeds[1].gains[1].name = strdup("Low");
+
     // Wait a bit to simulate hardware startup time
     millisleep(2000);
     pn_log("Camera is now idle.");
