@@ -70,6 +70,9 @@ struct PNCamera
     bool safe_to_stop_acquiring;
 
     pthread_mutex_t read_mutex;
+
+    struct camera_readout_port *ports;
+    uint8_t port_count;
 };
 
 typedef struct PNCamera PNCamera;

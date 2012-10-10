@@ -44,6 +44,9 @@ PNCamera *pn_camera_new(bool simulate_hardware)
     camera->thread_initialized = false;
     pthread_mutex_init(&camera->read_mutex, NULL);
 
+    camera->ports = NULL;
+    camera->port_count = 0;
+
     return camera;
 }
 

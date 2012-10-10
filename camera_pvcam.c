@@ -24,9 +24,6 @@ static int16 handle = -1;
 static void *image_buffer = NULL;
 static uns32 image_buffer_size = 0;
 
-struct camera_readout_port *ports = NULL;
-uint8_t port_count = 0;
-
 char *gain_names[3] = {"Low Gain", "Medium Gain", "High Gain"};
 
 // Custom frame transfer mode options
@@ -89,23 +86,24 @@ static void load_readout_settings()
 	if (!pl_get_param(handle, PARAM_READOUT_PORT, ATTR_COUNT, (void*)&p_count))
         pvcam_error("Failed to query readout port count.");
 
-    port_count = p_count;
-    ports = calloc(port_count, sizeof(struct camera_readout_port));
-    if (!ports)
+    camera->port_count = p_count;
+    camera->ports = calloc(camera->port_count, sizeof(struct camera_readout_port));
+    if (!camera->ports)
         trigger_fatal_error("Failed to allocate memory for readout ports.");
 
     char str[100];
-    for (uint8_t i = 0; i < port_count; i++)
+    for (uint8_t i = 0; i < camera->port_count; i++)
     {
+        struct camera_readout_port *port = &camera->ports[i];
         int32 value;
         if (!pl_get_enum_param(handle, PARAM_READOUT_PORT, i, &value, str, 100))
             pvcam_error("Failed to query readout port value.");
 
-        ports[i].id = i;
-        ports[i].name = strdup(str);
+        port->id = i;
+        port->name = strdup(str);
 
         // Set the active port then query readout speeds
-        if (port_count > 1 && !pl_set_param(handle, PARAM_READOUT_PORT, (void*)&i))
+        if (camera->port_count > 1 && !pl_set_param(handle, PARAM_READOUT_PORT, (void*)&i))
             pvcam_error("Failed to set readout port.");
 
         int16 speed_min, speed_max;
@@ -114,15 +112,15 @@ static void load_readout_settings()
         if (!pl_get_param(handle, PARAM_SPDTAB_INDEX, ATTR_MAX, (void*)&speed_max));
             pvcam_error("Failed to query readout max.");
 
-        ports[i].speed_count = speed_max - speed_min + 1;
-        ports[i].speeds = calloc(ports[i].speed_count, sizeof(struct camera_readout_speed));
-        if (!ports[i].speeds)
+        port->speed_count = speed_max - speed_min + 1;
+        port->speeds = calloc(port->speed_count, sizeof(struct camera_readout_speed));
+        if (!port->speeds)
             trigger_fatal_error("Failed to allocate memory for readout speeds.");
 
         for (uint8_t j = 0; j <= speed_max - speed_min; j++)
         {
-            int16 speed = speed_min + j;
-            if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (void*)&speed))
+            struct camera_readout_speed *speed = &camera->ports[i].speeds[j];
+            if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (int16[]){speed_min + j}))
                 pvcam_error("Failed to set readout mode.");
 
             int16 gain_min, gain_max, pix_time;
@@ -134,23 +132,19 @@ static void load_readout_settings()
                 pvcam_error("Failed to query pixel time.");
 
             snprintf(str, 100, "%0.1f MHz", 1.0e3/pix_time);
-            ports[i].speeds[j].id = speed_min + j;
-            ports[i].speeds[j].name = strdup(str);
+            speed->id = speed_min + j;
+            speed->name = strdup(str);
 
-            ports[i].speeds[j].gain_count = gain_max - gain_min + 1;
-            ports[i].speeds[j].gains = calloc(ports[i].speeds[j].gain_count, sizeof(struct camera_readout_gain));
-            if (!ports[i].speeds[j].gains)
+            speed->gain_count = gain_max - gain_min + 1;
+            speed->gains = calloc(speed->gain_count, sizeof(struct camera_readout_gain));
+            if (!speed->gains)
                 trigger_fatal_error("Failed to allocate memory for readout gains.");
 
             for (uint8_t k = 0; k <= gain_max - gain_min; k++)
             {
-                ports[i].speeds[j].gains[k].id = k;
-
-                // Expected 3 gains
-                if (gain_max - gain_min == 2)
-                    ports[i].speeds[j].gains[k].name = strdup(gain_names[k]);
-                else
-                    ports[i].speeds[j].gains[k].name = strdup("Unknown");
+                struct camera_readout_gain *gain = &camera->ports[i].speeds[j].gains[k];
+                gain->id = k;
+                gain->name = (gain_max - gain_min == 2) ? strdup(gain_names[k]) : strdup("Unknown");
             }
         }
     }
