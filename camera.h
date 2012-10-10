@@ -13,29 +13,26 @@
 #include <stdbool.h>
 #include "main.h"
 
-struct camera_readout_gain
+struct camera_gain_option
 {
-    uint8_t id;
     char *name;
 };
 
-struct camera_readout_speed
+struct camera_speed_option
 {
-    uint8_t id;
     char *name;
-
-    struct camera_readout_gain *gains;
+    struct camera_gain_option *gain;
     uint8_t gain_count;
 };
 
-struct camera_readout_port
+struct camera_port_option
 {
-    uint8_t id;
     char *name;
-
-    struct camera_readout_speed *speeds;
+    struct camera_speed_option *speed;
     uint8_t speed_count;
 };
+
+typedef struct Camera Camera;
 
 // Represents the current state of the camera
 typedef enum
@@ -51,45 +48,21 @@ typedef enum
     SHUTDOWN
 } PNCameraMode;
 
-// Holds the state of a camera
-struct PNCamera
-{
-    pthread_t camera_thread;
-    bool thread_initialized;
+Camera *camera_new(bool simulate_hardware);
+void camera_free(Camera *camera);
+void camera_spawn_thread(Camera *camera, ThreadCreationArgs *args);
+void camera_shutdown(Camera *camera);
 
-    // read/write
-    PNCameraMode desired_mode;
+void camera_set_mode(Camera *camera, PNCameraMode mode);
+void camera_notify_safe_to_stop(Camera *camera);
+bool camera_is_simulated(Camera *camera);
+void camera_start_exposure(Camera *camera);
+void camera_stop_exposure(Camera *camera);
 
-    // read only
-    bool simulated;
-    PNCameraMode mode;
-    uint16_t frame_width;
-    uint16_t frame_height;
-    float temperature;
-    float readout_time;
-    bool safe_to_stop_acquiring;
-
-    pthread_mutex_t read_mutex;
-
-    struct camera_readout_port *ports;
-    uint8_t port_count;
-};
-
-typedef struct PNCamera PNCamera;
-
-PNCamera *pn_camera_new(bool simulate_hardware);
-void pn_camera_free(PNCamera *camera);
-void pn_camera_spawn_thread(PNCamera *camera, ThreadCreationArgs *args);
-void pn_camera_shutdown(PNCamera *camera);
-
-void set_mode(PNCameraMode mode);
-void pn_camera_notify_safe_to_stop();
-bool pn_camera_is_simulated();
-void pn_camera_start_exposure();
-void pn_camera_stop_exposure();
-
-float pn_camera_temperature();
-float pn_camera_readout_time();
-PNCameraMode pn_camera_mode();
+double camera_temperature(Camera *camera);
+double camera_readout_time(Camera *camera);
+PNCameraMode camera_mode(Camera *camera);
+PNCameraMode camera_desired_mode(Camera *camera);
+void camera_update_settings(Camera *camera);
 
 #endif

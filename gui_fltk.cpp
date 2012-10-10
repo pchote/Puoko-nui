@@ -14,7 +14,7 @@
 FLTKGui *gui;
 
 #pragma mark C API entrypoints
-void pn_ui_new(PNCamera *camera, TimerUnit *timer)
+void pn_ui_new(Camera *camera, TimerUnit *timer)
 {
     gui = new FLTKGui(camera, timer);
 }
@@ -70,41 +70,41 @@ void FLTKGui::addLogLine(const char *msg)
 
 bool FLTKGui::update()
 {
-    PNCameraMode camera_mode = pn_camera_mode();
-    float camera_temperature = pn_camera_temperature();
-    float camera_readout_time = pn_camera_readout_time();
+    PNCameraMode mode = camera_mode(m_cameraRef);
+    double temperature = camera_temperature(m_cameraRef);
+    double readout_time = camera_readout_time(m_cameraRef);
 
     // Check that the exposure time is greater than
     // the camera readout, and change if necessary
-    if (camera_readout_time != last_camera_readout_time)
+    if (last_camera_readout_time != readout_time)
     {
         unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
-        if (exposure_time < camera_readout_time)
+        if (exposure_time < readout_time)
         {
-            unsigned char new_exposure = (unsigned char)(ceil(camera_readout_time));
+            unsigned char new_exposure = (unsigned char)(ceil(readout_time));
             pn_preference_set_char(EXPOSURE_TIME, new_exposure);
             pn_log("Increasing EXPOSURE_TIME to %d seconds.", new_exposure);
             updateAcquisitionGroup();
         }
-        last_camera_readout_time = camera_readout_time;
+        last_camera_readout_time = readout_time;
     }
 
     bool camera_downloading = timer_camera_downloading(m_timerRef);
     updateTimerGroup();
 
-    if (last_camera_mode != camera_mode ||
+    if (last_camera_mode != mode ||
         last_camera_downloading != camera_downloading)
     {
-        updateButtonGroup(camera_mode);
-        updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
-        last_camera_mode = camera_mode;
+        updateButtonGroup(mode);
+        updateCameraGroup(mode, camera_downloading, temperature);
+        last_camera_mode = mode;
         last_camera_downloading = camera_downloading;
     }
 
-    if (last_camera_temperature != camera_temperature)
+    if (last_camera_temperature != temperature)
     {
-        updateCameraGroup(camera_mode, camera_downloading, camera_temperature);
-        last_camera_temperature = camera_temperature;
+        updateCameraGroup(mode, camera_downloading, temperature);
+        last_camera_temperature = temperature;
     }
 
     int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
@@ -113,7 +113,7 @@ bool FLTKGui::update()
         run_number != last_run_number)
     {
         updateAcquisitionGroup();
-        updateButtonGroup(camera_mode);
+        updateButtonGroup(mode);
         last_calibration_framecount = remaining_frames;
         last_run_number = run_number;
     }
@@ -200,7 +200,7 @@ void FLTKGui::createCameraGroup()
     m_cameraGroup->end();
 }
 
-void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, float temperature)
+void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, double temperature)
 {
     // Camera status
     switch(mode)
@@ -318,20 +318,18 @@ void FLTKGui::buttonCameraPressed(Fl_Widget* o, void *userdata)
 void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
 {
     FLTKGui* gui = (FLTKGui *)userdata;
+    PNCameraMode mode = camera_mode(gui->m_cameraRef);
 
-    pthread_mutex_lock(&gui->m_cameraRef->read_mutex);
-    PNCameraMode camera_mode = gui->m_cameraRef->mode;
-    pthread_mutex_unlock(&gui->m_cameraRef->read_mutex);
-
-    if (camera_mode == IDLE)
+    if (mode == IDLE)
     {
         clear_queued_data();
-        pn_camera_start_exposure();
-        timer_start_exposure(gui->m_timerRef, pn_preference_char(EXPOSURE_TIME));
+        camera_start_exposure(gui->m_cameraRef);
+        bool use_monitor = !camera_is_simulated(gui->m_cameraRef) && pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
+        timer_start_exposure(gui->m_timerRef, pn_preference_char(EXPOSURE_TIME), use_monitor);
     }
-    else if (camera_mode == ACQUIRING)
+    else if (mode == ACQUIRING)
     {
-        pn_camera_stop_exposure();
+        camera_stop_exposure(gui->m_cameraRef);
         timer_stop_exposure(gui->m_timerRef);
     }
 }
@@ -339,10 +337,7 @@ void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
 void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
 {
     FLTKGui* gui = (FLTKGui *)userdata;
-
-    pthread_mutex_lock(&gui->m_cameraRef->read_mutex);
-    PNCameraMode camera_mode = gui->m_cameraRef->mode;
-    pthread_mutex_unlock(&gui->m_cameraRef->read_mutex);
+    PNCameraMode mode = camera_mode(gui->m_cameraRef);
 
     // Can't enable saving for calibration frames after the target count has been reached
     if (!pn_preference_allow_save())
@@ -352,7 +347,7 @@ void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
     }
 
     unsigned char save = pn_preference_toggle_save();
-    gui->updateButtonGroup(camera_mode);
+    gui->updateButtonGroup(mode);
     pn_log("%s saving.", save ? "Enabled" : "Disabled");
 }
 
@@ -424,7 +419,7 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
 {
     FLTKGui* gui = (FLTKGui *)userdata;
 
-    if (pn_camera_mode() != IDLE)
+    if (camera_mode(gui->m_cameraRef) != IDLE)
     {
         pn_log("Cannot change camera parameters while acquiring.");
         gui->m_cameraWindow->hide();
@@ -434,7 +429,7 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_int(CAMERA_TEMPERATURE, (int)(atof(gui->m_cameraTemperatureInput->value())*100));
     set_char(CAMERA_PIXEL_SIZE, atoi(gui->m_cameraBinningInput->value()));
 
-    float readout_time = pn_camera_readout_time();
+    double readout_time = camera_readout_time(gui->m_cameraRef);
     int exp = atoi(gui->m_cameraExposureInput->value());
     if (exp < readout_time)
     {
@@ -449,6 +444,7 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     else
         set_char(EXPOSURE_TIME, exp);
 
+    camera_update_settings(gui->m_cameraRef);
     gui->updateAcquisitionGroup();
     gui->m_cameraWindow->hide();
 }
@@ -656,7 +652,7 @@ void FLTKGui::closeMainWindowCallback(Fl_Widget *window, void *v)
     window->hide();
 }
 
-FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
+FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     : m_cameraRef(camera), m_timerRef(timer)
 {
 	// Create the main window
@@ -675,9 +671,9 @@ FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
 	m_mainWindow->end();
 
     // Set initial state
-    last_camera_mode = pn_camera_mode();
-    last_camera_temperature = pn_camera_temperature();
-    last_camera_readout_time = pn_camera_readout_time();
+    last_camera_mode = camera_mode(camera);
+    last_camera_temperature = camera_temperature(camera);
+    last_camera_readout_time = camera_readout_time(camera);
     last_calibration_framecount = pn_preference_int(CALIBRATION_COUNTDOWN);
     last_run_number = pn_preference_int(RUN_NUMBER);
     last_camera_downloading = timer_camera_downloading(timer);

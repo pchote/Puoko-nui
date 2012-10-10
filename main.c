@@ -25,7 +25,7 @@
 #include "version.h"
 
 
-PNCamera *camera;
+Camera *camera;
 TimerUnit *timer;
 ScriptingInterface *scripting;
 pthread_mutex_t reset_mutex;
@@ -196,7 +196,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
 
     // Camera temperature
     char tempbuf[10];
-    snprintf(tempbuf, 10, "%0.02f", camera->temperature);
+    snprintf(tempbuf, 10, "%0.02f", camera_temperature(camera));
     fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)tempbuf, "CCD temperature at end of exposure in deg C", &status);
     fits_update_key(fptr, TBYTE,   "CCD-PORT", (uint8_t[]){pn_preference_char(CAMERA_READPORT_MODE)},  "CCD Readout port index", &status);
     fits_update_key(fptr, TBYTE,   "CCD-RATE", (uint8_t[]){pn_preference_char(CAMERA_READSPEED_MODE)}, "CCD Readout rate index", &status);
@@ -302,7 +302,7 @@ int main(int argc, char *argv[])
 
     pn_init_preferences("preferences.dat");
     timer = timer_new(simulate_timer);
-    camera = pn_camera_new(simulate_camera);
+    camera = camera_new(simulate_camera);
     scripting = scripting_new();
 
     if (!timer || !camera || !scripting)
@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
 
     scripting_spawn_thread(scripting, &args);
     timer_spawn_thread(timer, &args);
-    pn_camera_spawn_thread(camera, &args);
+    camera_spawn_thread(camera, &args);
 
     // Main program loop
     for (;;)
@@ -379,7 +379,7 @@ int main(int argc, char *argv[])
     }
 
     // Wait for camera and timer threads to terminate
-    pn_camera_shutdown(camera);
+    camera_shutdown(camera);
     timer_shutdown(timer);
     scripting_shutdown(scripting);
 
@@ -390,7 +390,7 @@ int main(int argc, char *argv[])
     clear_queued_data();
 
     timer_free(timer);
-    pn_camera_free(camera);
+    camera_free(camera);
     scripting_free(scripting);
     pn_free_preferences();
     pn_ui_free();

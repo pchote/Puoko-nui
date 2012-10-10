@@ -42,7 +42,7 @@ typedef enum
 } PNUIInputType;
 
 extern TimerUnit *timer;
-extern PNCamera *camera;
+extern Camera *camera;
 
 WINDOW  *time_window, *camera_window, *acquisition_window,
         *command_window, *metadata_window, *log_window,
@@ -127,7 +127,7 @@ static WINDOW *create_camera_window()
     return win;
 }
 
-static void update_camera_window(PNCameraMode mode, int camera_downloading, float temp)
+static void update_camera_window(PNCameraMode mode, int camera_downloading, double temp)
 {
     // Camera status
     char *label;
@@ -480,14 +480,14 @@ static void update_input_window()
 }
 
 PNCameraMode last_camera_mode;
-float last_camera_temperature;
-float last_camera_readout_time;
+double last_camera_temperature;
+double last_camera_readout_time;
 int last_calibration_framecount;
 int last_run_number;
 int last_camera_downloading;
 PNUIInputType input_type = INPUT_MAIN;
 
-void pn_ui_new(PNCamera *camera, TimerUnit *timer)
+void pn_ui_new(Camera *camera, TimerUnit *timer)
 {
     // Initialize circular buffer for log display
     last_log_position = log_position = 0;
@@ -578,8 +578,8 @@ bool pn_ui_update()
 
     // Read once at the start of the loop so values remain consistent
     PNCameraMode camera_mode = pn_camera_mode();
-    float camera_temperature = pn_camera_temperature();
-    float camera_readout_time = pn_camera_readout_time();
+    double camera_temperature = pn_camera_temperature();
+    double camera_readout_time = pn_camera_readout_time();
 
     // Check that the exposure time is greater than
     // the camera readout, and change if necessary
@@ -669,7 +669,8 @@ bool pn_ui_update()
                         {
                             clear_queued_data();
                             pn_camera_start_exposure();
-                            timer_start_exposure(timer, pn_preference_char(EXPOSURE_TIME));
+                            bool use_monitor = !camera_is_simulated(camera) && pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
+                            timer_start_exposure(timer, pn_preference_char(EXPOSURE_TIME), use_monitor);
                         }
                         else if (camera_mode == ACQUIRING)
                         {

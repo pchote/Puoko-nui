@@ -14,7 +14,7 @@
 
 typedef struct
 {
-    struct PNCamera *camera;
+    struct Camera *camera;
     struct TimerUnit *timer;
 } ThreadCreationArgs;
 
@@ -37,7 +37,7 @@ typedef struct
     uint16_t width;
     uint16_t height;
     uint16_t *data;
-    float temperature;
+    double temperature;
     TimerTimestamp downloaded_time;
 } CameraFrame;
 

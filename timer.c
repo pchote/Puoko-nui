@@ -82,7 +82,6 @@ TimerUnit *timer_new(bool simulate_hardware)
     return timer;
 }
 
-// Destroy a PNCamera struct.
 void timer_free(TimerUnit *timer)
 {
     pthread_mutex_destroy(&timer->read_mutex);
@@ -298,7 +297,7 @@ static void read_data(TimerUnit *timer, uint8_t read_buffer[256], uint8_t *bytes
 #endif
 }
 
-static void parse_packet(TimerUnit *timer, uint8_t *packet, uint8_t packet_length)
+static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint8_t packet_length)
 {
     uint8_t packet_type = packet[2];
     uint8_t data_length = packet[3];
@@ -389,7 +388,7 @@ static void parse_packet(TimerUnit *timer, uint8_t *packet, uint8_t packet_lengt
         case STOP_EXPOSURE:
         {
             pn_log("Timer reports camera ready to stop sequence.");
-            pn_camera_notify_safe_to_stop();
+            camera_notify_safe_to_stop(camera);
             break;
         }
         default:
@@ -404,6 +403,7 @@ void *pn_timer_thread(void *_args)
 {
     ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
     TimerUnit *timer = args->timer;
+    Camera *camera = args->camera;
 
     // Store received bytes in a 256 byte circular buffer indexed by an unsigned char
     // This ensures the correct circular behavior on over/underflow
@@ -472,7 +472,7 @@ void *pn_timer_thread(void *_args)
             // Packet ready to parse
             if (packet_length == packet_expected_length && packet_type != UNKNOWN_PACKET)
             {
-                parse_packet(timer, packet, packet_length);
+                parse_packet(timer, camera, packet, packet_length);
                 packet_length = 0;
                 packet_expected_length = 0;
                 packet_type = UNKNOWN_PACKET;
@@ -490,6 +490,7 @@ void *pn_simulated_timer_thread(void *_args)
 {
     ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
     TimerUnit *timer = args->timer;
+    Camera *camera = args->camera;
 
     // Initialization
     pn_log("Initializing simulated Timer.");
@@ -509,7 +510,7 @@ void *pn_simulated_timer_thread(void *_args)
         {
             timer->simulated_exptime = 0;
             timer->simulated_remaining = 0;
-            pn_camera_notify_safe_to_stop();
+            camera_notify_safe_to_stop(camera);
         }
 
         time_t cur_unixtime = time(NULL);
@@ -574,17 +575,17 @@ void *pn_simulated_timer_thread(void *_args)
 #pragma mark Timer communication Routines (Called from any thread)
 
 // Start an exposure sequence with a specified exposure time
-void timer_start_exposure(TimerUnit *timer, unsigned char exptime)
+void timer_start_exposure(TimerUnit *timer, unsigned char exptime, bool use_monitor)
 {
     pn_log("Starting %ds exposures.", exptime);
     if (timer->simulated)
         timer->simulated_remaining = timer->simulated_exptime = exptime;
     else
     {
-        unsigned char simulate_camera = pn_camera_is_simulated() || !pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
-        if (simulate_camera)
+        if (!use_monitor)
             pn_log("WARNING: Timer monitor is disabled.");
 
+        unsigned char simulate_camera = !use_monitor;
         queue_data(timer, SIMULATE_CAMERA, &simulate_camera, 1);
         queue_data(timer, START_EXPOSURE, &exptime, 1);
     }

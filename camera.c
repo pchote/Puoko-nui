@@ -17,69 +17,238 @@
 #include "preferences.h"
 #include "platform.h"
 
-
+#include "camera_simulated.h"
 #ifdef USE_PVCAM
-void *pn_pvcam_camera_thread(void *);
+#include "camera_pvcam.h"
 #endif
 #ifdef USE_PICAM
-void *pn_picam_camera_thread(void *);
+#include "camera_picam.h"
 #endif
-void *pn_simulated_camera_thread(void *);
 
-#pragma mark Creation and Destruction (Called from main thread)
+enum camera_type {PVCAM, PICAM, SIMULATED};
 
-// Initialize a new PNCamera struct.
-PNCamera *pn_camera_new(bool simulate_hardware)
+struct Camera
 {
-    PNCamera *camera = malloc(sizeof(PNCamera));
+    enum camera_type type;
+    void *internal;
+
+    pthread_t camera_thread;
+    bool thread_initialized;
+
+    pthread_mutex_t read_mutex;
+    PNCameraMode desired_mode;
+    PNCameraMode mode;
+    bool safe_to_stop_acquiring;
+
+    struct camera_port_option *port_options;
+    uint8_t port_count;
+    double readout_time;
+    double temperature;
+    bool camera_settings_dirty;
+
+    void *(*initialize)(Camera *, ThreadCreationArgs *);
+    double (*update_camera_settings)(Camera *, void *);
+    uint8_t (*port_table)(Camera *, void *, struct camera_port_option **);
+    void (*uninitialize)(Camera *, void *);
+    void (*tick)(Camera *, void *, PNCameraMode);
+    void (*start_acquiring)(Camera *, void *);
+    void (*stop_acquiring)(Camera *, void *);
+    double (*read_temperature)(Camera *, void *);
+};
+
+#define HOOK(type, suffix) camera->suffix = camera_##type##_##suffix
+#define HOOK_FUNCTIONS(type)            \
+{                                       \
+    HOOK(type, initialize);             \
+    HOOK(type, update_camera_settings); \
+    HOOK(type, port_table);             \
+    HOOK(type, uninitialize);           \
+    HOOK(type, tick);                   \
+    HOOK(type, start_acquiring);        \
+    HOOK(type, stop_acquiring);         \
+    HOOK(type, read_temperature);       \
+}
+
+Camera *camera_new(bool simulate_hardware)
+{
+    Camera *camera = calloc(1, sizeof(Camera));
     if (!camera)
         return NULL;
 
     camera->mode = UNINITIALIZED;
     camera->desired_mode = IDLE;
-    camera->temperature = 0;
-    camera->readout_time = 0;
-    camera->simulated = simulate_hardware;
-    camera->safe_to_stop_acquiring = false;
-    camera->thread_initialized = false;
     pthread_mutex_init(&camera->read_mutex, NULL);
 
-    camera->ports = NULL;
-    camera->port_count = 0;
+    camera->type = SIMULATED;
+    if (!simulate_hardware)
+    {
+#ifdef USE_PVCAM
+        camera->type = PVCAM;
+#elif defined USE_PICAM
+        camera->type = PICAM;
+#else
+        camera->type = SIMULATED;
+#endif
+    }
 
+    switch (camera->type)
+    {
+#ifdef USE_PVCAM
+        case PVCAM: HOOK_FUNCTIONS(pvcam); break;
+#endif
+#ifdef USE_PICAM
+        case PICAM: HOOK_FUNCTIONS(picam); break;
+#endif
+        default:
+        case SIMULATED: HOOK_FUNCTIONS(simulated); break;
+    }
     return camera;
 }
 
-// Destroy a PNCamera struct.
-void pn_camera_free(PNCamera *camera)
+void camera_free(Camera *camera)
 {
     pthread_mutex_destroy(&camera->read_mutex);
 }
 
-void pn_camera_spawn_thread(PNCamera *camera, ThreadCreationArgs *args)
+
+static void set_mode(Camera *camera, PNCameraMode mode)
 {
-    if (camera->simulated)
-        pthread_create(&camera->camera_thread, NULL, pn_simulated_camera_thread, (void *)args);
-    else
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->mode = mode;
+    pthread_mutex_unlock(&camera->read_mutex);
+}
+
+static void set_desired_mode(Camera *camera, PNCameraMode mode)
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = mode;
+    pthread_mutex_unlock(&camera->read_mutex);
+}
+
+// Main camera thread loop
+static void *camera_thread(void *_args)
+{
+    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
+    Camera *camera = args->camera;
+    
+    // Initialize hardware, etc
+    set_mode(camera, INITIALISING);
+    camera->internal = camera->initialize(camera, args);
+    if (!camera->internal)
     {
-#ifdef USE_PVCAM
-        pthread_create(&camera->camera_thread, NULL, pn_pvcam_camera_thread, (void *)args);
-#elif defined USE_PICAM
-		pthread_create(&camera->camera_thread, NULL, pn_picam_camera_thread, (void *)args);
-#else
-        camera->simulated = true;
-        pthread_create(&camera->camera_thread, NULL, pn_simulated_camera_thread, (void *)args);
-#endif
+        if (camera_desired_mode(camera) == SHUTDOWN)
+            pn_log("Camera initialization aborted.");
+        else
+            trigger_fatal_error(strdup("Failed to initialize camera."));
+        return NULL;
     }
+
+    camera->port_count = camera->port_table(camera, camera->internal, &camera->port_options);
+
+    double readout = camera->update_camera_settings(camera, camera->internal);
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->readout_time = readout;
+    pthread_mutex_unlock(&camera->read_mutex);
+
+    pn_log("Camera is now idle.");
+    set_mode(camera, IDLE);
+
+    // Loop and respond to user commands
+    int temp_ticks = 0;
+
+    pthread_mutex_lock(&camera->read_mutex);
+    PNCameraMode desired_mode = camera->desired_mode;
+    bool safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
+    pthread_mutex_unlock(&camera->read_mutex);
+
+    while (desired_mode != SHUTDOWN)
+    {
+        PNCameraMode current_mode = camera_mode(camera);
+        pthread_mutex_lock(&camera->read_mutex);
+        bool camera_settings_dirty = camera->camera_settings_dirty;
+        pthread_mutex_unlock(&camera->read_mutex);
+
+        if (current_mode == IDLE && camera_settings_dirty)
+        {
+            double readout = camera->update_camera_settings(camera, camera->internal);
+            pthread_mutex_lock(&camera->read_mutex);
+            camera->readout_time = readout;
+            camera->camera_settings_dirty = false;
+            pthread_mutex_unlock(&camera->read_mutex);
+        }
+
+        // Start/stop acquisition
+        if (desired_mode == ACQUIRING && current_mode == IDLE)
+        {
+            set_mode(camera, ACQUIRE_START);
+            pn_log("Camera is preparing for acquisition.");
+            camera->start_acquiring(camera, camera->internal);
+            pn_log("Camera is now acquiring.");
+            set_mode(camera, ACQUIRING);
+
+            pthread_mutex_lock(&camera->read_mutex);
+            camera->safe_to_stop_acquiring = false;
+            pthread_mutex_unlock(&camera->read_mutex);
+        }
+        
+        // Intermediate mode - waiting for the timer to tell us that
+        // the hardware is ready to accept a stop acquisition command
+        if (desired_mode == IDLE && current_mode == ACQUIRING)
+        {
+            set_mode(camera, IDLE_WHEN_SAFE);
+            pn_log("Camera is waiting for safe shutdown.");
+        }
+        
+        // Stop acquisition
+        if (camera->mode == IDLE_WHEN_SAFE && safe_to_stop_acquiring)
+        {
+            set_mode(camera, ACQUIRE_STOP);
+            camera->stop_acquiring(camera, camera->internal);
+            pn_log("Camera is now idle.");
+            set_mode(camera, IDLE);
+        }
+        
+        // Check for new frames, etc
+        camera->tick(camera, camera->internal, current_mode);
+        
+        // Check temperature
+        if (++temp_ticks >= 50)
+        {
+            temp_ticks = 0;
+            double temperature = camera->read_temperature(camera, camera->internal);
+            pthread_mutex_lock(&camera->read_mutex);
+            camera->temperature = temperature;
+            pthread_mutex_unlock(&camera->read_mutex);
+        }
+        millisleep(100);
+        
+        pthread_mutex_lock(&camera->read_mutex);
+        desired_mode = camera->desired_mode;
+        safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
+        pthread_mutex_unlock(&camera->read_mutex);
+    }
+    
+    // Shutdown camera
+    PNCameraMode current_mode = camera_mode(camera);
+    
+    if (current_mode == ACQUIRING || current_mode == IDLE_WHEN_SAFE)
+        camera->stop_acquiring(camera, camera->internal);
+    
+    // Uninitialize hardware, etc
+    camera->uninitialize(camera, camera->internal);
+    
+    return NULL;
+}
+
+void camera_spawn_thread(Camera *camera, ThreadCreationArgs *args)
+{
+    pthread_create(&camera->camera_thread, NULL, camera_thread, (void *)args);
     camera->thread_initialized = true;
 }
 
-// Tell camera to shutdown and block until it completes
-void pn_camera_shutdown(PNCamera *camera)
+void camera_shutdown(Camera *camera)
 {
-    pthread_mutex_lock(&camera->read_mutex);
-    camera->desired_mode = SHUTDOWN;
-    pthread_mutex_unlock(&camera->read_mutex);
+    set_desired_mode(camera, SHUTDOWN);
 
     void **retval = NULL;
     if (camera->thread_initialized)
@@ -88,65 +257,45 @@ void pn_camera_shutdown(PNCamera *camera)
     camera->thread_initialized = false;
 }
 
-#pragma mark Camera Routines (Called from camera thread)
-extern PNCamera *camera;
-
-// Set the camera mode to be read by the other threads in a threadsafe manner
-// Only to be used by camera implementations.
-void set_mode(PNCameraMode mode)
-{
-    pthread_mutex_lock(&camera->read_mutex);
-    camera->mode = mode;
-    pthread_mutex_unlock(&camera->read_mutex);
-}
-
-// Request a new camera mode from another thread
-void pn_camera_start_exposure()
-{
-    pthread_mutex_lock(&camera->read_mutex);
-    camera->desired_mode = ACQUIRING;
-    pthread_mutex_unlock(&camera->read_mutex);
-}
-
-void pn_camera_stop_exposure()
-{
-    pthread_mutex_lock(&camera->read_mutex);
-    camera->desired_mode = IDLE;
-    pthread_mutex_unlock(&camera->read_mutex);
-}
-
-void pn_camera_notify_safe_to_stop()
+void camera_notify_safe_to_stop(Camera *camera)
 {
     pthread_mutex_lock(&camera->read_mutex);
     camera->safe_to_stop_acquiring = true;
     pthread_mutex_unlock(&camera->read_mutex);
 }
 
-bool pn_camera_is_simulated()
+bool camera_is_simulated(Camera *camera)
 {
-    // Not touched by camera thread, so safe to access without locks
-    return camera->simulated;
+    return (camera->type == SIMULATED);
 }
 
-float pn_camera_temperature()
+void camera_start_exposure(Camera *camera)
+{
+    set_desired_mode(camera, ACQUIRING);
+}
+
+void camera_stop_exposure(Camera *camera)
+{
+    set_desired_mode(camera, IDLE);
+}
+
+double camera_temperature(Camera *camera)
 {
     pthread_mutex_lock(&camera->read_mutex);
-    float temperature = camera->temperature;
+    double temperature = camera->temperature;
     pthread_mutex_unlock(&camera->read_mutex);
     return temperature;
 }
 
-float pn_camera_readout_time()
+double camera_readout_time(Camera *camera)
 {
     pthread_mutex_lock(&camera->read_mutex);
-    float readout_time = camera->readout_time;
+    double readout = camera->readout_time;
     pthread_mutex_unlock(&camera->read_mutex);
-    return readout_time;
+    return readout;
 }
 
-// TODO: This is a temporary measure - callers shouldn't
-// know about PNCameraMode
-PNCameraMode pn_camera_mode()
+PNCameraMode camera_mode(Camera *camera)
 {
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode mode = camera->mode;
@@ -154,139 +303,17 @@ PNCameraMode pn_camera_mode()
     return mode;
 }
 
-#pragma mark Simulated Camera Routines
-
-// Stop an acquisition sequence
-static void stop_acquiring_simulated()
+PNCameraMode camera_desired_mode(Camera *camera)
 {
-    set_mode(ACQUIRE_STOP);
-    pn_log("Camera is now idle.");
-    set_mode(IDLE);
-}
-
-// Main simulated camera thread loop
-void *pn_simulated_camera_thread(void *_args)
-{
-    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
-    TimerUnit *timer = args->timer;
-    PNCamera *camera = args->camera;
-    bool first_frame = true;
-
-    // Initialize the camera
-    camera->safe_to_stop_acquiring = false;
-    pn_log("Initialising simulated Camera.");
-
-    camera->port_count = 1;
-    camera->ports = calloc(1, sizeof(struct camera_readout_port));
-    camera->ports[0].id = 0;
-    camera->ports[0].name = strdup("Normal");
-    camera->ports[0].speed_count = 2;
-    camera->ports[0].speeds = calloc(2, sizeof(struct camera_readout_speed));
-    camera->ports[0].speeds[0].id = 0;
-    camera->ports[0].speeds[0].name = strdup("Slow");
-    camera->ports[0].speeds[0].gain_count = 2;
-    camera->ports[0].speeds[0].gains = calloc(2, sizeof(struct camera_readout_gain));
-    camera->ports[0].speeds[0].gains[0].id = 0;
-    camera->ports[0].speeds[0].gains[0].name = strdup("Low");
-    camera->ports[0].speeds[0].gains[1].id = 1;
-    camera->ports[0].speeds[0].gains[1].name = strdup("High");
-    camera->ports[0].speeds[1].id = 1;
-    camera->ports[0].speeds[1].name = strdup("Fast");
-    camera->ports[0].speeds[1].gain_count = 2;
-    camera->ports[0].speeds[1].gains = calloc(2, sizeof(struct camera_readout_gain));
-    camera->ports[0].speeds[1].gains[0].id = 0;
-    camera->ports[0].speeds[1].gains[0].name = strdup("Low");
-    camera->ports[0].speeds[1].gains[1].id = 0;
-    camera->ports[0].speeds[1].gains[1].name = strdup("Low");
-
-    // Wait a bit to simulate hardware startup time
-    millisleep(2000);
-    pn_log("Camera is now idle.");
-    set_mode(IDLE);
-
-    // Loop and respond to user commands
     pthread_mutex_lock(&camera->read_mutex);
-    PNCameraMode desired_mode = camera->desired_mode;
-    bool safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
+    PNCameraMode mode = camera->mode;
     pthread_mutex_unlock(&camera->read_mutex);
-
-    while (desired_mode != SHUTDOWN)
-    {
-        // Start Acquisition
-        if (desired_mode == ACQUIRING && camera->mode == IDLE)
-        {
-            set_mode(ACQUIRE_START);
-
-            camera->frame_height = 512;
-            camera->frame_width = 512;
-
-            // Delay a bit to simulate hardware startup time
-            millisleep(2000);
-            pn_log("Camera is now acquiring.");
-            first_frame = true;
-            set_mode(ACQUIRING);
-        }
-
-        // Enter an intermediate waiting state while we wait for the
-        // timer to say it is safe to stop the acquisition sequence
-        if (desired_mode == IDLE && camera->mode == ACQUIRING)
-            camera->mode = IDLE_WHEN_SAFE;
-
-        // Stop acquisition
-        if (camera->mode == IDLE_WHEN_SAFE && safe_to_stop_acquiring)
-            stop_acquiring_simulated();
-
-        // Check for new frame
-        bool downloading = timer_camera_downloading(timer);
-        if (camera->mode == ACQUIRING && downloading)
-        {
-            if (first_frame)
-            {
-                pn_log("Discarding pre-exposure readout.");
-                first_frame = false;
-            }
-            else
-            {
-                // Copy frame data and pass ownership to main thread
-                CameraFrame *frame = malloc(sizeof(CameraFrame));
-                if (frame)
-                {
-                    size_t frame_bytes = camera->frame_width*camera->frame_height*sizeof(uint16_t);
-                    frame->data = malloc(frame_bytes);
-
-                    if (frame->data)
-                    {
-                        // Fill frame with random numbers
-                        for (size_t i = 0; i < camera->frame_width*camera->frame_height; i++)
-                            frame->data[i] = rand();
-
-                        frame->width = camera->frame_width;
-                        frame->height = camera->frame_height;
-                        frame->temperature = camera->temperature;
-                        queue_framedata(frame);
-                    }
-                    else
-                        pn_log("Failed to allocate CameraFrame->data. Discarding frame.");
-                }
-                else
-                    pn_log("Failed to allocate CameraFrame. Discarding frame.");
-            }
-            // There is no physical camera for the timer to monitor
-            // so we must toggle this manually
-            timer_set_simulated_camera_downloading(timer, false);
-        }
-
-        millisleep(100);
-        pthread_mutex_lock(&camera->read_mutex);
-        desired_mode = camera->desired_mode;
-        safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
-        pthread_mutex_unlock(&camera->read_mutex);
-    }
-
-    // Shutdown camera
-    if (camera->mode == ACQUIRING)
-        stop_acquiring_simulated();
-
-    return NULL;
+    return mode;
 }
 
+void camera_update_settings(Camera *camera)
+{
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->camera_settings_dirty = true;
+    pthread_mutex_unlock(&camera->read_mutex);
+}

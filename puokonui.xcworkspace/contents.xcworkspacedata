@@ -11,7 +11,19 @@
       location = "group:camera_pvcam.c">
    </FileRef>
    <FileRef
+      location = "group:camera_pvcam.h">
+   </FileRef>
+   <FileRef
       location = "group:camera_picam.c">
+   </FileRef>
+   <FileRef
+      location = "group:camera_picam.h">
+   </FileRef>
+   <FileRef
+      location = "group:camera_simulated.c">
+   </FileRef>
+   <FileRef
+      location = "group:camera_simulated.h">
    </FileRef>
    <FileRef
       location = "group:timer.c">

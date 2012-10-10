@@ -41,12 +41,12 @@ extern "C" {
 class FLTKGui
 {
 public:
-	FLTKGui(PNCamera *camera, TimerUnit *timer);
+	FLTKGui(Camera *camera, TimerUnit *timer);
 	~FLTKGui();
     void addLogLine(const char *msg);
     bool update();
     void updateTimerGroup();
-    void updateCameraGroup(PNCameraMode mode, int camera_downloading, float temperature);
+    void updateCameraGroup(PNCameraMode mode, int camera_downloading, double temperature);
     void updateAcquisitionGroup();
     void updateButtonGroup(PNCameraMode mode);
 
@@ -77,7 +77,7 @@ private:
 
     static void closeMainWindowCallback(Fl_Widget *window, void *v);
 
-    PNCamera *m_cameraRef;
+    Camera *m_cameraRef;
     TimerUnit *m_timerRef;
 
     Fl_Double_Window *m_mainWindow;
@@ -115,8 +115,8 @@ private:
 
     // Temporary state comparables
     PNCameraMode last_camera_mode;
-    float last_camera_temperature;
-    float last_camera_readout_time;
+    double last_camera_temperature;
+    double last_camera_readout_time;
     int last_calibration_framecount;
     int last_run_number;
     int last_camera_downloading;
