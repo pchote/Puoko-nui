@@ -18,14 +18,6 @@
 #include <master.h>
 #include <pvcam.h>
 
-extern PNCamera *camera;
-
-static int16 handle = -1;
-static void *image_buffer = NULL;
-static uns32 image_buffer_size = 0;
-
-char *gain_names[3] = {"Low Gain", "Medium Gain", "High Gain"};
-
 // Custom frame transfer mode options
 #define PARAM_FORCE_READOUT_MODE ((CLASS2<<16) + (TYPE_UNS32<<24) + 326)
 enum ForceReadOut {
@@ -35,478 +27,394 @@ enum ForceReadOut {
     MAKE_AUTOMATIC
 };
 
-// Used to determine and discard the first frame
-// corresponding to the exposure before the first
-// trigger. This allows us to count all download timestamps
-// as the beginning of the corresponding frame
-bool first_frame;
-
-// Generate a fatal error based on the pvcam error
-static void pvcam_error(const char *msg)
+// Holds the state of a camera
+struct internal
 {
-    int error = pl_error_code();
-    if (!error)
-        return;
+    int16 handle;
+    void *image_buffer;
+    uns32 image_buffer_size;
 
+    uint16_t frame_width;
+    uint16_t frame_height;
+    bool first_frame;
+};
+
+static char *gain_names[] = {"Low", "Medium", "High"};
+
+static void fatal_pvcam_error(char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf(NULL, 0, format, args);
+    va_end(args);
+
+    char *fatal_error = malloc((len + 1)*sizeof(char));
+    if (fatal_error)
+    {
+        va_start(args, format);
+        vsnprintf(fatal_error, len + 1, format, args);
+        va_end(args);
+    }
+    else
+        pn_log("Failed to allocate memory for fatal error.");
+
+    int error = pl_error_code();
     char pvmsg[ERROR_MSG_LEN];
     pvmsg[0] = '\0';
     pl_error_message(error, pvmsg);
 
     pn_log("PVCAM error: %d = %s.", error, pvmsg);
-    trigger_fatal_error(msg);
+    trigger_fatal_error(fatal_error);
     pthread_exit(NULL);
 }
 
-// Sample the camera temperature to be read by the other threads in a threadsafe manner
-static void read_temperature()
+static void fatal_error(char *format, ...)
 {
-    int16 temp;
-    if (pl_get_param(handle, PARAM_TEMP, ATTR_CURRENT, &temp ))
-        pvcam_error("Failed to query temperature.");
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf(NULL, 0, format, args);
+    va_end(args);
 
-    pthread_mutex_lock(&camera->read_mutex);
-    camera->temperature = (float)temp/100;
-    pthread_mutex_unlock(&camera->read_mutex);
+    char *fatal_error = malloc((len + 1)*sizeof(char));
+    if (fatal_error)
+    {
+        va_start(args, format);
+        vsnprintf(fatal_error, len + 1, format, args);
+        va_end(args);
+    }
+    else
+        pn_log("Failed to allocate memory for fatal error.");
+
+    trigger_fatal_error(fatal_error);
+    pthread_exit(NULL);
 }
 
-// Check whether a frame is available
-static bool frame_available()
+static bool frame_available(struct internal *internal)
 {
     int16 status = READOUT_NOT_ACTIVE;
     uns32 bytesStored = 0, numFilledBuffers = 0;
-    if (!pl_exp_check_cont_status(handle, &status, &bytesStored, &numFilledBuffers))
-        pvcam_error("Failed to query camera status.");
+    if (!pl_exp_check_cont_status(internal->handle, &status, &bytesStored, &numFilledBuffers))
+        fatal_pvcam_error("Failed to query camera status.");
 
     return (status == FRAME_AVAILABLE);
 }
 
-static void load_readout_settings()
+#define get_param(handle, param, attrib, value) _get_param(handle, param, #param, attrib, #attrib, (void*)value)
+static void _get_param(int16 handle, uns32 param, char *param_name, int16 attrib, char *attrib_name, void_ptr value)
 {
-    uns32 p_count;
-	if (!pl_get_param(handle, PARAM_READOUT_PORT, ATTR_COUNT, (void*)&p_count))
-        pvcam_error("Failed to query readout port count.");
-
-    camera->port_count = p_count;
-    camera->ports = calloc(camera->port_count, sizeof(struct camera_readout_port));
-    if (!camera->ports)
-        trigger_fatal_error("Failed to allocate memory for readout ports.");
-
-    char str[100];
-    for (uint8_t i = 0; i < camera->port_count; i++)
-    {
-        struct camera_readout_port *port = &camera->ports[i];
-        int32 value;
-        if (!pl_get_enum_param(handle, PARAM_READOUT_PORT, i, &value, str, 100))
-            pvcam_error("Failed to query readout port value.");
-
-        port->id = i;
-        port->name = strdup(str);
-
-        // Set the active port then query readout speeds
-        if (camera->port_count > 1 && !pl_set_param(handle, PARAM_READOUT_PORT, (void*)&i))
-            pvcam_error("Failed to set readout port.");
-
-        int16 speed_min, speed_max;
-        if (!pl_get_param(handle, PARAM_SPDTAB_INDEX, ATTR_MIN, (void*)&speed_min));
-            pvcam_error("Failed to query readout min.");
-        if (!pl_get_param(handle, PARAM_SPDTAB_INDEX, ATTR_MAX, (void*)&speed_max));
-            pvcam_error("Failed to query readout max.");
-
-        port->speed_count = speed_max - speed_min + 1;
-        port->speeds = calloc(port->speed_count, sizeof(struct camera_readout_speed));
-        if (!port->speeds)
-            trigger_fatal_error("Failed to allocate memory for readout speeds.");
-
-        for (uint8_t j = 0; j <= speed_max - speed_min; j++)
-        {
-            struct camera_readout_speed *speed = &camera->ports[i].speeds[j];
-            if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (int16[]){speed_min + j}))
-                pvcam_error("Failed to set readout mode.");
-
-            int16 gain_min, gain_max, pix_time;
-            if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MIN, (void*)&gain_min));
-                pvcam_error("Failed to query gain min.");
-            if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MAX, (void*)&gain_max));
-                pvcam_error("Failed to query gain max.");
-            if (!pl_get_param(handle, PARAM_PIX_TIME, ATTR_CURRENT, (void*)&pix_time))
-                pvcam_error("Failed to query pixel time.");
-
-            snprintf(str, 100, "%0.1f MHz", 1.0e3/pix_time);
-            speed->id = speed_min + j;
-            speed->name = strdup(str);
-
-            speed->gain_count = gain_max - gain_min + 1;
-            speed->gains = calloc(speed->gain_count, sizeof(struct camera_readout_gain));
-            if (!speed->gains)
-                trigger_fatal_error("Failed to allocate memory for readout gains.");
-
-            for (uint8_t k = 0; k <= gain_max - gain_min; k++)
-            {
-                struct camera_readout_gain *gain = &camera->ports[i].speeds[j].gains[k];
-                gain->id = k;
-                gain->name = (gain_max - gain_min == 2) ? strdup(gain_names[k]) : strdup("Unknown");
-            }
-        }
-    }
+    if (!pl_get_param(handle, param, attrib, value))
+        fatal_pvcam_error("Failed to query %s %s", param_name, attrib_name);
 }
 
-static void set_readout_port()
+#define set_param(handle, param, value) _set_param(handle, param, #param, (void*)value)
+static void _set_param(int16 handle, uns32 param, char *param_name, void_ptr value)
 {
-    char str[100];
-    int32 value;
-
-    // Set readout port by constraint index
-    uns32 port_count;
-	if (!pl_get_param(handle, PARAM_READOUT_PORT, ATTR_COUNT, (void*)&port_count))
-        pvcam_error("Failed to query readout port count.");
-
-    pn_log("Available Readout Ports:");
-    for (size_t i = 0; i < port_count; i++)
-    {
-        if (!pl_get_enum_param(handle, PARAM_READOUT_PORT, i, &value, str, 100))
-            pvcam_error("Failed to query readout port value.");
-        pn_log("   %d = %s", i, str);
-    }
-
-    // Can only configure cameras with multiple ports
-    if (port_count == 1)
-        return;
-
-    const size_t readport_id = pn_preference_char(CAMERA_READPORT_MODE);
-    if (readport_id < port_count)
-    {
-        if (!pl_set_param(handle, PARAM_READOUT_PORT, (void*)&readport_id))
-            pvcam_error("Failed to set readout port.");
-
-        if (!pl_get_enum_param(handle, PARAM_READOUT_PORT, readport_id, &value, str, 100))
-            pvcam_error("Failed to set readout port value.");
-        pn_log("Readout Port set to %s.", str);
-    }
-    else
-        pn_log("Invalid Readout Port: %d. Ignoring value.", readport_id);
+    if (!pl_set_param(handle, param, value))
+        fatal_pvcam_error("Failed to set %s", param_name);
 }
 
-// Readout speed and gain
-static void set_speed_table()
+void *camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args)
 {
-    int16 speed_min, speed_max;
-    if (!pl_get_param(handle, PARAM_SPDTAB_INDEX, ATTR_MIN, (void*)&speed_min));
-        pvcam_error("Failed to query readout min.");
-    if (!pl_get_param(handle, PARAM_SPDTAB_INDEX, ATTR_MAX, (void*)&speed_max));
-        pvcam_error("Failed to query readout max.");
-
-    pn_log("Available Readout Modes:");
-    for (int16 i = speed_min; i <= speed_max; i++)
-    {
-        if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (void*)&i))
-            pvcam_error("Failed to set readout mode.");
-
-        int16 gain_min, gain_max, pix_time;
-        if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MIN, (void*)&gain_min));
-            pvcam_error("Failed to query gain min.");
-        if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MAX, (void*)&gain_max));
-            pvcam_error("Failed to query gain max.");
-        if (!pl_get_param(handle, PARAM_PIX_TIME, ATTR_CURRENT, (void*)&pix_time))
-            pvcam_error("Failed to query pixel time.");
-
-        pn_log("   %d = %0.1f MHz; Gain ids %d-%d", i, 1.0e3/pix_time, gain_min, gain_max);
-    }
-
-    const int16 readspeed_id = pn_preference_char(CAMERA_READSPEED_MODE);
-    const int16 gain_id = pn_preference_char(CAMERA_GAIN_MODE);
-    if (speed_min <= readspeed_id && readspeed_id <= speed_max)
-    {
-        if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (void*)&readspeed_id))
-            pvcam_error("Failed to set readout mode.");
-
-        int16 gain_min, gain_max, pix_time;
-        if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MIN, (void*)&gain_min));
-            pvcam_error("Failed to query gain min.");
-        if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MAX, (void*)&gain_max));
-            pvcam_error("Failed to query gain max.");
-        if (!pl_get_param(handle, PARAM_PIX_TIME, ATTR_CURRENT, (void*)&pix_time))
-            pvcam_error("Failed to query pixel time.");
-
-        pn_log("Set readout speed to %0.1f MHz.", 1.0e3/pix_time);
-
-        if (gain_min <= gain_id && gain_id <= gain_max)
-        {
-            if (!pl_set_param(handle, PARAM_GAIN_INDEX, (void*)&gain_id))
-                pvcam_error("Failed to set gain.");
-
-            pn_log("Set gain index to %d.", gain_id);
-        }
-        else
-            pn_log("Invalid gain index: %d. Ignoring value.", gain_id);
-    }
-    else
-        pn_log("Invalid Readout speed index: %d. Ignoring value.", readspeed_id);
-}
-
-// Initialize PVCAM and the camera hardware
-static void initialize_camera()
-{
-    set_mode(INITIALISING);
+    struct internal *internal = calloc(1, sizeof(struct internal));
+    if (!internal)
+        return NULL;
 
     if (!pl_pvcam_init())
-        pvcam_error("Failed to initialize PVCAM.");
+        fatal_pvcam_error("Failed to initialize PVCAM.");
 
     uns16 pversion;
     if (!pl_pvcam_get_ver(&pversion))
-        pvcam_error("Failed to query PVCAM version.");
+        fatal_pvcam_error("Failed to query PVCAM version.");
 
     pn_log("PVCAM Version %d.%d.%d.", pversion>>8, (pversion & 0x00F0)>>4, pversion & 0x000F, pversion);
 
     int16 numCams = 0;
     if (!pl_cam_get_total(&numCams))
-        pvcam_error("Failed to query cameras.");
+        fatal_pvcam_error("Failed to query cameras.");
 
     if (numCams == 0)
-    {
-        trigger_fatal_error(strdup("Camera not found."));
-        pthread_exit(NULL);
-    }
+        fatal_error(strdup("Camera not found."));
 
     // Get the camera name (assume that we only have one camera)
     char cameraName[CAM_NAME_LEN];
     if (!pl_cam_get_name(0, cameraName))
-        pvcam_error("Failed to query camera name.");
+        fatal_pvcam_error("Failed to query camera name.");
 
     // Open the camera
-    if (!pl_cam_open(cameraName, &handle, OPEN_EXCLUSIVE))
-        pvcam_error("Failed to open camera. Are permissions correct?");
+    if (!pl_cam_open(cameraName, &internal->handle, OPEN_EXCLUSIVE))
+        fatal_pvcam_error("Failed to open camera. Are permissions correct?");
 
     pn_log("Camera ID: \"%s\".", cameraName);
 
     // Check camera status
-    if (!pl_cam_get_diags(handle))
-        pvcam_error("Camera failed diagnostic checks.");
+    if (!pl_cam_get_diags(internal->handle))
+        fatal_pvcam_error("Camera failed diagnostic checks.");
 
-    // Set camera parameters
-    if (!pl_set_param(handle, PARAM_SHTR_CLOSE_DELAY, (void*) &(uns16){0}))
-        pvcam_error("Failed to set PARAM_SHTR_CLOSE_DELAY.");
+    set_param(internal->handle, PARAM_SHTR_CLOSE_DELAY, &(uns16){0});
+    set_param(internal->handle, PARAM_LOGIC_OUTPUT, &(int){OUTPUT_NOT_SCAN});
+    set_param(internal->handle, PARAM_EDGE_TRIGGER, &(int){EDGE_TRIG_NEG});
+    set_param(internal->handle, PARAM_FORCE_READOUT_MODE, &(int){MAKE_FRAME_TRANSFER});
 
-    if (!pl_set_param(handle, PARAM_LOGIC_OUTPUT, (void*) &(int){OUTPUT_NOT_SCAN}))
-        pvcam_error("Failed to set OUTPUT_NOT_SCAN.");
-
-    // Trigger on positive edge of the download pulse
-    if (!pl_set_param(handle, PARAM_EDGE_TRIGGER, (void*) &(int){EDGE_TRIG_NEG}))
-        pvcam_error("Failed to set PARAM_EDGE_TRIGGER.");
-
-    // Use custom frame-transfer readout mode
-    if (!pl_set_param(handle, PARAM_FORCE_READOUT_MODE, (void*) &(int){MAKE_FRAME_TRANSFER}))
-        pvcam_error("Failed to set PARAM_FORCE_READOUT_MODE.");
-
-    // Set temperature
-    if (!pl_set_param(handle, PARAM_TEMP_SETPOINT, (void*) &(int){pn_preference_int(CAMERA_TEMPERATURE)}))
-        pvcam_error("Failed to set PARAM_TEMP_SETPOINT.");
-
-    load_readout_settings();
-
-    pn_log("Camera is now idle.");
-    set_mode(IDLE);
+    return internal;
 }
 
-// Start an acquisition sequence
-static void start_acquiring()
+double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
 {
-    set_mode(ACQUIRE_START);
+    struct internal *internal = _internal;
 
-    pn_log("Camera is preparing for acquisition.");
-    set_readout_port();
-    set_speed_table();
+    // Validate requested settings
+    uns32 port_count;
+    uint8_t port_id = pn_preference_char(CAMERA_READPORT_MODE);
+    get_param(internal->handle, PARAM_READOUT_PORT, ATTR_COUNT, &port_count);
+    if (port_id >= port_count)
+    {
+        pn_log("Invalid port index: %d. Reset to %d.", port_id, 0);
+        pn_preference_set_char(CAMERA_READPORT_MODE, 0);
+        port_id = 0;
+    }
 
-    if (!pl_get_param(handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *)&camera->frame_width))
-        pvcam_error("Failed to query CCD width.");
+    if (port_count > 1)
+        set_param(internal->handle, PARAM_READOUT_PORT, &port_id);
 
-    if (!pl_get_param(handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *)&camera->frame_height))
-        pvcam_error("Failed to query CCD height.");
+    uint8_t speed_id = pn_preference_char(CAMERA_READSPEED_MODE);
+    int16 speed_min, speed_max;
+    get_param(internal->handle, PARAM_SPDTAB_INDEX, ATTR_MIN, &speed_min);
+    get_param(internal->handle, PARAM_SPDTAB_INDEX, ATTR_MAX, &speed_max);
 
-    unsigned char superpixel_size = pn_preference_char(CAMERA_PIXEL_SIZE);
+    int16 speed_value = speed_id + speed_min;
+    if (speed_value > speed_max)
+    {
+        pn_log("Invalid speed index: %d. Reset to %d.", speed_id, 0);
+        pn_preference_set_char(CAMERA_READSPEED_MODE, 0);
+        speed_value = speed_min;
+    }
+    set_param(internal->handle, PARAM_SPDTAB_INDEX, &speed_value);
 
+    uint8_t gain_id = pn_preference_char(CAMERA_GAIN_MODE);
+    int16 gain_min, gain_max;
+    get_param(internal->handle, PARAM_GAIN_INDEX, ATTR_MIN, &gain_min);
+    get_param(internal->handle, PARAM_GAIN_INDEX, ATTR_MAX, &gain_max);
+
+    int16 gain_value = gain_id + gain_min;
+    if (gain_value > gain_max)
+    {
+        pn_log("Invalid gain index: %d. Reset to %d.", gain_id, 0);
+        pn_preference_set_char(CAMERA_GAIN_MODE, 0);
+        gain_value = gain_min;
+    }
+    set_param(internal->handle, PARAM_GAIN_INDEX, &gain_value);
+
+    set_param(internal->handle, PARAM_TEMP_SETPOINT, &(int){pn_preference_int(CAMERA_TEMPERATURE)});
+
+    // TODO: Estimate readout time
+    return 0;
+}
+
+uint8_t camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_port_option **out_ports)
+{
+    struct internal *internal = _internal;
+    uns32 port_count;
+    get_param(internal->handle, PARAM_READOUT_PORT, ATTR_COUNT, &port_count);
+
+    struct camera_port_option *ports = calloc(port_count, sizeof(struct camera_port_option));
+    if (!ports)
+        fatal_error("Failed to allocate memory for %d readout ports.", port_count);
+
+    char str[100];
+    int32 value;
+    for (uint8_t i = 0; i < port_count; i++)
+    {
+        struct camera_port_option *port = &ports[i];
+        if (!pl_get_enum_param(internal->handle, PARAM_READOUT_PORT, i, &value, str, 100))
+            fatal_pvcam_error("Failed to query PARAM_READOUT_PORT");
+        port->name = strdup(str);
+
+        // Set the active port then query readout speeds
+        if (port_count > 1)
+            set_param(internal->handle, PARAM_READOUT_PORT, &i);
+
+        int16 speed_min, speed_max;
+        get_param(internal->handle, PARAM_SPDTAB_INDEX, ATTR_MIN, &speed_min);
+        get_param(internal->handle, PARAM_SPDTAB_INDEX, ATTR_MAX, &speed_max);
+
+        port->speed_count = speed_max - speed_min + 1;
+        port->speed = calloc(port->speed_count, sizeof(struct camera_speed_option));
+        if (!port->speed)
+            fatal_error("Failed to allocate memory for %d readout speeds.", port->speed_count);
+
+        for (uint8_t j = 0; j <= speed_max - speed_min; j++)
+        {
+            struct camera_speed_option *speed = &port->speed[j];
+            set_param(internal->handle, PARAM_SPDTAB_INDEX, &(int16){speed_min + j});
+
+            int16 gain_min, gain_max, pix_time;
+            get_param(internal->handle, PARAM_GAIN_INDEX, ATTR_MIN, &gain_min);
+            get_param(internal->handle, PARAM_GAIN_INDEX, ATTR_MAX, &gain_max);
+            get_param(internal->handle, PARAM_PIX_TIME, ATTR_CURRENT, &pix_time);
+
+            snprintf(str, 100, "%0.1f MHz", 1.0e3/pix_time);
+            speed->name = strdup(str);
+
+            speed->gain_count = gain_max - gain_min + 1;
+            speed->gain = calloc(speed->gain_count, sizeof(struct camera_gain_option));
+            if (!speed->gain)
+                fatal_error("Failed to allocate memory for readout gains.");
+
+            for (uint8_t k = 0; k <= gain_max - gain_min; k++)
+            {
+                struct camera_gain_option *gain = &speed->gain[k];
+                gain->name = (gain_max - gain_min == 2) ? strdup(gain_names[k]) : strdup("Unknown");
+            }
+        }
+    }
+
+    *out_ports = ports;
+    return port_count;
+}
+
+void camera_pvcam_uninitialize(Camera *camera, void *internal)
+{
+    if (!pl_pvcam_uninit())
+        pn_log("Failed to uninitialize PVCAM.");
+    pn_log("PVCAM uninitialized.");
+
+    free(internal);
+}
+
+void camera_pvcam_start_acquiring(Camera *camera, void *_internal)
+{
+    struct internal *internal = _internal;
+
+    get_param(internal->handle, PARAM_SER_SIZE, ATTR_DEFAULT, &internal->frame_width);
+    get_param(internal->handle, PARAM_PAR_SIZE, ATTR_DEFAULT, &internal->frame_height);
+
+    unsigned char pixel_size = pn_preference_char(CAMERA_PIXEL_SIZE);
     if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
     {
         // Enable custom chip so we can add a bias strip
-        if (!pl_set_param(handle, PARAM_CUSTOM_CHIP, (void*) &(rs_bool){TRUE}))
-            pvcam_error("Failed to set PARAM_CUSTOM_CHIP.");
+        set_param(internal->handle, PARAM_CUSTOM_CHIP, &(rs_bool){TRUE});
 
         // Increase frame width by the requested amount
-        camera->frame_width += pn_preference_char(CAMERA_OVERSCAN_SKIP_COLS) + pn_preference_char(CAMERA_OVERSCAN_BIAS_COLS);
-        if (!pl_set_param(handle, PARAM_SER_SIZE, (void*) &(uns16){camera->frame_width}))
-            pvcam_error("Failed to set PARAM_SER_SIZE.");
+        internal->frame_width += pn_preference_char(CAMERA_OVERSCAN_SKIP_COLS) + pn_preference_char(CAMERA_OVERSCAN_BIAS_COLS);
+        set_param(internal->handle, PARAM_SER_SIZE, &(uns16){internal->frame_width});
 
         // Remove postscan - this is handled by the additional overscan readouts
         // PVCAM seems to have mislabeled *SCAN and *MASK
-        if (!pl_set_param(handle, PARAM_POSTMASK, (void*) &(uns16){0}))
-            pvcam_error("Failed to set PARAM_POSTMASK.");
+        set_param(internal->handle, PARAM_POSTMASK, &(uns16){0});
     }
 
     rgn_type region;
-    region.s1 = 0;                      // x start ('serial' direction)
-    region.s2 = camera->frame_width-1;  // x end
-    region.sbin = superpixel_size;      // x binning (1 = no binning)
-    region.p1 = 0;                      // y start ('parallel' direction)
-    region.p2 = camera->frame_height-1; // y end
-    region.pbin = superpixel_size;      // y binning (1 = no binning)
+    region.s1 = 0;
+    region.s2 = internal->frame_width-1;
+    region.sbin = pixel_size;
+    region.p1 = 0;
+    region.p2 = internal->frame_height-1;
+    region.pbin = pixel_size;
 
     // Divide the chip size by the bin size to find the frame dimensions
-    camera->frame_height /= superpixel_size;
-    camera->frame_width /= superpixel_size;
-
-    pn_log("Pixel size set to %dx%d.", superpixel_size, superpixel_size);
+    internal->frame_height /= pixel_size;
+    internal->frame_width /= pixel_size;
 
     // Init exposure control libs
     if (!pl_exp_init_seq())
-        pvcam_error("Failed to initialize exposure sequence.");
+        fatal_pvcam_error("Failed to initialize exposure sequence.");
 
     // Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer
-    if (!pl_exp_setup_cont(handle, 1, &region, STROBED_MODE, 0, &image_buffer_size, CIRC_NO_OVERWRITE))
-        pvcam_error("Failed to setup exposure sequence.");
+    if (!pl_exp_setup_cont(internal->handle, 1, &region, STROBED_MODE, 0, &internal->image_buffer_size, CIRC_NO_OVERWRITE))
+        fatal_pvcam_error("Failed to setup exposure sequence.");
 
-    // Create a buffer big enough to hold 1 image
-    image_buffer = (uns16*)malloc(image_buffer_size);
-    if (image_buffer == NULL)
-        trigger_fatal_error("Failed to allocate frame buffer.");
+    // Create a buffer big enough to hold 5 images.
+    // PVCAM under win32 gives a DMA error if this is set to 1.
+    internal->image_buffer_size *= 5;
+    internal->image_buffer = (uns16*)malloc(internal->image_buffer_size);
+    if (internal->image_buffer == NULL)
+        fatal_error("Failed to allocate frame buffer.");
 
     // Start waiting for sync pulses to trigger exposures
-    if (!pl_exp_start_cont(handle, image_buffer, image_buffer_size))
-        pvcam_error("Failed to start exposure sequence.");
+    if (!pl_exp_start_cont(internal->handle, internal->image_buffer, internal->image_buffer_size))
+        fatal_pvcam_error("Failed to start exposure sequence.");
 
-    // Sample initial temperature
-    read_temperature();
-
-    first_frame = true;
-    camera->safe_to_stop_acquiring = false;
-    pn_log("Camera is now acquiring.");
-    set_mode(ACQUIRING);
+    internal->first_frame = true;
 }
 
-// Stop an acquisition sequence
-static void stop_acquiring()
+void camera_pvcam_stop_acquiring(Camera *camera, void *_internal)
 {
-    set_mode(ACQUIRE_STOP);
+    struct internal *internal = _internal;
 
     // Clear any buffered frames
     void_ptr camera_frame;
-    while (frame_available())
+    while (frame_available(internal))
     {
-        pl_exp_get_oldest_frame(handle, &camera_frame);
-        pl_exp_unlock_oldest_frame(handle);
+        pl_exp_get_oldest_frame(internal->handle, &camera_frame);
+        pl_exp_unlock_oldest_frame(internal->handle);
         pn_log("Discarding buffered frame.");
     }
 
-    if (!pl_exp_stop_cont(handle, CCS_HALT))
+    if (!pl_exp_stop_cont(internal->handle, CCS_HALT))
         pn_log("Failed to stop exposure sequence.");
 
-    if (!pl_exp_finish_seq(handle, image_buffer, 0))
+    if (!pl_exp_finish_seq(internal->handle, internal->image_buffer, 0))
         pn_log("Failed to finish exposure sequence.");
 
     if (!pl_exp_uninit_seq())
         pn_log("Failed to uninitialize exposure sequence.");
 
-    free(image_buffer);
-    pn_log("Camera is now idle.");
-    set_mode(IDLE);
+    free(internal->image_buffer);
 }
 
-// Main camera thread loop
-void *pn_pvcam_camera_thread(void *_args)
+double camera_pvcam_read_temperature(Camera *camera, void *_internal)
 {
-    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
-    PNCamera *camera = args->camera;
+    struct internal *internal = _internal;
 
-    // Initialize the camera
-    initialize_camera();
+    int16 temp;
+    get_param(internal->handle, PARAM_TEMP, ATTR_CURRENT, &temp);
+    return temp/100.0;
+}
 
-    // Loop and respond to user commands
-    int temp_ticks = 0;
+void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode)
+{
+    struct internal *internal = _internal;
 
-    pthread_mutex_lock(&camera->read_mutex);
-    PNCameraMode desired_mode = camera->desired_mode;
-    bool safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
-    pthread_mutex_unlock(&camera->read_mutex);
-
-    while (desired_mode != SHUTDOWN)
+    // Check for new frame
+    if (current_mode == ACQUIRING && frame_available(internal))
     {
-        // Start/stop acquisition
-        if (desired_mode == ACQUIRING && camera->mode == IDLE)
-            start_acquiring();
+        void_ptr camera_frame;
+        if (!pl_exp_get_oldest_frame(internal->handle, &camera_frame))
+            fatal_pvcam_error("Error retrieving oldest frame.");
 
-        if (desired_mode == IDLE && camera->mode == ACQUIRING)
-            camera->mode = IDLE_WHEN_SAFE;
-
-        // Stop acquisition
-        if (camera->mode == IDLE_WHEN_SAFE && safe_to_stop_acquiring)
-            stop_acquiring();
-
-        // Check for new frame
-        if (camera->mode == ACQUIRING && frame_available())
+        // PVCAM triggers end the frame, and so the first frame
+        // will consist of the sync and align time period.
+        // Discard this frame.
+        if (internal->first_frame)
         {
-            void_ptr camera_frame;
-            if (!pl_exp_get_oldest_frame(handle, &camera_frame))
-                pvcam_error("Error retrieving oldest frame.");
-
-            // PVCAM triggers end the frame, and so the first frame
-            // will consist of the sync and align time period.
-            // Discard this frame.
-            if (first_frame)
+            pn_log("Discarding pre-exposure readout.");
+            internal->first_frame = false;
+        }
+        else
+        {
+            // Copy frame data and pass ownership to main thread
+            CameraFrame *frame = malloc(sizeof(CameraFrame));
+            if (frame)
             {
-                pn_log("Discarding pre-exposure readout.");
-                first_frame = false;
-            }
-            else
-            {
-                // Copy frame data and pass ownership to main thread
-                CameraFrame *frame = malloc(sizeof(CameraFrame));
-                if (frame)
+                size_t frame_bytes = internal->frame_width*internal->frame_height*sizeof(uint16_t);
+                frame->data = malloc(frame_bytes);
+                if (frame->data)
                 {
-                    size_t frame_bytes = camera->frame_width*camera->frame_height*sizeof(uint16_t);
-                    frame->data = malloc(frame_bytes);
-                    if (frame->data)
-                    {
-                        memcpy(frame->data, camera_frame, frame_bytes);
-                        frame->width = camera->frame_width;
-                        frame->height = camera->frame_height;
-                        frame->temperature = camera->temperature;
-                        queue_framedata(frame);
-                    }
-                    else
-                        pn_log("Failed to allocate CameraFrame->data. Discarding frame.");
+                    memcpy(frame->data, camera_frame, frame_bytes);
+                    frame->width = internal->frame_width;
+                    frame->height = internal->frame_height;
+                    frame->temperature = camera_pvcam_read_temperature(camera, _internal);
+                    queue_framedata(frame);
                 }
                 else
-                    pn_log("Failed to allocate CameraFrame. Discarding frame.");
+                    pn_log("Failed to allocate CameraFrame->data. Discarding frame.");
             }
-
-            // Unlock the frame buffer for reuse
-            if (!pl_exp_unlock_oldest_frame(handle))
-                pvcam_error("Failed to unlock oldest frame.");
+            else
+                pn_log("Failed to allocate CameraFrame. Discarding frame.");
         }
 
-        // Check temperature
-        if (++temp_ticks >= 50)
-        {
-            temp_ticks = 0;
-            read_temperature();
-        }
-        millisleep(100);
-
-        pthread_mutex_lock(&camera->read_mutex);
-        desired_mode = camera->desired_mode;
-        safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
-        pthread_mutex_unlock(&camera->read_mutex);
+        // Unlock the frame buffer for reuse
+        if (!pl_exp_unlock_oldest_frame(internal->handle))
+            fatal_pvcam_error("Failed to unlock oldest frame.");
     }
-
-    // Shutdown camera
-    if (camera->mode == ACQUIRING || camera->mode == IDLE_WHEN_SAFE)
-        stop_acquiring();
-
-    // Close the PVCAM lib (which in turn closes the camera)
-    if (camera->mode == IDLE)
-    {    
-        if (!pl_pvcam_uninit())
-            pn_log("Failed to uninitialize PVCAM.");
-        pn_log("PVCAM uninitialized.");
-    }
-
-    return NULL;
 }
