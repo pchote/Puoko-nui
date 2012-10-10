@@ -309,10 +309,10 @@ void FLTKGui::buttonMetadataPressed(Fl_Widget* o, void *userdata)
     gui->showMetadataWindow();
 }
 
-void FLTKGui::buttonExposurePressed(Fl_Widget* o, void *userdata)
+void FLTKGui::buttonCameraPressed(Fl_Widget* o, void *userdata)
 {
     FLTKGui* gui = (FLTKGui *)userdata;
-    gui->showExposureWindow();
+    gui->showCameraWindow();
 }
 
 void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
@@ -368,9 +368,9 @@ void FLTKGui::createButtonGroup()
     m_buttonMetadata->user_data((void*)(this));
     m_buttonMetadata->callback(buttonMetadataPressed);
 
-    m_buttonExposure = new Fl_Button(140, 315, 120, 30, "Set Exposure");
-    m_buttonExposure->user_data((void*)(this));
-    m_buttonExposure->callback(buttonExposurePressed);
+    m_buttonCamera = new Fl_Button(140, 315, 120, 30, "Set Camera");
+    m_buttonCamera->user_data((void*)(this));
+    m_buttonCamera->callback(buttonCameraPressed);
 
     m_buttonAcquire = new Fl_Toggle_Button(270, 315, 120, 30, "Acquire");
     m_buttonAcquire->user_data((void*)(this));
@@ -385,11 +385,11 @@ void FLTKGui::createButtonGroup()
     m_buttonQuit->callback(buttonQuitPressed);
 }
 
-void FLTKGui::buttonExposureConfirmPressed(Fl_Widget* o, void *userdata)
+void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
 {
     FLTKGui* gui = (FLTKGui *)userdata;
     uint8_t oldexp = pn_preference_char(EXPOSURE_TIME);
-    int new_exposure = atoi(gui->m_exposureInput->value());
+    int new_exposure = atoi(gui->m_cameraExposureInput->value());
 
     pthread_mutex_lock(&gui->m_cameraRef->read_mutex);
     PNCameraMode camera_mode = gui->m_cameraRef->mode;
@@ -398,8 +398,8 @@ void FLTKGui::buttonExposureConfirmPressed(Fl_Widget* o, void *userdata)
 
     if (camera_mode != IDLE)
     {
-        pn_log("Cannot change exposure time while acquiring.");
-        gui->m_exposureWindow->hide();
+        pn_log("Cannot change camera parameters while acquiring.");
+        gui->m_cameraWindow->hide();
         return;
     }
 
@@ -423,27 +423,28 @@ void FLTKGui::buttonExposureConfirmPressed(Fl_Widget* o, void *userdata)
             pn_log("Exposure set to %d seconds.", new_exposure);
         }
     }
-    gui->m_exposureWindow->hide();
+    gui->m_cameraWindow->hide();
 }
 
-void FLTKGui::createExposureWindow()
+void FLTKGui::createCameraWindow()
 {
-    m_exposureWindow = new Fl_Double_Window(150, 40, "Set Exposure");
-    m_exposureWindow->user_data((void*)(this));
+    m_cameraWindow = new Fl_Double_Window(420, 155, "Set Camera Parameters");
+    m_cameraWindow->user_data((void*)(this));
 
-    m_exposureInput = new Fl_Int_Input(10, 10, 70, 20);
+    int x = 90, y = 125, w = 110, h = 20, margin = 25;
+    m_cameraExposureInput = new Fl_Int_Input(x, y, w, h, "Exposure:");
 
-    m_exposureButtonConfirm = new Fl_Button(90, 10, 50, 20, "Set");
-    m_exposureButtonConfirm->user_data((void*)(this));
-    m_exposureButtonConfirm->callback(buttonExposureConfirmPressed);
-    m_exposureWindow->end();
+    x = 300;
+    m_cameraButtonConfirm = new Fl_Button(x, y, w, h, "Save");
+    m_cameraButtonConfirm->user_data((void*)(this));
+    m_cameraButtonConfirm->callback(buttonCameraConfirmPressed);
+    m_cameraWindow->end();
 }
 
-void FLTKGui::showExposureWindow()
+void FLTKGui::showCameraWindow()
 {
-    // Update and show the "Set Exposure" dialog
-    populate_char_preference(m_exposureInput, EXPOSURE_TIME);
-    m_exposureWindow->show();
+    populate_char_preference(m_cameraExposureInput, EXPOSURE_TIME);
+    m_cameraWindow->show();
 }
 
 void FLTKGui::metadataFrameTypeChangedCallback(Fl_Widget *input, void *userdata)
@@ -612,11 +613,11 @@ void FLTKGui::updateButtonGroup(PNCameraMode camera_mode)
 
     if (acquire_pressed)
     {
-        m_buttonExposure->deactivate();
-        m_exposureWindow->hide();
+        m_buttonCamera->deactivate();
+        m_cameraWindow->hide();
     }
     else
-        m_buttonExposure->activate();
+        m_buttonCamera->activate();
 
     m_buttonSave->value(save_pressed);
     if (save_pressed)
@@ -639,7 +640,7 @@ void FLTKGui::closeMainWindowCallback(Fl_Widget *window, void *v)
     // Hide all windows.
     // The next Fl::check() call in pn_update_ui() will
     // return false, causing the program to shutdown.
-    gui->m_exposureWindow->hide();
+    gui->m_cameraWindow->hide();
     gui->m_metadataWindow->hide();
     window->hide();
 }
@@ -658,7 +659,7 @@ FLTKGui::FLTKGui(PNCamera *camera, TimerUnit *timer)
     createLogGroup();
     createButtonGroup();
 
-    createExposureWindow();
+    createCameraWindow();
     createMetadataWindow();
 	m_mainWindow->end();
 
@@ -682,6 +683,6 @@ FLTKGui::~FLTKGui()
 {
     // The window destructor cleans up all child widgets
     delete m_mainWindow;
-    delete m_exposureWindow;
+    delete m_cameraWindow;
     delete m_metadataWindow;
 }

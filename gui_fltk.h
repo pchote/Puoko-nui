@@ -58,18 +58,18 @@ private:
     void createLogGroup();
     void createButtonGroup();
 
-    void createExposureWindow();
-    void showExposureWindow();
+    void createCameraWindow();
+    void showCameraWindow();
     void createMetadataWindow();
     void showMetadataWindow();
 
     static void buttonMetadataPressed(Fl_Widget* o, void *v);
-    static void buttonExposurePressed(Fl_Widget* o, void *v);
+    static void buttonCameraPressed(Fl_Widget* o, void *v);
     static void buttonAcquirePressed(Fl_Widget* o, void *v);
     static void buttonSavePressed(Fl_Widget* o, void *v);
     static void buttonQuitPressed(Fl_Widget* o, void *v);
 
-    static void buttonExposureConfirmPressed(Fl_Widget* o, void *v);
+    static void buttonCameraConfirmPressed(Fl_Widget* o, void *v);
     static void buttonMetadataConfirmPressed(Fl_Widget* o, void *v);
 
     static void metadataFrameTypeChangedCallback(Fl_Widget *input, void *v);
@@ -107,7 +107,7 @@ private:
 
     // Action buttons
     Fl_Button *m_buttonMetadata;
-    Fl_Button *m_buttonExposure;
+    Fl_Button *m_buttonCamera;
     Fl_Toggle_Button *m_buttonAcquire;
     Fl_Toggle_Button *m_buttonSave;
     Fl_Button *m_buttonQuit;
@@ -121,9 +121,9 @@ private:
     int last_camera_downloading;
 
     // Exposure window
-    Fl_Double_Window *m_exposureWindow;
-    Fl_Int_Input *m_exposureInput;
-    Fl_Button *m_exposureButtonConfirm;
+    Fl_Double_Window *m_cameraWindow;
+    Fl_Int_Input *m_cameraExposureInput;
+    Fl_Button *m_cameraButtonConfirm;
 
     // Metadata window
     Fl_Double_Window *m_metadataWindow;
