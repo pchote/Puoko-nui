@@ -13,6 +13,30 @@
 #include <stdbool.h>
 #include "main.h"
 
+struct camera_readout_gain
+{
+    uint8_t id;
+    char *name;
+};
+
+struct camera_readout_speed
+{
+    uint8_t id;
+    char *name;
+
+    struct camera_readout_gain *gains;
+    uint8_t gain_count;
+};
+
+struct camera_readout_port
+{
+    uint8_t id;
+    char *name;
+
+    struct camera_readout_speed *speeds;
+    uint8_t speed_count;
+};
+
 // Represents the current state of the camera
 typedef enum
 {

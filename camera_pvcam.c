@@ -24,6 +24,11 @@ static int16 handle = -1;
 static void *image_buffer = NULL;
 static uns32 image_buffer_size = 0;
 
+struct camera_readout_port *ports = NULL;
+uint8_t port_count = 0;
+
+char *gain_names[3] = {"Low Gain", "Medium Gain", "High Gain"};
+
 // Custom frame transfer mode options
 #define PARAM_FORCE_READOUT_MODE ((CLASS2<<16) + (TYPE_UNS32<<24) + 326)
 enum ForceReadOut {
@@ -76,6 +81,79 @@ static bool frame_available()
         pvcam_error("Failed to query camera status.");
 
     return (status == FRAME_AVAILABLE);
+}
+
+static void load_readout_settings()
+{
+    uns32 p_count;
+	if (!pl_get_param(handle, PARAM_READOUT_PORT, ATTR_COUNT, (void*)&p_count))
+        pvcam_error("Failed to query readout port count.");
+
+    port_count = p_count;
+    ports = calloc(port_count, sizeof(struct camera_readout_port));
+    if (!ports)
+        trigger_fatal_error("Failed to allocate memory for readout ports.");
+
+    char str[100];
+    for (uint8_t i = 0; i < port_count; i++)
+    {
+        int32 value;
+        if (!pl_get_enum_param(handle, PARAM_READOUT_PORT, i, &value, str, 100))
+            pvcam_error("Failed to query readout port value.");
+
+        ports[i].id = i;
+        ports[i].name = strdup(str);
+
+        // Set the active port then query readout speeds
+        if (port_count > 1 && !pl_set_param(handle, PARAM_READOUT_PORT, (void*)&i))
+            pvcam_error("Failed to set readout port.");
+
+        int16 speed_min, speed_max;
+        if (!pl_get_param(handle, PARAM_SPDTAB_INDEX, ATTR_MIN, (void*)&speed_min));
+            pvcam_error("Failed to query readout min.");
+        if (!pl_get_param(handle, PARAM_SPDTAB_INDEX, ATTR_MAX, (void*)&speed_max));
+            pvcam_error("Failed to query readout max.");
+
+        ports[i].speed_count = speed_max - speed_min + 1;
+        ports[i].speeds = calloc(ports[i].speed_count, sizeof(struct camera_readout_speed));
+        if (!ports[i].speeds)
+            trigger_fatal_error("Failed to allocate memory for readout speeds.");
+
+        for (uint8_t j = 0; j <= speed_max - speed_min; j++)
+        {
+            int16 speed = speed_min + j;
+            if (!pl_set_param(handle, PARAM_SPDTAB_INDEX, (void*)&speed))
+                pvcam_error("Failed to set readout mode.");
+
+            int16 gain_min, gain_max, pix_time;
+            if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MIN, (void*)&gain_min));
+                pvcam_error("Failed to query gain min.");
+            if (!pl_get_param(handle, PARAM_GAIN_INDEX, ATTR_MAX, (void*)&gain_max));
+                pvcam_error("Failed to query gain max.");
+            if (!pl_get_param(handle, PARAM_PIX_TIME, ATTR_CURRENT, (void*)&pix_time))
+                pvcam_error("Failed to query pixel time.");
+
+            snprintf(str, 100, "%0.1f MHz", 1.0e3/pix_time);
+            ports[i].speeds[j].id = speed_min + j;
+            ports[i].speeds[j].name = strdup(str);
+
+            ports[i].speeds[j].gain_count = gain_max - gain_min + 1;
+            ports[i].speeds[j].gains = calloc(ports[i].speeds[j].gain_count, sizeof(struct camera_readout_gain));
+            if (!ports[i].speeds[j].gains)
+                trigger_fatal_error("Failed to allocate memory for readout gains.");
+
+            for (uint8_t k = 0; k <= gain_max - gain_min; k++)
+            {
+                ports[i].speeds[j].gains[k].id = k;
+
+                // Expected 3 gains
+                if (gain_max - gain_min == 2)
+                    ports[i].speeds[j].gains[k].name = strdup(gain_names[k]);
+                else
+                    ports[i].speeds[j].gains[k].name = strdup("Unknown");
+            }
+        }
+    }
 }
 
 static void set_readout_port()
@@ -229,8 +307,7 @@ static void initialize_camera()
     if (!pl_set_param(handle, PARAM_TEMP_SETPOINT, (void*) &(int){pn_preference_int(CAMERA_TEMPERATURE)}))
         pvcam_error("Failed to set PARAM_TEMP_SETPOINT.");
 
-    set_readout_port();
-    set_speed_table();
+    load_readout_settings();
 
     pn_log("Camera is now idle.");
     set_mode(IDLE);
@@ -242,6 +319,9 @@ static void start_acquiring()
     set_mode(ACQUIRE_START);
 
     pn_log("Camera is preparing for acquisition.");
+    set_readout_port();
+    set_speed_table();
+
     if (!pl_get_param(handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *)&camera->frame_width))
         pvcam_error("Failed to query CCD width.");
 
@@ -292,12 +372,11 @@ static void start_acquiring()
     // Create a buffer big enough to hold 1 image
     image_buffer = (uns16*)malloc(image_buffer_size);
     if (image_buffer == NULL)
-        fatal_error("Failed to allocate frame buffer.");
+        trigger_fatal_error("Failed to allocate frame buffer.");
 
     // Start waiting for sync pulses to trigger exposures
     if (!pl_exp_start_cont(handle, image_buffer, image_buffer_size))
         pvcam_error("Failed to start exposure sequence.");
-
 
     // Sample initial temperature
     read_temperature();
