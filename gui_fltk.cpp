@@ -426,6 +426,11 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
         return;
     }
 
+    set_char(CAMERA_READPORT_MODE, (uint8_t)(gui->m_cameraPortInput->value()));
+    set_char(CAMERA_READSPEED_MODE, (uint8_t)(gui->m_cameraSpeedInput->value()));
+    set_char(CAMERA_GAIN_MODE, (uint8_t)(gui->m_cameraGainInput->value()));
+    camera_update_settings(gui->m_cameraRef);
+
     set_int(CAMERA_TEMPERATURE, (int)(atof(gui->m_cameraTemperatureInput->value())*100));
     set_char(CAMERA_PIXEL_SIZE, atoi(gui->m_cameraBinningInput->value()));
 
@@ -444,22 +449,72 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     else
         set_char(EXPOSURE_TIME, exp);
 
-    camera_update_settings(gui->m_cameraRef);
     gui->updateAcquisitionGroup();
     gui->m_cameraWindow->hide();
 }
 
+void FLTKGui::cameraRebuildPortTree(uint8_t port_id, uint8_t speed_id, uint8_t gain_id)
+{
+    struct camera_port_option *port;
+    uint8_t port_count = camera_port_options(m_cameraRef, &port);
+
+    // Validate requested settings
+    if (port_id >= port_count)
+        port_id = 0;
+    if (speed_id >= port[port_id].speed_count)
+        speed_id = 0;
+    if (gain_id >= port[port_id].speed[speed_id].gain_count)
+        gain_id = 0;
+
+    m_cameraPortInput->clear();
+    for (uint8_t i = 0; i < port_count; i++)
+        m_cameraPortInput->add(port[i].name);
+    m_cameraPortInput->value(port_id);
+
+    m_cameraSpeedInput->clear();
+    for (uint8_t i = 0; i < port[port_id].speed_count; i++)
+        m_cameraSpeedInput->add(port[port_id].speed[i].name);
+    m_cameraSpeedInput->value(speed_id);
+
+    m_cameraGainInput->clear();
+    for (uint8_t i = 0; i < port[port_id].speed[speed_id].gain_count; i++)
+        m_cameraGainInput->add(port[port_id].speed[speed_id].gain[i].name);
+    m_cameraGainInput->value(gain_id);
+}
+
+void FLTKGui::cameraPortSpeedGainChangedCallback(Fl_Widget *input, void *userdata)
+{
+    FLTKGui* gui = (FLTKGui *)userdata;
+    uint8_t port_id = gui->m_cameraPortInput->value();
+    uint8_t speed_id = gui->m_cameraSpeedInput->value();
+    uint8_t gain_id = gui->m_cameraGainInput->value();
+    gui->cameraRebuildPortTree(port_id, speed_id, gain_id);
+}
+
 void FLTKGui::createCameraWindow()
 {
-    m_cameraWindow = new Fl_Double_Window(420, 155, "Set Camera Parameters");
+    m_cameraWindow = new Fl_Double_Window(320, 115, "Set Camera Parameters");
     m_cameraWindow->user_data((void*)(this));
 
-    int x = 110, y = 75, w = 50, h = 20, margin = 25;
-    m_cameraExposureInput = new Fl_Int_Input(x, y, w, h, "Exposure (s):"); y += margin;
-    m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (ºC):"); y += margin;
-    m_cameraBinningInput = new Fl_Int_Input(x, y, w, h, "Binning (px):");
+    int x = 60, y = 10, w = 100, h = 20, margin = 25;
+    m_cameraPortInput = new Fl_Choice(x, y, w, h, "Port:"); y += margin;
+    m_cameraPortInput->callback(cameraPortSpeedGainChangedCallback);
+    m_cameraPortInput->user_data((void*)(this));
 
-    x = 300; y = 125;
+    m_cameraSpeedInput = new Fl_Choice(x, y, w, h, "Speed:"); y += margin;
+    m_cameraSpeedInput->callback(cameraPortSpeedGainChangedCallback);
+    m_cameraSpeedInput->user_data((void*)(this));
+
+    m_cameraGainInput = new Fl_Choice(x, y, w, h, "Gain:"); y += margin;
+    m_cameraGainInput->callback(cameraPortSpeedGainChangedCallback);
+    m_cameraGainInput->user_data((void*)(this));
+
+    x = 260; y = 10; w = 50;
+    m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (ºC):"); y += margin;
+    m_cameraBinningInput = new Fl_Int_Input(x, y, w, h, "Binning (px):"); y += margin;
+    m_cameraExposureInput = new Fl_Int_Input(x, y, w, h, "Exposure (s):"); y += margin;
+
+    x = 190; w = 120;
     m_cameraButtonConfirm = new Fl_Button(x, y, w, h, "Save");
     m_cameraButtonConfirm->user_data((void*)(this));
     m_cameraButtonConfirm->callback(buttonCameraConfirmPressed);
@@ -468,6 +523,11 @@ void FLTKGui::createCameraWindow()
 
 void FLTKGui::showCameraWindow()
 {
+    uint8_t port_id = pn_preference_char(CAMERA_READPORT_MODE);
+    uint8_t speed_id = pn_preference_char(CAMERA_READSPEED_MODE);
+    uint8_t gain_id = pn_preference_char(CAMERA_GAIN_MODE);
+    cameraRebuildPortTree(port_id, speed_id, gain_id);
+
     populate_char_preference(m_cameraExposureInput, EXPOSURE_TIME);
     populate_char_preference(m_cameraBinningInput, CAMERA_PIXEL_SIZE);
 

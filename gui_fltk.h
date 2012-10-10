@@ -59,11 +59,13 @@ private:
     void createLogGroup();
     void createButtonGroup();
 
+    void cameraRebuildPortTree(uint8_t port_id, uint8_t speed_id, uint8_t gain_id);
     void createCameraWindow();
     void showCameraWindow();
     void createMetadataWindow();
     void showMetadataWindow();
 
+    static void cameraPortSpeedGainChangedCallback(Fl_Widget *input, void *userdata);
     static void buttonMetadataPressed(Fl_Widget* o, void *v);
     static void buttonCameraPressed(Fl_Widget* o, void *v);
     static void buttonAcquirePressed(Fl_Widget* o, void *v);
@@ -121,8 +123,12 @@ private:
     int last_run_number;
     int last_camera_downloading;
 
-    // Exposure window
+    // Camera window
     Fl_Double_Window *m_cameraWindow;
+    Fl_Choice *m_cameraPortInput;
+    Fl_Choice *m_cameraSpeedInput;
+    Fl_Choice *m_cameraGainInput;
+
     Fl_Int_Input *m_cameraExposureInput;
     Fl_Float_Input *m_cameraTemperatureInput;
     Fl_Int_Input *m_cameraBinningInput;

@@ -34,7 +34,6 @@ struct camera_port_option
 
 typedef struct Camera Camera;
 
-// Represents the current state of the camera
 typedef enum
 {
     UNINITIALIZED,
@@ -64,5 +63,10 @@ double camera_readout_time(Camera *camera);
 PNCameraMode camera_mode(Camera *camera);
 PNCameraMode camera_desired_mode(Camera *camera);
 void camera_update_settings(Camera *camera);
+
+// Warning: This is not thread safe, but this is only touched by the camera
+// thread during startup, when the camera window panel (the only caller) is
+// blocked from the user
+uint8_t camera_port_options(Camera *camera, struct camera_port_option **options);
 
 #endif

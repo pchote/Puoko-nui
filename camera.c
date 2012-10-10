@@ -317,3 +317,12 @@ void camera_update_settings(Camera *camera)
     camera->camera_settings_dirty = true;
     pthread_mutex_unlock(&camera->read_mutex);
 }
+
+// Warning: This is not thread safe, but this is only touched by the camera
+// thread during startup, when the camera window panel (the only caller) is
+// blocked from the user
+uint8_t camera_port_options(Camera *camera, struct camera_port_option **options)
+{
+    *options = camera->port_options;
+    return camera->port_count;
+}
