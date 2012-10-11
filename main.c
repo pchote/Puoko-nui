@@ -366,7 +366,7 @@ int main(int argc, char *argv[])
 
         // Update UI with queued log messages
         char *log_message;
-        while ((log_message = atomicqueue_pop(log_queue)) != NULL)
+        while ((log_message = atomicqueue_pop(log_queue)))
         {
             fprintf(logFile, "%s\n", log_message);
             fflush(logFile);
@@ -386,11 +386,6 @@ int main(int argc, char *argv[])
     camera_shutdown(camera);
     timer_shutdown(timer);
     scripting_shutdown(scripting);
-
-    // Final cleanup
-    if (fatal_error)
-        free(fatal_error);
-
     clear_queued_data();
 
     timer_free(timer);
@@ -398,7 +393,20 @@ int main(int argc, char *argv[])
     scripting_free(scripting);
     pn_free_preferences();
     pn_ui_free();
+
+    // Save any final log messages
+    char *log_message;
+    while ((log_message = atomicqueue_pop(log_queue)))
+    {
+        fprintf(logFile, "%s\n", log_message);
+        fflush(logFile);
+        free(log_message);
+    }
     fclose(logFile);
+
+    // Final cleanup
+    if (fatal_error)
+        free(fatal_error);
 
     atomicqueue_destroy(trigger_queue);
     atomicqueue_destroy(frame_queue);
