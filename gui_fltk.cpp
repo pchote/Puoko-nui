@@ -416,7 +416,6 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_char(CAMERA_READPORT_MODE, (uint8_t)(gui->m_cameraPortInput->value()));
     set_char(CAMERA_READSPEED_MODE, (uint8_t)(gui->m_cameraSpeedInput->value()));
     set_char(CAMERA_GAIN_MODE, (uint8_t)(gui->m_cameraGainInput->value()));
-    camera_update_settings(gui->m_cameraRef);
 
     set_int(CAMERA_TEMPERATURE, (int)(atof(gui->m_cameraTemperatureInput->value())*100));
     set_char(CAMERA_PIXEL_SIZE, atoi(gui->m_cameraBinningInput->value()));
@@ -430,6 +429,7 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
 
     set_char(EXPOSURE_TIME, exp);
 
+    camera_update_settings(gui->m_cameraRef);
     gui->updateAcquisitionGroup();
     gui->m_cameraWindow->hide();
 }
