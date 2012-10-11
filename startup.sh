@@ -6,7 +6,6 @@ if [ -f config.sh ]; then source ./config.sh; fi
 if [ -z "${DS9_STARTUP_TIMEOUT}" ]; then DS9_STARTUP_TIMEOUT=10; fi
 if [ -z "${DS9_WINDOW_WIDTH}" ]; then DS9_WINDOW_WIDTH=550; fi
 if [ -z "${DS9_WINDOW_HEIGHT}" ]; then DS9_WINDOW_HEIGHT=600; fi
-if [ -z "${PREVIEW_ZOOM}" ]; then PREVIEW_ZOOM=1; fi
 
 # Called at program startup to initialize ds9
 if [[ "$(xpaaccess Online_Preview)" == 'no' ]]; then
@@ -28,7 +27,6 @@ for i in $(seq 1 1 ${DS9_STARTUP_TIMEOUT}); do
 		xpaset -p Online_Preview orient x
 		xpaset -p Online_Preview width ${DS9_WINDOW_WIDTH}
 		xpaset -p Online_Preview height ${DS9_WINDOW_HEIGHT}
-		xpaset -p Online_Preview zoom to ${PREVIEW_ZOOM}
 		xpaset -p Online_Preview background black
 		xpaset -p Online_Preview view layout vertical
 		exit 0
