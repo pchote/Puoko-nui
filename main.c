@@ -183,7 +183,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
 
     snprintf(gpstimebuf, 15, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
     fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
-    fits_update_key(fptr, TLOGICAL, "GPS-LOCK", &start.locked, "GPS time locked", &status);
+    fits_update_key(fptr, TLOGICAL, "UTC-LOCK", &start.locked, "UTC time has GPS lock", &status);
 
     time_t pctime = time(NULL);
 
@@ -197,10 +197,11 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     // Camera temperature
     char tempbuf[10];
     snprintf(tempbuf, 10, "%0.02f", camera_temperature(camera));
-    fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)tempbuf, "CCD temperature at end of exposure in deg C", &status);
-    fits_update_key(fptr, TBYTE,   "CCD-PORT", (uint8_t[]){pn_preference_char(CAMERA_READPORT_MODE)},  "CCD Readout port index", &status);
-    fits_update_key(fptr, TBYTE,   "CCD-RATE", (uint8_t[]){pn_preference_char(CAMERA_READSPEED_MODE)}, "CCD Readout rate index", &status);
-    fits_update_key(fptr, TBYTE,   "CCD-GAIN", (uint8_t[]){pn_preference_char(CAMERA_GAIN_MODE)},      "CCD Readout gain index", &status);
+    fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)tempbuf, "CCD temperature at end of exposure (deg C)", &status);
+    fits_update_key(fptr, TSTRING, "CCD-PORT", (void *)camera_port_desc(camera), "CCD readout port description", &status);
+    fits_update_key(fptr, TSTRING, "CCD-RATE", (void *)camera_speed_desc(camera), "CCD readout rate description", &status);
+    fits_update_key(fptr, TSTRING, "CCD-GAIN", (void *)camera_gain_desc(camera), "CCD readout gain description", &status);
+    fits_update_key(fptr, TLONG,   "CCD-BIN",  (long[]){pn_preference_char(CAMERA_PIXEL_SIZE)},  "CCD pixel binning", &status);
 
     // Write the frame data to the image and close the file
     fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);

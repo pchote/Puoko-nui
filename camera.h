@@ -64,9 +64,11 @@ PNCameraMode camera_mode(Camera *camera);
 PNCameraMode camera_desired_mode(Camera *camera);
 void camera_update_settings(Camera *camera);
 
-// Warning: This is not thread safe, but this is only touched by the camera
-// thread during startup, when the camera window panel (the only caller) is
-// blocked from the user
+// Warning: These are not thread safe, but this is only touched by the camera
+// thread during startup, when the main thread is designed to not call these
 uint8_t camera_port_options(Camera *camera, struct camera_port_option **options);
+const char *camera_port_desc(Camera *camera);
+const char *camera_speed_desc(Camera *camera);
+const char *camera_gain_desc(Camera *camera);
 
 #endif
