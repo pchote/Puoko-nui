@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <pthread.h>
+#include <math.h>
 #include <string.h>
 
 #include "main.h"
@@ -31,8 +31,11 @@ enum ForceReadOut {
 struct internal
 {
     int16 handle;
-    void *image_buffer;
-    uns32 image_buffer_size;
+    uns32 frame_size;
+    uns16 *frame_buffer;
+
+    uint16_t ccd_width;
+    uint16_t ccd_height;
 
     uint16_t frame_width;
     uint16_t frame_height;
@@ -155,6 +158,28 @@ void *camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args)
     set_param(internal->handle, PARAM_EDGE_TRIGGER, &(int){EDGE_TRIG_NEG});
     set_param(internal->handle, PARAM_FORCE_READOUT_MODE, &(int){MAKE_FRAME_TRANSFER});
 
+
+    get_param(internal->handle, PARAM_SER_SIZE, ATTR_DEFAULT, &internal->ccd_width);
+    get_param(internal->handle, PARAM_PAR_SIZE, ATTR_DEFAULT, &internal->ccd_height);
+
+    if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
+    {
+        // Enable custom chip so we can add a bias strip
+        set_param(internal->handle, PARAM_CUSTOM_CHIP, &(rs_bool){true});
+
+        // Increase frame width by the requested amount
+        internal->ccd_width += pn_preference_char(CAMERA_OVERSCAN_SKIP_COLS) + pn_preference_char(CAMERA_OVERSCAN_BIAS_COLS);
+        set_param(internal->handle, PARAM_SER_SIZE, &(uns16){internal->ccd_width});
+
+        // Remove postscan - this is handled by the additional overscan readouts
+        // PVCAM seems to have mislabeled *SCAN and *MASK
+        set_param(internal->handle, PARAM_POSTMASK, &(uns16){0});
+    }
+
+    // Init exposure control libs
+    if (!pl_exp_init_seq())
+        fatal_pvcam_error("Failed to initialize exposure sequence.");
+
     return internal;
 }
 
@@ -191,9 +216,10 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
     set_param(internal->handle, PARAM_SPDTAB_INDEX, &speed_value);
 
     uint8_t gain_id = pn_preference_char(CAMERA_GAIN_MODE);
-    int16 gain_min, gain_max;
+    int16 gain_min, gain_max, pix_time;
     get_param(internal->handle, PARAM_GAIN_INDEX, ATTR_MIN, &gain_min);
     get_param(internal->handle, PARAM_GAIN_INDEX, ATTR_MAX, &gain_max);
+    get_param(internal->handle, PARAM_PIX_TIME, ATTR_CURRENT, &pix_time);
 
     int16 gain_value = gain_id + gain_min;
     if (gain_value > gain_max)
@@ -206,8 +232,38 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
 
     set_param(internal->handle, PARAM_TEMP_SETPOINT, &(int){pn_preference_int(CAMERA_TEMPERATURE)});
 
-    // TODO: Estimate readout time
-    return 0;
+    // Set readout area
+    uint8_t pixel_size = pn_preference_char(CAMERA_PIXEL_SIZE);
+    rgn_type region;
+    region.s1 = 0;
+    region.s2 = internal->ccd_width-1;
+    region.sbin = pixel_size;
+    region.p1 = 0;
+    region.p2 = internal->ccd_height-1;
+    region.pbin = pixel_size;
+
+    internal->frame_height = internal->ccd_width / pixel_size;
+    internal->frame_width = internal->ccd_height / pixel_size;
+
+    // Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer
+    if (!pl_exp_setup_cont(internal->handle, 1, &region, STROBED_MODE, 0, &internal->frame_size, CIRC_NO_OVERWRITE))
+        fatal_pvcam_error("Failed to setup exposure sequence.");
+
+    // Query readout time
+    flt64 readout_time;
+    get_param(internal->handle, PARAM_READOUT_TIME, ATTR_CURRENT, &readout_time);
+
+    // convert from ms to s
+    readout_time /= 1000;
+    pn_log("Camera readout time is now %.2fs", readout_time);
+    uint8_t exposure_time = pn_preference_char(EXPOSURE_TIME);
+    if (exposure_time < readout_time)
+    {
+        unsigned char new_exposure = (unsigned char)(ceil(readout_time));
+        pn_preference_set_char(EXPOSURE_TIME, new_exposure);
+        pn_log("Increasing EXPOSURE_TIME to %d seconds.", new_exposure);
+    }
+    return readout_time;
 }
 
 uint8_t camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_port_option **out_ports)
@@ -274,64 +330,29 @@ uint8_t camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_p
 
 void camera_pvcam_uninitialize(Camera *camera, void *internal)
 {
+    if (!pl_exp_uninit_seq())
+        pn_log("Failed to uninitialize exposure sequence.");
+
     if (!pl_pvcam_uninit())
         pn_log("Failed to uninitialize PVCAM.");
-    pn_log("PVCAM uninitialized.");
 
     free(internal);
+    pn_log("PVCAM uninitialized.");
 }
 
 void camera_pvcam_start_acquiring(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
 
-    get_param(internal->handle, PARAM_SER_SIZE, ATTR_DEFAULT, &internal->frame_width);
-    get_param(internal->handle, PARAM_PAR_SIZE, ATTR_DEFAULT, &internal->frame_height);
-
-    unsigned char pixel_size = pn_preference_char(CAMERA_PIXEL_SIZE);
-    if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
-    {
-        // Enable custom chip so we can add a bias strip
-        set_param(internal->handle, PARAM_CUSTOM_CHIP, &(rs_bool){TRUE});
-
-        // Increase frame width by the requested amount
-        internal->frame_width += pn_preference_char(CAMERA_OVERSCAN_SKIP_COLS) + pn_preference_char(CAMERA_OVERSCAN_BIAS_COLS);
-        set_param(internal->handle, PARAM_SER_SIZE, &(uns16){internal->frame_width});
-
-        // Remove postscan - this is handled by the additional overscan readouts
-        // PVCAM seems to have mislabeled *SCAN and *MASK
-        set_param(internal->handle, PARAM_POSTMASK, &(uns16){0});
-    }
-
-    rgn_type region;
-    region.s1 = 0;
-    region.s2 = internal->frame_width-1;
-    region.sbin = pixel_size;
-    region.p1 = 0;
-    region.p2 = internal->frame_height-1;
-    region.pbin = pixel_size;
-
-    // Divide the chip size by the bin size to find the frame dimensions
-    internal->frame_height /= pixel_size;
-    internal->frame_width /= pixel_size;
-
-    // Init exposure control libs
-    if (!pl_exp_init_seq())
-        fatal_pvcam_error("Failed to initialize exposure sequence.");
-
-    // Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer
-    if (!pl_exp_setup_cont(internal->handle, 1, &region, STROBED_MODE, 0, &internal->image_buffer_size, CIRC_NO_OVERWRITE))
-        fatal_pvcam_error("Failed to setup exposure sequence.");
-
     // Create a buffer big enough to hold 5 images.
     // PVCAM under win32 gives a DMA error if this is set to 1.
-    internal->image_buffer_size *= 5;
-    internal->image_buffer = (uns16*)malloc(internal->image_buffer_size);
-    if (internal->image_buffer == NULL)
+    uns32 buffer_size = 5*internal->frame_size;
+    internal->frame_buffer = malloc(buffer_size*sizeof(uns16));
+    if (!internal->frame_buffer)
         fatal_error("Failed to allocate frame buffer.");
 
     // Start waiting for sync pulses to trigger exposures
-    if (!pl_exp_start_cont(internal->handle, internal->image_buffer, internal->image_buffer_size))
+    if (!pl_exp_start_cont(internal->handle, internal->frame_buffer, buffer_size))
         fatal_pvcam_error("Failed to start exposure sequence.");
 
     internal->first_frame = true;
@@ -353,13 +374,10 @@ void camera_pvcam_stop_acquiring(Camera *camera, void *_internal)
     if (!pl_exp_stop_cont(internal->handle, CCS_HALT))
         pn_log("Failed to stop exposure sequence.");
 
-    if (!pl_exp_finish_seq(internal->handle, internal->image_buffer, 0))
+    if (!pl_exp_finish_seq(internal->handle, internal->frame_buffer, 0))
         pn_log("Failed to finish exposure sequence.");
 
-    if (!pl_exp_uninit_seq())
-        pn_log("Failed to uninitialize exposure sequence.");
-
-    free(internal->image_buffer);
+    free(internal->frame_buffer);
 }
 
 double camera_pvcam_read_temperature(Camera *camera, void *_internal)
