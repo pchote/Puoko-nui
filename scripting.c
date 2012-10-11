@@ -134,7 +134,7 @@ void *preview_thread(void *_scripting)
     ScriptingInterface *scripting = (ScriptingInterface *)_scripting;
 
     // Run startup script
-    run_script("./startup.sh", "Startup Script: ");
+    run_script("./startup.sh", "Startup: ");
 
     // Loop until shutdown, parsing incoming data
     while (true)
@@ -150,7 +150,7 @@ void *preview_thread(void *_scripting)
         if (preview_available)
         {
             pn_log("Updating preview.");
-            run_script("./preview.sh", "Startup: ");
+            run_script("./preview.sh", "Preview: ");
         }
     }
 
