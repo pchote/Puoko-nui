@@ -334,10 +334,9 @@ void camera_pvcam_uninitialize(Camera *camera, void *internal)
         pn_log("Failed to uninitialize exposure sequence.");
 
     if (!pl_pvcam_uninit())
-        pn_log("Failed to uninitialize PVCAM.");
+        pn_log("Failed to uninitialize camera.");
 
     free(internal);
-    pn_log("PVCAM uninitialized.");
 }
 
 void camera_pvcam_start_acquiring(Camera *camera, void *_internal)

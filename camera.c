@@ -130,7 +130,7 @@ static void *camera_thread(void *_args)
 {
     ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
     Camera *camera = args->camera;
-    
+
     // Initialize hardware, etc
     set_mode(camera, INITIALISING);
     camera->internal = camera->initialize(camera, args);
@@ -190,7 +190,7 @@ static void *camera_thread(void *_args)
             camera->safe_to_stop_acquiring = false;
             pthread_mutex_unlock(&camera->read_mutex);
         }
-        
+
         // Intermediate mode - waiting for the timer to tell us that
         // the hardware is ready to accept a stop acquisition command
         if (desired_mode == IDLE && current_mode == ACQUIRING)
@@ -198,7 +198,7 @@ static void *camera_thread(void *_args)
             set_mode(camera, IDLE_WHEN_SAFE);
             pn_log("Camera is waiting for safe shutdown.");
         }
-        
+
         // Stop acquisition
         if (camera->mode == IDLE_WHEN_SAFE && safe_to_stop_acquiring)
         {
@@ -207,10 +207,10 @@ static void *camera_thread(void *_args)
             pn_log("Camera is now idle.");
             set_mode(camera, IDLE);
         }
-        
+
         // Check for new frames, etc
         camera->tick(camera, camera->internal, current_mode);
-        
+
         // Check temperature
         if (++temp_ticks >= 50)
         {
@@ -221,22 +221,26 @@ static void *camera_thread(void *_args)
             pthread_mutex_unlock(&camera->read_mutex);
         }
         millisleep(100);
-        
+
         pthread_mutex_lock(&camera->read_mutex);
         desired_mode = camera->desired_mode;
         safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
         pthread_mutex_unlock(&camera->read_mutex);
     }
-    
+
     // Shutdown camera
     PNCameraMode current_mode = camera_mode(camera);
-    
+
     if (current_mode == ACQUIRING || current_mode == IDLE_WHEN_SAFE)
+    {
         camera->stop_acquiring(camera, camera->internal);
-    
+        pn_log("Camera is now idle.");
+    }
+
     // Uninitialize hardware, etc
     camera->uninitialize(camera, camera->internal);
-    
+    pn_log("Camera uninitialized.");
+
     return NULL;
 }
 
