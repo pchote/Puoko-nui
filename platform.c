@@ -59,13 +59,18 @@ void millisleep(int ms)
 char *canonicalize_path(const char *path)
 {
 #if (defined _WIN32)
-    char pathBuf[MAX_PATH], *ptr;
-    GetFullPathName(path, MAX_PATH, pathBuf, &ptr);
+    char path_buf[MAX_PATH], *ptr;
+    GetFullPathName(path, MAX_PATH, path_buf, &ptr);
+
+    // Replace all '\' in path cd ../tsreducewith '/'
+    char *i;
+    while ((i = strstr(path_buf, "\\")))
+        i[0] = '/';
 #else
-    char pathBuf[PATH_MAX];
-    realpath(path, pathBuf);
+    char path_buf[PATH_MAX];
+    realpath(path, path_buf);
 #endif
-    return strdup(pathBuf);
+    return strdup(path_buf);
 }
 
 // Run a command synchronously, logging output with a given prefix
