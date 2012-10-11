@@ -423,7 +423,7 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     if (binning == 0)
     {
         binning = 1;
-        pn_log("Minimum binning is 1. Binning set to 1.");
+        pn_log("Minimum binning is 1px. Binning set to 1px.");
     }
     set_char(CAMERA_PIXEL_SIZE, binning);
 
@@ -431,9 +431,13 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     if (exp > 255)
     {
         exp = 255;
-        pn_log("Maximum exposure time is 255 seconds. Exposure set to 255 seconds.");
+        pn_log("Maximum exposure time is 255s. Exposure set to 255s.");
     }
-
+    else if (exp < 1)
+    {
+        exp = 1;
+        pn_log("Minimum exposure time is 1s. Exposure set to 1s.");
+    }
     set_char(EXPOSURE_TIME, exp);
 
     camera_update_settings(gui->m_cameraRef);
