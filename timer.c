@@ -247,15 +247,16 @@ static void uninitialize_timer(TimerUnit *timer)
 
 static void log_raw_data(unsigned char *data, int len)
 {
-    char *msg = (char *)malloc((3*len+1)*sizeof(char));
+    char *msg = (char *)malloc((3*len+7)*sizeof(char));
+    strcpy(msg, "Data: ");
     if (msg == NULL)
     {
         pn_log("Failed to allocate log_raw_data. Ignoring message");
         return;
     }
-
     for (unsigned char i = 0; i < len; i++)
-        snprintf(msg+3*i, 4, "%02x ", data[i]);
+        snprintf(&msg[3*i + 6], 4, "%02x ", data[i]);
+
     pn_log(msg);
     free(msg);
 }
