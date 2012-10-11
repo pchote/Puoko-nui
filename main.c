@@ -343,8 +343,7 @@ int main(int argc, char *argv[])
             TimerTimestamp *trigger = atomicqueue_pop(trigger_queue);
 
             // Ensure that the trigger and frame download times are consistent
-            // TODO: Set this from the camera readout time
-            time_t readout_time = 0;
+            time_t readout_time = camera_readout_time(camera);
 
             // Add 1 second of leeway to account for imprecision of tagging downloaded frames
             time_t estimated_end_time = timestamp_to_time_t(&frame->downloaded_time) - readout_time + 1;
