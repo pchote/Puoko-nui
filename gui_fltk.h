@@ -118,10 +118,10 @@ private:
     // Temporary state comparables
     PNCameraMode last_camera_mode;
     double last_camera_temperature;
-    double last_camera_readout_time;
     int last_calibration_framecount;
     int last_run_number;
-    int last_camera_downloading;
+    int last_exposure_time;
+    bool last_camera_downloading;
 
     // Camera window
     Fl_Double_Window *m_cameraWindow;

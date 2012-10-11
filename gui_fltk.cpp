@@ -72,22 +72,6 @@ bool FLTKGui::update()
 {
     PNCameraMode mode = camera_mode(m_cameraRef);
     double temperature = camera_temperature(m_cameraRef);
-    double readout_time = camera_readout_time(m_cameraRef);
-
-    // Check that the exposure time is greater than
-    // the camera readout, and change if necessary
-    if (last_camera_readout_time != readout_time)
-    {
-        unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
-        if (exposure_time < readout_time)
-        {
-            unsigned char new_exposure = (unsigned char)(ceil(readout_time));
-            pn_preference_set_char(EXPOSURE_TIME, new_exposure);
-            pn_log("Increasing EXPOSURE_TIME to %d seconds.", new_exposure);
-            updateAcquisitionGroup();
-        }
-        last_camera_readout_time = readout_time;
-    }
 
     bool camera_downloading = timer_camera_downloading(m_timerRef);
     updateTimerGroup();
@@ -109,13 +93,16 @@ bool FLTKGui::update()
 
     int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
     int run_number = pn_preference_int(RUN_NUMBER);
+    int exposure_time = pn_preference_char(EXPOSURE_TIME);
     if (remaining_frames != last_calibration_framecount ||
-        run_number != last_run_number)
+        run_number != last_run_number ||
+        exposure_time != last_exposure_time)
     {
         updateAcquisitionGroup();
         updateButtonGroup(mode);
         last_calibration_framecount = remaining_frames;
         last_run_number = run_number;
+        last_exposure_time = exposure_time;
     }
 
     Fl::redraw();
@@ -434,20 +421,14 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_int(CAMERA_TEMPERATURE, (int)(atof(gui->m_cameraTemperatureInput->value())*100));
     set_char(CAMERA_PIXEL_SIZE, atoi(gui->m_cameraBinningInput->value()));
 
-    double readout_time = camera_readout_time(gui->m_cameraRef);
     int exp = atoi(gui->m_cameraExposureInput->value());
-    if (exp < readout_time)
-    {
-        exp = (int)(readout_time + 1);
-        pn_log("Readout time: %.2f seconds. Exposure set to %d seconds.", readout_time, exp);
-    }
-    else if (exp > 255)
+    if (exp > 255)
     {
         exp = 255;
         pn_log("Maximum exposure time is 255 seconds. Exposure set to 255 seconds.");
     }
-    else
-        set_char(EXPOSURE_TIME, exp);
+
+    set_char(EXPOSURE_TIME, exp);
 
     gui->updateAcquisitionGroup();
     gui->m_cameraWindow->hide();
@@ -736,7 +717,6 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     // Set initial state
     last_camera_mode = camera_mode(camera);
     last_camera_temperature = camera_temperature(camera);
-    last_camera_readout_time = camera_readout_time(camera);
     last_calibration_framecount = pn_preference_int(CALIBRATION_COUNTDOWN);
     last_run_number = pn_preference_int(RUN_NUMBER);
     last_camera_downloading = timer_camera_downloading(timer);

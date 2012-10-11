@@ -481,7 +481,6 @@ static void update_input_window()
 
 PNCameraMode last_camera_mode;
 double last_camera_temperature;
-double last_camera_readout_time;
 int last_calibration_framecount;
 int last_run_number;
 int last_camera_downloading;
@@ -529,7 +528,6 @@ void pn_ui_new(Camera *camera, TimerUnit *timer)
     // Set initial state
     last_camera_mode = pn_camera_mode();
     last_camera_temperature = pn_camera_temperature();
-    last_camera_readout_time = pn_camera_readout_time();
 
     update_log_window();
     update_status_window(last_camera_mode);
@@ -579,22 +577,6 @@ bool pn_ui_update()
     // Read once at the start of the loop so values remain consistent
     PNCameraMode camera_mode = pn_camera_mode();
     double camera_temperature = pn_camera_temperature();
-    double camera_readout_time = pn_camera_readout_time();
-
-    // Check that the exposure time is greater than
-    // the camera readout, and change if necessary
-    if (camera_readout_time != last_camera_readout_time)
-    {
-        unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
-        if (exposure_time < camera_readout_time)
-        {
-            unsigned char new_exposure = (unsigned char)(ceil(camera_readout_time));
-            pn_preference_set_char(EXPOSURE_TIME, new_exposure);
-            pn_log("Increasing exposure time to %d seconds.", new_exposure);
-            update_acquisition_window();
-        }
-        last_camera_readout_time = camera_readout_time;
-    }
 
     bool camera_downloading = timer_camera_downloading(timer);
     unsigned char is_input = false;
@@ -788,14 +770,10 @@ bool pn_ui_update()
                     if (input_type == INPUT_EXPOSURE)
                     {
                         unsigned char oldexp = pn_preference_char(EXPOSURE_TIME);
-                        if (new < camera_readout_time || new > 255)
+                        if (new > 255)
                         {
                             // Invalid entry
-                            if (new < camera_readout_time)
-                                pn_log("Minimum exposure: %.2f seconds.", camera_readout_time);
-                            else
-                                pn_log("Maximum exposure: 255 seconds.");
-
+                            pn_log("Maximum exposure: 255 seconds.");
                             input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", oldexp);
                         }
                         else
