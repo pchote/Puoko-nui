@@ -556,7 +556,7 @@ void FLTKGui::metadataFrameTypeChangedCallback(Fl_Widget *input, void *userdata)
 
 void FLTKGui::createMetadataWindow()
 {
-    m_metadataWindow = new Fl_Double_Window(420, 155, "Set Metadata");
+    m_metadataWindow = new Fl_Double_Window(420, 180, "Set Metadata");
     m_metadataWindow->user_data((void*)(this));
 
     // File output
@@ -596,6 +596,7 @@ void FLTKGui::createMetadataWindow()
     y = 75;
     m_metadataObservatoryInput = new Fl_Input(x, y, w, h, "Observatory:"); y += margin;
     m_metadataTelecopeInput = new Fl_Input(x, y, w, h, "Telescope:"); y += margin;
+    m_metadataFilterInput = new Fl_Input(x, y, w, h, "Filter:"); y += margin;
 
     m_metadataButtonConfirm = new Fl_Button(x, y, w, h, "Save");
     m_metadataButtonConfirm->user_data((void*)(this));
@@ -628,6 +629,7 @@ void FLTKGui::showMetadataWindow()
     populate_string_preference(m_metadataObserversInput, OBSERVERS);
     populate_string_preference(m_metadataObservatoryInput, OBSERVATORY);
     populate_string_preference(m_metadataTelecopeInput, TELESCOPE);
+    populate_string_preference(m_metadataFilterInput, FILTER);
     m_metadataWindow->show();
 }
 
@@ -660,6 +662,7 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
     set_string_from_input(OBSERVERS, gui->m_metadataObserversInput);
     set_string_from_input(OBSERVATORY, gui->m_metadataObservatoryInput);
     set_string_from_input(TELESCOPE, gui->m_metadataTelecopeInput);
+    set_string_from_input(FILTER, gui->m_metadataFilterInput);
     set_int(CALIBRATION_COUNTDOWN, calibration_countdown);
 
     gui->updateAcquisitionGroup();

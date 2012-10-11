@@ -148,6 +148,7 @@ private:
     Fl_Input *m_metadataObserversInput;
     Fl_Input *m_metadataObservatoryInput;
     Fl_Input *m_metadataTelecopeInput;
+    Fl_Input *m_metadataFilterInput;
  };
 
 #endif

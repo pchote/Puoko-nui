@@ -150,6 +150,10 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "INSTRUME", (void *)instrument, "Instrument name", &status);
     free(instrument);
 
+    char *filter = pn_preference_string(FILTER);
+    fits_update_key(fptr, TSTRING, "FILTER", (void *)filter, "Filter type", &status);
+    free(filter);
+
     fits_update_key(fptr, TSTRING, "PROG-VER", (void *)program_version() , "Acquisition program version reported by git", &status);
 
     if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
