@@ -205,7 +205,11 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "CCD-PORT", (void *)camera_port_desc(camera), "CCD readout port description", &status);
     fits_update_key(fptr, TSTRING, "CCD-RATE", (void *)camera_speed_desc(camera), "CCD readout rate description", &status);
     fits_update_key(fptr, TSTRING, "CCD-GAIN", (void *)camera_gain_desc(camera), "CCD readout gain description", &status);
-    fits_update_key(fptr, TLONG,   "CCD-BIN",  (long[]){pn_preference_char(CAMERA_BINNING)},  "CCD pixel binning", &status);
+    fits_update_key(fptr, TLONG,   "CCD-BIN",  &(long){pn_preference_char(CAMERA_BINNING)},  "CCD pixel binning", &status);
+
+    char *pscale = pn_preference_string(CAMERA_PLATESCALE);
+    fits_update_key(fptr, TDOUBLE, "IM-SCALE",  &(double){pn_preference_char(CAMERA_BINNING)*atof(pscale)},  "Image scale (arcsec/px)", &status);
+    free(pscale);
 
     // Write the frame data to the image and close the file
     fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
