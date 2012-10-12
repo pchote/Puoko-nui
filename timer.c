@@ -283,19 +283,18 @@ static void write_data(TimerUnit *timer)
     pthread_mutex_unlock(&timer->sendbuffer_mutex);
 }
 
-static void read_data(TimerUnit *timer, uint8_t read_buffer[256], uint8_t *bytes_read)
+static void read_data(TimerUnit *timer, uint8_t *read_buffer, uint8_t *bytes_read)
 {
 #ifdef USE_LIBFTDI
-    *bytes_read = ftdi_read_data(timer->context, read_buffer, 255);
-    if (bytes_read < 0)
+    int read = ftdi_read_data(timer->context, read_buffer, 255);
+    if (read < 0)
         fatal_timer_error(timer, "Timer I/O error.");
 #else
     DWORD read;
     if (FT_Read(timer->handle, read_buffer, 255, &read) != FT_OK)
         fatal_timer_error(timer, "Timer I/O error.");
-
-    *bytes_read = (uint8_t)read;
 #endif
+    *bytes_read = (uint8_t)read;
 }
 
 static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint8_t packet_length)
