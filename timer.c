@@ -190,6 +190,12 @@ static void initialize_timer(TimerUnit *timer)
         millisleep(500);
     }
 
+    if (ftdi_usb_purge_rx_buffer(timer->context))
+        fatal_timer_error(timer, "Error purging timer rx buffer: %s", timer->context->error_str);
+
+    if (ftdi_usb_purge_tx_buffer(timer->context))
+        fatal_timer_error(timer, "Error purging timer tx buffer: %s", timer->context->error_str);
+
     if (ftdi_set_baudrate(timer->context, 250000) < 0)
         fatal_timer_error(timer, "Error setting timer baudrate: %s", timer->context->error_str);
 
@@ -213,6 +219,9 @@ static void initialize_timer(TimerUnit *timer)
         pn_log("Waiting for timer...");
         millisleep(1000);
     }
+
+    if (FT_Purge(timer->handle, FT_PURGE_RX | FT_PURGE_TX) != FT_OK)
+        fatal_timer_error(timer, "Error purging timer buffers");
 
     // Set baud rate to 250k (matches internal USB<->UART rate within the timer)
     if (FT_SetBaudRate(timer->handle, 250000) != FT_OK)
