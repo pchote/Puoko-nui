@@ -111,7 +111,7 @@ bool FLTKGui::update()
 
 Fl_Group *FLTKGui::createGroupBox(int y, int h, const char *label)
 {
-    int b[4] = {10, y, 230, h};
+    int b[4] = {10, y, 250, h};
     Fl_Group *output = new Fl_Group(b[0], b[1], b[2], b[3], label);
     output->box(FL_ENGRAVED_BOX);
     output->align(FL_ALIGN_INSIDE|FL_ALIGN_TOP);
@@ -122,15 +122,14 @@ Fl_Group *FLTKGui::createGroupBox(int y, int h, const char *label)
 
 Fl_Output *FLTKGui::createOutputLabel(int y, const char *label)
 {
-    int b[5] = {105, y, 130, 14};
+    int b[5] = {105, y, 150, 14};
     Fl_Output *output = new Fl_Output(b[0], b[1], b[2], b[3], label);
     output->box(FL_NO_BOX);
     output->labelsize(14);
-    output->textsize(13);
+    output->textsize(12);
     output->textfont(FL_BOLD);
     return output;
 }
-
 
 void FLTKGui::createTimerGroup()
 {
@@ -183,7 +182,7 @@ void FLTKGui::createCameraGroup()
     int y = 125, margin = 20;
     m_cameraGroup = createGroupBox(y, 65, "Camera Information"); y += 25;
     m_cameraStatusOutput = createOutputLabel(y, "Status:"); y += margin;
-    m_cameraTemperatureOutput = createOutputLabel(y, "Temperature:");
+    m_cameraTemperatureOutput = createOutputLabel(y, "Temp:");
     m_cameraGroup->end();
 }
 
@@ -217,11 +216,11 @@ void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, doubl
 
     // Camera temperature
     const char *tempstring = "Unavailable";
-    char tempbuf[10];
+    char tempbuf[11];
 
     if (mode == ACQUIRING || mode == IDLE)
     {
-        snprintf(tempbuf, 10, "%0.02f C", temperature);
+        snprintf(tempbuf, 11, "%0.02f \u00B0C", temperature);
         tempstring = tempbuf;
     }
     m_cameraTemperatureOutput->value(tempstring);
@@ -287,7 +286,7 @@ void FLTKGui::updateAcquisitionGroup()
 
 void FLTKGui::createLogGroup()
 {
-    m_logDisplay = new Fl_Multi_Browser(250, 10, 400, 295);
+    m_logDisplay = new Fl_Multi_Browser(270, 10, 380, 295);
 }
 
 void FLTKGui::buttonMetadataPressed(Fl_Widget* o, void *userdata)
@@ -502,7 +501,7 @@ void FLTKGui::createCameraWindow()
     m_cameraGainInput->user_data((void*)(this));
 
     x = 260; y = 10; w = 50;
-    m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (ºC):"); y += margin;
+    m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (\u00B0C):"); y += margin;
     m_cameraBinningInput = new Fl_Int_Input(x, y, w, h, "Binning (px):"); y += margin;
     m_cameraExposureInput = new Fl_Int_Input(x, y, w, h, "Exposure (s):"); y += margin;
 
