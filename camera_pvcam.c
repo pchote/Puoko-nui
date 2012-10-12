@@ -233,17 +233,17 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
     set_param(internal->handle, PARAM_TEMP_SETPOINT, &(int){pn_preference_int(CAMERA_TEMPERATURE)});
 
     // Set readout area
-    uint8_t pixel_size = pn_preference_char(CAMERA_PIXEL_SIZE);
+    uint8_t bin = pn_preference_char(CAMERA_BINNING);
     rgn_type region;
     region.s1 = 0;
     region.s2 = internal->ccd_width-1;
-    region.sbin = pixel_size;
+    region.sbin = bin;
     region.p1 = 0;
     region.p2 = internal->ccd_height-1;
-    region.pbin = pixel_size;
+    region.pbin = bin;
 
-    internal->frame_height = internal->ccd_width / pixel_size;
-    internal->frame_width = internal->ccd_height / pixel_size;
+    internal->frame_height = internal->ccd_width / bin;
+    internal->frame_width = internal->ccd_height / bin;
 
     // Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer
     if (!pl_exp_setup_cont(internal->handle, 1, &region, STROBED_MODE, 0, &internal->frame_size, CIRC_NO_OVERWRITE))

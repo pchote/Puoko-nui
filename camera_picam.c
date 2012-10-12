@@ -391,17 +391,17 @@ double camera_picam_update_camera_settings(Camera *camera, void *_internal)
     }
 
     // Set ROI to full chip, with requested binning
-    unsigned char pixel_size = pn_preference_char(CAMERA_PIXEL_SIZE);
+    unsigned char bin = pn_preference_char(CAMERA_BINNING);
     PicamRoi *roi = &region->roi_array[0];
     roi->x = roi_constraint->x_constraint.minimum;
     roi->y = roi_constraint->y_constraint.minimum;
     roi->width = roi_constraint->width_constraint.maximum;
     roi->height = roi_constraint->height_constraint.maximum;
-    roi->x_binning = pixel_size;
-    roi->y_binning = pixel_size;
+    roi->x_binning = bin;
+    roi->y_binning = bin;
 
-    internal->frame_width  = (uint16_t)(roi_constraint->width_constraint.maximum) / pixel_size;
-    internal->frame_height = (uint16_t)(roi_constraint->height_constraint.maximum) / pixel_size;
+    internal->frame_width  = (uint16_t)(roi_constraint->width_constraint.maximum) / bin;
+    internal->frame_height = (uint16_t)(roi_constraint->height_constraint.maximum) / bin;
 
     if (Picam_SetParameterRoisValue(internal->model_handle, PicamParameter_Rois, region) != PicamError_None)
     {

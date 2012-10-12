@@ -161,10 +161,10 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
         char buf[25];
         unsigned char skip = pn_preference_char(CAMERA_OVERSCAN_SKIP_COLS);
         unsigned char bias = pn_preference_char(CAMERA_OVERSCAN_BIAS_COLS);
-        unsigned char superpixel = pn_preference_char(CAMERA_PIXEL_SIZE);
-        snprintf(buf, 25, "[%d, %d, %d, %d]", 0, frame->width - (skip + bias)/superpixel, 0, frame->height);
+        unsigned char bin = pn_preference_char(CAMERA_BINNING);
+        snprintf(buf, 25, "[%d, %d, %d, %d]", 0, frame->width - (skip + bias)/bin, 0, frame->height);
         fits_update_key(fptr, TSTRING, "IMAG-RGN", buf, "Frame image subregion", &status);
-        snprintf(buf, 25, "[%d, %d, %d, %d]", frame->width - skip/superpixel, frame->width, 0, frame->height);
+        snprintf(buf, 25, "[%d, %d, %d, %d]", frame->width - skip/bin, frame->width, 0, frame->height);
         fits_update_key(fptr, TSTRING, "BIAS-RGN", buf, "Frame bias subregion", &status);
     }
 
@@ -205,7 +205,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "CCD-PORT", (void *)camera_port_desc(camera), "CCD readout port description", &status);
     fits_update_key(fptr, TSTRING, "CCD-RATE", (void *)camera_speed_desc(camera), "CCD readout rate description", &status);
     fits_update_key(fptr, TSTRING, "CCD-GAIN", (void *)camera_gain_desc(camera), "CCD readout gain description", &status);
-    fits_update_key(fptr, TLONG,   "CCD-BIN",  (long[]){pn_preference_char(CAMERA_PIXEL_SIZE)},  "CCD pixel binning", &status);
+    fits_update_key(fptr, TLONG,   "CCD-BIN",  (long[]){pn_preference_char(CAMERA_BINNING)},  "CCD pixel binning", &status);
 
     // Write the frame data to the image and close the file
     fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);

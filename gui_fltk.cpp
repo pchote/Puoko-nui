@@ -418,13 +418,13 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_char(CAMERA_GAIN_MODE, (uint8_t)(gui->m_cameraGainInput->value()));
     set_int(CAMERA_TEMPERATURE, (int)(atof(gui->m_cameraTemperatureInput->value())*100));
 
-    uint8_t binning = atoi(gui->m_cameraBinningInput->value());
-    if (binning == 0)
+    uint8_t bin = atoi(gui->m_cameraBinningInput->value());
+    if (bin == 0)
     {
-        binning = 1;
+        bin = 1;
         pn_log("Minimum binning is 1px. Binning set to 1px.");
     }
-    set_char(CAMERA_PIXEL_SIZE, binning);
+    set_char(CAMERA_BINNING, bin);
 
     int exp = atoi(gui->m_cameraExposureInput->value());
     if (exp > 255)
@@ -520,7 +520,7 @@ void FLTKGui::showCameraWindow()
     cameraRebuildPortTree(port_id, speed_id, gain_id);
 
     populate_char_preference(m_cameraExposureInput, EXPOSURE_TIME);
-    populate_char_preference(m_cameraBinningInput, CAMERA_PIXEL_SIZE);
+    populate_char_preference(m_cameraBinningInput, CAMERA_BINNING);
 
     char buf[32];
     snprintf(buf, 32, "%.2f", pn_preference_int(CAMERA_TEMPERATURE) / 100.0);

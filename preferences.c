@@ -55,7 +55,7 @@ PNPreferenceStore prefs[] =
 
     {TIMER_MONITOR_LOGIC_OUT,   CHAR, .value.c = true,  "TimerMonitorLogicOut: %hhu\n"},
 
-    {CAMERA_PIXEL_SIZE,         CHAR, .value.c = 1,     "CameraPixelSize: %hhu\n"},
+    {CAMERA_BINNING,            CHAR, .value.c = 1,     "CameraBinning: %hhu\n"},
     {CAMERA_READPORT_MODE,      CHAR, .value.c = 0,     "CameraReadoutPortMode: %hhu\n"},
     {CAMERA_READSPEED_MODE,     CHAR, .value.c = 0,     "CameraReadoutSpeedMode: %hhu\n"},
     {CAMERA_GAIN_MODE,          CHAR, .value.c = 0,     "CameraGainMode: %hhu\n"},
