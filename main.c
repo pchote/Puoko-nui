@@ -357,8 +357,13 @@ int main(int argc, char *argv[])
                 process_framedata(frame, *trigger);
             else
             {
+                TimerTimestamp download = frame->downloaded_time;
+                download.seconds -= readout_time;
+                timestamp_normalize(&download);
+
                 pn_log("ERROR: Frame downloaded before trigger was received.");
                 pn_log("Download timestamp: %02d:%02d:%02d", frame->downloaded_time.hours, frame->downloaded_time.minutes, frame->downloaded_time.seconds);
+                pn_log("Estimated download start: %02d:%02d:%02d", download.hours, download.minutes, download.seconds);
                 pn_log("Trigger timestamp: %02d:%02d:%02d", trigger->hours, trigger->minutes, trigger->seconds);
                 pn_log("Discarding all stored frames and triggers.");
                 clear_queued_data();
