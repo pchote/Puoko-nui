@@ -144,7 +144,7 @@ int run_command(const char *cmd, char *log_prefix)
         while ((end = strstr(str, "\n")) != NULL)
         {
             char *next = end + 1;
-            end = '\0';
+            *end = '\0';
             if (strlen(str) > 0)
                 pn_log("%s%s", log_prefix, str);
             str = next;
