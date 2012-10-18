@@ -66,6 +66,11 @@ PNPreferenceStore prefs[] =
     {CAMERA_OVERSCAN_BIAS_COLS, CHAR, .value.c = 24,    "CameraOverscanBiasCols: %d\n"},
     {CAMERA_PLATESCALE,       STRING, .value.s = "0.33","CameraPlatescale: %s\n"},
 
+    {CAMERA_WINDOW_X,           INT,  .value.i = 0,     "CameraWindowX: %d\n"},
+    {CAMERA_WINDOW_Y,           INT,  .value.i = 0,     "CameraWindowY: %d\n"},
+    {CAMERA_WINDOW_WIDTH,       INT,  .value.i = 1024,  "CameraWindowWidth: %d\n"},
+    {CAMERA_WINDOW_HEIGHT,      INT,  .value.i = 1024,  "CameraWindowHeight: %d\n"},
+
 #if (defined _WIN32)
     {MSYS_BASH_PATH, STRING, .value.s = "C:/MinGW/MSYS/bin/bash.exe",    "MsysBashPath: %s\n"}
 #endif

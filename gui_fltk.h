@@ -135,6 +135,11 @@ private:
     Fl_Spinner *m_cameraBinningSpinner;
     Fl_Button *m_cameraButtonConfirm;
 
+    Fl_Spinner *m_cameraWindowX;
+    Fl_Spinner *m_cameraWindowY;
+    Fl_Spinner *m_cameraWindowWidth;
+    Fl_Spinner *m_cameraWindowHeight;
+
     // Metadata window
     Fl_Double_Window *m_metadataWindow;
     Fl_Button *m_metadataButtonConfirm;

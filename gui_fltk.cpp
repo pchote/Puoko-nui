@@ -410,6 +410,10 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_char(CAMERA_READSPEED_MODE, (uint8_t)(gui->m_cameraSpeedInput->value()));
     set_char(CAMERA_GAIN_MODE, (uint8_t)(gui->m_cameraGainInput->value()));
     set_int(CAMERA_TEMPERATURE, (int)(atof(gui->m_cameraTemperatureInput->value())*100));
+    set_int(CAMERA_WINDOW_X, (int)(gui->m_cameraWindowX->value()));
+    set_int(CAMERA_WINDOW_Y, (int)(gui->m_cameraWindowY->value()));
+    set_int(CAMERA_WINDOW_WIDTH, (int)(gui->m_cameraWindowWidth->value()));
+    set_int(CAMERA_WINDOW_HEIGHT, (int)(gui->m_cameraWindowHeight->value()));
 
     uint8_t bin = (uint8_t)(gui->m_cameraBinningSpinner->value());
     if (bin == 0)
@@ -472,10 +476,29 @@ void FLTKGui::cameraPortSpeedGainChangedCallback(Fl_Widget *input, void *userdat
 
 void FLTKGui::createCameraWindow()
 {
-    m_cameraWindow = new Fl_Double_Window(320, 115, "Set Camera Parameters");
+    m_cameraWindow = new Fl_Double_Window(350, 180, "Set Camera Parameters");
     m_cameraWindow->user_data((void*)(this));
 
-    int x = 60, y = 10, w = 100, h = 20, margin = 25;
+    Fl_Group *readoutGroup = new Fl_Group(10, 10, 330, 80, "Readout Geometry");
+    readoutGroup->box(FL_ENGRAVED_BOX);
+    readoutGroup->align(FL_ALIGN_INSIDE|FL_ALIGN_TOP);
+    readoutGroup->labelsize(14);
+    readoutGroup->labelfont(FL_BOLD);
+
+    int x = 20, y = 35, h = 20, w = 55, margin = 25;
+    m_cameraWindowX = new Fl_Spinner(90, y, w, 20, "x,y (px):");
+    m_cameraWindowY = new Fl_Spinner(167, y, w, 20, ",  ");
+    y += margin;
+    m_cameraWindowWidth = new Fl_Spinner(90, y, w, 20, "Size (px):");
+    m_cameraWindowHeight = new Fl_Spinner(167, y, w, 20, " x ");
+
+    m_cameraBinningSpinner = new Fl_Spinner(300, y, 30, 20, "Bin (px):");
+    m_cameraBinningSpinner->maximum(255);
+    m_cameraBinningSpinner->minimum(1);
+
+    readoutGroup->end();
+
+    x = 70; y = 100; w = 100;
     m_cameraPortInput = new Fl_Choice(x, y, w, h, "Port:"); y += margin;
     m_cameraPortInput->callback(cameraPortSpeedGainChangedCallback);
     m_cameraPortInput->user_data((void*)(this));
@@ -488,16 +511,15 @@ void FLTKGui::createCameraWindow()
     m_cameraGainInput->callback(cameraPortSpeedGainChangedCallback);
     m_cameraGainInput->user_data((void*)(this));
 
-    x = 260; y = 10; w = 50;
+    x = 285; y = 100; w = 55;
+
     m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (\u00B0C):"); y += margin;
-    m_cameraBinningSpinner = new Fl_Spinner(x, y, w, h, "Binning (px):"); y += margin;
-    m_cameraBinningSpinner->maximum(255);
-    m_cameraBinningSpinner->minimum(1);
+
     m_cameraExposureSpinner = new Fl_Spinner(x, y, w, h, "Exposure (s):"); y += margin;
     m_cameraExposureSpinner->maximum(255);
     m_cameraExposureSpinner->minimum(1);
 
-    x = 190; w = 120;
+    x = 220; w = 120;
     m_cameraButtonConfirm = new Fl_Button(x, y, w, h, "Save");
     m_cameraButtonConfirm->user_data((void*)(this));
     m_cameraButtonConfirm->callback(buttonCameraConfirmPressed);
@@ -513,6 +535,24 @@ void FLTKGui::showCameraWindow()
 
     m_cameraExposureSpinner->value(pn_preference_char(EXPOSURE_TIME));
     m_cameraBinningSpinner->value(pn_preference_char(CAMERA_BINNING));
+
+    // TODO: Get this from the camera
+    uint16_t chip_area[4] = {0, 1023, 0, 1023};
+    m_cameraWindowX->minimum(chip_area[0]);
+    m_cameraWindowX->maximum(chip_area[1]);
+    m_cameraWindowX->value(pn_preference_int(CAMERA_WINDOW_X));
+
+    m_cameraWindowY->minimum(chip_area[2]);
+    m_cameraWindowY->maximum(chip_area[3]);
+    m_cameraWindowY->value(pn_preference_int(CAMERA_WINDOW_Y));
+
+    m_cameraWindowWidth->minimum(1);
+    m_cameraWindowWidth->maximum(chip_area[1] - chip_area[0] + 1);
+    m_cameraWindowWidth->value(pn_preference_int(CAMERA_WINDOW_WIDTH));
+
+    m_cameraWindowHeight->minimum(1);
+    m_cameraWindowHeight->maximum(chip_area[3] - chip_area[2] + 1);
+    m_cameraWindowHeight->value(pn_preference_int(CAMERA_WINDOW_HEIGHT));
 
     char buf[32];
     snprintf(buf, 32, "%.2f", pn_preference_int(CAMERA_TEMPERATURE) / 100.0);
