@@ -23,6 +23,7 @@
 #include <FL/Fl_Multi_Browser.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/Fl_Int_Input.H>
+#include <FL/Fl_Spinner.H>
 #include <FL/Fl_Float_Input.H>
 #include <FL/Fl_Choice.H>
 #include <FL/fl_ask.H>
@@ -129,9 +130,9 @@ private:
     Fl_Choice *m_cameraSpeedInput;
     Fl_Choice *m_cameraGainInput;
 
-    Fl_Int_Input *m_cameraExposureInput;
+    Fl_Spinner *m_cameraExposureSpinner;
     Fl_Float_Input *m_cameraTemperatureInput;
-    Fl_Int_Input *m_cameraBinningInput;
+    Fl_Spinner *m_cameraBinningSpinner;
     Fl_Button *m_cameraButtonConfirm;
 
     // Metadata window

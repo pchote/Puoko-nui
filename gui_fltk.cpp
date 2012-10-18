@@ -46,13 +46,6 @@ static void populate_string_preference(Fl_Input *input, PNPreferenceType key)
     free(val);
 }
 
-static void populate_char_preference(Fl_Int_Input *input, PNPreferenceType key)
-{
-    char buf[32];
-    snprintf(buf, 32, "%d", pn_preference_char(key));
-    input->value(buf);
-}
-
 static void populate_int_preference(Fl_Int_Input *input, PNPreferenceType key)
 {
     char buf[32];
@@ -418,7 +411,7 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_char(CAMERA_GAIN_MODE, (uint8_t)(gui->m_cameraGainInput->value()));
     set_int(CAMERA_TEMPERATURE, (int)(atof(gui->m_cameraTemperatureInput->value())*100));
 
-    uint8_t bin = atoi(gui->m_cameraBinningInput->value());
+    uint8_t bin = (uint8_t)(gui->m_cameraBinningSpinner->value());
     if (bin == 0)
     {
         bin = 1;
@@ -426,13 +419,8 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     }
     set_char(CAMERA_BINNING, bin);
 
-    int exp = atoi(gui->m_cameraExposureInput->value());
-    if (exp > 255)
-    {
-        exp = 255;
-        pn_log("Maximum exposure time is 255s. Exposure set to 255s.");
-    }
-    else if (exp < 1)
+    uint8_t exp = (uint8_t)(gui->m_cameraExposureSpinner->value());
+    if (bin == 0)
     {
         exp = 1;
         pn_log("Minimum exposure time is 1s. Exposure set to 1s.");
@@ -502,8 +490,12 @@ void FLTKGui::createCameraWindow()
 
     x = 260; y = 10; w = 50;
     m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (\u00B0C):"); y += margin;
-    m_cameraBinningInput = new Fl_Int_Input(x, y, w, h, "Binning (px):"); y += margin;
-    m_cameraExposureInput = new Fl_Int_Input(x, y, w, h, "Exposure (s):"); y += margin;
+    m_cameraBinningSpinner = new Fl_Spinner(x, y, w, h, "Binning (px):"); y += margin;
+    m_cameraBinningSpinner->maximum(255);
+    m_cameraBinningSpinner->minimum(1);
+    m_cameraExposureSpinner = new Fl_Spinner(x, y, w, h, "Exposure (s):"); y += margin;
+    m_cameraExposureSpinner->maximum(255);
+    m_cameraExposureSpinner->minimum(1);
 
     x = 190; w = 120;
     m_cameraButtonConfirm = new Fl_Button(x, y, w, h, "Save");
@@ -519,8 +511,8 @@ void FLTKGui::showCameraWindow()
     uint8_t gain_id = pn_preference_char(CAMERA_GAIN_MODE);
     cameraRebuildPortTree(port_id, speed_id, gain_id);
 
-    populate_char_preference(m_cameraExposureInput, EXPOSURE_TIME);
-    populate_char_preference(m_cameraBinningInput, CAMERA_BINNING);
+    m_cameraExposureSpinner->value(pn_preference_char(EXPOSURE_TIME));
+    m_cameraBinningSpinner->value(pn_preference_char(CAMERA_BINNING));
 
     char buf[32];
     snprintf(buf, 32, "%.2f", pn_preference_int(CAMERA_TEMPERATURE) / 100.0);
