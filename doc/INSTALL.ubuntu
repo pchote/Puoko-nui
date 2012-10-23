@@ -1,11 +1,37 @@
-Ubuntu 10.04:
+Install packaged prerequisites:
+$ sudo apt-get install git libftdi-dev libraw1394-dev libcfitsio3-dev libfltk1.3-dev libxss1
 
-Install packages: libgtk2.0-dev libcfitsio3-dev libxt-dev libftdi-dev libraw1394-dev
-Install pvcam (in pvcam subdir)
-Build and install rspiusb kernel module (in pvcam/rspiusb subdir)
-modprobe rspiusb
-Update system udev to allow puokonui to run without root priviledges (in udev subdir)
-Download and install ds9 from http://hea-www.harvard.edu/RD/ds9/
-Download xpa source from http://hea-www.harvard.edu/RD/xpa/, build and install
-copy libxpa.a to puoko-nui source dir
-make
+Download the latest ds9 from http://hea-www.harvard.edu/RD/ds9/site/Download.html and install. e.g:
+$ tar xvf ds9.linux.7.1.tar.gz
+$ sudo cp ds9 /usr/local/bin/
+
+Download latest xpa source from http://hea-www.harvard.edu/RD/ds9/site/XPA.html and install. e.g:
+$ tar xvf xpa-2.1.14
+$ cd xpa-2.1.14/
+$ ./configure
+$ make
+$ sudo make install
+
+Clone acquisition source code:
+$ cd ~
+$ git clone https://github.com/pchote/Puoko-nui.git puokonui
+$ cd puokonui
+
+Install udev rules:
+$ sudo cp udev/*.rules /lib/udev/rules.d/
+
+Install PVCAM:
+$ cd pvcam
+$ tar xvf PISDKinst2.7.1.7.tar.gz
+$ cd pvcam2.7.1.7
+$ sudo ./install_sdk.sh
+
+Install PVCAM usb driver:
+$ cd ../rspiusb
+$ make
+$ sudo make install
+$ sudo modprobe rspiusb
+
+Build acquisition code:
+$ cd ../../
+$ make CAMERA_TYPE=PVCAM
