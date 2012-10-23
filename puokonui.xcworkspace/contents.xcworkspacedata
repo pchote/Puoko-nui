@@ -82,4 +82,7 @@
    <FileRef
       location = "group:version.h">
    </FileRef>
+   <FileRef
+      location = "group:relaymode.c">
+   </FileRef>
 </Workspace>
