@@ -233,17 +233,56 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
     set_param(internal->handle, PARAM_TEMP_SETPOINT, &(int){pn_preference_int(CAMERA_TEMPERATURE)});
 
     // Set readout area
+    uint16_t ww = pn_preference_int(CAMERA_WINDOW_WIDTH);
+    if (ww < 1 || ww > internal->ccd_width)
+    {
+        pn_log("Invalid window width: %d. Reset to %d.", ww, internal->ccd_width);
+        ww = internal->ccd_width;
+        pn_preference_set_int(CAMERA_WINDOW_WIDTH, ww);
+    }
+
+    uint16_t wh = pn_preference_int(CAMERA_WINDOW_HEIGHT);
+    if (wh < 1 || wh > internal->ccd_height)
+    {
+        pn_log("Invalid window height: %d. Reset to %d.", wh, internal->ccd_height);
+        wh = internal->ccd_height;
+        pn_preference_set_int(CAMERA_WINDOW_HEIGHT, wh);
+    }
+
+    uint16_t wx = pn_preference_int(CAMERA_WINDOW_X);
+    if (wx < 0 || wx + ww > internal->ccd_width)
+    {
+        pn_log("Invalid window x: %d. Reset to %d.", wx, 0);
+        wx = 0;
+        pn_preference_set_int(CAMERA_WINDOW_X, wx);
+    }
+
+    uint16_t wy = pn_preference_int(CAMERA_WINDOW_Y);
+    if (wy < 0 || wy + wh > internal->ccd_height)
+    {
+        pn_log("Invalid window y: %d. Reset to %d.", wy, 0);
+        wy = 0;
+        pn_preference_set_int(CAMERA_WINDOW_Y, wy);
+    }
+
     uint8_t bin = pn_preference_char(CAMERA_BINNING);
+    if (bin <= 0 || bin > ww || bin > wh)
+    {
+        pn_log("Invalid binning: %d. Reset to %d.", bin, 1);
+        bin = 1;
+        pn_preference_set_char(CAMERA_BINNING, bin);
+    }
+
     rgn_type region;
-    region.s1 = 0;
-    region.s2 = internal->ccd_width-1;
+    region.s1 = wx;
+    region.s2 = wx + ww - 1;
     region.sbin = bin;
-    region.p1 = 0;
-    region.p2 = internal->ccd_height-1;
+    region.p1 = wy;
+    region.p2 = wy + wh - 1;
     region.pbin = bin;
 
-    internal->frame_height = internal->ccd_width / bin;
-    internal->frame_width = internal->ccd_height / bin;
+    internal->frame_height = ww / bin;
+    internal->frame_width = wh / bin;
 
     // Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer
     if (!pl_exp_setup_cont(internal->handle, 1, &region, STROBED_MODE, 0, &internal->frame_size, CIRC_NO_OVERWRITE))
@@ -255,7 +294,7 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
 
     // convert from ms to s
     readout_time /= 1000;
-    pn_log("Camera readout time is now %.2fs", readout_time);
+    pn_log("Camera readout time is now %.2fs.", readout_time);
     uint8_t exposure_time = pn_preference_char(EXPOSURE_TIME);
     if (exposure_time < readout_time)
     {
