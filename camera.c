@@ -44,6 +44,8 @@ struct Camera
     uint8_t port_count;
     double readout_time;
     double temperature;
+    uint16_t ccd_region[4];
+
     bool camera_settings_dirty;
 
     void *(*initialize)(Camera *, ThreadCreationArgs *);
@@ -144,6 +146,12 @@ static void *camera_thread(void *_args)
     }
 
     camera->port_count = camera->port_table(camera, camera->internal, &camera->port_options);
+
+    // TODO: Query this from the camera
+    camera->ccd_region[0] = 0;
+    camera->ccd_region[1] = 1023;
+    camera->ccd_region[2] = 0;
+    camera->ccd_region[3] = 1023;
 
     double readout = camera->update_camera_settings(camera, camera->internal);
     pthread_mutex_lock(&camera->read_mutex);
@@ -324,6 +332,11 @@ void camera_update_settings(Camera *camera)
 
 // Warning: These are not thread safe, but this is only touched by the camera
 // thread during startup, when the main thread is designed to not call these
+void camera_ccd_region(Camera *camera, uint16_t region[4])
+{
+    memcpy(region, camera->ccd_region, 4*sizeof(uint16_t));
+}
+
 uint8_t camera_port_options(Camera *camera, struct camera_port_option **options)
 {
     *options = camera->port_options;

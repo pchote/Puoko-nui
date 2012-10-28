@@ -536,22 +536,23 @@ void FLTKGui::showCameraWindow()
     m_cameraExposureSpinner->value(pn_preference_char(EXPOSURE_TIME));
     m_cameraBinningSpinner->value(pn_preference_char(CAMERA_BINNING));
 
-    // TODO: Get this from the camera
-    uint16_t chip_area[4] = {0, 1023, 0, 1023};
-    m_cameraWindowX->minimum(chip_area[0]);
-    m_cameraWindowX->maximum(chip_area[1]);
+    // Useable chip region xmin,xmax, ymin,ymax
+    uint16_t ccd_region[4];
+    camera_ccd_region(m_cameraRef, ccd_region);
+    m_cameraWindowX->minimum(ccd_region[0]);
+    m_cameraWindowX->maximum(ccd_region[1]);
     m_cameraWindowX->value(pn_preference_int(CAMERA_WINDOW_X));
 
-    m_cameraWindowY->minimum(chip_area[2]);
-    m_cameraWindowY->maximum(chip_area[3]);
+    m_cameraWindowY->minimum(ccd_region[2]);
+    m_cameraWindowY->maximum(ccd_region[3]);
     m_cameraWindowY->value(pn_preference_int(CAMERA_WINDOW_Y));
 
     m_cameraWindowWidth->minimum(1);
-    m_cameraWindowWidth->maximum(chip_area[1] - chip_area[0] + 1);
+    m_cameraWindowWidth->maximum(ccd_region[1] - ccd_region[0] + 1);
     m_cameraWindowWidth->value(pn_preference_int(CAMERA_WINDOW_WIDTH));
 
     m_cameraWindowHeight->minimum(1);
-    m_cameraWindowHeight->maximum(chip_area[3] - chip_area[2] + 1);
+    m_cameraWindowHeight->maximum(ccd_region[3] - ccd_region[2] + 1);
     m_cameraWindowHeight->value(pn_preference_int(CAMERA_WINDOW_HEIGHT));
 
     char buf[32];
