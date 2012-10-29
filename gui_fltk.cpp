@@ -69,35 +69,36 @@ bool FLTKGui::update()
     bool camera_downloading = timer_camera_downloading(m_timerRef);
     unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
 
-    updateTimerGroup(exposure_time);
-
-    if (last_camera_mode != mode ||
-        last_camera_downloading != camera_downloading)
+    if (cached_camera_mode != mode ||
+        cached_camera_downloading != camera_downloading)
     {
-        updateButtonGroup(mode);
-        updateCameraGroup(mode, camera_downloading, temperature, readout);
-        last_camera_mode = mode;
-        last_camera_downloading = camera_downloading;
+        cached_camera_mode = mode;
+        cached_camera_downloading = camera_downloading;
+        updateButtonGroup();
+        updateCameraGroup();
     }
 
-    if (last_camera_temperature != temperature || last_camera_readout != readout)
+    if (cached_camera_temperature != temperature || cached_camera_readout != readout)
     {
-        updateCameraGroup(mode, camera_downloading, temperature, readout);
-        last_camera_temperature = temperature;
+        cached_camera_temperature = temperature;
+        cached_camera_readout = readout;
+        updateCameraGroup();
     }
 
     int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
     int run_number = pn_preference_int(RUN_NUMBER);
-    if (remaining_frames != last_calibration_framecount ||
-        run_number != last_run_number ||
-        exposure_time != last_exposure_time)
+    if (remaining_frames != cached_calibration_framecount ||
+        run_number != cached_run_number ||
+        exposure_time != cached_exposure_time)
     {
+        cached_calibration_framecount = remaining_frames;
+        cached_run_number = run_number;
+        cached_exposure_time = exposure_time;
         updateAcquisitionGroup();
-        updateButtonGroup(mode);
-        last_calibration_framecount = remaining_frames;
-        last_run_number = run_number;
-        last_exposure_time = exposure_time;
+        updateButtonGroup();
     }
+
+    updateTimerGroup();
 
     Fl::redraw();
     return Fl::check() == 0;
@@ -137,7 +138,7 @@ void FLTKGui::createTimerGroup()
     m_timerGroup->end();
 }
 
-void FLTKGui::updateTimerGroup(unsigned char exposure_time)
+void FLTKGui::updateTimerGroup()
 {
     // PC time
     char strtime[20];
@@ -165,9 +166,9 @@ void FLTKGui::updateTimerGroup(unsigned char exposure_time)
 
     char buf[14];
     if (ts.remaining_exposure > 0 && ts.year > 0)
-        snprintf(buf, 14, "%d / %d sec", exposure_time - ts.remaining_exposure, exposure_time);
+        snprintf(buf, 14, "%d / %d sec", cached_exposure_time - ts.remaining_exposure, cached_exposure_time);
     else
-        snprintf(buf, 14, "NA / %d sec", exposure_time);
+        snprintf(buf, 14, "NA / %d sec", cached_exposure_time);
 
     m_timerExposureOutput->value(buf);
 }
@@ -183,10 +184,10 @@ void FLTKGui::createCameraGroup()
     m_cameraGroup->end();
 }
 
-void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, double temperature, double readout)
+void FLTKGui::updateCameraGroup()
 {
     // Camera status
-    switch(mode)
+    switch (cached_camera_mode)
     {
         default:
         case INITIALISING:
@@ -198,7 +199,7 @@ void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, doubl
             m_cameraStatusOutput->value("Idle");
             break;
         case ACQUIRING:
-            if (camera_downloading)
+            if (cached_camera_downloading)
                 m_cameraStatusOutput->value("Downloading");
             else
                 m_cameraStatusOutput->value("Acquiring");
@@ -212,11 +213,11 @@ void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, doubl
     }
 
     char buf[11];
-    if (mode == ACQUIRING || mode == IDLE)
+    if (cached_camera_mode == ACQUIRING || cached_camera_mode == IDLE)
     {
-        snprintf(buf, 11, "%0.02f \u00B0C", temperature);
+        snprintf(buf, 11, "%0.02f \u00B0C", cached_camera_temperature);
         m_cameraTemperatureOutput->value(buf);
-        snprintf(buf, 11, "%0.02f sec", readout);
+        snprintf(buf, 11, "%0.02f sec", cached_camera_readout);
         m_cameraReadoutOutput->value(buf);
     }
     else
@@ -318,7 +319,6 @@ void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
 void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
 {
     FLTKGui* gui = (FLTKGui *)userdata;
-    PNCameraMode mode = camera_mode(gui->m_cameraRef);
 
     // Can't enable saving for calibration frames after the target count has been reached
     if (!pn_preference_allow_save())
@@ -328,7 +328,7 @@ void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
     }
 
     unsigned char save = pn_preference_toggle_save();
-    gui->updateButtonGroup(mode);
+    gui->updateButtonGroup();
     pn_log("%s saving.", save ? "Enabled" : "Disabled");
 }
 
@@ -696,11 +696,11 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
     gui->m_metadataWindow->hide();
 }
 
-void FLTKGui::updateButtonGroup(PNCameraMode camera_mode)
+void FLTKGui::updateButtonGroup()
 {
     bool save_pressed = pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save();
-    bool acquire_pressed = camera_mode != IDLE;
-    bool acquire_disabled = camera_mode != ACQUIRING && camera_mode != IDLE;
+    bool acquire_pressed = cached_camera_mode != IDLE;
+    bool acquire_disabled = cached_camera_mode != ACQUIRING && cached_camera_mode != IDLE;
 
     m_buttonAcquire->value(acquire_pressed);
     if (acquire_disabled)
@@ -761,18 +761,18 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
 	m_mainWindow->end();
 
     // Set initial state
-    last_camera_mode = camera_mode(camera);
-    last_camera_temperature = camera_temperature(camera);
-    last_calibration_framecount = pn_preference_int(CALIBRATION_COUNTDOWN);
-    last_run_number = pn_preference_int(RUN_NUMBER);
-    last_camera_downloading = timer_camera_downloading(timer);
-    last_camera_readout = camera_readout_time(m_cameraRef);
-    last_exposure_time = pn_preference_char(EXPOSURE_TIME);
+    cached_camera_mode = camera_mode(camera);
+    cached_camera_temperature = camera_temperature(camera);
+    cached_calibration_framecount = pn_preference_int(CALIBRATION_COUNTDOWN);
+    cached_run_number = pn_preference_int(RUN_NUMBER);
+    cached_camera_downloading = timer_camera_downloading(timer);
+    cached_camera_readout = camera_readout_time(m_cameraRef);
+    cached_exposure_time = pn_preference_char(EXPOSURE_TIME);
 
-    updateTimerGroup(last_exposure_time);
-    updateCameraGroup(last_camera_mode, last_camera_downloading, last_camera_temperature, last_camera_readout);
+    updateTimerGroup();
+    updateCameraGroup();
     updateAcquisitionGroup();
-    updateButtonGroup(last_camera_mode);
+    updateButtonGroup();
 
 	m_mainWindow->show();
 }

@@ -46,10 +46,10 @@ public:
 	~FLTKGui();
     void addLogLine(const char *msg);
     bool update();
-    void updateTimerGroup(unsigned char exposure_time);
-    void updateCameraGroup(PNCameraMode mode, int camera_downloading, double temperature, double readout);
+    void updateTimerGroup();
+    void updateCameraGroup();
     void updateAcquisitionGroup();
-    void updateButtonGroup(PNCameraMode mode);
+    void updateButtonGroup();
 
 private:
     static Fl_Group *createGroupBox(int y, int h, const char *label);
@@ -117,13 +117,13 @@ private:
     Fl_Button *m_buttonQuit;
 
     // Temporary state comparables
-    PNCameraMode last_camera_mode;
-    double last_camera_temperature;
-    double last_camera_readout;
-    int last_calibration_framecount;
-    int last_run_number;
-    unsigned char last_exposure_time;
-    bool last_camera_downloading;
+    PNCameraMode cached_camera_mode;
+    double cached_camera_temperature;
+    double cached_camera_readout;
+    int cached_calibration_framecount;
+    int cached_run_number;
+    uint8_t cached_exposure_time;
+    bool cached_camera_downloading;
 
     // Camera window
     Fl_Double_Window *m_cameraWindow;
