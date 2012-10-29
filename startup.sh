@@ -28,6 +28,7 @@ for i in $(seq 1 1 ${DS9_STARTUP_TIMEOUT}); do
 		xpaset -p Online_Preview width ${DS9_WINDOW_WIDTH}
 		xpaset -p Online_Preview height ${DS9_WINDOW_HEIGHT}
 		xpaset -p Online_Preview background black
+		xpaset -p Online_Preview regions shape annulus
 		xpaset -p Online_Preview view layout vertical
 		exit 0
 	fi
