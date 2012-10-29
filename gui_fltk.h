@@ -124,6 +124,7 @@ private:
     int cached_run_number;
     uint8_t cached_exposure_time;
     bool cached_camera_downloading;
+    bool cached_subsecond_mode;
 
     // Camera window
     Fl_Double_Window *m_cameraWindow;

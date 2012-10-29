@@ -164,11 +164,13 @@ void FLTKGui::updateTimerGroup()
         m_timerUTCDateOutput->value("NA");
     }
 
-    char buf[14];
-    if (ts.remaining_exposure > 0 && ts.year > 0)
-        snprintf(buf, 14, "%d / %d sec", cached_exposure_time - ts.remaining_exposure, cached_exposure_time);
+    char buf[20];
+    if (cached_subsecond_mode)
+        snprintf(buf, 20, "%s / %d ms", (ts.remaining_exposure > 0 && ts.year > 0) ? "Active" : "Disabled", 10*cached_exposure_time);
+    else if (ts.remaining_exposure > 0 && ts.year > 0)
+        snprintf(buf, 20, "%d / %d sec", cached_exposure_time - ts.remaining_exposure, cached_exposure_time);
     else
-        snprintf(buf, 14, "NA / %d sec", cached_exposure_time);
+        snprintf(buf, 20, "Disabled / %d sec", cached_exposure_time);
 
     m_timerExposureOutput->value(buf);
 }
@@ -505,7 +507,8 @@ void FLTKGui::createCameraWindow()
 
     m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (\u00B0C):"); y += margin;
 
-    m_cameraExposureSpinner = new Fl_Spinner(x, y, w, h, "Exposure (s):"); y += margin;
+    const char *expstring = pn_preference_char(SUBSECOND_MODE) ? "Exp. (10ms):" : "Exposure (s):";
+    m_cameraExposureSpinner = new Fl_Spinner(x, y, w, h, expstring); y += margin;
     m_cameraExposureSpinner->maximum(255);
     m_cameraExposureSpinner->minimum(1);
 
@@ -755,6 +758,7 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     cached_camera_downloading = timer_camera_downloading(timer);
     cached_camera_readout = camera_readout_time(m_cameraRef);
     cached_exposure_time = pn_preference_char(EXPOSURE_TIME);
+    cached_subsecond_mode = pn_preference_char(SUBSECOND_MODE);
 
     updateTimerGroup();
     updateCameraGroup();

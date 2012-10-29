@@ -462,18 +462,20 @@ double camera_picam_update_camera_settings(Camera *camera, void *_internal)
     if (error != PicamError_None)
         print_error("Failed to query readout time.", error);
 
-    // convert from ms to s
-    readout_time /= 1000;
-    pn_log("Camera readout time is now %.2fs", readout_time);
-    uint8_t exposure_time = pn_preference_char(EXPOSURE_TIME);
+    double exposure_time = pn_preference_char(EXPOSURE_TIME);
+
+    // Convert readout time to the base exposure unit (10*ms or s) to ms for comparison
+    bool subsecond = pn_preference_char(SUBSECOND_MODE);
+    readout_time /= subsecond ? 10 : 1000;
+
     if (exposure_time < readout_time)
     {
-        unsigned char new_exposure = (unsigned char)(ceil(readout_time));
+        uint8_t new_exposure = (uint8_t)(ceil(readout_time));
         pn_preference_set_char(EXPOSURE_TIME, new_exposure);
-        pn_log("Increasing EXPOSURE_TIME to %d seconds.", new_exposure);
+        pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 
-    return readout_time;
+    return subsecond ? readout_time / 100 : readout_time;
 }
 
 uint8_t camera_picam_port_table(Camera *camera, void *_internal, struct camera_port_option **out_ports)
@@ -568,11 +570,16 @@ void camera_picam_start_acquiring(Camera *camera, void *_internal)
     struct internal *internal = _internal;
     PicamError error;
 
-    // The ProEM camera cannot be operated in trigger = download mode
-    // Instead, we set an exposure period 20ms shorter than the trigger period,
-    // giving the camera a short window to be responsive for the next trigger
+    piflt exptime = pn_preference_char(EXPOSURE_TIME);
+
+    // Convert from base exposure units (10*ms or s) to ms
+    exptime *= pn_preference_char(SUBSECOND_MODE) ? 10 : 1000;
+
+    // Set exposure period 20ms shorter than the trigger period, allowing
+    // the camera to complete the frame transfer and be ready for the next trigger
     // TODO: Investigate the optimum period difference to use
-    piflt exptime = 1000*pn_preference_char(EXPOSURE_TIME) - 20;
+    exptime -= 20;
+
     error = Picam_SetParameterFloatingPointValue(internal->model_handle, PicamParameter_ExposureTime, exptime);
     if (error != PicamError_None)
         print_error("PicamParameter_ExposureTime failed.", error);

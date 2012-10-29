@@ -131,8 +131,15 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
         }
     }
 
+    bool subsecond_mode = pn_preference_char(SUBSECOND_MODE);
     long exposure_time = pn_preference_char(EXPOSURE_TIME);
-    fits_update_key(fptr, TLONG, "EXPTIME", &exposure_time, "Actual integration time (sec)", &status);
+    if (subsecond_mode)
+    {
+        double exptime = exposure_time / 100.0;
+        fits_update_key(fptr, TDOUBLE, "EXPTIME", &exptime, "Actual integration time (sec)", &status);
+    }
+    else
+        fits_update_key(fptr, TLONG, "EXPTIME", &exposure_time, "Actual integration time (sec)", &status);
 
     char *observers = pn_preference_string(OBSERVERS);
     fits_update_key(fptr, TSTRING, "OBSERVER", (void *)observers, "Observers", &status);
@@ -170,10 +177,12 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
 
     // Trigger timestamp defines the *start* of the frame
     TimerTimestamp start = timestamp;
-    TimerTimestamp end = start; end.seconds += exposure_time;
+    TimerTimestamp end = start;
+    if (subsecond_mode)
+        end.milliseconds += 10*exposure_time;
+    else
+        end.seconds += exposure_time;
     timestamp_normalize(&end);
-
-    bool subsecond_mode = pn_preference_char(SUBSECOND_MODE);
 
     char datebuf[15], gpstimebuf[15];
     snprintf(datebuf, 15, "%04d-%02d-%02d", start.year, start.month, start.day);
@@ -360,8 +369,9 @@ int main(int argc, char *argv[])
             time_t readout_time = camera_readout_time(camera);
 
             // Add 1 second of leeway to account for imprecision of tagging downloaded frames
+            uint8_t exptime = pn_preference_char(SUBSECOND_MODE) ? 0 : pn_preference_char(EXPOSURE_TIME);
             time_t estimated_end_time = timestamp_to_time_t(&frame->downloaded_time) - readout_time + 1;
-            time_t frame_end_time = timestamp_to_time_t(trigger) + pn_preference_char(EXPOSURE_TIME);
+            time_t frame_end_time = timestamp_to_time_t(trigger) + exptime;
 
             if (estimated_end_time >= frame_end_time)
                 process_framedata(frame, *trigger);
