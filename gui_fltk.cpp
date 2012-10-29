@@ -418,21 +418,8 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_int(CAMERA_WINDOW_WIDTH, (int)(gui->m_cameraWindowWidth->value()));
     set_int(CAMERA_WINDOW_HEIGHT, (int)(gui->m_cameraWindowHeight->value()));
 
-    uint8_t bin = (uint8_t)(gui->m_cameraBinningSpinner->value());
-    if (bin == 0)
-    {
-        bin = 1;
-        pn_log("Minimum binning is 1px. Binning set to 1px.");
-    }
-    set_char(CAMERA_BINNING, bin);
-
-    uint8_t exp = (uint8_t)(gui->m_cameraExposureSpinner->value());
-    if (bin == 0)
-    {
-        exp = 1;
-        pn_log("Minimum exposure time is 1s. Exposure set to 1s.");
-    }
-    set_char(EXPOSURE_TIME, exp);
+    set_char(CAMERA_BINNING, (uint8_t)(gui->m_cameraBinningSpinner->value()));
+    set_char(EXPOSURE_TIME, (uint8_t)(gui->m_cameraExposureSpinner->value()));
 
     camera_update_settings(gui->m_cameraRef);
     gui->updateAcquisitionGroup();
