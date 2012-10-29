@@ -65,28 +65,29 @@ bool FLTKGui::update()
 {
     PNCameraMode mode = camera_mode(m_cameraRef);
     double temperature = camera_temperature(m_cameraRef);
-
+    double readout = camera_readout_time(m_cameraRef);
     bool camera_downloading = timer_camera_downloading(m_timerRef);
-    updateTimerGroup();
+    unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
+
+    updateTimerGroup(exposure_time);
 
     if (last_camera_mode != mode ||
         last_camera_downloading != camera_downloading)
     {
         updateButtonGroup(mode);
-        updateCameraGroup(mode, camera_downloading, temperature);
+        updateCameraGroup(mode, camera_downloading, temperature, readout);
         last_camera_mode = mode;
         last_camera_downloading = camera_downloading;
     }
 
-    if (last_camera_temperature != temperature)
+    if (last_camera_temperature != temperature || last_camera_readout != readout)
     {
-        updateCameraGroup(mode, camera_downloading, temperature);
+        updateCameraGroup(mode, camera_downloading, temperature, readout);
         last_camera_temperature = temperature;
     }
 
     int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
     int run_number = pn_preference_int(RUN_NUMBER);
-    int exposure_time = pn_preference_char(EXPOSURE_TIME);
     if (remaining_frames != last_calibration_framecount ||
         run_number != last_run_number ||
         exposure_time != last_exposure_time)
@@ -115,12 +116,13 @@ Fl_Group *FLTKGui::createGroupBox(int y, int h, const char *label)
 
 Fl_Output *FLTKGui::createOutputLabel(int y, const char *label)
 {
-    int b[5] = {105, y, 150, 14};
-    Fl_Output *output = new Fl_Output(b[0], b[1], b[2], b[3], label);
+    int x = 100, w = 150, h = 14;
+    Fl_Output *output = new Fl_Output(x, y, w, h, label);
     output->box(FL_NO_BOX);
+    output->labelfont(FL_HELVETICA);
     output->labelsize(14);
-    output->textsize(12);
-    output->textfont(FL_BOLD);
+    output->textfont(FL_HELVETICA_BOLD);
+    output->textsize(13);
     return output;
 }
 
@@ -128,58 +130,60 @@ void FLTKGui::createTimerGroup()
 {
     int y = 10, margin = 20;
     m_timerGroup = createGroupBox(y, 105, "Timer Information"); y += 25;
-    m_timerStatusOutput = createOutputLabel(y, "Status:"); y += margin;
     m_timerPCTimeOutput = createOutputLabel(y, "PC Time:"); y += margin;
     m_timerUTCTimeOutput = createOutputLabel(y, "UTC Time:"); y += margin;
-    m_timerCountdownOutput = createOutputLabel(y, "Countdown:");
+    m_timerUTCDateOutput = createOutputLabel(y, "UTC Date:"); y += margin;
+    m_timerExposureOutput = createOutputLabel(y, "Exposure:");
     m_timerGroup->end();
 }
 
-void FLTKGui::updateTimerGroup()
+void FLTKGui::updateTimerGroup(unsigned char exposure_time)
 {
     // PC time
-    char strtime[30];
+    char strtime[20];
     time_t t = time(NULL);
-    strftime(strtime, 30, "%Y-%m-%d %H:%M:%S", gmtime(&t));
+    strftime(strtime, 20, "%H:%M:%S", gmtime(&t));
     m_timerPCTimeOutput->value(strtime);
 
     // GPS time
     TimerTimestamp ts = timer_current_timestamp(m_timerRef);
-    m_timerStatusOutput->value((ts.locked ? "Locked  " : "Unlocked"));
 
     if (ts.year > 0)
     {
-        snprintf(strtime, 30, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
+        snprintf(strtime, 20, "%04d-%02d-%02d", ts.year, ts.month, ts.day);
+        m_timerUTCDateOutput->value(strtime);
+        snprintf(strtime, 20, "%02d:%02d:%02d (%s)",
+                 ts.hours, ts.minutes, ts.seconds,
+                 (ts.locked ? "Locked" : "Unlocked"));
         m_timerUTCTimeOutput->value(strtime);
-
-        if (ts.remaining_exposure > 0)
-        {
-            char buf[4];
-            snprintf(buf, 4, "%03d", ts.remaining_exposure);
-            m_timerCountdownOutput->value(buf);
-        }
-        else
-            m_timerCountdownOutput->value("Disabled");
     }
     else
     {
-        m_timerStatusOutput->value("Unavailable");
-        m_timerUTCTimeOutput->value("Unavailable");
-        m_timerCountdownOutput->value("Unavailable");
+        m_timerUTCTimeOutput->value("NA");
+        m_timerUTCDateOutput->value("NA");
     }
+
+    char buf[14];
+    if (ts.remaining_exposure > 0 && ts.year > 0)
+        snprintf(buf, 14, "%d / %d sec", exposure_time - ts.remaining_exposure, exposure_time);
+    else
+        snprintf(buf, 14, "NA / %d sec", exposure_time);
+
+    m_timerExposureOutput->value(buf);
 }
 
 void FLTKGui::createCameraGroup()
 {
     // x,y,w,h
     int y = 125, margin = 20;
-    m_cameraGroup = createGroupBox(y, 65, "Camera Information"); y += 25;
+    m_cameraGroup = createGroupBox(y, 85, "Camera Information"); y += 25;
     m_cameraStatusOutput = createOutputLabel(y, "Status:"); y += margin;
-    m_cameraTemperatureOutput = createOutputLabel(y, "Temp:");
+    m_cameraTemperatureOutput = createOutputLabel(y, "Temp:"); y += margin;
+    m_cameraReadoutOutput = createOutputLabel(y, "Readout:");
     m_cameraGroup->end();
 }
 
-void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, double temperature)
+void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, double temperature, double readout)
 {
     // Camera status
     switch(mode)
@@ -207,34 +211,35 @@ void FLTKGui::updateCameraGroup(PNCameraMode mode, int camera_downloading, doubl
             break;
     }
 
-    // Camera temperature
-    const char *tempstring = "Unavailable";
-    char tempbuf[11];
-
+    char buf[11];
     if (mode == ACQUIRING || mode == IDLE)
     {
-        snprintf(tempbuf, 11, "%0.02f \u00B0C", temperature);
-        tempstring = tempbuf;
+        snprintf(buf, 11, "%0.02f \u00B0C", temperature);
+        m_cameraTemperatureOutput->value(buf);
+        snprintf(buf, 11, "%0.02f sec", readout);
+        m_cameraReadoutOutput->value(buf);
     }
-    m_cameraTemperatureOutput->value(tempstring);
+    else
+    {
+        m_cameraTemperatureOutput->value("Unavailable");
+        m_cameraReadoutOutput->value("Unavailable");
+    }
 }
 
 void FLTKGui::createAcquisitionGroup()
 {
-    int y = 200, margin = 20;
-    m_acquisitionGroup = createGroupBox(y, 105, "Acquisition"); y += 25;
+    int y = 220, margin = 20;
+    m_acquisitionGroup = createGroupBox(y, 85, "Acquisition"); y += 25;
     m_acquisitionTypeOutput = createOutputLabel(y, "Type:"); y += margin;
     m_acquisitionTargetOutput = createOutputLabel(y, "Target:"); m_acquisitionTargetOutput->hide();
-    m_acquisitionRemainingOutput = createOutputLabel(y, "Remaining:"); y += margin;
-    m_acquisitionExposureOutput = createOutputLabel(y, "Exposure:"); y += margin;
-    m_acquisitionFilenameOutput = createOutputLabel(y, "Filename:");
+    m_acquisitionRemainingOutput = createOutputLabel(y, "To Save:"); y += margin;
+    m_acquisitionFilenameOutput = createOutputLabel(y, "File:");
     m_acquisitionGroup->end();
 }
 
 void FLTKGui::updateAcquisitionGroup()
 {
     PNFrameType type = (PNFrameType)pn_preference_char(OBJECT_TYPE);
-    unsigned char exptime = pn_preference_char(EXPOSURE_TIME);
     int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
     char *run_prefix = pn_preference_string(RUN_PREFIX);
     int run_number = pn_preference_int(RUN_NUMBER);
@@ -254,9 +259,6 @@ void FLTKGui::updateAcquisitionGroup()
     }
 
     char buf[100];
-    snprintf(buf, 100, "%d seconds", exptime);
-    m_acquisitionExposureOutput->value(buf);
-
     if (type == OBJECT_TARGET)
     {
         m_acquisitionTargetOutput->show();
@@ -338,23 +340,24 @@ void FLTKGui::buttonQuitPressed(Fl_Widget* o, void *userdata)
 
 void FLTKGui::createButtonGroup()
 {
-    m_buttonMetadata = new Fl_Button(10, 315, 120, 30, "Set Metadata");
+    int y = 315;
+    m_buttonMetadata = new Fl_Button(10, y, 120, 30, "Set Metadata");
     m_buttonMetadata->user_data((void*)(this));
     m_buttonMetadata->callback(buttonMetadataPressed);
 
-    m_buttonCamera = new Fl_Button(140, 315, 120, 30, "Set Camera");
+    m_buttonCamera = new Fl_Button(140, y, 120, 30, "Set Camera");
     m_buttonCamera->user_data((void*)(this));
     m_buttonCamera->callback(buttonCameraPressed);
 
-    m_buttonAcquire = new Fl_Toggle_Button(270, 315, 120, 30, "Acquire");
+    m_buttonAcquire = new Fl_Toggle_Button(270, y, 120, 30, "Acquire");
     m_buttonAcquire->user_data((void*)(this));
     m_buttonAcquire->callback(buttonAcquirePressed);
 
-    m_buttonSave = new Fl_Toggle_Button(400, 315, 120, 30, "Save");
+    m_buttonSave = new Fl_Toggle_Button(400, y, 120, 30, "Save");
     m_buttonSave->user_data((void*)(this));
     m_buttonSave->callback(buttonSavePressed);
 
-    m_buttonQuit = new Fl_Button(530, 315, 120, 30, "Quit");
+    m_buttonQuit = new Fl_Button(530, y, 120, 30, "Quit");
     m_buttonQuit->user_data((void*)(this));
     m_buttonQuit->callback(buttonQuitPressed);
 }
@@ -612,7 +615,7 @@ void FLTKGui::createMetadataWindow()
     m_metadataFrameTypeInput->user_data((void*)(this));
 
     m_metadataTargetInput = new Fl_Input(x, y, w, h, "Target:");
-    m_metadataCountdownInput = new Fl_Int_Input(x, y, w, h, "Countdown:"); y += margin;
+    m_metadataCountdownInput = new Fl_Int_Input(x, y, w, h, "Total:"); y += margin;
     m_metadataCountdownInput->hide();
     m_metadataObserversInput = new Fl_Input(x, y, w, h, "Observers:");
 
@@ -763,9 +766,11 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     last_calibration_framecount = pn_preference_int(CALIBRATION_COUNTDOWN);
     last_run_number = pn_preference_int(RUN_NUMBER);
     last_camera_downloading = timer_camera_downloading(timer);
+    last_camera_readout = camera_readout_time(m_cameraRef);
+    last_exposure_time = pn_preference_char(EXPOSURE_TIME);
 
-    updateTimerGroup();
-    updateCameraGroup(last_camera_mode, last_camera_downloading, last_camera_temperature);
+    updateTimerGroup(last_exposure_time);
+    updateCameraGroup(last_camera_mode, last_camera_downloading, last_camera_temperature, last_camera_readout);
     updateAcquisitionGroup();
     updateButtonGroup(last_camera_mode);
 

@@ -46,8 +46,8 @@ public:
 	~FLTKGui();
     void addLogLine(const char *msg);
     bool update();
-    void updateTimerGroup();
-    void updateCameraGroup(PNCameraMode mode, int camera_downloading, double temperature);
+    void updateTimerGroup(unsigned char exposure_time);
+    void updateCameraGroup(PNCameraMode mode, int camera_downloading, double temperature, double readout);
     void updateAcquisitionGroup();
     void updateButtonGroup(PNCameraMode mode);
 
@@ -87,15 +87,16 @@ private:
 
     // Timer info
     Fl_Group *m_timerGroup;
-    Fl_Output *m_timerStatusOutput;
     Fl_Output *m_timerPCTimeOutput;
     Fl_Output *m_timerUTCTimeOutput;
-    Fl_Output *m_timerCountdownOutput;
+    Fl_Output *m_timerUTCDateOutput;
+    Fl_Output *m_timerExposureOutput;
 
     // Camera info
     Fl_Group *m_cameraGroup;
     Fl_Output *m_cameraStatusOutput;
     Fl_Output *m_cameraTemperatureOutput;
+    Fl_Output *m_cameraReadoutOutput;
 
     // Acquisition info
     Fl_Group *m_acquisitionGroup;
@@ -103,7 +104,6 @@ private:
     Fl_Output *m_acquisitionTypeOutput;
     Fl_Output *m_acquisitionTargetOutput;
     Fl_Output *m_acquisitionRemainingOutput;
-    Fl_Output *m_acquisitionExposureOutput;
     Fl_Output *m_acquisitionFilenameOutput;
     
     // Log panel
@@ -119,9 +119,10 @@ private:
     // Temporary state comparables
     PNCameraMode last_camera_mode;
     double last_camera_temperature;
+    double last_camera_readout;
     int last_calibration_framecount;
     int last_run_number;
-    int last_exposure_time;
+    unsigned char last_exposure_time;
     bool last_camera_downloading;
 
     // Camera window
