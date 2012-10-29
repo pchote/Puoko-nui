@@ -249,8 +249,16 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
         pn_preference_set_int(CAMERA_WINDOW_HEIGHT, wh);
     }
 
+    uint8_t bin = pn_preference_char(CAMERA_BINNING);
+    if (bin < 1 || bin > ww || bin > wh)
+    {
+        pn_log("Invalid binning: %d. Reset to %d.", bin, 1);
+        bin = 1;
+        pn_preference_set_char(CAMERA_BINNING, bin);
+    }
+
     uint16_t wx = pn_preference_int(CAMERA_WINDOW_X);
-    if (wx < 0 || wx + ww > internal->ccd_width)
+    if (wx + ww > internal->ccd_width)
     {
         pn_log("Invalid window x: %d. Reset to %d.", wx, 0);
         wx = 0;
@@ -258,19 +266,11 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
     }
 
     uint16_t wy = pn_preference_int(CAMERA_WINDOW_Y);
-    if (wy < 0 || wy + wh > internal->ccd_height)
+    if (wy + wh > internal->ccd_height)
     {
         pn_log("Invalid window y: %d. Reset to %d.", wy, 0);
         wy = 0;
         pn_preference_set_int(CAMERA_WINDOW_Y, wy);
-    }
-
-    uint8_t bin = pn_preference_char(CAMERA_BINNING);
-    if (bin <= 0 || bin > ww || bin > wh)
-    {
-        pn_log("Invalid binning: %d. Reset to %d.", bin, 1);
-        bin = 1;
-        pn_preference_set_char(CAMERA_BINNING, bin);
     }
 
     rgn_type region;
@@ -281,8 +281,8 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
     region.p2 = wy + wh - 1;
     region.pbin = bin;
 
-    internal->frame_height = ww / bin;
-    internal->frame_width = wh / bin;
+    internal->frame_width = ww / bin;
+    internal->frame_height = wh / bin;
 
     // Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer
     if (!pl_exp_setup_cont(internal->handle, 1, &region, STROBED_MODE, 0, &internal->frame_size, CIRC_NO_OVERWRITE))
@@ -473,4 +473,13 @@ void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mod
         if (!pl_exp_unlock_oldest_frame(internal->handle))
             fatal_pvcam_error("Failed to unlock oldest frame.");
     }
+}
+
+void camera_pvcam_query_ccd_region(Camera *camera, void *_internal, uint16_t region[4])
+{
+    struct internal *internal = _internal;
+    region[0] = 0;
+    region[1] = internal->ccd_width - 1;
+    region[2] = 0;
+    region[3] = internal->ccd_width - 1;
 }

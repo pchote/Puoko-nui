@@ -588,3 +588,11 @@ double camera_picam_read_temperature(Camera *camera, void *_internal)
     return read_temperature(internal->model_handle);
 }
 
+void camera_picam_query_ccd_region(Camera *camera, void *internal, uint16_t region[4])
+{
+    // TODO: Query from camera
+    region[0] = 0;
+    region[1] = 1023;
+    region[2] = 0;
+    region[3] = 1023;
+}

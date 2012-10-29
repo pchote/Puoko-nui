@@ -56,6 +56,7 @@ struct Camera
     void (*start_acquiring)(Camera *, void *);
     void (*stop_acquiring)(Camera *, void *);
     double (*read_temperature)(Camera *, void *);
+    void (*query_ccd_region)(Camera *, void *, uint16_t[4]);
 };
 
 #define HOOK(type, suffix) camera->suffix = camera_##type##_##suffix
@@ -69,6 +70,7 @@ struct Camera
     HOOK(type, start_acquiring);        \
     HOOK(type, stop_acquiring);         \
     HOOK(type, read_temperature);       \
+    HOOK(type, query_ccd_region);       \
 }
 
 Camera *camera_new(bool simulate_hardware)
@@ -146,12 +148,7 @@ static void *camera_thread(void *_args)
     }
 
     camera->port_count = camera->port_table(camera, camera->internal, &camera->port_options);
-
-    // TODO: Query this from the camera
-    camera->ccd_region[0] = 0;
-    camera->ccd_region[1] = 1023;
-    camera->ccd_region[2] = 0;
-    camera->ccd_region[3] = 1023;
+    camera->query_ccd_region(camera, camera->internal, camera->ccd_region);
 
     double readout = camera->update_camera_settings(camera, camera->internal);
     pthread_mutex_lock(&camera->read_mutex);

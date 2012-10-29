@@ -64,6 +64,47 @@ double camera_simulated_update_camera_settings(Camera *camera, void *_internal)
         pn_preference_set_char(CAMERA_GAIN_MODE, 0);
     }
 
+    // Set readout area
+    uint16_t ww = pn_preference_int(CAMERA_WINDOW_WIDTH);
+    if (ww < 1 || ww > 512)
+    {
+        pn_log("Invalid window width: %d. Reset to %d.", ww, 512);
+        ww = 512;
+        pn_preference_set_int(CAMERA_WINDOW_WIDTH, ww);
+    }
+
+    uint16_t wh = pn_preference_int(CAMERA_WINDOW_HEIGHT);
+    if (wh < 1 || wh > 512)
+    {
+        pn_log("Invalid window height: %d. Reset to %d.", wh, 512);
+        wh = 512;
+        pn_preference_set_int(CAMERA_WINDOW_HEIGHT, wh);
+    }
+
+    uint16_t wx = pn_preference_int(CAMERA_WINDOW_X);
+    if (wx + ww > 512)
+    {
+        pn_log("Invalid window x: %d. Reset to %d.", wx, 0);
+        wx = 0;
+        pn_preference_set_int(CAMERA_WINDOW_X, wx);
+    }
+
+    uint16_t wy = pn_preference_int(CAMERA_WINDOW_Y);
+    if (wy + wh > 512)
+    {
+        pn_log("Invalid window y: %d. Reset to %d.", wy, 0);
+        wy = 0;
+        pn_preference_set_int(CAMERA_WINDOW_Y, wy);
+    }
+
+    uint8_t bin = pn_preference_char(CAMERA_BINNING);
+    if (bin == 0 || bin > ww || bin > wh)
+    {
+        pn_log("Invalid binning: %d. Reset to %d.", bin, 1);
+        bin = 1;
+        pn_preference_set_char(CAMERA_BINNING, bin);
+    }
+
     return 0;
 }
 
@@ -97,6 +138,14 @@ uint8_t camera_simulated_port_table(Camera *camera, void *internal, struct camer
 
     *ports = port;
     return 1;
+}
+
+void camera_simulated_query_ccd_region(Camera *camera, void *internal, uint16_t region[4])
+{
+     region[0] = 0;
+     region[1] = 511;
+     region[2] = 0;
+     region[3] = 511;
 }
 
 void camera_simulated_uninitialize(Camera *camera, void *internal)
