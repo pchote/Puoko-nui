@@ -384,6 +384,47 @@ double camera_picam_update_camera_settings(Camera *camera, void *_internal)
     if (Picam_GetParameterRoisConstraint(internal->model_handle, PicamParameter_Rois, PicamConstraintCategory_Required, &roi_constraint) != PicamError_None)
         fatal_error(internal, "Failed to query ROIs Constraint.");
 
+    // Set readout area
+    uint16_t ww = pn_preference_int(CAMERA_WINDOW_WIDTH);
+    if (ww < roi_constraint->width_constraint.minimum || ww > roi_constraint->width_constraint.maximum)
+    {
+        pn_log("Invalid window width: %d. Reset to %d.", ww, roi_constraint->width_constraint.minimum);
+        ww = roi_constraint->width_constraint.minimum;
+        pn_preference_set_int(CAMERA_WINDOW_WIDTH, ww);
+    }
+
+    uint16_t wh = pn_preference_int(CAMERA_WINDOW_HEIGHT);
+    if (wh < roi_constraint->height_constraint.minimum || wh > roi_constraint->height_constraint.maximum)
+    {
+        pn_log("Invalid window height: %d. Reset to %d.", wh, roi_constraint->height_constraint.minimum);
+        wh = roi_constraint->height_constraint.minimum;
+        pn_preference_set_int(CAMERA_WINDOW_HEIGHT, wh);
+    }
+
+    uint8_t bin = pn_preference_char(CAMERA_BINNING);
+    if (bin < 1 || bin > ww || bin > wh)
+    {
+        pn_log("Invalid binning: %d. Reset to %d.", bin, 1);
+        bin = 1;
+        pn_preference_set_char(CAMERA_BINNING, bin);
+    }
+
+    uint16_t wx = pn_preference_int(CAMERA_WINDOW_X);
+    if (wx + ww > roi_constraint->width_constraint.maximum)
+    {
+        pn_log("Invalid window x: %d. Reset to %d.", wx, 0);
+        wx = 0;
+        pn_preference_set_int(CAMERA_WINDOW_X, wx);
+    }
+
+    uint16_t wy = pn_preference_int(CAMERA_WINDOW_Y);
+    if (wy + wh > roi_constraint->width_constraint.maximum)
+    {
+        pn_log("Invalid window y: %d. Reset to %d.", wy, 0);
+        wy = 0;
+        pn_preference_set_int(CAMERA_WINDOW_Y, wy);
+    }
+
     // Get region definition
     const PicamRois *region;
     if (Picam_GetParameterRoisValue(internal->model_handle, PicamParameter_Rois, &region) != PicamError_None)
@@ -393,18 +434,17 @@ double camera_picam_update_camera_settings(Camera *camera, void *_internal)
         fatal_error(internal, "Failed to query current ROI.");
     }
 
-    // Set ROI to full chip, with requested binning
-    unsigned char bin = pn_preference_char(CAMERA_BINNING);
+    // Set ROI
     PicamRoi *roi = &region->roi_array[0];
-    roi->x = roi_constraint->x_constraint.minimum;
-    roi->y = roi_constraint->y_constraint.minimum;
-    roi->width = roi_constraint->width_constraint.maximum;
-    roi->height = roi_constraint->height_constraint.maximum;
+    roi->x = wx;
+    roi->y = wy;
+    roi->width = ww;
+    roi->height = wh;
     roi->x_binning = bin;
     roi->y_binning = bin;
 
-    internal->frame_width  = (uint16_t)(roi_constraint->width_constraint.maximum) / bin;
-    internal->frame_height = (uint16_t)(roi_constraint->height_constraint.maximum) / bin;
+    internal->frame_width = ww / bin;
+    internal->frame_height = wh / bin;
 
     if (Picam_SetParameterRoisValue(internal->model_handle, PicamParameter_Rois, region) != PicamError_None)
     {
@@ -590,9 +630,16 @@ double camera_picam_read_temperature(Camera *camera, void *_internal)
 
 void camera_picam_query_ccd_region(Camera *camera, void *internal, uint16_t region[4])
 {
-    // TODO: Query from camera
-    region[0] = 0;
-    region[1] = 1023;
-    region[2] = 0;
-    region[3] = 1023;
+    struct internal *internal = _internal;
+    const PicamRoisConstraint  *roi_constraint;
+    if (Picam_GetParameterRoisConstraint(internal->model_handle, PicamParameter_Rois, PicamConstraintCategory_Required, &roi_constraint) != PicamError_None)
+        fatal_error(internal, "Failed to query ROIs Constraint.");
+
+    region[0] = roi_constraint->x_constraint.minimum;
+    region[1] = roi_constraint->x_constraint.maximum;
+    region[2] = roi_constraint->y_constraint.minimum;
+    region[3] = roi_constraint->y_constraint.minimum;
+
+    Picam_DestroyRoisConstraints(roi_constraint);
+    Picam_DestroyRois(region);
 }
