@@ -365,7 +365,17 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
             t->minutes = data[1];
             t->seconds = data[2];
             t->locked = data[7];
+            t->milliseconds = 0;
             t->remaining_exposure = 0;
+
+            if (data_length == 10)
+            {
+                t->milliseconds = (data[8] & 0x00FF) | ((data[9] << 8) & 0xFF00);
+
+                // The timer sends unnormalized timestamps, where milliseconds may
+                // be greater than 1000.
+                timestamp_normalize(t);
+            }
 
             // Pass ownership to main thread
             queue_trigger(t);
@@ -547,6 +557,7 @@ void *pn_simulated_timer_thread(void *_args)
                 t->hours = pc_time->tm_hour;
                 t->minutes = pc_time->tm_min;
                 t->seconds = pc_time->tm_sec;
+                t->milliseconds = 0;
                 t->locked = true;
                 t->remaining_exposure = 0;
 
@@ -567,6 +578,7 @@ void *pn_simulated_timer_thread(void *_args)
                 .hours = pc_time->tm_hour,
                 .minutes = pc_time->tm_min,
                 .seconds = pc_time->tm_sec,
+                .milliseconds = 0,
                 .locked = 1,
                 .remaining_exposure = timer->simulated_remaining,
             };
@@ -654,10 +666,11 @@ void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading)
 void timestamp_normalize(TimerTimestamp *ts)
 {
     // Let gmtime/timegm do the hard work of normalizing the time
-    struct tm a = {ts->seconds, ts->minutes, ts->hours, ts->day, ts->month, ts->year - 1900,0,0,0};
+    struct tm a = {ts->seconds + ts->milliseconds / 1000, ts->minutes, ts->hours, ts->day, ts->month, ts->year - 1900,0,0,0};
     normalize_tm(&a);
 
     // Construct a new timestamp to return
+    ts->milliseconds = ts->milliseconds % 1000;
     ts->seconds = a.tm_sec;
     ts->minutes = a.tm_min;
     ts->hours = a.tm_hour;

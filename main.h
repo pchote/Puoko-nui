@@ -27,6 +27,7 @@ typedef struct
     int hours;
     int minutes;
     int seconds;
+    int milliseconds;
     bool locked;
     int remaining_exposure; // for current time
 } TimerTimestamp;
