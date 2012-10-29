@@ -63,14 +63,19 @@ ifeq ($(MSYSTEM),MINGW32)
     LFLAGS += -L/usr/local/lib -Lftd2xx/win32 -Lftd2xx/win64 -static-libgcc -static-libstdc++
 endif
 
+all: puokonui relaystart relaystop
+
 puokonui: $(OBJS)
 	$(CXX) -o $@ $(OBJS) $(LFLAGS)
 
-relay: relaymode.o
-	$(CXX) -o $@ relaymode.o $(LFLAGS)
+relaystart: relaystart.o
+	$(CXX) -o $@ relaystart.o $(LFLAGS)
+
+relaystop: relaystop.o
+	$(CXX) -o $@ relaystop.o $(LFLAGS)
 
 clean:
-	-rm $(OBJS) puokonui puokonui.exe relaymode.o relaymode relaymode.exe
+	-rm $(OBJS) puokonui puokonui.exe relaymode.o relaystart relaystart.exe relaystart.o relaystop relaystop.exe relaystop.o
 
 # Force version.o to be recompiled every time
 version.o: .FORCE
