@@ -173,9 +173,15 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     TimerTimestamp end = start; end.seconds += exposure_time;
     timestamp_normalize(&end);
 
+    bool subsecond_mode = pn_preference_char(SUBSECOND_MODE);
+
     char datebuf[15], gpstimebuf[15];
     snprintf(datebuf, 15, "%04d-%02d-%02d", start.year, start.month, start.day);
-    snprintf(gpstimebuf, 15, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
+
+    if (subsecond_mode)
+        snprintf(gpstimebuf, 15, "%02d:%02d:%02d.%03d", start.hours, start.minutes, start.seconds, start.milliseconds);
+    else
+        snprintf(gpstimebuf, 15, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
 
     // Used by ImageJ and other programs
     fits_update_key(fptr, TSTRING, "UT_DATE", datebuf, "Exposure start date (GPS)", &status);
@@ -185,7 +191,11 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
     fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
 
-    snprintf(gpstimebuf, 15, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
+    if (subsecond_mode)
+        snprintf(gpstimebuf, 15, "%02d:%02d:%02d.%03d", end.hours, end.minutes, end.seconds, end.milliseconds);
+    else
+        snprintf(gpstimebuf, 15, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
+
     fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
     fits_update_key(fptr, TLOGICAL, "UTC-LOCK", &start.locked, "UTC time has GPS lock", &status);
 

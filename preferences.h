@@ -53,6 +53,8 @@ typedef enum
     CAMERA_WINDOW_WIDTH,
     CAMERA_WINDOW_HEIGHT,
 
+    SUBSECOND_MODE,
+
 #if (defined _WIN32)
     MSYS_BASH_PATH,
 #endif

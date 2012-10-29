@@ -71,6 +71,8 @@ PNPreferenceStore prefs[] =
     {CAMERA_WINDOW_WIDTH,       INT,  .value.i = 1024,  "CameraWindowWidth: %d\n"},
     {CAMERA_WINDOW_HEIGHT,      INT,  .value.i = 1024,  "CameraWindowHeight: %d\n"},
 
+    {SUBSECOND_MODE,            CHAR, .value.c = 0,     "TimerSubsecondMode: %d\n"},
+
 #if (defined _WIN32)
     {MSYS_BASH_PATH, STRING, .value.s = "C:/MinGW/MSYS/bin/bash.exe",    "MsysBashPath: %s\n"}
 #endif
