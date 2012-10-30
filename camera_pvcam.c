@@ -434,7 +434,7 @@ void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mod
     struct internal *internal = _internal;
 
     // Check for new frame
-    if (current_mode == ACQUIRING && frame_available(internal))
+    while (current_mode == ACQUIRING && frame_available(internal))
     {
         void_ptr camera_frame;
         if (!pl_exp_get_oldest_frame(internal->handle, &camera_frame))
