@@ -52,7 +52,7 @@ struct Camera
     double (*update_camera_settings)(Camera *, void *);
     uint8_t (*port_table)(Camera *, void *, struct camera_port_option **);
     void (*uninitialize)(Camera *, void *);
-    void (*tick)(Camera *, void *, PNCameraMode);
+    void (*tick)(Camera *, void *, PNCameraMode, double);
     void (*start_acquiring)(Camera *, void *);
     void (*stop_acquiring)(Camera *, void *);
     double (*read_temperature)(Camera *, void *);
@@ -214,7 +214,7 @@ static void *camera_thread(void *_args)
         }
 
         // Check for new frames, etc
-        camera->tick(camera, camera->internal, current_mode);
+        camera->tick(camera, camera->internal, current_mode, camera->temperature);
 
         // Check temperature
         if (++temp_ticks >= 50)

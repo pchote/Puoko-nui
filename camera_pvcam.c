@@ -429,7 +429,7 @@ double camera_pvcam_read_temperature(Camera *camera, void *_internal)
     return temp/100.0;
 }
 
-void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode)
+void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode, double current_temperature)
 {
     struct internal *internal = _internal;
 
@@ -461,7 +461,7 @@ void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mod
                     memcpy(frame->data, camera_frame, frame_bytes);
                     frame->width = internal->frame_width;
                     frame->height = internal->frame_height;
-                    frame->temperature = camera_pvcam_read_temperature(camera, _internal);
+                    frame->temperature = current_temperature;
                     queue_framedata(frame);
                 }
                 else

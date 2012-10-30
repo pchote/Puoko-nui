@@ -177,7 +177,7 @@ double camera_simulated_read_temperature(Camera *camera, void *internal)
     return 0;
 }
 
-void camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_mode)
+void camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_mode, double current_temperature)
 {
     struct internal *internal = _internal;
 
@@ -205,7 +205,7 @@ void camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current
 
                     frame->width = internal->frame_width;
                     frame->height = internal->frame_height;
-                    frame->temperature = camera_simulated_read_temperature(camera, _internal);
+                    frame->temperature = current_temperature;
                     queue_framedata(frame);
                 }
                 else
