@@ -275,9 +275,8 @@ void *camera_picam_initialize(Camera *camera, ThreadCreationArgs *args)
     if (error != PicamError_None)
         print_error("Failed to set PicamParameter_ReadoutCount.", error);
 
-    // Create a buffer large enough to hold 5 frames. In normal operation,
-    // only one should be required, but we include some overhead to be safe.
-    size_t buffer_size = 5;
+    // Create a buffer large enough for PICAM to hold multiple frames.
+    size_t buffer_size = pn_preference_int(CAMERA_FRAME_BUFFER_SIZE);
     piint frame_stride = 0;
     error = Picam_GetParameterIntegerValue(internal->model_handle, PicamParameter_ReadoutStride, &frame_stride);
     if (error != PicamError_None)

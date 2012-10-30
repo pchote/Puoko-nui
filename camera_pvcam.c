@@ -384,9 +384,9 @@ void camera_pvcam_start_acquiring(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
 
-    // Create a buffer big enough to hold 5 images.
-    // PVCAM under win32 gives a DMA error if this is set to 1.
-    uns32 buffer_size = 5*internal->frame_size;
+    // Create a buffer large enough to hold multiple frames. PVCAM and the USB driver
+    // tend to give frames in batches for very fast exposures, which need a bigger buffer.
+    uns32 buffer_size = internal->frame_size*pn_preference_int(CAMERA_FRAME_BUFFER_SIZE);
     internal->frame_buffer = malloc(buffer_size*sizeof(uns16));
     if (!internal->frame_buffer)
         fatal_error("Failed to allocate frame buffer.");

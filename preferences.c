@@ -70,6 +70,7 @@ PNPreferenceStore prefs[] =
     {CAMERA_WINDOW_Y,           INT,  .value.i = 0,     "CameraWindowY: %d\n"},
     {CAMERA_WINDOW_WIDTH,       INT,  .value.i = 1024,  "CameraWindowWidth: %d\n"},
     {CAMERA_WINDOW_HEIGHT,      INT,  .value.i = 1024,  "CameraWindowHeight: %d\n"},
+    {CAMERA_FRAME_BUFFER_SIZE,  INT,  .value.i = 5,     "CameraFrameBufferSize: %d\n"},
 
     {SUBSECOND_MODE,            CHAR, .value.c = 0,     "TimerSubsecondMode: %d\n"},
 
