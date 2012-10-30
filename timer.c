@@ -598,7 +598,11 @@ void *pn_simulated_timer_thread(void *_args)
 // Start an exposure sequence with a specified exposure time
 void timer_start_exposure(TimerUnit *timer, unsigned char exptime, bool use_monitor)
 {
-    pn_log("Starting %ds exposures.", exptime);
+    if (pn_preference_char(SUBSECOND_MODE))
+        pn_log("Starting %d ms exposures.", 10*exptime);
+    else
+        pn_log("Starting %ds exposures.", exptime);
+
     if (timer->simulated)
         timer->simulated_remaining = timer->simulated_exptime = exptime;
     else
