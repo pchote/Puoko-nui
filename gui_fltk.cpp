@@ -66,14 +66,14 @@ bool FLTKGui::update()
     PNCameraMode mode = camera_mode(m_cameraRef);
     double temperature = camera_temperature(m_cameraRef);
     double readout = camera_readout_time(m_cameraRef);
-    bool camera_downloading = timer_camera_downloading(m_timerRef);
+    TimerMode timermode = timer_mode(m_timerRef);
     unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
 
     if (cached_camera_mode != mode ||
-        cached_camera_downloading != camera_downloading)
+        cached_timer_mode != timermode)
     {
         cached_camera_mode = mode;
-        cached_camera_downloading = camera_downloading;
+        cached_timer_mode = timermode;
         updateButtonGroup();
         updateCameraGroup();
     }
@@ -167,10 +167,37 @@ void FLTKGui::updateTimerGroup()
     char buf[20];
     if (cached_subsecond_mode)
         snprintf(buf, 20, "%s / %d ms", (ts.remaining_exposure > 0 && ts.year > 0) ? "Active" : "Disabled", 10*cached_exposure_time);
-    else if (ts.remaining_exposure > 0 && ts.year > 0)
-        snprintf(buf, 20, "%d / %d sec", cached_exposure_time - ts.remaining_exposure, cached_exposure_time);
     else
-        snprintf(buf, 20, "Disabled / %d sec", cached_exposure_time);
+    {
+        const char *message = "";
+        bool display_progress = (ts.remaining_exposure > 0 && ts.year > 0);
+        switch (cached_timer_mode)
+        {
+#ifndef USE_PICAM
+            case TIMER_READOUT:
+                message = "(Read)";
+                break;
+#endif
+            case TIMER_WAITING:
+                message = "(Waiting)";
+                display_progress = false;
+                break;
+            case TIMER_ALIGN:
+                message = "(Align)";
+                display_progress = false;
+                break;
+            case TIMER_IDLE:
+                message = "(Disabled)";
+                display_progress = false;
+                break;
+            default: break;
+        }
+
+        if (display_progress)
+            snprintf(buf, 20, "%d / %d sec %s", cached_exposure_time - ts.remaining_exposure, cached_exposure_time, message);
+        else
+            snprintf(buf, 20, "%d sec %s", cached_exposure_time, message);
+    }
 
     m_timerExposureOutput->value(buf);
 }
@@ -749,7 +776,7 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     cached_camera_temperature = camera_temperature(camera);
     cached_calibration_framecount = pn_preference_int(CALIBRATION_COUNTDOWN);
     cached_run_number = pn_preference_int(RUN_NUMBER);
-    cached_camera_downloading = timer_camera_downloading(timer);
+    cached_timer_mode = timer_mode(timer);
     cached_camera_readout = camera_readout_time(m_cameraRef);
     cached_exposure_time = pn_preference_char(EXPOSURE_TIME);
     cached_subsecond_mode = pn_preference_char(SUBSECOND_MODE);

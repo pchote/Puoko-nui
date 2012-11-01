@@ -181,7 +181,7 @@ void camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current
 {
     struct internal *internal = _internal;
 
-    if (current_mode == ACQUIRING && timer_camera_downloading(internal->timer))
+    if (current_mode == ACQUIRING && timer_mode(internal->timer) == TIMER_READOUT)
     {
         if (internal->first_frame)
         {

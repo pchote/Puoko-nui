@@ -532,7 +532,7 @@ void pn_ui_new(Camera *camera, TimerUnit *timer)
     update_command_window(last_camera_mode);
     update_metadata_window();
 
-    last_camera_downloading = timer_camera_downloading(timer);
+    last_camera_downloading = timer_mode(timer) == TIMER_READOUT;
 
     update_acquisition_window();
     update_time_window();
@@ -576,7 +576,7 @@ bool pn_ui_update()
     PNCameraMode mode = camera_mode(camera);
     double temperature = camera_temperature(camera);
 
-    bool camera_downloading = timer_camera_downloading(timer);
+    bool camera_downloading = timer_mode(timer) == TIMER_READOUT;
     unsigned char is_input = false;
     while ((ch = getch()) != ERR)
     {

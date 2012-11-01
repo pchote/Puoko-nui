@@ -123,7 +123,7 @@ private:
     int cached_calibration_framecount;
     int cached_run_number;
     uint8_t cached_exposure_time;
-    bool cached_camera_downloading;
+    TimerMode cached_timer_mode;
     bool cached_subsecond_mode;
 
     // Camera window

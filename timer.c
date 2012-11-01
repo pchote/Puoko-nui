@@ -40,7 +40,7 @@ struct TimerUnit
 
     bool shutdown;
     TimerTimestamp current_timestamp;
-    bool camera_downloading;
+    TimerMode mode;
 
     unsigned char send_buffer[256];
     unsigned char send_length;
@@ -58,7 +58,7 @@ typedef enum
     START_EXPOSURE = 'E',
     STOP_EXPOSURE = 'F',
     RESET = 'G',
-    DOWNLOADCOMPLETE = 'H',
+    STATUSMODE = 'H',
     SIMULATE_CAMERA = 'I',
     UNKNOWN_PACKET = 0
 } TimerUnitPacketType;
@@ -379,17 +379,13 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
 
             // Pass ownership to main thread
             queue_trigger(t);
-
-            // Mark the camera as downloading for UI feedback and shutdown purposes
-            pthread_mutex_lock(&timer->read_mutex);
-            timer->camera_downloading = true;
-            pthread_mutex_unlock(&timer->read_mutex);
             break;
         }
-        case DOWNLOADCOMPLETE:
+        case STATUSMODE:
         {
+            TimerMode mode = (data_length == 0) ? TIMER_EXPOSING : data[0];
             pthread_mutex_lock(&timer->read_mutex);
-            timer->camera_downloading = false;
+            timer->mode = mode;
             pthread_mutex_unlock(&timer->read_mutex);
             break;
         }
@@ -565,7 +561,7 @@ void *pn_simulated_timer_thread(void *_args)
                 queue_trigger(t);
 
                 pthread_mutex_lock(&timer->read_mutex);
-                timer->camera_downloading = true;
+                timer->mode = TIMER_READOUT;
                 pthread_mutex_unlock(&timer->read_mutex);
             }
 
@@ -630,13 +626,12 @@ void timer_stop_exposure(TimerUnit *timer)
         queue_data(timer, STOP_EXPOSURE, NULL, 0);
 }
 
-// Returns the status of the camera logic output
-bool timer_camera_downloading(TimerUnit *timer)
+TimerMode timer_mode(TimerUnit *timer)
 {
     pthread_mutex_lock(&timer->read_mutex);
-    bool downloading = timer->camera_downloading;
+    TimerMode mode = timer->mode;
     pthread_mutex_unlock(&timer->read_mutex);
-    return downloading;
+    return mode;
 }
 
 TimerTimestamp timer_current_timestamp(TimerUnit *timer)
@@ -662,7 +657,7 @@ void timer_shutdown(TimerUnit *timer)
 void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading)
 {
     pthread_mutex_lock(&timer->read_mutex);
-    timer->camera_downloading = downloading;
+    timer->mode = downloading ? TIMER_READOUT : TIMER_EXPOSING;
     pthread_mutex_unlock(&timer->read_mutex);
 }
 
