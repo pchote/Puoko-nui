@@ -41,7 +41,6 @@ typedef enum
     IDLE,
     ACQUIRE_START,
     ACQUIRING,
-    DOWNLOADING,
     IDLE_WHEN_SAFE,
     ACQUIRE_STOP,
     SHUTDOWN

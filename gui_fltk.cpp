@@ -201,13 +201,7 @@ void FLTKGui::updateCameraGroup()
             m_cameraStatusOutput->value("Idle");
             break;
         case ACQUIRING:
-            if (cached_camera_downloading)
-                m_cameraStatusOutput->value("Downloading");
-            else
-                m_cameraStatusOutput->value("Acquiring");
-            break;
-        case DOWNLOADING:
-            m_cameraStatusOutput->value("Downloading");
+            m_cameraStatusOutput->value("Active");
             break;
         case SHUTDOWN:
             m_cameraStatusOutput->value("Closing");

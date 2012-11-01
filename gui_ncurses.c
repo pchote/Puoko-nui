@@ -148,9 +148,6 @@ static void update_camera_window(PNCameraMode mode, int camera_downloading, doub
             else
                 label = "Acquiring   ";
         break;
-        case DOWNLOADING:
-            label = "Downloading ";
-        break;
         case SHUTDOWN:
             label = "Closing     ";
         break;
