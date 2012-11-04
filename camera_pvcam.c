@@ -116,21 +116,8 @@ static void _set_param(int16 handle, uns32 param, char *param_name, void_ptr val
         fatal_pvcam_error("Failed to set %s", param_name);
 }
 
-void *camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args)
+static void initialize_camera(struct internal *internal)
 {
-    struct internal *internal = calloc(1, sizeof(struct internal));
-    if (!internal)
-        return NULL;
-
-    if (!pl_pvcam_init())
-        fatal_pvcam_error("Failed to initialize PVCAM.");
-
-    uns16 pversion;
-    if (!pl_pvcam_get_ver(&pversion))
-        fatal_pvcam_error("Failed to query PVCAM version.");
-
-    pn_log("PVCAM Version %d.%d.%d.", pversion>>8, (pversion & 0x00F0)>>4, pversion & 0x000F, pversion);
-
     int16 numCams = 0;
     if (!pl_cam_get_total(&numCams))
         fatal_pvcam_error("Failed to query cameras.");
@@ -158,7 +145,6 @@ void *camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args)
     set_param(internal->handle, PARAM_EDGE_TRIGGER, &(int){EDGE_TRIG_NEG});
     set_param(internal->handle, PARAM_FORCE_READOUT_MODE, &(int){MAKE_FRAME_TRANSFER});
 
-
     get_param(internal->handle, PARAM_SER_SIZE, ATTR_DEFAULT, &internal->ccd_width);
     get_param(internal->handle, PARAM_PAR_SIZE, ATTR_DEFAULT, &internal->ccd_height);
 
@@ -179,6 +165,32 @@ void *camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args)
     // Init exposure control libs
     if (!pl_exp_init_seq())
         fatal_pvcam_error("Failed to initialize exposure sequence.");
+}
+
+static void uninitialize_camera(struct internal *internal)
+{
+    if (!pl_exp_uninit_seq())
+        pn_log("Failed to uninitialize exposure sequence.");
+
+    if (!pl_cam_close(internal->handle))
+        pn_log("Failed to close camera.");
+}
+
+void *camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args)
+{
+    struct internal *internal = calloc(1, sizeof(struct internal));
+    if (!internal)
+        return NULL;
+
+    if (!pl_pvcam_init())
+        fatal_pvcam_error("Failed to initialize PVCAM.");
+
+    uns16 pversion;
+    if (!pl_pvcam_get_ver(&pversion))
+        fatal_pvcam_error("Failed to query PVCAM version.");
+
+    pn_log("PVCAM Version %d.%d.%d.", pversion>>8, (pversion & 0x00F0)>>4, pversion & 0x000F, pversion);
+    initialize_camera(internal);
 
     return internal;
 }
@@ -369,10 +381,10 @@ uint8_t camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_p
     return port_count;
 }
 
-void camera_pvcam_uninitialize(Camera *camera, void *internal)
+void camera_pvcam_uninitialize(Camera *camera, void *_internal)
 {
-    if (!pl_exp_uninit_seq())
-        pn_log("Failed to uninitialize exposure sequence.");
+    struct internal *internal = _internal;
+    uninitialize_camera(internal);
 
     if (!pl_pvcam_uninit())
         pn_log("Failed to uninitialize camera.");
