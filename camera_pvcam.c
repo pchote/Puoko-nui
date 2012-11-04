@@ -140,6 +140,7 @@ static void initialize_camera(struct internal *internal)
     if (!pl_cam_get_diags(internal->handle))
         fatal_pvcam_error("Camera failed diagnostic checks.");
 
+    set_param(internal->handle, PARAM_TEMP_SETPOINT, &(int){pn_preference_int(CAMERA_TEMPERATURE)});
     set_param(internal->handle, PARAM_SHTR_CLOSE_DELAY, &(uns16){0});
     set_param(internal->handle, PARAM_LOGIC_OUTPUT, &(int){OUTPUT_NOT_SCAN});
     set_param(internal->handle, PARAM_EDGE_TRIGGER, &(int){EDGE_TRIG_NEG});
@@ -395,6 +396,14 @@ void camera_pvcam_uninitialize(Camera *camera, void *_internal)
 void camera_pvcam_start_acquiring(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
+
+    // Reinitialize camera from scratch to work around a driver bug/PVCAM that causes
+    // several stale frames to be returned before the real frame data resulting in
+    // frames that are recieved several exposure periods after their actual time
+    pn_log("Reinitializing camera.");
+    uninitialize_camera(internal);
+    initialize_camera(internal);
+    camera_pvcam_update_camera_settings(camera, internal);
 
     // Create a buffer large enough to hold multiple frames. PVCAM and the USB driver
     // tend to give frames in batches for very fast exposures, which need a bigger buffer.
