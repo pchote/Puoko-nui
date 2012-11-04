@@ -7,7 +7,7 @@ USB_TYPE := LIBFTDI
 GIT_SHA1 = $(shell sh -c 'git describe --dirty --always')
 CC       = gcc
 CXX      = g++
-CFLAGS   = -g -c -Wall -Wno-unknown-pragmas --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
+CFLAGS   = -g -Wall -Wno-unknown-pragmas --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
 LFLAGS   = -lcfitsio -lpthread -lm
 OBJS     = main.o camera.o camera_simulated.o timer.o preferences.o scripting.o platform.o atomicqueue.o version.o
@@ -63,19 +63,22 @@ ifeq ($(MSYSTEM),MINGW32)
     LFLAGS += -L/usr/local/lib -Lftd2xx/win32 -Lftd2xx/win64 -static-libgcc -static-libstdc++
 endif
 
-all: puokonui relaystart relaystop
+all: puokonui relaystart relaystop flushinput
 
 puokonui: $(OBJS)
 	$(CXX) -o $@ $(OBJS) $(LFLAGS)
 
-relaystart: relaystart.o
-	$(CXX) -o $@ relaystart.o $(LFLAGS)
+relaystart: .FORCE
+	$(CC) -o $@ utilities.c $(CFLAGS) -DENTER_RELAY -DBAUDRATE=250000 $(LFLAGS)
 
-relaystop: relaystop.o
-	$(CXX) -o $@ relaystop.o $(LFLAGS)
+relaystop: .FORCE
+	$(CC) -o $@ utilities.c $(CFLAGS) -DBAUDRATE=9600 $(LFLAGS)
+
+flushinput: .FORCE
+	$(CC) -o $@ utilities.c $(CFLAGS) -DBAUDRATE=250000 $(LFLAGS)
 
 clean:
-	-rm $(OBJS) puokonui puokonui.exe relaymode.o relaystart relaystart.exe relaystart.o relaystop relaystop.exe relaystop.o
+	-rm $(OBJS) puokonui puokonui.exe relaystart relaystart.exe relaystop relaystop.exe flushinput flushinput.exe utilities.o
 
 # Force version.o to be recompiled every time
 version.o: .FORCE

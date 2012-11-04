@@ -83,9 +83,6 @@
       location = "group:version.h">
    </FileRef>
    <FileRef
-      location = "group:relaystart.c">
-   </FileRef>
-   <FileRef
-      location = "group:relaystop.c">
+      location = "group:utilities.c">
    </FileRef>
 </Workspace>
