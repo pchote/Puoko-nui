@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     if (ftdi_usb_open(context, 0x0403, 0x6001) != 0)
         fprintf(stderr, "Timer not found\n");
 
-    if (ftdi_set_baudrate(context, BAUDRATE) < 0)
+    if (ftdi_set_baudrate(context, 9600) < 0)
         fprintf(stderr, "Error setting timer baudrate: %s\n", context->error_str);
 
     if (ftdi_set_line_property(context, BITS_8, STOP_BIT_1, NONE) < 0)
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
     if (FT_Open(0, &handle) != FT_OK)
         fprintf(stderr, "Timer not found\n");
 
-    if (FT_SetBaudRate(handle, BAUDRATE) != FT_OK)
+    if (FT_SetBaudRate(handle, 9600) != FT_OK)
         fprintf(stderr, "Error setting timer baudrate\n");
 
     if (FT_SetDataCharacteristics(handle, FT_BITS_8, FT_STOP_BITS_1, FT_PARITY_NONE) != FT_OK)

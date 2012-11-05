@@ -69,16 +69,13 @@ puokonui: $(OBJS)
 	$(CXX) -o $@ $(OBJS) $(LFLAGS)
 
 relaystart: .FORCE
-	$(CC) -o $@ utilities.c $(CFLAGS) -DENTER_RELAY -DBAUDRATE=250000 $(LFLAGS)
+	$(CC) -o $@ utilities.c $(CFLAGS) -DENTER_RELAY $(LFLAGS)
 
 relaystop: .FORCE
-	$(CC) -o $@ utilities.c $(CFLAGS) -DBAUDRATE=9600 $(LFLAGS)
-
-flushinput: .FORCE
-	$(CC) -o $@ utilities.c $(CFLAGS) -DBAUDRATE=250000 $(LFLAGS)
+	$(CC) -o $@ utilities.c $(CFLAGS) $(LFLAGS)
 
 clean:
-	-rm $(OBJS) puokonui puokonui.exe relaystart relaystart.exe relaystop relaystop.exe flushinput flushinput.exe utilities.o
+	-rm $(OBJS) puokonui puokonui.exe relaystart relaystart.exe relaystop relaystop.exe utilities.o
 
 # Force version.o to be recompiled every time
 version.o: .FORCE
