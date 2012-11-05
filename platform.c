@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include "main.h"
@@ -73,6 +74,23 @@ char *canonicalize_path(const char *path)
     return strdup(path_buf);
 }
 
+bool rename_atomically(const char *src, const char *dest)
+{
+#ifdef _WIN32
+    return MoveFileEx(src, dest, MOVEFILE_REPLACE_EXISTING);
+#else
+    return rename(src, dest) == 0;
+#endif
+}
+
+bool delete_file(const char *path)
+{
+#ifdef _WIN32
+    return DeleteFile(path);
+#else
+    return unlink(path) == 0;
+#endif
+}
 
 // Run a command synchronously, logging output with a given prefix
 int run_command(const char *cmd, char *log_prefix)

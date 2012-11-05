@@ -10,12 +10,15 @@
 #define PLATFORM_H
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <time.h>
 
 time_t struct_tm_to_time_t(struct tm *t);
 void normalize_tm(struct tm *t);
 void millisleep(int ms);
 char *canonicalize_path(const char *path);
+bool rename_atomically(const char *src, const char *dest);
+bool delete_file(const char *path);
 int run_command(const char *cmd, char *log_prefix);
 
 #endif

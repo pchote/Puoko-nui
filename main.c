@@ -276,9 +276,19 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
         free(filepath);
     }
 
-    // Update frame preview
-    save_frame(frame, timestamp, "!preview.fits.gz");
-    scripting_update_preview(scripting);
+    // Update frame preview atomically
+    char preview[16];
+    strcpy(preview, "preview.XXXXXX");
+    mktemp(preview);
+    save_frame(frame, timestamp, preview);
+
+    if (!rename_atomically(preview, "preview.fits.gz"))
+    {
+        pn_log("Failed to overwrite preview frame.");
+        delete_file(preview);
+    }
+    else
+        scripting_update_preview(scripting);
 }
 
 void trigger_fatal_error(char *message)
