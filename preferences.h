@@ -56,6 +56,8 @@ typedef enum
     CAMERA_WINDOW_HEIGHT,
     CAMERA_FRAME_BUFFER_SIZE,
 
+    PROEM_EXPOSURE_SHORTCUT,
+
 #if (defined _WIN32)
     MSYS_BASH_PATH,
 #endif

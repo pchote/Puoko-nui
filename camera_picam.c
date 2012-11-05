@@ -574,10 +574,9 @@ void camera_picam_start_acquiring(Camera *camera, void *_internal)
     // Convert from base exposure units (10*ms or s) to ms
     exptime *= pn_preference_char(TIMER_SUBSECOND_MODE) ? 10 : 1000;
 
-    // Set exposure period 20ms shorter than the trigger period, allowing
+    // Set exposure period shorter than the trigger period, allowing
     // the camera to complete the frame transfer and be ready for the next trigger
-    // TODO: Investigate the optimum period difference to use
-    exptime -= 20;
+    exptime -= pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
 
     error = Picam_SetParameterFloatingPointValue(internal->model_handle, PicamParameter_ExposureTime, exptime);
     if (error != PicamError_None)
