@@ -1,10 +1,56 @@
+<!DOCTYPE html>
 <html>
 <head>
-<title>Online Reduction Display</title>
+	<meta charset="UTF-8">
+	<title>Online Reduction Display</title>
+	<script type="text/javascript">
+		var delay = 5000;
+		var ts_name = 'online_ts.gif';
+		var dft_name = 'online_dft.gif';
+
+		function update_ts()
+		{
+			var img = new Image();
+			img.onload = function()
+			{
+				var canvas = document.getElementById('ts');
+				var ctx = canvas.getContext('2d');
+				canvas.setAttribute('width', img.width);
+				canvas.setAttribute('height', img.height);
+			  	ctx.drawImage(img, 0, 0);
+				var c = ctx.getImageData(0, 0, 1, 1).data;
+				document.getElementById('body').style.background = 'rgb('+c[0]+','+c[1]+','+c[2]+')'
+			};
+			img.src = ts_name+'?'+ new Date().getTime();
+		}
+
+		function update_dft()
+		{
+			var img = new Image();
+			img.onload = function()
+			{
+				var canvas = document.getElementById('dft');
+				canvas.setAttribute('width', img.width);
+				canvas.setAttribute('height', img.height);
+			  	canvas.getContext('2d').drawImage(img, 0, 0);
+			};
+			img.src = dft_name+'?'+ new Date().getTime();
+		}
+
+		function loop()
+		{
+			update_ts();
+			update_dft();
+			setTimeout(loop, delay);
+		}
+		loop();
+	</script>
+	<style type="text/css" media="all">
+		body {margin:0px; padding:0px; font-size:0}
+	</style>
 </head>
-<body onload="JavaScript:setTimeout('location.reload();',5000)">
-<img src="online_ts.gif" height="300" />
-<br />
-<img src="online_dft.gif" height="300" />
+<body id="body">
+	<canvas id="ts"></canvas><br />
+	<canvas id="dft"></canvas>
 </body>
 </html>
