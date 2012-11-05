@@ -63,7 +63,7 @@ ifeq ($(MSYSTEM),MINGW32)
     LFLAGS += -L/usr/local/lib -Lftd2xx/win32 -Lftd2xx/win64 -static-libgcc -static-libstdc++
 endif
 
-all: puokonui relaystart relaystop flushinput
+all: puokonui relaystart relaystop
 
 puokonui: $(OBJS)
 	$(CXX) -o $@ $(OBJS) $(LFLAGS)
