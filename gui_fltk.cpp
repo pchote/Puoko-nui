@@ -57,6 +57,12 @@ static void populate_int_preference(Fl_Int_Input *input, PNPreferenceType key)
 
 void FLTKGui::addLogLine(const char *msg)
 {
+    // Restrict log preview to the last 1000 lines
+    if (m_logEntries >= 1000)
+        m_logDisplay->remove(m_logDisplay->topline());
+    else
+        m_logEntries++;
+
     m_logDisplay->add(msg);
     m_logDisplay->bottomline(m_logDisplay->size());
 }
@@ -306,6 +312,7 @@ void FLTKGui::updateAcquisitionGroup()
 void FLTKGui::createLogGroup()
 {
     m_logDisplay = new Fl_Multi_Browser(270, 10, 380, 295);
+    m_logEntries = 0;
 }
 
 void FLTKGui::buttonMetadataPressed(Fl_Widget* o, void *userdata)

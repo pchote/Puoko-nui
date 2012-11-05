@@ -108,6 +108,7 @@ private:
     
     // Log panel
     Fl_Multi_Browser *m_logDisplay;
+    size_t m_logEntries;
 
     // Action buttons
     Fl_Button *m_buttonMetadata;
