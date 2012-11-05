@@ -307,7 +307,7 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
     double exposure_time = pn_preference_char(EXPOSURE_TIME);
 
     // Convert readout time to the base exposure unit (10*ms or s) to ms for comparison
-    bool subsecond = pn_preference_char(SUBSECOND_MODE);
+    bool subsecond = pn_preference_char(TIMER_SUBSECOND_MODE);
     readout_time /= subsecond ? 10 : 1000;
 
     if (exposure_time < readout_time)

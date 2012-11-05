@@ -196,7 +196,7 @@ static void initialize_timer(TimerUnit *timer)
     if (ftdi_usb_purge_tx_buffer(timer->context))
         fatal_timer_error(timer, "Error purging timer tx buffer: %s", timer->context->error_str);
 
-    if (ftdi_set_baudrate(timer->context, 250000) < 0)
+    if (ftdi_set_baudrate(timer->context, pn_preference_int(TIMER_BAUD_RATE)) < 0)
         fatal_timer_error(timer, "Error setting timer baudrate: %s", timer->context->error_str);
 
     if (ftdi_set_line_property(timer->context, BITS_8, STOP_BIT_1, NONE) < 0)
@@ -594,7 +594,7 @@ void *pn_simulated_timer_thread(void *_args)
 // Start an exposure sequence with a specified exposure time
 void timer_start_exposure(TimerUnit *timer, unsigned char exptime, bool use_monitor)
 {
-    if (pn_preference_char(SUBSECOND_MODE))
+    if (pn_preference_char(TIMER_SUBSECOND_MODE))
         pn_log("Starting %d ms exposures.", 10*exptime);
     else
         pn_log("Starting %ds exposures.", exptime);

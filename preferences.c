@@ -54,6 +54,8 @@ PNPreferenceStore prefs[] =
     {CALIBRATION_COUNTDOWN,     INT, .value.i = 30,     "CalibrationRemainingFrames: %d\n"},
 
     {TIMER_MONITOR_LOGIC_OUT,   CHAR, .value.c = true,  "TimerMonitorLogicOut: %hhu\n"},
+    {TIMER_SUBSECOND_MODE,      CHAR, .value.c = 0,     "TimerSubsecondMode: %d\n"},
+    {TIMER_BAUD_RATE,           INT,  .value.i = 250000,"TimerBaudRate: %d\n"},
 
     {CAMERA_BINNING,            CHAR, .value.c = 1,     "CameraBinning: %hhu\n"},
     {CAMERA_READPORT_MODE,      CHAR, .value.c = 0,     "CameraReadoutPortMode: %hhu\n"},
@@ -71,8 +73,6 @@ PNPreferenceStore prefs[] =
     {CAMERA_WINDOW_WIDTH,       INT,  .value.i = 1024,  "CameraWindowWidth: %d\n"},
     {CAMERA_WINDOW_HEIGHT,      INT,  .value.i = 1024,  "CameraWindowHeight: %d\n"},
     {CAMERA_FRAME_BUFFER_SIZE,  INT,  .value.i = 5,     "CameraFrameBufferSize: %d\n"},
-
-    {SUBSECOND_MODE,            CHAR, .value.c = 0,     "TimerSubsecondMode: %d\n"},
 
 #if (defined _WIN32)
     {MSYS_BASH_PATH, STRING, .value.s = "C:/MinGW/MSYS/bin/bash.exe",    "MsysBashPath: %s\n"}

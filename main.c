@@ -131,7 +131,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
         }
     }
 
-    bool subsecond_mode = pn_preference_char(SUBSECOND_MODE);
+    bool subsecond_mode = pn_preference_char(TIMER_SUBSECOND_MODE);
     long exposure_time = pn_preference_char(EXPOSURE_TIME);
     if (subsecond_mode)
     {
@@ -369,7 +369,7 @@ int main(int argc, char *argv[])
             time_t readout_time = camera_readout_time(camera);
 
             // Add 1 second of leeway to account for imprecision of tagging downloaded frames
-            uint8_t exptime = pn_preference_char(SUBSECOND_MODE) ? 0 : pn_preference_char(EXPOSURE_TIME);
+            uint8_t exptime = pn_preference_char(TIMER_SUBSECOND_MODE) ? 0 : pn_preference_char(EXPOSURE_TIME);
             time_t estimated_end_time = timestamp_to_time_t(&frame->downloaded_time) - readout_time + 1;
             time_t frame_end_time = timestamp_to_time_t(trigger) + exptime;
 

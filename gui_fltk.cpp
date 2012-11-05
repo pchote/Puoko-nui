@@ -528,7 +528,7 @@ void FLTKGui::createCameraWindow()
 
     m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (\u00B0C):"); y += margin;
 
-    const char *expstring = pn_preference_char(SUBSECOND_MODE) ? "Exp. (10ms):" : "Exposure (s):";
+    const char *expstring = pn_preference_char(TIMER_SUBSECOND_MODE) ? "Exp. (10ms):" : "Exposure (s):";
     m_cameraExposureSpinner = new Fl_Spinner(x, y, w, h, expstring); y += margin;
     m_cameraExposureSpinner->maximum(255);
     m_cameraExposureSpinner->minimum(1);
@@ -779,7 +779,7 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     cached_timer_mode = timer_mode(timer);
     cached_camera_readout = camera_readout_time(m_cameraRef);
     cached_exposure_time = pn_preference_char(EXPOSURE_TIME);
-    cached_subsecond_mode = pn_preference_char(SUBSECOND_MODE);
+    cached_subsecond_mode = pn_preference_char(TIMER_SUBSECOND_MODE);
 
     updateTimerGroup();
     updateCameraGroup();
