@@ -250,7 +250,7 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
         int run_number = pn_preference_int(RUN_NUMBER);
         char *output_dir = pn_preference_string(OUTPUT_DIR);
         char *run_prefix = pn_preference_string(RUN_PREFIX);
-        size_t filepath_len = strlen(output_dir) + strlen(run_prefix) + 15;
+        size_t filepath_len = snprintf(NULL, 0, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number) + 1;
         char *filepath = malloc(filepath_len*sizeof(char));
         if (!filepath)
         {
