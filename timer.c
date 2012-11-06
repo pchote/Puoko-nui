@@ -223,8 +223,7 @@ static void initialize_timer(TimerUnit *timer)
     if (FT_Purge(timer->handle, FT_PURGE_RX | FT_PURGE_TX) != FT_OK)
         fatal_timer_error(timer, "Error purging timer buffers");
 
-    // Set baud rate to 250k (matches internal USB<->UART rate within the timer)
-    if (FT_SetBaudRate(timer->handle, 250000) != FT_OK)
+    if (FT_SetBaudRate(timer->handle, pn_preference_int(TIMER_BAUD_RATE)) != FT_OK)
         fatal_timer_error(timer, "Error setting timer baudrate");
 
     // Set data frame: 8N1

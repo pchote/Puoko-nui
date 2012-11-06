@@ -14,6 +14,7 @@ OBJS     = main.o camera.o camera_simulated.o timer.o preferences.o scripting.o 
 
 ifeq ($(CAMERA_TYPE),PVCAM)
 	CFLAGS += -DUSE_PVCAM
+	CXXFLAGS += -DUSE_PVCAM
 	OBJS += camera_pvcam.o
 
     ifeq ($(MSYSTEM),MINGW32)
@@ -27,6 +28,7 @@ endif
 
 ifeq ($(CAMERA_TYPE),PICAM)
 	CFLAGS += -DUSE_PICAM
+    CXXFLAGS += -DUSE_PICAM
 	OBJS += camera_picam.o
 
     ifeq ($(MSYSTEM),MINGW32)
@@ -55,7 +57,6 @@ else
     CFLAGS += -Iftd2xx
     LFLAGS += -lftd2xx
 endif
-
 
 # Statically link libgcc and libstdc++ to avoid needing extra dlls under windows
 ifeq ($(MSYSTEM),MINGW32)

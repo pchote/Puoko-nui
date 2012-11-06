@@ -633,7 +633,7 @@ double camera_picam_read_temperature(Camera *camera, void *_internal)
     return read_temperature(internal->model_handle);
 }
 
-void camera_picam_query_ccd_region(Camera *camera, void *internal, uint16_t region[4])
+void camera_picam_query_ccd_region(Camera *camera, void *_internal, uint16_t region[4])
 {
     struct internal *internal = _internal;
     const PicamRoisConstraint  *roi_constraint;
@@ -646,5 +646,4 @@ void camera_picam_query_ccd_region(Camera *camera, void *internal, uint16_t regi
     region[3] = roi_constraint->y_constraint.minimum;
 
     Picam_DestroyRoisConstraints(roi_constraint);
-    Picam_DestroyRois(region);
 }
