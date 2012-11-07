@@ -171,35 +171,24 @@ static void piusb_delete(struct kref *kref)
     kfree(pdx);
 }
 
-
-/**
- *  piusb_open
- */
 static int piusb_open(struct inode *inode, struct file *file)
 {
     struct device_extension *pdx = NULL;
     struct usb_interface *interface;
     int subminor;
-    int retval = 0;
 
-    dbg("Piusb_Open()");
     subminor = iminor(inode);
     interface = usb_find_interface(&piusb_driver, subminor);
     if (!interface)
     {
-        err("%s - error, can't find device for minor %d", __FUNCTION__, subminor);
-        retval = -ENODEV;
-        goto exit_no_device;
+        printk(KERN_ERR "RSPIUSB: %s - error, can't find device for minor %d",
+            __func__, subminor);
+        return -ENODEV;
     }
 
     pdx = usb_get_intfdata(interface);
     if (!pdx)
-    {
-        retval = -ENODEV;
-        goto exit_no_device;
-    }
-
-    dbg("Alternate Setting = %d", interface->num_altsetting);
+        return -ENODEV;
 
     pdx->frameIdx = pdx->urbIdx = 0;
     pdx->gotPixelData = 0;
@@ -222,13 +211,9 @@ static int piusb_open(struct inode *inode, struct file *file)
     /* Save our object in the file's private structure */
     file->private_data = pdx;
 
-exit_no_device:
-    return retval;
+    return 0;
 }
 
-/**
- *  piusb_release
- */
 static int piusb_release(struct inode *inode, struct file *file)
 {
     struct device_extension *pdx;
