@@ -2,6 +2,7 @@ TARGET = rspiusb
 OBJS = rspiusb.o
 MDIR = drivers/misc
 
+# add -DDEBUG to force debug logging irrespective of kernel dynamic_debug configuration
 EXTRA_CFLAGS = -DEXPORT_SYMTAB
 CURRENT = $(shell uname -r)
 KDIR = /lib/modules/$(CURRENT)/build

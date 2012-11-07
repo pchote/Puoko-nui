@@ -39,21 +39,6 @@
 
 #include "rspiusb.h"
 
-#ifdef CONFIG_USB_DEBUG
-static int debug = 1;
-#else
-static int debug;
-#endif
-
-/* Use our own dbg macro */
-#undef dbg
-#define dbg(format, arg...) do { if (debug) printk(KERN_DEBUG __FILE__ ": " format "\n" , ## arg); } while (0)
-#define info(format, arg...) do { printk(KERN_DEBUG __FILE__ ": " format "\n" , ## arg); } while (0)
-
-/* Module parameters */
-module_param(debug, int, 0 );
-MODULE_PARM_DESC(debug, "Debug enabled or not");
-
 static void piusb_delete(struct kref *);
 static int  piusb_output(struct rspiusb *, struct ioctl_data *, unsigned char *, int);
 static int  piusb_unmap_user_buffer(struct rspiusb *);
@@ -79,12 +64,12 @@ static int piusb_probe(struct usb_interface *interface, const struct usb_device_
     int i;
     int retval = -ENOMEM;
 
-    dbg("%s - Looking for PI USB Hardware", __FUNCTION__);
+    pr_debug("RSPIUSB: Looking for PI USB Hardware\n");
 
     dev = kmalloc(sizeof(struct rspiusb), GFP_KERNEL);
     if (dev == NULL)
     {
-        err("Out of memory");
+        dev_err(&interface->dev, "Out of memory\n");
         goto error;
     }
 
@@ -102,31 +87,19 @@ static int piusb_probe(struct usb_interface *interface, const struct usb_device_
     }
     dev->iama = dev->udev->descriptor.idProduct;
 
-    if (debug)
-    {
-        if (dev->udev->descriptor.idProduct == PIXIS_PID)
-            dbg("PIUSB:Pixis Camera Found" );
-        else
-            dbg("PIUSB:ST133 USB Controller Found");
+    if (dev->iama == PIXIS_PID)
+        dev_dbg(&interface->dev, "Pixis Camera Found\n");
+    else
+        dev_dbg(&interface->dev, "ST133 USB Controller Found\n");
 
-        if (dev->udev->speed  == USB_SPEED_HIGH)
-            dbg("Highspeed(USB2.0) Device Attached");
-        else
-            dbg("Lowspeed (USB1.1) Device Attached");
-
-        dbg("NumEndpoints in Configuration: %d", iface_desc->desc.bNumEndpoints);
-    }
+    if (dev->udev->speed == USB_SPEED_HIGH)
+        dev_dbg(&interface->dev, "Highspeed(USB2.0) Device Attached\n");
+    else
+        dev_dbg(&interface->dev, "Lowspeed (USB1.1) Device Attached\n");
 
     for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i)
     {
         endpoint = &iface_desc->endpoint[i].desc;
-        if (debug)
-        {
-            dbg("Endpoint[%d]->bDescriptorType = %d", i, endpoint->bDescriptorType);
-            dbg("Endpoint[%d]->bEndpointAddress = 0x%02X", i, endpoint->bEndpointAddress);
-            dbg("Endpoint[%d]->bbmAttributes = %d", i, endpoint->bmAttributes);
-            dbg("Endpoint[%d]->MaxPacketSize = %d\n", i, endpoint->wMaxPacketSize);
-        }
 
         if ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) == USB_ENDPOINT_XFER_BULK)
         {
@@ -141,7 +114,7 @@ static int piusb_probe(struct usb_interface *interface, const struct usb_device_
     retval = usb_register_dev(interface, &piusb_class);
     if (retval)
     {
-        err("Not able to get a minor for this device.");
+        dev_err(&interface->dev, "Not able to get a minor for this device.\n");
         usb_set_intfdata( interface, NULL );
         goto error;
     }
@@ -151,7 +124,7 @@ static int piusb_probe(struct usb_interface *interface, const struct usb_device_
     dev->minor = interface->minor;
 
     /* Let the user know what node this device is now attached to */
-    dbg("PI USB2.0 device now attached to piusb-%d", dev->minor);
+    dev_dbg(&interface->dev, "PI USB2.0 device now attached to rspiusb-%d\n", dev->minor);
     return 0;
 
 error:
@@ -160,14 +133,10 @@ error:
     return retval;
 }
 
-/**
- *  piusb_delete
- */
 static void piusb_delete(struct kref *kref)
 {
     struct rspiusb *dev = to_pi_dev(kref);
 
-    dbg("piusb_delete()");
     usb_put_dev(dev->udev);
     kfree(dev);
 }
@@ -182,8 +151,7 @@ static int piusb_open(struct inode *inode, struct file *file)
     interface = usb_find_interface(&piusb_driver, subminor);
     if (!interface)
     {
-        printk(KERN_ERR "RSPIUSB: %s - error, can't find device for minor %d",
-            __func__, subminor);
+        pr_err("RSPIUSB: Can't find device for minor %d\n", subminor);
         return -ENODEV;
     }
 
@@ -191,7 +159,8 @@ static int piusb_open(struct inode *inode, struct file *file)
     if (!dev)
         return -ENODEV;
 
-    dev->frameIdx = dev->urbIdx = 0;
+    dev->frameIdx = 0;
+    dev->urbIdx = 0;
     dev->gotPixelData = 0;
     dev->pendingWrite = 0;
     dev->frameSize = 0;
@@ -220,22 +189,15 @@ static int piusb_release(struct inode *inode, struct file *file)
     struct rspiusb *dev;
     int retval = 0;
 
-    dbg("Piusb_Release()");
     dev = (struct rspiusb *)file->private_data;
     if (dev == NULL)
-    {
-        dbg ("%s - object is NULL", __FUNCTION__ );
         return -ENODEV;
-    }
 
     /* Decrement the count on our device */
     kref_put(&dev->kref, piusb_delete);
     return retval;
 }
 
-/**
- *  piusb_ioctl
- */
 static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
     struct rspiusb *dev;
@@ -254,7 +216,7 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
     /* Verify that the device wasn't unplugged */
     if (!dev->present)
     {
-        dbg("No Device Present\n");
+        printk(KERN_ERR "No Device Present\n");
         return -ENODEV;
     }
 
@@ -274,26 +236,23 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
     {
         case PIUSB_GETVNDCMD:
             if (__copy_from_user(&ctrl, (void __user*)arg, sizeof(struct ioctl_data)))
-                info("copy_from_user failed\n");
+                dev_err(&dev->interface->dev,"copy_from_user failed\n");
 
-            dbg("%s %x\n", "Get Vendor Command = ", ctrl.cmd);
+            dev_dbg(&dev->interface->dev, "Get Vendor Command = %x\n", ctrl.cmd);
             retval = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0), ctrl.cmd,
                                      USB_DIR_IN, 0, 0, &devRB,  ctrl.numbytes, HZ*10);
-
-            if (ctrl.cmd == 0xF1)
-                dbg("FW Version returned from HW = %ld.%ld", (devRB>>8),(devRB&0xFF));
 
             return devRB;
 
         case PIUSB_SETVNDCMD:
             if (__copy_from_user(&ctrl, (void __user*)arg, sizeof(struct ioctl_data)))
-                info("copy_from_user failed\n");
+                dev_err(&dev->interface->dev,"copy_from_user failed\n");
 
-            dbg("%s %x", "Set Vendor Command = ", ctrl.cmd);
+            dev_dbg(&dev->interface->dev, "Set Vendor Command = %x\n", ctrl.cmd);
             controlData = ctrl.pData[0];
             controlData |= ( ctrl.pData[1] << 8 );
 
-            dbg("%s %d", "Vendor Data =", controlData);
+            dev_dbg(&dev->interface->dev, "Vendor Data = %d\n", controlData);
             retval = usb_control_msg(dev->udev,
                                      usb_sndctrlpipe(dev->udev, 0),
                                      ctrl.cmd,
@@ -310,11 +269,11 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
         case PIUSB_WRITEPIPE:
             if (__copy_from_user(&ctrl, (void __user*)arg, _IOC_SIZE(cmd)))
-                info("copy_from_user WRITE_DUMMY failed\n");
+                dev_err(&dev->interface->dev, "copy_from_user WRITE_DUMMY failed\n");
 
             if (!access_ok(VERIFY_READ, ctrl.pData, ctrl.numbytes))
             {
-                dbg("can't access pData");
+                dev_err(&dev->interface->dev, "can't access pData\n");
                 return 0;
             }
 
@@ -323,7 +282,7 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
         case PIUSB_USERBUFFER:
             if (__copy_from_user(&ctrl, (void __user*)arg, sizeof(struct ioctl_data)))
-                info("copy_from_user failed\n");
+                dev_err(&dev->interface->dev, "copy_from_user failed\n");
 
             return piusb_map_user_buffer(dev, &ctrl);
 
@@ -333,7 +292,7 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
         case PIUSB_READPIPE:
             if (__copy_from_user(&ctrl, (void __user*)arg, sizeof(struct ioctl_data)))
-                info("copy_from_user failed\n");
+                dev_err(&dev->interface->dev, "copy_from_user failed\n");
 
             switch (ctrl.endpoint)
             {
@@ -345,16 +304,16 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                         uBuf = kmalloc(ctrl.numbytes, GFP_KERNEL);
                         if (!uBuf)
                         {
-                            dbg("Alloc for uBuf failed");
+                            dev_err(&dev->interface->dev, "Alloc for uBuf failed\n");
                             return 0;
                         }
 
                         numbytes = ctrl.numbytes;
                         numToRead = numbytes;
-                        dbg("numbytes to read = %d", numbytes);
-                        dbg("endpoint # %d", ctrl.endpoint);
+                        dev_dbg(&dev->interface->dev, "numbytes to read = %d\n", numbytes);
+                        dev_dbg(&dev->interface->dev, "endpoint # %d\n", ctrl.endpoint);
                         if (__copy_from_user(uBuf, ctrl.pData, numbytes))
-                            dbg("copying ctrl.pData to dummyBuf failed");
+                            dev_err(&dev->interface->dev, "copying ctrl.pData to dummyBuf failed\n");
 
                         do
                         {
@@ -362,26 +321,27 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                                              (numToRead > 64) ? 64 : numToRead, &numbytes, HZ*10); /* EP0 can only handle 64 bytes at a time */
                             if (i)
                             {
-                                dbg("CMD = %s, Address = 0x%02X",((uBuf[3] == 0x02) ? "WRITE" : "READ"), uBuf[1]);
-                                dbg("Number of bytes Attempted to read = %d", (int)ctrl.numbytes);
-                                dbg("Blocking Read I/O Failed with status %d", i);
+                                dev_dbg(&dev->interface->dev, "CMD = %s, Address = 0x%02X\n",
+                                        ((uBuf[3] == 0x02) ? "WRITE" : "READ"), uBuf[1]);
+                                dev_dbg(&dev->interface->dev, "Number of bytes Attempted to read = %d\n", (int)ctrl.numbytes);
+                                dev_dbg(&dev->interface->dev, "Blocking Read I/O Failed with status %d\n", i);
                                 kfree(uBuf);
                                 return -1;
                             }
                             else
                             {
-                                dbg("Pixis EP0 Read %d bytes", numbytes);
+                                dev_dbg(&dev->interface->dev, "Pixis EP0 Read %d bytes\n", numbytes);
                                 totalRead += numbytes;
                                 numToRead -= numbytes;
                             }
                         } while (numToRead);
 
                         memcpy(ctrl.pData, uBuf, totalRead);
-                        dbg("Total Bytes Read from PIXIS EP0 = %d", totalRead);
+                        dev_dbg(&dev->interface->dev, "Total Bytes Read from PIXIS EP0 = %d\n", totalRead);
                         ctrl.numbytes = totalRead;
 
-                        if (__copy_to_user((struct ioctl_data *)arg, &ctrl, sizeof(struct ioctl_data)))
-                            dbg("copy_to_user failed in IORB");
+                        if (__copy_to_user((struct ioctl_struct *)arg, &ctrl, sizeof(struct ioctl_data)))
+                            dev_err(&dev->interface->dev, "copy_to_user failed in IORB\n");
 
                         kfree(uBuf);
                         return ctrl.numbytes;
@@ -408,20 +368,20 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                     uBuf = kmalloc(ctrl.numbytes, GFP_KERNEL);
                     if (!uBuf)
                     {
-                        dbg("Alloc for uBuf failed");
+                        dev_err(&dev->interface->dev, "Alloc for uBuf failed\n");
                         return 0;
                     }
 
                     numbytes = ctrl.numbytes;
                     if (__copy_from_user(uBuf, ctrl.pData, numbytes))
-                        dbg("copying ctrl.pData to dummyBuf failed");
+                        dev_err(&dev->interface->dev, "Copying ctrl.pData to dummyBuf failed\n");
 
                     i = usb_bulk_msg(dev->udev, dev->hEP[ctrl.endpoint], uBuf,
                                      numbytes, &numbytes, HZ*10);
 
                     if (i)
                     {
-                        dbg("Blocking Read I/O Failed with status %d", i);
+                        dev_err(&dev->interface->dev, "Blocking Read I/O Failed with status %d\n", i);
                         kfree(uBuf);
                         return -1;
                     }
@@ -429,8 +389,9 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                     {
                         ctrl.numbytes = numbytes;
                         memcpy(ctrl.pData, uBuf, numbytes);
-                        if (__copy_to_user((struct ioctl_data *)arg, &ctrl, sizeof(struct ioctl_data)))
-                            dbg("copy_to_user failed in IORB");
+
+                        if (__copy_to_user((struct ioctl_struct *)arg, &ctrl, sizeof(struct ioctl_data)))
+                            dev_err(&dev->interface->dev, "copy_to_user failed in IORB\n");
 
                         kfree(uBuf);
                         return ctrl.numbytes;
@@ -462,7 +423,7 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
         case PIUSB_SETFRAMESIZE:
             if (copy_from_user(&ctrl, (void __user*)arg, sizeof(struct ioctl_data)))
-                info("copy_from_user failed\n");
+                dev_err(&dev->interface->dev, "copy_from_user failed\n");
 
             dev->frameSize = ctrl.numbytes;
             dev->num_frames = ctrl.numFrames;
@@ -479,12 +440,12 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return 0;
 
         default:
-            dbg("%s\n", "No ioctl found");
+            dev_dbg(&dev->interface->dev, "Unknown ioctl: %d\n", cmd);
             break;
     }
 
     /* Unknown ioctl */
-    dbg("Returning -ENOTTY");
+    dev_err(&dev->interface->dev, "Returning -ENOTTY\n");
     return -ENOTTY;
 }
 
@@ -524,7 +485,7 @@ static void piusb_disconnect(struct usb_interface *interface)
     /* Prevent device read, write and ioctl */
     dev->present = 0;
     kref_put(&dev->kref, piusb_delete);
-    dbg("PI USB2.0 device #%d now disconnected\n", minor);
+    pr_debug("RSPIUSB: PI USB2.0 device #%d now disconnected\n", minor);
 }
 
 /**
@@ -537,11 +498,11 @@ static int __init piusb_init(void)
     result = usb_register(&piusb_driver);
     if (result)
     {
-        err("usb_register failed. Error number %d", result);
+        pr_err("RSPIUSB: usb_register failed. Error number %d\n", result);
         return result;
     }
 
-    info("%s: %s", DRIVER_DESC, DRIVER_VERSION);
+    pr_info("RSPIUSB: %s %s", DRIVER_DESC, DRIVER_VERSION);
     return 0;
 }
 
@@ -565,13 +526,13 @@ static int piusb_output(struct rspiusb *dev, struct ioctl_data *io, unsigned cha
         kbuf = kmalloc(len, GFP_KERNEL);
         if (kbuf == NULL)
         {
-            info("kmalloc failed for pisub_output\n");
+            dev_err(&dev->interface->dev, "kmalloc failed for pisub_output\n");
             return -ENOMEM;
         }
 
         if (copy_from_user(kbuf, uBuf, len))
         {
-            info("copy_from_user failed for pisub_output\n");
+            dev_err(&dev->interface->dev, "copy_from_user failed for pisub_output\n");
             return -EFAULT;
         }
 
@@ -579,9 +540,7 @@ static int piusb_output(struct rspiusb *dev, struct ioctl_data *io, unsigned cha
 
         err = usb_submit_urb(urb, GFP_KERNEL);
         if (err)
-        {
-            printk(KERN_INFO "%s %d\n", "WRITE ERROR:submit urb error =", err);
-        }
+            dev_err(&dev->interface->dev, "WRITE ERROR:submit urb error = %d\n", err);
 
         dev->pendingWrite = 1;
         usb_free_urb(urb);
@@ -598,16 +557,16 @@ static int piusb_unmap_user_buffer(struct rspiusb *dev)
 
     for (k = 0; k < dev->num_frames; k++)
     {
-        dbg("Killing Urbs for Frame %d", k);
+        dev_dbg(&dev->interface->dev, "Killing Urbs for Frame %d\n", k);
         for (i = 0; i < dev->sgEntries[k]; i++)
         {
             usb_kill_urb(dev->PixelUrb[k][i]);
             usb_free_urb(dev->PixelUrb[k][i]);
             dev->pendedPixelUrbs[k][i] = 0;
         }
-        dbg("Urb error count = %d", errCnt);
+        dev_dbg(&dev->interface->dev, "Urb error count = %d\n", errCnt);
         errCnt = 0;
-        dbg("Urbs free'd and Killed for Frame %d", k);
+        dev_dbg(&dev->interface->dev, "Urbs free'd and Killed for Frame %d\n", k);
     }
 
     for (k = 0; k < dev->num_frames; k++)
@@ -690,25 +649,26 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data *io)
         else
             epAddr = dev->hEP[2]; /* PING, even frames and zero */
 
-        dbg("Pixis Frame #%d: EP=%d", frameInfo, (epAddr==dev->hEP[2]) ? 2 : 4);
+        dev_dbg(&dev->interface->dev, "Pixis Frame #%d: EP=%d\n",
+                frameInfo, (epAddr==dev->hEP[2]) ? 2 : 4);
     }
     else /* ST133 only has 1 endpoint for Pixel data transfer */
     {
         epAddr = dev->hEP[0];
-        dbg("ST133 Frame #%d: EP=2", frameInfo);
+        dev_dbg(&dev->interface->dev, "ST133 Frame #%d: EP=2\n", frameInfo);
     }
 
     count = numbytes;
-    dbg("UserAddress = 0x%08lX", uaddr);
-    dbg("numbytes = %d", (int)numbytes);
+    dev_dbg(&dev->interface->dev, "UserAddress = 0x%08lX\n", uaddr);
+    dev_dbg(&dev->interface->dev, "numbytes = %d\n", (int)numbytes);
 
     /* Number of pages to map the entire user space DMA buffer */
     numPagesRequired = ((uaddr & ~PAGE_MASK) + count + ~PAGE_MASK) >> PAGE_SHIFT;
-    dbg("Number of pages needed = %d", numPagesRequired);
+    dev_dbg(&dev->interface->dev, "Number of pages needed = %d\n", numPagesRequired);
     maplist_p = vmalloc(numPagesRequired * sizeof(struct page*));//, GFP_ATOMIC);
     if (!maplist_p)
     {
-        dbg("Can't Allocate Memory for maplist_p");
+        dev_dbg(&dev->interface->dev, "Can't Allocate Memory for maplist_p\n");
         return -ENOMEM;
     }
 
@@ -723,14 +683,15 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data *io)
                                                             maplist_p,
                                                             NULL);
     up_write(&current->mm->mmap_sem);
-    dbg("Number of pages mapped = %d", dev->maplist_numPagesMapped[frameInfo]);
+    dev_dbg(&dev->interface->dev, "Number of pages mapped = %d\n",
+            dev->maplist_numPagesMapped[frameInfo]);
 
     for (i=0; i < dev->maplist_numPagesMapped[frameInfo]; i++)
         flush_dcache_page(maplist_p[i]);
 
     if (!dev->maplist_numPagesMapped[frameInfo])
     {
-        dbg("get_user_pages() failed");
+        dev_err(&dev->interface->dev, "get_user_pages() failed\n");
         vfree(maplist_p);
         return -ENOMEM;
     }
@@ -740,7 +701,7 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data *io)
     if (!dev->sgl[frameInfo])
     {
         vfree(maplist_p);
-        dbg("can't allocate mem for sgl");
+        dev_err(&dev->interface->dev, "can't allocate mem for sgl\n");
         return -ENOMEM;
     }
 
@@ -769,11 +730,13 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data *io)
     if (ret < 0)
     {
         vfree(maplist_p);
-        info("dma_map_sg failed");
+        dev_err(&dev->interface->dev, "dma_map_sg failed\n");
+
         return -EFAULT;
     }
 
-    dbg("number of sgEntries = %d", dev->sgEntries[frameInfo]);
+    dev_dbg(&dev->interface->dev, "number of sgEntries = %u\n",
+            dev->sgEntries[frameInfo]);
     vfree(maplist_p);
 
     dev->sgEntries[frameInfo] = ret;
@@ -783,7 +746,7 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data *io)
     dev->PixelUrb[frameInfo] = kmalloc(dev->sgEntries[frameInfo] * sizeof(struct urb *), GFP_KERNEL);
     if (!dev->PixelUrb[frameInfo])
     {
-        dbg("Can't Allocate Memory for Urb");
+        dev_err(&dev->interface->dev, "Can't Allocate Memory for Urb\n");
         return -ENOMEM;
     }
 
@@ -804,14 +767,14 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data *io)
     dev->PixelUrb[frameInfo][--i]->transfer_flags &= ~URB_NO_INTERRUPT;  /* Only interrupt when last URB completes */
     dev->pendedPixelUrbs[frameInfo] = kmalloc((dev->sgEntries[frameInfo] * sizeof(char)), GFP_KERNEL);
     if (!dev->pendedPixelUrbs[frameInfo])
-        dbg("Can't allocate Memory for pendedPixelUrbs");
+        dev_err(&dev->interface->dev, "Can't allocate Memory for pendedPixelUrbs\n");
 
     for (i = 0; i < dev->sgEntries[frameInfo]; i++)
     {
         err = usb_submit_urb(dev->PixelUrb[frameInfo][i], GFP_ATOMIC);
         if (err)
         {
-            dbg("%s %d\n", "submit urb error =", err);
+            dev_err(&dev->interface->dev, "submit urb error = %d\n", err);
             dev->pendedPixelUrbs[frameInfo][i] = 0;
             return err;
         }
@@ -840,10 +803,7 @@ static void piusb_write_bulk_callback(struct urb *urb)
 
     /* sync/async unlink faults aren't errors */
     if (urb->status && !(urb->status == -ENOENT || urb->status == -ECONNRESET))
-    {
-        dbg("%s - nonzero write bulk status received: %d",
-            __FUNCTION__, urb->status);
-    }
+        dev_err(&dev->interface->dev, "nonzero write bulk status received: %d\n", urb->status);
 
     dev->pendingWrite = 0;
     kfree(urb->transfer_buffer);
@@ -856,11 +816,11 @@ static void piusb_read_pixel_callback(struct urb *urb)
 
     if (urb->status && !(urb->status == -ENOENT || urb->status == -ECONNRESET))
     {
-        dbg("%s - nonzero read bulk status received: %d", __FUNCTION__, urb->status);
-        dbg("Error in read EP2 callback");
-        dbg("FrameIndex = %d", dev->frameIdx);
-        dbg("Bytes received before problem occurred = %d", dev->bulk_in_byte_trk);
-        dbg("Urb Idx = %d", dev->urbIdx);
+        dev_err(&dev->interface->dev, "Nonzero read bulk status received: %d\n", urb->status);
+        dev_err(&dev->interface->dev, "Error in read EP2 callback\n");
+        dev_err(&dev->interface->dev, "FrameIndex = %d\n", dev->frameIdx);
+        dev_err(&dev->interface->dev, "Bytes received before problem occurred = %d\n", dev->bulk_in_byte_trk);
+        dev_err(&dev->interface->dev, "Urb Idx = %d\n", dev->urbIdx);
         dev->pendedPixelUrbs[dev->frameIdx][dev->urbIdx] = 0;
     }
     else
@@ -874,13 +834,13 @@ static void piusb_read_pixel_callback(struct urb *urb)
             errCnt++;
             if (i != lastErr)
             {
-                dbg("submit urb in callback failed with error code %d", i);
+                dev_dbg(&dev->interface->dev, "submit urb in callback failed with error code %d\n", i);
                 lastErr = i;
             }
         }
         else
         {
-            /* point to next URB when we callback */
+            /* Point to next URB when we callback */
             dev->urbIdx++;
             if (dev->bulk_in_byte_trk >= dev->frameSize)
             {
