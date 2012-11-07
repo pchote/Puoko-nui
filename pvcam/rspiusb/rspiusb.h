@@ -3,19 +3,19 @@
 #include <linux/ioctl.h>
 #include <linux/version.h>
 
-#define to_pi_dev(d) container_of(d, struct device_extension, kref)
+#define to_pi_dev(d) container_of(d, struct rspiusb, kref)
 
 #define PIUSB_MAGIC         'm'
 #define PIUSB_IOCTL_BASE    192
-#define PIUSB_GETVNDCMD     _IOR(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 1, ioctl_struct)
-#define PIUSB_SETVNDCMD     _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 2, ioctl_struct)
-#define PIUSB_WRITEPIPE     _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 3, ioctl_struct)
-#define PIUSB_READPIPE      _IOR(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 4, ioctl_struct)
-#define PIUSB_SETFRAMESIZE  _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 5, ioctl_struct)
+#define PIUSB_GETVNDCMD     _IOR(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 1, struct ioctl_data)
+#define PIUSB_SETVNDCMD     _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 2, struct ioctl_data)
+#define PIUSB_WRITEPIPE     _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 3, struct ioctl_data)
+#define PIUSB_READPIPE      _IOR(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 4, struct ioctl_data)
+#define PIUSB_SETFRAMESIZE  _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 5, struct ioctl_data)
 #define PIUSB_WHATCAMERA    _IO(PIUSB_MAGIC,  PIUSB_IOCTL_BASE + 6)
-#define PIUSB_USERBUFFER    _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 7, ioctl_struct)
+#define PIUSB_USERBUFFER    _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 7, struct ioctl_data)
 #define PIUSB_ISHIGHSPEED   _IO(PIUSB_MAGIC,  PIUSB_IOCTL_BASE + 8)
-#define PIUSB_UNMAP_USERBUFFER  _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 9, ioctl_struct)
+#define PIUSB_UNMAP_USERBUFFER  _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 9, struct ioctl_data)
 
 /* Version Information */
 #define DRIVER_VERSION "V1.0.2"
@@ -44,7 +44,7 @@ static DEFINE_SEMAPHORE(disconnect_sem);
 static DEFINE_MUTEX(piusb_mutex);
 
 /* Structure to hold all of our device specific stuff */
-struct device_extension
+struct rspiusb
 {
     struct usb_device*      udev;           /* save off the usb device pointer */
     struct usb_interface*   interface;      /* the interface for this device */
@@ -71,18 +71,18 @@ struct device_extension
     struct semaphore        sem;
 
     /* FX2 specific endpoints */
-    unsigned int        hEP[8];
+    unsigned int            hEP[8];
 };
 
-typedef struct IOCTL_STRUCT
+struct ioctl_data
 {
-    unsigned char       cmd;
-    unsigned long       numbytes;
-    unsigned char       dir; /* 1=out; 0=in */
-    int                 endpoint;
-    int                 numFrames;
-    unsigned char *     pData;
-} ioctl_struct;
+    unsigned char  cmd;
+    unsigned long  numbytes;
+    unsigned char  dir; /* 1=out; 0=in */
+    int            endpoint;
+    int            numFrames;
+    unsigned char *pData;
+};
 
 static long piusb_unlocked_ioctl(struct file *f, unsigned cmd, unsigned long arg);
 static int 	piusb_ioctl         (struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg);
@@ -90,7 +90,6 @@ static int 	piusb_open          (struct inode *inode, struct file *file);
 static int 	piusb_release       (struct inode *inode, struct file *file);
 static int  piusb_probe         (struct usb_interface *interface, const struct usb_device_id *id);
 static void piusb_disconnect    (struct usb_interface *interface);
-int         piusb_output        (struct IOCTL_STRUCT*, unsigned char *, int, struct device_extension *);
 
 /*
  * File operations needed when we register this driver.
