@@ -1,7 +1,6 @@
 /* piusb.h */
 
 #include <linux/ioctl.h>
-#include <linux/version.h>
 
 #define to_pi_dev(d) container_of(d, struct rspiusb, kref)
 
@@ -35,17 +34,11 @@
 #endif
 
 /* prevent races between open() and disconnect() */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
-static DECLARE_MUTEX(disconnect_sem);
-#else
 static DEFINE_SEMAPHORE(disconnect_sem);
-#endif
-
 static DEFINE_MUTEX(piusb_mutex);
 
 /* Structure to hold all of our device specific stuff */
-struct rspiusb
-{
+struct rspiusb {
     struct usb_device*      udev;           /* save off the usb device pointer */
     struct usb_interface*   interface;      /* the interface for this device */
     unsigned char           minor;          /* the starting minor number for this device */
@@ -74,8 +67,7 @@ struct rspiusb
     unsigned int            hEP[8];
 };
 
-struct ioctl_data
-{
+struct ioctl_data {
     unsigned char  cmd;
     unsigned long  numbytes;
     unsigned char  dir; /* 1=out; 0=in */
@@ -90,28 +82,10 @@ static int 	piusb_release       (struct inode *inode, struct file *file);
 static int  piusb_probe         (struct usb_interface *interface, const struct usb_device_id *id);
 static void piusb_disconnect    (struct usb_interface *interface);
 
-/*
- * File operations needed when we register this driver.
- * This assumes that this driver NEEDS file operations,
- * of course, which means that the driver is expected
- * to have a node in the /dev directory. If the USB
- * device were for a network interface then the driver
- * would use "struct net_driver" instead, and a serial
- * device would use "struct tty_driver".
- */
 static struct file_operations piusb_fops = {
-	/*
-	 * The owner field is part of the module-locking
-	 * mechanism. The idea is that the kernel knows
-	 * which module to increment the use-counter of
-	 * BEFORE it calls the device's open() function.
-	 * This also means that the kernel can decrement
-	 * the use-counter again before calling release()
-	 * or should the open() function fail.
-	 */
 	.owner = THIS_MODULE,
-	.unlocked_ioctl =piusb_unlocked_ioctl,
 	.open = piusb_open,
+	.unlocked_ioctl = piusb_unlocked_ioctl,
 	.release = piusb_release,
 };
 
@@ -122,9 +96,6 @@ static struct file_operations piusb_fops = {
 static struct usb_class_driver piusb_class = {
 	.name = "usb/rspiusb%d",
 	.fops = &piusb_fops,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,15)
-	.mode = S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH,
-#endif
 	.minor_base = PIUSB_MINOR_BASE,
 };
 
@@ -132,17 +103,14 @@ static struct usb_class_driver piusb_class = {
 static struct usb_device_id pi_device_table [] = {
 	{USB_DEVICE(VENDOR_ID, ST133_PID)},
 	{USB_DEVICE(VENDOR_ID, PIXIS_PID)},
-	{} /* Terminating entry */
+	{}
 };
 MODULE_DEVICE_TABLE(usb, pi_device_table);
 
 /* usb specific object needed to register this driver with the usb subsystem */
 static struct usb_driver piusb_driver = {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-	.owner =	    THIS_MODULE,
-#endif
 	.name =		    "RSPIUSB",
 	.probe =	    piusb_probe,
-	.disconnect =	    piusb_disconnect,
+	.disconnect =	piusb_disconnect,
 	.id_table =	    pi_device_table,
 };
