@@ -245,13 +245,11 @@ static long piusb_unlocked_ioctl(struct file *f, unsigned cmd, unsigned long arg
             retval = piusb_setframesize(dev, ioctl);
             break;
         default:
-            dev_dbg(&dev->interface->dev, "Unknown ioctl: %d\n", cmd);
+            dev_err(&dev->interface->dev, "Unknown ioctl: %d\n", cmd);
             break;
     }
     mutex_unlock(&piusb_mutex);
 
-    /* Unknown ioctl */
-    dev_err(&dev->interface->dev, "Returning -ENOTTY\n");
     return retval;
 }
 
