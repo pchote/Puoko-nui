@@ -204,12 +204,12 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
     char dummyCtlBuf[] = {0,0,0,0,0,0,0,0};
     unsigned long devRB = 0;
     int i = 0;
-    int err = 0;
     int retval = 0;
     struct ioctl_data ctrl;
     unsigned char *uBuf;
     int numbytes = 0;
     unsigned short controlData = 0;
+    unsigned char data[2];
 
     dev = (struct rspiusb *)file->private_data;
 
@@ -243,8 +243,14 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             }
 
             dev_dbg(&dev->interface->dev, "Set Vendor Command = %x\n", ctrl.cmd);
-            controlData = ctrl.pData[0];
-            controlData |= ( ctrl.pData[1] << 8 );
+
+            if (copy_from_user(&data, ctrl.pData, sizeof(data)))
+            {
+                dev_err(&dev->interface->dev, "PIUSB_SETVNDCMD: copy_from_user pData failed\n");
+                return -EFAULT;
+            }
+            controlData = data[0];
+            controlData |= ( data[1] << 8 );
 
             dev_dbg(&dev->interface->dev, "Vendor Data = %d\n", controlData);
             retval = usb_control_msg(dev->udev,
