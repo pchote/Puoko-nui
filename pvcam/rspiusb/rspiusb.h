@@ -81,7 +81,7 @@ struct ioctl_data
     unsigned char  dir; /* 1=out; 0=in */
     int            endpoint;
     int            numFrames;
-    unsigned char *pData;
+    unsigned char __user *pData;
 };
 
 static long piusb_unlocked_ioctl(struct file *f, unsigned cmd, unsigned long arg);

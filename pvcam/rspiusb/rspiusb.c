@@ -457,8 +457,12 @@ static int piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg)
                 numToRead = numbytes;
                 dev_dbg(&dev->interface->dev, "numbytes to read = %d\n", numbytes);
                 dev_dbg(&dev->interface->dev, "endpoint # %d\n", ctrl.endpoint);
-                if (__copy_from_user(uBuf, ctrl.pData, numbytes))
+
+                if (copy_from_user(uBuf, ctrl.pData, ctrl.numbytes))
+                {
                     dev_err(&dev->interface->dev, "copying ctrl.pData to dummyBuf failed\n");
+                    return 0;
+                }
 
                 do
                 {
@@ -481,12 +485,20 @@ static int piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg)
                     }
                 } while (numToRead);
 
-                memcpy(ctrl.pData, uBuf, totalRead);
+                if (copy_to_user(ctrl.pData, uBuf, totalRead))
+                {
+                    dev_err(&dev->interface->dev, "uBuf copy_to_user failed\n");
+                    return 0;
+                }
+
                 dev_dbg(&dev->interface->dev, "Total Bytes Read from PIXIS EP0 = %d\n", totalRead);
                 ctrl.numbytes = totalRead;
 
-                if (__copy_to_user((struct ioctl_struct *)arg, &ctrl, sizeof(struct ioctl_data)))
-                    dev_err(&dev->interface->dev, "copy_to_user failed in IORB\n");
+                if (copy_to_user(arg, &ctrl, sizeof(ctrl)))
+                {
+                    dev_err(&dev->interface->dev, "ioctl_ctrl copy_to_user failed\n");
+                    return 0;
+                }
 
                 kfree(uBuf);
                 return ctrl.numbytes;
@@ -518,8 +530,11 @@ static int piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg)
             }
 
             numbytes = ctrl.numbytes;
-            if (__copy_from_user(uBuf, ctrl.pData, numbytes))
-                dev_err(&dev->interface->dev, "Copying ctrl.pData to dummyBuf failed\n");
+            if (copy_from_user(uBuf, ctrl.pData, numbytes))
+            {
+                dev_err(&dev->interface->dev, "copying ctrl.pData to dummyBuf failed\n");
+                return 0;
+            }
 
             i = usb_bulk_msg(dev->udev, dev->hEP[ctrl.endpoint], uBuf,
                              numbytes, &numbytes, HZ*10);
@@ -533,10 +548,17 @@ static int piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg)
             else
             {
                 ctrl.numbytes = numbytes;
-                memcpy(ctrl.pData, uBuf, numbytes);
+                if (copy_to_user(ctrl.pData, uBuf, numbytes))
+                {
+                    dev_err(&dev->interface->dev, "uBuf copy_to_user failed\n");
+                    return 0;
+                }
 
-                if (__copy_to_user((struct ioctl_struct *)arg, &ctrl, sizeof(struct ioctl_data)))
-                    dev_err(&dev->interface->dev, "copy_to_user failed in IORB\n");
+                if (copy_to_user(arg, &ctrl, sizeof(ctrl)))
+                {
+                    dev_err(&dev->interface->dev, "ioctl_ctrl copy_to_user failed\n");
+                    return 0;
+                }
 
                 kfree(uBuf);
                 return ctrl.numbytes;
@@ -545,7 +567,7 @@ static int piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg)
 
         case 2: /* PIXIS Ping */
         case 3: /* PIXIS Pong */
-            if(!dev->gotPixelData)
+            if (!dev->gotPixelData)
                 return 0;
             else
             {
