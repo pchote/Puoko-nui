@@ -204,11 +204,7 @@ static int piusb_release(struct inode *inode, struct file *file)
 
 static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
-    struct rspiusb *dev;
-    int retval = 0;
-    struct ioctl_data ctrl;
-
-    dev = (struct rspiusb *)file->private_data;
+    struct rspiusb *dev = (struct rspiusb *)file->private_data;
 
     /* Verify that the device wasn't unplugged */
     if (!dev->present)
@@ -248,26 +244,7 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return dev->iama;
 
         case PIUSB_SETFRAMESIZE:
-            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
-            {
-                dev_err(&dev->interface->dev, "PIUSB_SETFRAMESIZE: copy_from_user failed\n");
-                return -EFAULT;
-            }
-
-            dev->frameSize = ctrl.numbytes;
-            dev->num_frames = ctrl.numFrames;
-            if (!dev->sgl)
-                dev->sgl = kmalloc(sizeof(struct scatterlist *) * dev->num_frames, GFP_KERNEL);
-            if (!dev->sgEntries)
-                dev->sgEntries = kmalloc(sizeof(unsigned int) * dev->num_frames, GFP_KERNEL);
-            if (!dev->PixelUrb)
-                dev->PixelUrb = kmalloc(sizeof(struct urb **) * dev->num_frames, GFP_KERNEL);
-            if (!dev->maplist_numPagesMapped)
-                dev->maplist_numPagesMapped = vmalloc(sizeof(unsigned int) * dev->num_frames);
-            if (!dev->pendedPixelUrbs)
-                dev->pendedPixelUrbs = kmalloc(sizeof(char *) * dev->num_frames, GFP_KERNEL);
-
-            return 0;
+            return piusb_setframesize(dev, (struct ioctl_data __user *)arg);
 
         default:
             dev_dbg(&dev->interface->dev, "Unknown ioctl: %d\n", cmd);
@@ -595,6 +572,32 @@ static int piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg)
             }
             break;
     }
+
+    return 0;
+}
+
+static int piusb_setframesize(struct rspiusb *dev, struct ioctl_data __user *arg)
+{
+    struct ioctl_data ctrl;
+
+    if (copy_from_user(&ctrl, arg, sizeof(ctrl)))
+    {
+        dev_err(&dev->interface->dev, "PIUSB_SETFRAMESIZE: copy_from_user failed\n");
+        return -EFAULT;
+    }
+
+    dev->frameSize = ctrl.numbytes;
+    dev->num_frames = ctrl.numFrames;
+    if (!dev->sgl)
+        dev->sgl = kmalloc(sizeof(struct scatterlist *) * dev->num_frames, GFP_KERNEL);
+    if (!dev->sgEntries)
+        dev->sgEntries = kmalloc(sizeof(unsigned int) * dev->num_frames, GFP_KERNEL);
+    if (!dev->PixelUrb)
+        dev->PixelUrb = kmalloc(sizeof(struct urb **) * dev->num_frames, GFP_KERNEL);
+    if (!dev->maplist_numPagesMapped)
+        dev->maplist_numPagesMapped = vmalloc(sizeof(unsigned int) * dev->num_frames);
+    if (!dev->pendedPixelUrbs)
+        dev->pendedPixelUrbs = kmalloc(sizeof(char *) * dev->num_frames, GFP_KERNEL);
 
     return 0;
 }
