@@ -41,6 +41,7 @@
 
 static void piusb_delete(struct kref *);
 static int  piusb_getvndcmd(struct rspiusb *dev, struct ioctl_data __user *arg);
+static int  piusb_setvndcmd(struct rspiusb *dev, struct ioctl_data __user *arg);
 static int  piusb_output(struct rspiusb *, struct ioctl_data *);
 static int  piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *io);
 static int  piusb_unmap_user_buffer(struct rspiusb *);
@@ -203,11 +204,8 @@ static int piusb_release(struct inode *inode, struct file *file)
 static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
     struct rspiusb *dev;
-    char dummyCtlBuf[] = {0,0,0,0,0,0,0,0};
     int retval = 0;
     struct ioctl_data ctrl;
-    unsigned short controlData = 0;
-    unsigned char data[2];
 
     dev = (struct rspiusb *)file->private_data;
 
@@ -224,33 +222,7 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return piusb_getvndcmd(dev, (struct ioctl_data __user *)arg);
 
         case PIUSB_SETVNDCMD:
-            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
-            {
-                dev_err(&dev->interface->dev, "PIUSB_SETVNDCMD: copy_from_user failed\n");
-                return -EFAULT;
-            }
-
-            dev_dbg(&dev->interface->dev, "Set Vendor Command = %x\n", ctrl.cmd);
-
-            if (copy_from_user(&data, ctrl.pData, sizeof(data)))
-            {
-                dev_err(&dev->interface->dev, "PIUSB_SETVNDCMD: copy_from_user pData failed\n");
-                return -EFAULT;
-            }
-            controlData = data[0];
-            controlData |= ( data[1] << 8 );
-
-            dev_dbg(&dev->interface->dev, "Vendor Data = %d\n", controlData);
-            retval = usb_control_msg(dev->udev,
-                                     usb_sndctrlpipe(dev->udev, 0),
-                                     ctrl.cmd,
-                                     (USB_DIR_OUT | USB_TYPE_VENDOR ),/* | USB_RECIP_ENDPOINT), */
-                                     controlData,
-                                     0,
-                                     &dummyCtlBuf,
-                                     ctrl.numbytes,
-                                     HZ*10);
-            return retval;
+            return piusb_setvndcmd(dev, (struct ioctl_data __user *)arg);
 
         case PIUSB_ISHIGHSPEED:
             return ((dev->udev->speed == USB_SPEED_HIGH) ? 1 : 0);
@@ -397,6 +369,40 @@ static int piusb_getvndcmd(struct rspiusb *dev, struct ioctl_data __user *arg)
                     USB_DIR_IN, 0, 0, &devRB, ctrl.numbytes, HZ*10);
 
     return devRB;
+}
+
+static int piusb_setvndcmd(struct rspiusb *dev, struct ioctl_data __user *arg)
+{
+    char dummyCtlBuf[] = {0,0,0,0,0,0,0,0};
+    struct ioctl_data ctrl;
+    unsigned short controlData = 0;
+    unsigned char data[2];
+
+    if (copy_from_user(&ctrl, arg, sizeof(ctrl)))
+    {
+        dev_err(&dev->interface->dev, "PIUSB_SETVNDCMD: copy_from_user failed\n");
+        return -EFAULT;
+    }
+
+    dev_dbg(&dev->interface->dev, "Set Vendor Command = %x\n", ctrl.cmd);
+    if (copy_from_user(&data, ctrl.pData, sizeof(data)))
+    {
+        dev_err(&dev->interface->dev, "PIUSB_SETVNDCMD: copy_from_user pData failed\n");
+        return -EFAULT;
+    }
+    controlData = data[0];
+    controlData |= ( data[1] << 8 );
+
+    dev_dbg(&dev->interface->dev, "Vendor Data = %d\n", controlData);
+    return usb_control_msg(dev->udev,
+                           usb_sndctrlpipe(dev->udev, 0),
+                           ctrl.cmd,
+                           (USB_DIR_OUT | USB_TYPE_VENDOR ),/* | USB_RECIP_ENDPOINT), */
+                           controlData,
+                           0,
+                           &dummyCtlBuf,
+                           ctrl.numbytes,
+                           HZ*10);
 }
 
 static int piusb_output(struct rspiusb *dev, struct ioctl_data *io)
