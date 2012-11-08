@@ -220,23 +220,14 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         return -ENODEV;
     }
 
-    /* Device specific stuff */
-    if (_IOC_DIR(cmd) & _IOC_READ)
-        err = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
-    else if (_IOC_DIR(cmd) & _IOC_WRITE)
-        err = !access_ok(VERIFY_READ, (void __user *)arg, _IOC_SIZE(cmd));
-
-    if (err)
-    {
-        printk(KERN_INFO "return with error = %d\n", err);
-        return -EFAULT;
-    }
-
     switch (cmd)
     {
         case PIUSB_GETVNDCMD:
-            if (__copy_from_user(&ctrl, (void __user*)arg, sizeof(struct ioctl_data)))
-                dev_err(&dev->interface->dev,"copy_from_user failed\n");
+            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
+            {
+                dev_err(&dev->interface->dev, "PIUSB_GETVNDCMD: copy_from_user failed\n");
+                return -EFAULT;
+            }
 
             dev_dbg(&dev->interface->dev, "Get Vendor Command = %x\n", ctrl.cmd);
             retval = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0), ctrl.cmd,
@@ -245,8 +236,11 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return devRB;
 
         case PIUSB_SETVNDCMD:
-            if (__copy_from_user(&ctrl, (void __user*)arg, sizeof(struct ioctl_data)))
-                dev_err(&dev->interface->dev,"copy_from_user failed\n");
+            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
+            {
+                dev_err(&dev->interface->dev, "PIUSB_SETVNDCMD: copy_from_user failed\n");
+                return -EFAULT;
+            }
 
             dev_dbg(&dev->interface->dev, "Set Vendor Command = %x\n", ctrl.cmd);
             controlData = ctrl.pData[0];
@@ -268,8 +262,11 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return ((dev->udev->speed == USB_SPEED_HIGH) ? 1 : 0);
 
         case PIUSB_WRITEPIPE:
-            if (__copy_from_user(&ctrl, (void __user*)arg, _IOC_SIZE(cmd)))
-                dev_err(&dev->interface->dev, "copy_from_user WRITE_DUMMY failed\n");
+            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
+            {
+                dev_err(&dev->interface->dev, "PIUSB_WRITEPIPE: copy_from_user failed\n");
+                return -EFAULT;
+            }
 
             if (!access_ok(VERIFY_READ, ctrl.pData, ctrl.numbytes))
             {
@@ -281,8 +278,11 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return ctrl.numbytes;
 
         case PIUSB_USERBUFFER:
-            if (__copy_from_user(&ctrl, (void __user*)arg, sizeof(struct ioctl_data)))
-                dev_err(&dev->interface->dev, "copy_from_user failed\n");
+            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
+            {
+                dev_err(&dev->interface->dev, "PIUSB_USERBUFFER: copy_from_user failed\n");
+                return -EFAULT;
+            }
 
             return piusb_map_user_buffer(dev, &ctrl);
 
@@ -291,8 +291,11 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return 0;
 
         case PIUSB_READPIPE:
-            if (__copy_from_user(&ctrl, (void __user*)arg, sizeof(struct ioctl_data)))
-                dev_err(&dev->interface->dev, "copy_from_user failed\n");
+            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
+            {
+                dev_err(&dev->interface->dev, "PIUSB_READPIPE: copy_from_user failed\n");
+                return -EFAULT;
+            }
 
             switch (ctrl.endpoint)
             {
@@ -422,8 +425,11 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return dev->iama;
 
         case PIUSB_SETFRAMESIZE:
-            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(struct ioctl_data)))
-                dev_err(&dev->interface->dev, "copy_from_user failed\n");
+            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
+            {
+                dev_err(&dev->interface->dev, "PIUSB_SETFRAMESIZE: copy_from_user failed\n");
+                return -EFAULT;
+            }
 
             dev->frameSize = ctrl.numbytes;
             dev->num_frames = ctrl.numFrames;
@@ -437,6 +443,7 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                 dev->maplist_numPagesMapped = vmalloc(sizeof(unsigned int) * dev->num_frames);
             if (!dev->pendedPixelUrbs)
                 dev->pendedPixelUrbs = kmalloc(sizeof(char *) * dev->num_frames, GFP_KERNEL);
+
             return 0;
 
         default:
