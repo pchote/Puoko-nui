@@ -603,6 +603,22 @@ static int piusb_setframesize(struct rspiusb *dev, struct ioctl_data __user *arg
     return 0;
 }
 
+static int piusb_endpoint(struct rspiusb *dev, int frame)
+{
+    if (dev->iama == PIXIS_PID)
+    {
+        dev_dbg(&dev->interface->dev, "Pixis Frame #%d: EP=%d\n",
+                frame, (frame % 2) ? 4 : 2);
+        return (frame % 2) ? dev->hEP[3] : dev->hEP[2];
+    }
+    else
+    {
+        /* ST133 only has 1 endpoint for Pixel data transfer */
+        dev_dbg(&dev->interface->dev, "ST133 Frame #%d: EP=2\n", frame);
+        return dev->hEP[0];
+    }
+}
+
 static int piusb_unmap_user_buffer(struct rspiusb *dev)
 {
     int i = 0;
@@ -625,16 +641,7 @@ static int piusb_unmap_user_buffer(struct rspiusb *dev)
 
     for (k = 0; k < dev->num_frames; k++)
     {
-        if (dev->iama == PIXIS_PID) /* If so, which EP should we map this frame to */
-        {
-            if (k % 2) /* Check to see if this should use EP4(PONG) */
-                epAddr = dev->hEP[3]; /* PONG, odd frames */
-            else
-                epAddr = dev->hEP[2]; /* PING, even frames and zero */
-        }
-        else /* ST133 only has 1 endpoint for Pixel data transfer */
-            epAddr = dev->hEP[0];
-
+        epAddr = piusb_endpoint(dev, k);
         dma_unmap_sg(&dev->udev->dev, dev->sgl[k], dev->maplist_numPagesMapped[k],
                      epAddr ? DMA_FROM_DEVICE : DMA_TO_DEVICE);
 
@@ -685,8 +692,8 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data __user *
     unsigned long uaddr;
     unsigned long numbytes;
     int frameInfo; /* Which frame we're mapping */
-    unsigned int epAddr = 0;
-    unsigned long count =0;
+    unsigned int epAddr = piusb_endpoint(dev, ctrl.numFrames);
+    unsigned long count = 0;
     int i = 0;
     int k = 0;
     int err = 0;
@@ -703,26 +710,9 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data __user *
     frameInfo = ctrl.numFrames;
     uaddr = (unsigned long)ctrl.pData;
     numbytes = ctrl.numbytes;
-
-    if (dev->iama == PIXIS_PID) /* If so, which EP should we map this frame to */
-    {
-        if (frameInfo % 2) /* check to see if this should use EP4(PONG) */
-            epAddr = dev->hEP[3]; /* PONG, odd frames */
-        else
-            epAddr = dev->hEP[2]; /* PING, even frames and zero */
-
-        dev_dbg(&dev->interface->dev, "Pixis Frame #%d: EP=%d\n",
-                frameInfo, (epAddr==dev->hEP[2]) ? 2 : 4);
-    }
-    else /* ST133 only has 1 endpoint for Pixel data transfer */
-    {
-        epAddr = dev->hEP[0];
-        dev_dbg(&dev->interface->dev, "ST133 Frame #%d: EP=2\n", frameInfo);
-    }
-
-    count = numbytes;
+    count = ctrl.numbytes;
     dev_dbg(&dev->interface->dev, "UserAddress = 0x%08lX\n", uaddr);
-    dev_dbg(&dev->interface->dev, "numbytes = %d\n", (int)numbytes);
+    dev_dbg(&dev->interface->dev, "numbytes = %lu\n", numbytes);
 
     /* Number of pages to map the entire user space DMA buffer */
     numPagesRequired = ((uaddr & ~PAGE_MASK) + count + ~PAGE_MASK) >> PAGE_SHIFT;
