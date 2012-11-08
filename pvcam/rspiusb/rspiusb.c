@@ -40,7 +40,7 @@
 #include "rspiusb.h"
 
 static void piusb_delete(struct kref *);
-static int  piusb_output(struct rspiusb *, struct ioctl_data *, unsigned char *, int);
+static int  piusb_output(struct rspiusb *, struct ioctl_data *);
 static int  piusb_unmap_user_buffer(struct rspiusb *);
 static int  piusb_map_user_buffer(struct rspiusb *, struct ioctl_data *);
 static void piusb_write_bulk_callback(struct urb *);
@@ -274,14 +274,8 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                 return -EFAULT;
             }
 
-            if (!access_ok(VERIFY_READ, ctrl.pData, ctrl.numbytes))
-            {
-                dev_err(&dev->interface->dev, "can't access pData\n");
-                return 0;
-            }
-
-            piusb_output(dev, &ctrl, ctrl.pData, ctrl.numbytes);
-            return ctrl.numbytes;
+            retval = piusb_output(dev, &ctrl);
+            return retval < 0 ? 0 : ctrl.numbytes;
 
         case PIUSB_USERBUFFER:
             if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
@@ -527,7 +521,7 @@ static void __exit piusb_exit(void)
     usb_deregister(&piusb_driver);
 }
 
-static int piusb_output(struct rspiusb *dev, struct ioctl_data *io, unsigned char *uBuf, int len)
+static int piusb_output(struct rspiusb *dev, struct ioctl_data *io)
 {
     struct urb *urb = NULL;
     int err = 0;
@@ -536,20 +530,20 @@ static int piusb_output(struct rspiusb *dev, struct ioctl_data *io, unsigned cha
     urb = usb_alloc_urb(0, GFP_KERNEL);
     if (urb != NULL)
     {
-        kbuf = kmalloc(len, GFP_KERNEL);
+        kbuf = kmalloc(io->numbytes, GFP_KERNEL);
         if (kbuf == NULL)
         {
             dev_err(&dev->interface->dev, "kmalloc failed for pisub_output\n");
             return -ENOMEM;
         }
 
-        if (copy_from_user(kbuf, uBuf, len))
+        if (copy_from_user(kbuf, io->pData, io->numbytes))
         {
             dev_err(&dev->interface->dev, "copy_from_user failed for pisub_output\n");
             return -EFAULT;
         }
 
-        usb_fill_bulk_urb(urb, dev->udev, dev->hEP[io->endpoint], kbuf, len, piusb_write_bulk_callback, dev);
+        usb_fill_bulk_urb(urb, dev->udev, dev->hEP[io->endpoint], kbuf, io->numbytes, piusb_write_bulk_callback, dev);
 
         err = usb_submit_urb(urb, GFP_KERNEL);
         if (err)
