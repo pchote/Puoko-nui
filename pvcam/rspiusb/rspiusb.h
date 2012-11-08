@@ -18,7 +18,7 @@
 #define PIUSB_UNMAP_USERBUFFER  _IOW(PIUSB_MAGIC, PIUSB_IOCTL_BASE + 9, struct ioctl_data)
 
 /* Version Information */
-#define DRIVER_VERSION "V1.0.2"
+#define DRIVER_VERSION "V1.0.3"
 #define DRIVER_AUTHOR  "Princeton Instruments"
 #define DRIVER_DESC    "PI USB2.0 Device Driver for Linux"
 
