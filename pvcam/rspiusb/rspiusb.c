@@ -41,6 +41,7 @@
 
 static void piusb_delete(struct kref *);
 static int  piusb_output(struct rspiusb *, struct ioctl_data *);
+static int  piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *io);
 static int  piusb_unmap_user_buffer(struct rspiusb *);
 static int  piusb_map_user_buffer(struct rspiusb *, struct ioctl_data *);
 static void piusb_write_bulk_callback(struct urb *);
@@ -203,11 +204,8 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
     struct rspiusb *dev;
     char dummyCtlBuf[] = {0,0,0,0,0,0,0,0};
     unsigned long devRB = 0;
-    int i = 0;
     int retval = 0;
     struct ioctl_data ctrl;
-    unsigned char *uBuf;
-    int numbytes = 0;
     unsigned short controlData = 0;
     unsigned char data[2];
 
@@ -291,135 +289,7 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return 0;
 
         case PIUSB_READPIPE:
-            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
-            {
-                dev_err(&dev->interface->dev, "PIUSB_READPIPE: copy_from_user failed\n");
-                return -EFAULT;
-            }
-
-            switch (ctrl.endpoint)
-            {
-                case 0: /* ST133 Pixel Data or PIXIS IO */
-                    if (dev->iama == PIXIS_PID)
-                    {
-                        unsigned int numToRead = 0;
-                        unsigned int totalRead = 0;
-                        uBuf = kmalloc(ctrl.numbytes, GFP_KERNEL);
-                        if (!uBuf)
-                        {
-                            dev_err(&dev->interface->dev, "Alloc for uBuf failed\n");
-                            return 0;
-                        }
-
-                        numbytes = ctrl.numbytes;
-                        numToRead = numbytes;
-                        dev_dbg(&dev->interface->dev, "numbytes to read = %d\n", numbytes);
-                        dev_dbg(&dev->interface->dev, "endpoint # %d\n", ctrl.endpoint);
-                        if (__copy_from_user(uBuf, ctrl.pData, numbytes))
-                            dev_err(&dev->interface->dev, "copying ctrl.pData to dummyBuf failed\n");
-
-                        do
-                        {
-                            i = usb_bulk_msg(dev->udev, dev->hEP[ctrl.endpoint], (uBuf + totalRead),
-                                             (numToRead > 64) ? 64 : numToRead, &numbytes, HZ*10); /* EP0 can only handle 64 bytes at a time */
-                            if (i)
-                            {
-                                dev_dbg(&dev->interface->dev, "CMD = %s, Address = 0x%02X\n",
-                                        ((uBuf[3] == 0x02) ? "WRITE" : "READ"), uBuf[1]);
-                                dev_dbg(&dev->interface->dev, "Number of bytes Attempted to read = %d\n", (int)ctrl.numbytes);
-                                dev_dbg(&dev->interface->dev, "Blocking Read I/O Failed with status %d\n", i);
-                                kfree(uBuf);
-                                return -1;
-                            }
-                            else
-                            {
-                                dev_dbg(&dev->interface->dev, "Pixis EP0 Read %d bytes\n", numbytes);
-                                totalRead += numbytes;
-                                numToRead -= numbytes;
-                            }
-                        } while (numToRead);
-
-                        memcpy(ctrl.pData, uBuf, totalRead);
-                        dev_dbg(&dev->interface->dev, "Total Bytes Read from PIXIS EP0 = %d\n", totalRead);
-                        ctrl.numbytes = totalRead;
-
-                        if (__copy_to_user((struct ioctl_struct *)arg, &ctrl, sizeof(struct ioctl_data)))
-                            dev_err(&dev->interface->dev, "copy_to_user failed in IORB\n");
-
-                        kfree(uBuf);
-                        return ctrl.numbytes;
-                    }
-                    else /* ST133 Pixel Data */
-                    {
-                        if (!dev->gotPixelData)
-                            return 0;
-                        else
-                        {
-                            dev->gotPixelData = 0;
-                            ctrl.numbytes = dev->bulk_in_size_returned;
-                            dev->bulk_in_size_returned -= dev->frameSize;
-                            for (i=0; i < dev->maplist_numPagesMapped[dev->active_frame]; i++)
-                                SetPageDirty(sg_page(&(dev->sgl[dev->active_frame][i])));
-                            dev->active_frame = ((dev->active_frame + 1) % dev->num_frames);
-                            return ctrl.numbytes;
-                        }
-                    }
-                    break;
-
-                case 1: /* ST133 I/O */
-                case 4: /* PIXIS I/O */
-                    uBuf = kmalloc(ctrl.numbytes, GFP_KERNEL);
-                    if (!uBuf)
-                    {
-                        dev_err(&dev->interface->dev, "Alloc for uBuf failed\n");
-                        return 0;
-                    }
-
-                    numbytes = ctrl.numbytes;
-                    if (__copy_from_user(uBuf, ctrl.pData, numbytes))
-                        dev_err(&dev->interface->dev, "Copying ctrl.pData to dummyBuf failed\n");
-
-                    i = usb_bulk_msg(dev->udev, dev->hEP[ctrl.endpoint], uBuf,
-                                     numbytes, &numbytes, HZ*10);
-
-                    if (i)
-                    {
-                        dev_err(&dev->interface->dev, "Blocking Read I/O Failed with status %d\n", i);
-                        kfree(uBuf);
-                        return -1;
-                    }
-                    else
-                    {
-                        ctrl.numbytes = numbytes;
-                        memcpy(ctrl.pData, uBuf, numbytes);
-
-                        if (__copy_to_user((struct ioctl_struct *)arg, &ctrl, sizeof(struct ioctl_data)))
-                            dev_err(&dev->interface->dev, "copy_to_user failed in IORB\n");
-
-                        kfree(uBuf);
-                        return ctrl.numbytes;
-                    }
-                    break;
-
-                case 2: /* PIXIS Ping */
-                case 3: /* PIXIS Pong */
-                    if(!dev->gotPixelData)
-                        return 0;
-                    else
-                    {
-                        dev->gotPixelData = 0;
-                        ctrl.numbytes = dev->bulk_in_size_returned;
-                        dev->bulk_in_size_returned -= dev->frameSize;
-
-                        for (i=0; i < dev->maplist_numPagesMapped[dev->active_frame]; i++)
-                            SetPageDirty(sg_page(&(dev->sgl[dev->active_frame][i])));
-
-                        dev->active_frame = ((dev->active_frame + 1) % dev->num_frames);
-                        return ctrl.numbytes;
-                    }
-                    break;
-            }
-            break;
+            return piusb_readpipe(dev, (struct ioctl_data __user *)arg);
 
         case PIUSB_WHATCAMERA:
             return dev->iama;
@@ -554,6 +424,145 @@ static int piusb_output(struct rspiusb *dev, struct ioctl_data *io)
     }
 
     return -EINPROGRESS;
+}
+
+static int piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg)
+{
+    struct ioctl_data ctrl;
+    unsigned char *uBuf;
+    int numbytes = 0;
+    int i = 0;
+
+    if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
+    {
+        dev_err(&dev->interface->dev, "PIUSB_READPIPE: copy_from_user failed\n");
+        return -EFAULT;
+    }
+
+    switch (ctrl.endpoint)
+    {
+        case 0: /* ST133 Pixel Data or PIXIS IO */
+            if (dev->iama == PIXIS_PID)
+            {
+                unsigned int numToRead = 0;
+                unsigned int totalRead = 0;
+                uBuf = kmalloc(ctrl.numbytes, GFP_KERNEL);
+                if (!uBuf)
+                {
+                    dev_err(&dev->interface->dev, "Alloc for uBuf failed\n");
+                    return 0;
+                }
+
+                numbytes = ctrl.numbytes;
+                numToRead = numbytes;
+                dev_dbg(&dev->interface->dev, "numbytes to read = %d\n", numbytes);
+                dev_dbg(&dev->interface->dev, "endpoint # %d\n", ctrl.endpoint);
+                if (__copy_from_user(uBuf, ctrl.pData, numbytes))
+                    dev_err(&dev->interface->dev, "copying ctrl.pData to dummyBuf failed\n");
+
+                do
+                {
+                    i = usb_bulk_msg(dev->udev, dev->hEP[ctrl.endpoint], (uBuf + totalRead),
+                                     (numToRead > 64) ? 64 : numToRead, &numbytes, HZ*10); /* EP0 can only handle 64 bytes at a time */
+                    if (i)
+                    {
+                        dev_dbg(&dev->interface->dev, "CMD = %s, Address = 0x%02X\n",
+                                ((uBuf[3] == 0x02) ? "WRITE" : "READ"), uBuf[1]);
+                        dev_dbg(&dev->interface->dev, "Number of bytes Attempted to read = %d\n", (int)ctrl.numbytes);
+                        dev_dbg(&dev->interface->dev, "Blocking Read I/O Failed with status %d\n", i);
+                        kfree(uBuf);
+                        return -1;
+                    }
+                    else
+                    {
+                        dev_dbg(&dev->interface->dev, "Pixis EP0 Read %d bytes\n", numbytes);
+                        totalRead += numbytes;
+                        numToRead -= numbytes;
+                    }
+                } while (numToRead);
+
+                memcpy(ctrl.pData, uBuf, totalRead);
+                dev_dbg(&dev->interface->dev, "Total Bytes Read from PIXIS EP0 = %d\n", totalRead);
+                ctrl.numbytes = totalRead;
+
+                if (__copy_to_user((struct ioctl_struct *)arg, &ctrl, sizeof(struct ioctl_data)))
+                    dev_err(&dev->interface->dev, "copy_to_user failed in IORB\n");
+
+                kfree(uBuf);
+                return ctrl.numbytes;
+            }
+            else /* ST133 Pixel Data */
+            {
+                if (!dev->gotPixelData)
+                    return 0;
+                else
+                {
+                    dev->gotPixelData = 0;
+                    ctrl.numbytes = dev->bulk_in_size_returned;
+                    dev->bulk_in_size_returned -= dev->frameSize;
+                    for (i=0; i < dev->maplist_numPagesMapped[dev->active_frame]; i++)
+                        SetPageDirty(sg_page(&(dev->sgl[dev->active_frame][i])));
+                    dev->active_frame = ((dev->active_frame + 1) % dev->num_frames);
+                    return ctrl.numbytes;
+                }
+            }
+            break;
+
+        case 1: /* ST133 I/O */
+        case 4: /* PIXIS I/O */
+            uBuf = kmalloc(ctrl.numbytes, GFP_KERNEL);
+            if (!uBuf)
+            {
+                dev_err(&dev->interface->dev, "Alloc for uBuf failed\n");
+                return 0;
+            }
+
+            numbytes = ctrl.numbytes;
+            if (__copy_from_user(uBuf, ctrl.pData, numbytes))
+                dev_err(&dev->interface->dev, "Copying ctrl.pData to dummyBuf failed\n");
+
+            i = usb_bulk_msg(dev->udev, dev->hEP[ctrl.endpoint], uBuf,
+                             numbytes, &numbytes, HZ*10);
+
+            if (i)
+            {
+                dev_err(&dev->interface->dev, "Blocking Read I/O Failed with status %d\n", i);
+                kfree(uBuf);
+                return -1;
+            }
+            else
+            {
+                ctrl.numbytes = numbytes;
+                memcpy(ctrl.pData, uBuf, numbytes);
+
+                if (__copy_to_user((struct ioctl_struct *)arg, &ctrl, sizeof(struct ioctl_data)))
+                    dev_err(&dev->interface->dev, "copy_to_user failed in IORB\n");
+
+                kfree(uBuf);
+                return ctrl.numbytes;
+            }
+            break;
+
+        case 2: /* PIXIS Ping */
+        case 3: /* PIXIS Pong */
+            if(!dev->gotPixelData)
+                return 0;
+            else
+            {
+                dev->gotPixelData = 0;
+                ctrl.numbytes = dev->bulk_in_size_returned;
+                dev->bulk_in_size_returned -= dev->frameSize;
+
+                for (i=0; i < dev->maplist_numPagesMapped[dev->active_frame]; i++)
+                    SetPageDirty(sg_page(&(dev->sgl[dev->active_frame][i])));
+
+                dev->active_frame = ((dev->active_frame + 1) % dev->num_frames);
+                return ctrl.numbytes;
+            }
+            break;
+    }
+
+    return 0;
 }
 
 static int piusb_unmap_user_buffer(struct rspiusb *dev)
