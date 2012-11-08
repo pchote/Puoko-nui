@@ -42,10 +42,11 @@
 static void piusb_delete(struct kref *);
 static int  piusb_getvndcmd(struct rspiusb *dev, struct ioctl_data __user *arg);
 static int  piusb_setvndcmd(struct rspiusb *dev, struct ioctl_data __user *arg);
-static int  piusb_output(struct rspiusb *, struct ioctl_data *);
-static int  piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *io);
+static int  piusb_writepipe(struct rspiusb *dev, struct ioctl_data __user *arg);
+static int  piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg);
+static int  piusb_setframesize(struct rspiusb *dev, struct ioctl_data __user *arg);
 static int  piusb_unmap_user_buffer(struct rspiusb *);
-static int  piusb_map_user_buffer(struct rspiusb *, struct ioctl_data *);
+static int  piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data __user *arg);
 static void piusb_write_bulk_callback(struct urb *);
 static void piusb_read_pixel_callback(struct urb *);
 
@@ -228,25 +229,15 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return ((dev->udev->speed == USB_SPEED_HIGH) ? 1 : 0);
 
         case PIUSB_WRITEPIPE:
-            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
-            {
-                dev_err(&dev->interface->dev, "PIUSB_WRITEPIPE: copy_from_user failed\n");
-                return -EFAULT;
-            }
-
-            retval = piusb_output(dev, &ctrl);
-            return retval < 0 ? 0 : ctrl.numbytes;
+            /* Return value ignored */
+            piusb_writepipe(dev, (struct ioctl_data __user *)arg);
+            return 0;
 
         case PIUSB_USERBUFFER:
-            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
-            {
-                dev_err(&dev->interface->dev, "PIUSB_USERBUFFER: copy_from_user failed\n");
-                return -EFAULT;
-            }
-
-            return piusb_map_user_buffer(dev, &ctrl);
+            return piusb_map_user_buffer(dev, (struct ioctl_data __user *)arg);
 
         case PIUSB_UNMAP_USERBUFFER:
+            /* Return value ignored */
             piusb_unmap_user_buffer(dev);
             return 0;
 
@@ -405,29 +396,36 @@ static int piusb_setvndcmd(struct rspiusb *dev, struct ioctl_data __user *arg)
                            HZ*10);
 }
 
-static int piusb_output(struct rspiusb *dev, struct ioctl_data *io)
+static int piusb_writepipe(struct rspiusb *dev, struct ioctl_data __user *arg)
 {
+    struct ioctl_data ctrl;
     struct urb *urb = NULL;
     int err = 0;
     unsigned char *kbuf = NULL;
 
+    if (copy_from_user(&ctrl, arg, sizeof(ctrl)))
+    {
+        dev_err(&dev->interface->dev, "PIUSB_WRITEPIPE: copy_from_user failed\n");
+        return -EFAULT;
+    }
+
     urb = usb_alloc_urb(0, GFP_KERNEL);
     if (urb != NULL)
     {
-        kbuf = kmalloc(io->numbytes, GFP_KERNEL);
+        kbuf = kmalloc(ctrl.numbytes, GFP_KERNEL);
         if (kbuf == NULL)
         {
             dev_err(&dev->interface->dev, "kmalloc failed for pisub_output\n");
             return -ENOMEM;
         }
 
-        if (copy_from_user(kbuf, io->pData, io->numbytes))
+        if (copy_from_user(kbuf, ctrl.pData, ctrl.numbytes))
         {
             dev_err(&dev->interface->dev, "copy_from_user failed for pisub_output\n");
             return -EFAULT;
         }
 
-        usb_fill_bulk_urb(urb, dev->udev, dev->hEP[io->endpoint], kbuf, io->numbytes, piusb_write_bulk_callback, dev);
+        usb_fill_bulk_urb(urb, dev->udev, dev->hEP[ctrl.endpoint], kbuf, ctrl.numbytes, piusb_write_bulk_callback, dev);
 
         err = usb_submit_urb(urb, GFP_KERNEL);
         if (err)
@@ -677,8 +675,9 @@ static int piusb_unmap_user_buffer(struct rspiusb *dev)
  *    structure.  The function returns the number of DMA addresses.  This may or may not be equal to the number of pages that
  *    the user buffer uses.  We then build an URB for each DMA address and then submit them.
  */
-static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data *io)
+static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data __user *arg)
 {
+    struct ioctl_data ctrl;
     unsigned long uaddr;
     unsigned long numbytes;
     int frameInfo; /* Which frame we're mapping */
@@ -690,9 +689,16 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data *io)
     int ret = 0;
     struct page **maplist_p;
     int numPagesRequired;
-    frameInfo = io->numFrames;
-    uaddr = (unsigned long) io->pData;
-    numbytes = io->numbytes;
+
+    if (copy_from_user(&ctrl, arg, sizeof(ctrl)))
+    {
+        dev_err(&dev->interface->dev, "PIUSB_USERBUFFER: copy_from_user failed\n");
+        return -EFAULT;
+    }
+
+    frameInfo = ctrl.numFrames;
+    uaddr = (unsigned long)ctrl.pData;
+    numbytes = ctrl.numbytes;
 
     if (dev->iama == PIXIS_PID) /* If so, which EP should we map this frame to */
     {
