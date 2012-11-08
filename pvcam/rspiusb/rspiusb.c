@@ -416,6 +416,26 @@ static int piusb_writepipe(struct rspiusb *dev, struct ioctl_data __user *arg)
     return -EINPROGRESS;
 }
 
+static int piusb_readpixeldata(struct rspiusb *dev, struct ioctl_data *ctrl)
+{
+    int i = 0;
+
+    if (dev->gotPixelData)
+    {
+        dev->gotPixelData = 0;
+        ctrl->numbytes = dev->bulk_in_size_returned;
+        dev->bulk_in_size_returned -= dev->frameSize;
+
+        for (i = 0; i < dev->maplist_numPagesMapped[dev->active_frame]; i++)
+            SetPageDirty(sg_page(&(dev->sgl[dev->active_frame][i])));
+
+        dev->active_frame = ((dev->active_frame + 1) % dev->num_frames);
+        return ctrl->numbytes;
+    }
+
+    return 0;
+}
+
 static int piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg)
 {
     struct ioctl_data ctrl;
@@ -494,20 +514,7 @@ static int piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg)
                 return ctrl.numbytes;
             }
             else /* ST133 Pixel Data */
-            {
-                if (!dev->gotPixelData)
-                    return 0;
-                else
-                {
-                    dev->gotPixelData = 0;
-                    ctrl.numbytes = dev->bulk_in_size_returned;
-                    dev->bulk_in_size_returned -= dev->frameSize;
-                    for (i=0; i < dev->maplist_numPagesMapped[dev->active_frame]; i++)
-                        SetPageDirty(sg_page(&(dev->sgl[dev->active_frame][i])));
-                    dev->active_frame = ((dev->active_frame + 1) % dev->num_frames);
-                    return ctrl.numbytes;
-                }
-            }
+                return piusb_readpixeldata(dev, &ctrl);
             break;
 
         case 1: /* ST133 I/O */
@@ -557,21 +564,7 @@ static int piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *arg)
 
         case 2: /* PIXIS Ping */
         case 3: /* PIXIS Pong */
-            if (!dev->gotPixelData)
-                return 0;
-            else
-            {
-                dev->gotPixelData = 0;
-                ctrl.numbytes = dev->bulk_in_size_returned;
-                dev->bulk_in_size_returned -= dev->frameSize;
-
-                for (i=0; i < dev->maplist_numPagesMapped[dev->active_frame]; i++)
-                    SetPageDirty(sg_page(&(dev->sgl[dev->active_frame][i])));
-
-                dev->active_frame = ((dev->active_frame + 1) % dev->num_frames);
-                return ctrl.numbytes;
-            }
-            break;
+            return piusb_readpixeldata(dev, &ctrl);
     }
 
     return 0;
