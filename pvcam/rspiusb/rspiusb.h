@@ -85,7 +85,6 @@ struct ioctl_data
 };
 
 static long piusb_unlocked_ioctl(struct file *f, unsigned cmd, unsigned long arg);
-static int 	piusb_ioctl         (struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg);
 static int 	piusb_open          (struct inode *inode, struct file *file);
 static int 	piusb_release       (struct inode *inode, struct file *file);
 static int  piusb_probe         (struct usb_interface *interface, const struct usb_device_id *id);
@@ -111,11 +110,7 @@ static struct file_operations piusb_fops = {
 	 * or should the open() function fail.
 	 */
 	.owner = THIS_MODULE,
-#if HAVE_UNLOCKED_IOCTL
 	.unlocked_ioctl =piusb_unlocked_ioctl,
-#else
-	.ioctl = piusb_ioctl,
-#endif
 	.open = piusb_open,
 	.release = piusb_release,
 };

@@ -30,12 +30,7 @@
 #include <linux/mm.h>
 #include <linux/pci.h> //for scatterlist macros
 #include <linux/pagemap.h>
-
-#if HAVE_UNLOCKED_IOCTL
 #include <linux/mutex.h>
-#else
-#include <linux/smp_lock.h>
-#endif
 
 #include "rspiusb.h"
 
@@ -202,10 +197,11 @@ static int piusb_release(struct inode *inode, struct file *file)
     return retval;
 }
 
-static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
+static long piusb_unlocked_ioctl(struct file *f, unsigned cmd, unsigned long arg)
 {
-    struct rspiusb *dev = (struct rspiusb *)file->private_data;
+    struct rspiusb *dev = (struct rspiusb *)f->private_data;
     struct ioctl_data __user *ioctl = (struct ioctl_data __user *)arg;
+    int retval = -ENOTTY;
 
     /* Verify that the device wasn't unplugged */
     if (!dev->present)
@@ -214,47 +210,49 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         return -ENODEV;
     }
 
+    mutex_lock(&piusb_mutex);
     switch (cmd)
     {
         case PIUSB_GETVNDCMD:
-            return piusb_getvndcmd(dev, ioctl);
-
+            retval = piusb_getvndcmd(dev, ioctl);
+            break;
         case PIUSB_SETVNDCMD:
-            return piusb_setvndcmd(dev, ioctl);
-
+            retval = piusb_setvndcmd(dev, ioctl);
+            break;
         case PIUSB_ISHIGHSPEED:
-            return ((dev->udev->speed == USB_SPEED_HIGH) ? 1 : 0);
-
+            retval = (dev->udev->speed == USB_SPEED_HIGH) ? 1 : 0;
+            break;
         case PIUSB_WRITEPIPE:
             /* Return value ignored */
             piusb_writepipe(dev, ioctl);
-            return 0;
-
+            retval = 0;;
+            break;
         case PIUSB_USERBUFFER:
-            return piusb_map_user_buffer(dev, ioctl);
-
+            retval = piusb_map_user_buffer(dev, ioctl);
+            break;
         case PIUSB_UNMAP_USERBUFFER:
             /* Return value ignored */
             piusb_unmap_user_buffer(dev);
-            return 0;
-
+            retval = 0;
+            break;
         case PIUSB_READPIPE:
-            return piusb_readpipe(dev, ioctl);
-
+            retval = piusb_readpipe(dev, ioctl);
+            break;
         case PIUSB_WHATCAMERA:
-            return dev->iama;
-
+            retval = dev->iama;
+            break;
         case PIUSB_SETFRAMESIZE:
-            return piusb_setframesize(dev, ioctl);
-
+            retval = piusb_setframesize(dev, ioctl);
+            break;
         default:
             dev_dbg(&dev->interface->dev, "Unknown ioctl: %d\n", cmd);
             break;
     }
+    mutex_unlock(&piusb_mutex);
 
     /* Unknown ioctl */
     dev_err(&dev->interface->dev, "Returning -ENOTTY\n");
-    return -ENOTTY;
+    return retval;
 }
 
 /**
@@ -273,22 +271,15 @@ static void piusb_disconnect(struct usb_interface *interface)
     struct rspiusb *dev;
     int minor = interface->minor;
 
-#if HAVE_UNLOCKED_IOCTL
     mutex_lock(&piusb_mutex);
-#else
-    lock_kernel();
-#endif
+
     dev = usb_get_intfdata(interface);
     usb_set_intfdata(interface, NULL);
 
     /* Give back our minor */
     usb_deregister_dev(interface, &piusb_class);
 
-#if HAVE_UNLOCKED_IOCTL
     mutex_unlock(&piusb_mutex);
-#else
-    unlock_kernel();
-#endif
 
     /* Prevent device read, write and ioctl */
     dev->present = 0;
@@ -758,7 +749,7 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data __user *
     {
         dev->sgl[frameInfo][0].length = PAGE_SIZE - dev->sgl[frameInfo][0].offset;
         count -= dev->sgl[frameInfo][0].length;
-        for (k=1; k < dev->maplist_numPagesMapped[frameInfo] ; k++)
+        for (k = 1; k < dev->maplist_numPagesMapped[frameInfo]; k++)
         {
             sg_assign_page(&(dev->sgl[frameInfo][k]), maplist_p[k]);
             dev->sgl[frameInfo][k].offset = 0;
@@ -798,7 +789,7 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data __user *
     for (i = 0; i < dev->sgEntries[frameInfo]; i++)
     {
         dev->PixelUrb[frameInfo][i] = usb_alloc_urb(0, GFP_KERNEL); /* 0 because we're using BULK transfers */
-        usb_fill_bulk_urb( dev->PixelUrb[frameInfo][i],
+        usb_fill_bulk_urb(dev->PixelUrb[frameInfo][i],
                           dev->udev,
                           epAddr,
                           (void *)(unsigned long)sg_dma_address(&dev->sgl[frameInfo][i]),
@@ -810,9 +801,9 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data __user *
     }
 
     dev->PixelUrb[frameInfo][--i]->transfer_flags &= ~URB_NO_INTERRUPT;  /* Only interrupt when last URB completes */
-    dev->pendedPixelUrbs[frameInfo] = kmalloc((dev->sgEntries[frameInfo] * sizeof(char)), GFP_KERNEL);
+    dev->pendedPixelUrbs[frameInfo] = kmalloc((dev->sgEntries[frameInfo]*sizeof(char)), GFP_KERNEL);
     if (!dev->pendedPixelUrbs[frameInfo])
-        dev_err(&dev->interface->dev, "Can't allocate Memory for pendedPixelUrbs\n");
+       dev_err(&dev->interface->dev, "Can't allocate Memory for pendedPixelUrbs\n");
 
     for (i = 0; i < dev->sgEntries[frameInfo]; i++)
     {
@@ -828,15 +819,6 @@ static int piusb_map_user_buffer(struct rspiusb *dev, struct ioctl_data __user *
     }
 
     return 0;
-}
-
-static long piusb_unlocked_ioctl(struct file *f, unsigned cmd, unsigned long arg)
-{
-    long ret;
-    mutex_lock(&piusb_mutex);
-    ret = piusb_ioctl(f->f_dentry->d_inode, f, cmd, arg);
-    mutex_unlock(&piusb_mutex);
-    return ret;
 }
 
 /**
