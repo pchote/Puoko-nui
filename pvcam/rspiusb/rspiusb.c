@@ -205,6 +205,7 @@ static int piusb_release(struct inode *inode, struct file *file)
 static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
     struct rspiusb *dev = (struct rspiusb *)file->private_data;
+    struct ioctl_data __user *ioctl = (struct ioctl_data __user *)arg;
 
     /* Verify that the device wasn't unplugged */
     if (!dev->present)
@@ -216,21 +217,21 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
     switch (cmd)
     {
         case PIUSB_GETVNDCMD:
-            return piusb_getvndcmd(dev, (struct ioctl_data __user *)arg);
+            return piusb_getvndcmd(dev, ioctl);
 
         case PIUSB_SETVNDCMD:
-            return piusb_setvndcmd(dev, (struct ioctl_data __user *)arg);
+            return piusb_setvndcmd(dev, ioctl);
 
         case PIUSB_ISHIGHSPEED:
             return ((dev->udev->speed == USB_SPEED_HIGH) ? 1 : 0);
 
         case PIUSB_WRITEPIPE:
             /* Return value ignored */
-            piusb_writepipe(dev, (struct ioctl_data __user *)arg);
+            piusb_writepipe(dev, ioctl);
             return 0;
 
         case PIUSB_USERBUFFER:
-            return piusb_map_user_buffer(dev, (struct ioctl_data __user *)arg);
+            return piusb_map_user_buffer(dev, ioctl);
 
         case PIUSB_UNMAP_USERBUFFER:
             /* Return value ignored */
@@ -238,13 +239,13 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return 0;
 
         case PIUSB_READPIPE:
-            return piusb_readpipe(dev, (struct ioctl_data __user *)arg);
+            return piusb_readpipe(dev, ioctl);
 
         case PIUSB_WHATCAMERA:
             return dev->iama;
 
         case PIUSB_SETFRAMESIZE:
-            return piusb_setframesize(dev, (struct ioctl_data __user *)arg);
+            return piusb_setframesize(dev, ioctl);
 
         default:
             dev_dbg(&dev->interface->dev, "Unknown ioctl: %d\n", cmd);
