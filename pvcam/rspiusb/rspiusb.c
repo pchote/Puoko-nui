@@ -40,6 +40,7 @@
 #include "rspiusb.h"
 
 static void piusb_delete(struct kref *);
+static int  piusb_getvndcmd(struct rspiusb *dev, struct ioctl_data __user *arg);
 static int  piusb_output(struct rspiusb *, struct ioctl_data *);
 static int  piusb_readpipe(struct rspiusb *dev, struct ioctl_data __user *io);
 static int  piusb_unmap_user_buffer(struct rspiusb *);
@@ -203,7 +204,6 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 {
     struct rspiusb *dev;
     char dummyCtlBuf[] = {0,0,0,0,0,0,0,0};
-    unsigned long devRB = 0;
     int retval = 0;
     struct ioctl_data ctrl;
     unsigned short controlData = 0;
@@ -221,17 +221,7 @@ static int piusb_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
     switch (cmd)
     {
         case PIUSB_GETVNDCMD:
-            if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
-            {
-                dev_err(&dev->interface->dev, "PIUSB_GETVNDCMD: copy_from_user failed\n");
-                return -EFAULT;
-            }
-
-            dev_dbg(&dev->interface->dev, "Get Vendor Command = %x\n", ctrl.cmd);
-            retval = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0), ctrl.cmd,
-                                     USB_DIR_IN, 0, 0, &devRB,  ctrl.numbytes, HZ*10);
-
-            return devRB;
+            return piusb_getvndcmd(dev, (struct ioctl_data __user *)arg);
 
         case PIUSB_SETVNDCMD:
             if (copy_from_user(&ctrl, (void __user*)arg, sizeof(ctrl)))
@@ -389,6 +379,24 @@ static int __init piusb_init(void)
 static void __exit piusb_exit(void)
 {
     usb_deregister(&piusb_driver);
+}
+
+static int piusb_getvndcmd(struct rspiusb *dev, struct ioctl_data __user *arg)
+{
+    unsigned long devRB = 0;
+    struct ioctl_data ctrl;
+
+    if (copy_from_user(&ctrl, arg, sizeof(ctrl)))
+    {
+        dev_err(&dev->interface->dev, "PIUSB_GETVNDCMD: copy_from_user failed\n");
+        return -EFAULT;
+    }
+
+    dev_dbg(&dev->interface->dev, "Get Vendor Command = %x\n", ctrl.cmd);
+    usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0), ctrl.cmd,
+                    USB_DIR_IN, 0, 0, &devRB, ctrl.numbytes, HZ*10);
+
+    return devRB;
 }
 
 static int piusb_output(struct rspiusb *dev, struct ioctl_data *io)
