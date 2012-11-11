@@ -417,7 +417,7 @@ double camera_picam_update_camera_settings(Camera *camera, void *_internal)
     }
 
     uint16_t wy = pn_preference_int(CAMERA_WINDOW_Y);
-    if (wy + wh > roi_constraint->width_constraint.maximum)
+    if (wy + wh > roi_constraint->height_constraint.maximum)
     {
         pn_log("Invalid window y: %d. Reset to %d.", wy, 0);
         wy = 0;
@@ -643,7 +643,7 @@ void camera_picam_query_ccd_region(Camera *camera, void *_internal, uint16_t reg
     region[0] = roi_constraint->x_constraint.minimum;
     region[1] = roi_constraint->x_constraint.maximum;
     region[2] = roi_constraint->y_constraint.minimum;
-    region[3] = roi_constraint->y_constraint.minimum;
+    region[3] = roi_constraint->y_constraint.maximum;
 
     Picam_DestroyRoisConstraints(roi_constraint);
 }
