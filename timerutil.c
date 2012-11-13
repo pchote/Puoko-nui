@@ -113,6 +113,9 @@ int main(int argc, char *argv[])
         if (strcmp(argv[1], "--relay") == 0)
             return send_data((uint8_t []){'$','$','R',0, 0,'\r','\n'}, 7);
 
+        if (strcmp(argv[1], "--upgrade") == 0)
+            return send_data((uint8_t []){'$','$','U',0, 0,'\r','\n'}, 7);
+
         if (strcmp(argv[1], "--flush") == 0)
         {
             // Send a single 'E' to exit upgrade mode
@@ -126,6 +129,7 @@ int main(int argc, char *argv[])
 
     printf("Example usage:\n");
     printf("  timerutil --relay\n");
+    printf("  timerutil --upgrade\n");
     printf("  timerutil --flush\n");
 
     return 1;
