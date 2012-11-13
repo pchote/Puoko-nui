@@ -83,6 +83,6 @@
       location = "group:version.h">
    </FileRef>
    <FileRef
-      location = "group:utilities.c">
+      location = "group:timerutil.c">
    </FileRef>
 </Workspace>
