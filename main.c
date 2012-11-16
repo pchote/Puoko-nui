@@ -33,6 +33,7 @@ pthread_mutex_t reset_mutex;
 
 struct atomicqueue *log_queue, *frame_queue, *trigger_queue;
 char *fatal_error = NULL;
+bool first_frame = true;
 
 void queue_framedata(CameraFrame *frame)
 {
@@ -90,6 +91,7 @@ void clear_queued_data()
         free(item);
     }
 
+    first_frame = true;
     pthread_mutex_unlock(&reset_mutex);
 }
 
@@ -244,6 +246,17 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
 
 void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
 {
+    if (first_frame)
+    {
+        // The first frame from the MicroMax corresponds to the startup
+        // and alignment period, so is meaningless
+        // The first frame from the ProEM has incorrect cleaning so the
+        // bias is inconsistent with the other frames
+        pn_log("Discarding first frame.");
+        first_frame = false;
+        return;
+    }
+
     if (pn_preference_char(SAVE_FRAMES))
     {
         // Construct the output filepath from the output dir, run prefix, and run number.
