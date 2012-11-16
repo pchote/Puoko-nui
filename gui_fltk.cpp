@@ -409,19 +409,6 @@ void FLTKGui::createButtonGroup()
     m_buttonQuit->callback(buttonQuitPressed);
 }
 
-#define set_string_from_input(a,b) _set_string_from_input(a, # a, b)
-void _set_string_from_input(PNPreferenceType key, const char *name, Fl_Input *input)
-{
-    char *oldval = pn_preference_string(key);
-    const char *newval = input->value();
-    if (strcmp(oldval, newval))
-    {
-        pn_preference_set_string(key, newval);
-        pn_log("%s set to `%s'.", name, newval);
-    }
-    free(oldval);
-}
-
 #define set_string(a,b) _set_string(a, # a, b)
 void _set_string(PNPreferenceType key, const char *name, const char *str)
 {
@@ -731,15 +718,15 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
     set_string(OUTPUT_DIR, output);
     free(output);
 
-    set_string_from_input(RUN_PREFIX, gui->m_metadataRunPrefix);
+    set_string(RUN_PREFIX, gui->m_metadataRunPrefix->value());
     set_int(RUN_NUMBER, run_number);
 
     pn_preference_set_char(OBJECT_TYPE, gui->m_metadataFrameTypeInput->value());
-    set_string_from_input(OBJECT_NAME, gui->m_metadataTargetInput);
-    set_string_from_input(OBSERVERS, gui->m_metadataObserversInput);
-    set_string_from_input(OBSERVATORY, gui->m_metadataObservatoryInput);
-    set_string_from_input(TELESCOPE, gui->m_metadataTelecopeInput);
-    set_string_from_input(FILTER, gui->m_metadataFilterInput);
+    set_string(OBJECT_NAME, gui->m_metadataTargetInput->value());
+    set_string(OBSERVERS, gui->m_metadataObserversInput->value());
+    set_string(OBSERVATORY, gui->m_metadataObservatoryInput->value());
+    set_string(TELESCOPE, gui->m_metadataTelecopeInput->value());
+    set_string(FILTER, gui->m_metadataFilterInput->value());
     set_int(CALIBRATION_COUNTDOWN, calibration_countdown);
 
     gui->updateAcquisitionGroup();
