@@ -439,21 +439,30 @@ int main(int argc, char *argv[])
             time_t trigger_start_time = timestamp_to_time_t(trigger);
 
             double mismatch = difftime(estimated_start_time, trigger_start_time);
+            bool process = true;
+
             if (fabs(mismatch) > 1.5)
             {
-                TimerTimestamp estimate_start = frame->downloaded_time;
-                estimate_start.seconds -= readout_time + exptime;
-                timestamp_normalize(&estimate_start);
+                if (pn_preference_char(VALIDATE_TIMESTAMPS))
+                {
+                    TimerTimestamp estimate_start = frame->downloaded_time;
+                    estimate_start.seconds -= readout_time + exptime;
+                    timestamp_normalize(&estimate_start);
 
-                pn_log("ERROR: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);
-                pn_log("Frame recieved: %02d:%02d:%02d", frame->downloaded_time.hours, frame->downloaded_time.minutes, frame->downloaded_time.seconds);
-                pn_log("Estimated frame start: %02d:%02d:%02d", estimate_start.hours, estimate_start.minutes, estimate_start.seconds);
-                pn_log("Trigger start: %02d:%02d:%02d", trigger->hours, trigger->minutes, trigger->seconds);
+                    pn_log("ERROR: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);
+                    pn_log("Frame recieved: %02d:%02d:%02d", frame->downloaded_time.hours, frame->downloaded_time.minutes, frame->downloaded_time.seconds);
+                    pn_log("Estimated frame start: %02d:%02d:%02d", estimate_start.hours, estimate_start.minutes, estimate_start.seconds);
+                    pn_log("Trigger start: %02d:%02d:%02d", trigger->hours, trigger->minutes, trigger->seconds);
 
-                pn_log("Discarding all stored frames and triggers.");
-                clear_queued_data();
+                    pn_log("Discarding all stored frames and triggers.");
+                    clear_queued_data();
+                    process = false;
+                }
+                else
+                    pn_log("WARNING: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);
             }
-            else
+
+            if (process)
                 process_framedata(frame, *trigger);
 
             free(trigger);
