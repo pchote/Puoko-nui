@@ -126,6 +126,14 @@ void *reduction_thread(void *_scripting)
                 snprintf(command + command_len, frame_len + 4, "\"%s\" ", frame);
             }
 
+            command = realloc(command, strlen(command) + 5);
+            if (!command)
+            {
+                pn_log("Failed to allocate reduction string. Skipping reduction");
+                break;
+            }
+            strcat(command, " 2>&1");
+
             if (command)
             {
                 run_script(command, "Reduction: ");
@@ -142,7 +150,7 @@ void *preview_thread(void *_scripting)
     ScriptingInterface *scripting = (ScriptingInterface *)_scripting;
 
     // Run startup script
-    run_script("./startup.sh", "Startup: ");
+    run_script("./startup.sh 2>&1", "Startup: ");
 
     // Loop until shutdown, parsing incoming data
     while (true)
@@ -158,7 +166,7 @@ void *preview_thread(void *_scripting)
         if (preview_available)
         {
             pn_log("Updating preview.");
-            run_script("./preview.sh", "Preview: ");
+            run_script("./preview.sh 2>&1", "Preview: ");
         }
     }
 
