@@ -71,6 +71,7 @@ private:
     static void buttonCameraPressed(Fl_Widget* o, void *v);
     static void buttonAcquirePressed(Fl_Widget* o, void *v);
     static void buttonSavePressed(Fl_Widget* o, void *v);
+    static void buttonReductionPressed(Fl_Widget* o, void *v);
     static void buttonQuitPressed(Fl_Widget* o, void *v);
 
     static void buttonCameraConfirmPressed(Fl_Widget* o, void *v);
@@ -115,6 +116,7 @@ private:
     Fl_Button *m_buttonCamera;
     Fl_Toggle_Button *m_buttonAcquire;
     Fl_Toggle_Button *m_buttonSave;
+    Fl_Toggle_Button *m_buttonReduction;
     Fl_Button *m_buttonQuit;
 
     // Temporary state comparables

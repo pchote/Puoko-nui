@@ -49,6 +49,7 @@ PNPreferenceStore prefs[] =
 
     {EXPOSURE_TIME,             CHAR, .value.c = 5,     "ExposureTime: %hhu\n"},
     {SAVE_FRAMES,               CHAR, .value.c = false, "SaveFrames: %hhu\n"},
+    {REDUCE_FRAMES,             CHAR, .value.c = false, "ReduceFrames: %hhu\n"},
     {OBJECT_TYPE,               CHAR, .value.c = OBJECT_TARGET, "ObjectType: %hhu\n"},
     {RUN_NUMBER,                INT,  .value.i = 0,     "RunNumber: %d\n"},
     {CALIBRATION_COUNTDOWN,     INT, .value.i = 30,     "CalibrationRemainingFrames: %d\n"},

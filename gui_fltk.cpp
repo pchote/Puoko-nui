@@ -311,7 +311,7 @@ void FLTKGui::updateAcquisitionGroup()
 
 void FLTKGui::createLogGroup()
 {
-    m_logDisplay = new Fl_Multi_Browser(270, 10, 380, 295);
+    m_logDisplay = new Fl_Multi_Browser(270, 10, 430, 295);
     m_logEntries = 0;
 }
 
@@ -362,6 +362,17 @@ void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
     pn_log("%s saving.", save ? "Enabled" : "Disabled");
 }
 
+
+void FLTKGui::buttonReductionPressed(Fl_Widget* o, void *userdata)
+{
+    bool reduce = pn_preference_char(REDUCE_FRAMES);
+    pn_preference_set_char(REDUCE_FRAMES, !reduce);
+    char *prefix = pn_preference_string(RUN_PREFIX);
+    pn_log("%s reduction of %s.dat.", !reduce ? "Enabled" : "Disabled", prefix);
+    free(prefix);
+}
+
+
 void FLTKGui::buttonQuitPressed(Fl_Widget* o, void *userdata)
 {
     FLTKGui* gui = (FLTKGui *)userdata;
@@ -379,15 +390,19 @@ void FLTKGui::createButtonGroup()
     m_buttonCamera->user_data((void*)(this));
     m_buttonCamera->callback(buttonCameraPressed);
 
-    m_buttonAcquire = new Fl_Toggle_Button(270, y, 120, 30, "Acquire");
+    m_buttonAcquire = new Fl_Toggle_Button(270, y, 100, 30, "Acquire");
     m_buttonAcquire->user_data((void*)(this));
     m_buttonAcquire->callback(buttonAcquirePressed);
 
-    m_buttonSave = new Fl_Toggle_Button(400, y, 120, 30, "Save");
+    m_buttonSave = new Fl_Toggle_Button(380, y, 100, 30, "Save");
     m_buttonSave->user_data((void*)(this));
     m_buttonSave->callback(buttonSavePressed);
 
-    m_buttonQuit = new Fl_Button(530, y, 120, 30, "Quit");
+    m_buttonReduction = new Fl_Toggle_Button(490, y, 100, 30, "Reduction");
+    m_buttonReduction->user_data((void*)(this));
+    m_buttonReduction->callback(buttonReductionPressed);
+
+    m_buttonQuit = new Fl_Button(600, y, 100, 30, "Quit");
     m_buttonQuit->user_data((void*)(this));
     m_buttonQuit->callback(buttonQuitPressed);
 }
@@ -739,9 +754,15 @@ void FLTKGui::updateButtonGroup()
     {
         m_buttonMetadata->deactivate();
         m_metadataWindow->hide();
+        m_buttonReduction->activate();
     }
     else
+    {
         m_buttonMetadata->activate();
+        m_buttonReduction->value(false);
+        m_buttonReduction->deactivate();
+        pn_preference_set_char(REDUCE_FRAMES, false);
+    }
 }
 
 void FLTKGui::closeMainWindowCallback(Fl_Widget *window, void *v)
@@ -764,7 +785,7 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     : m_cameraRef(camera), m_timerRef(timer)
 {
 	// Create the main window
-	m_mainWindow = new Fl_Double_Window(660, 355, "Acquisition Control");
+	m_mainWindow = new Fl_Double_Window(710, 355, "Acquisition Control");
     m_mainWindow->user_data((void*)(this));
     m_mainWindow->callback(closeMainWindowCallback);
 
