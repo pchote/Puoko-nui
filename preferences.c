@@ -38,14 +38,14 @@ typedef struct
 PNPreferenceStore prefs[] =
 {
     // Key, Default value, Output format
-    {OUTPUT_DIR,  STRING, .value.s = "/home/sullivan/", "OutputDir: %s\n"},
+    {OUTPUT_DIR,  STRING, .value.s = "",                "OutputDir: %s\n"},
     {RUN_PREFIX,  STRING, .value.s = "run",             "RunPrefix: %s\n"},
-    {OBJECT_NAME, STRING, .value.s = "ec20058",         "ObjectName: %s\n"},
-    {OBSERVERS,   STRING, .value.s = "DJS, PC",         "Observers: %s\n"},
-    {OBSERVATORY, STRING, .value.s = "MJUO",            "Observatory: %s\n"},
-    {TELESCOPE,   STRING, .value.s = "MJUO 1-meter",    "Telescope: %s\n"},
+    {OBJECT_NAME, STRING, .value.s = "",                "ObjectName: %s\n"},
+    {OBSERVERS,   STRING, .value.s = "",                "Observers: %s\n"},
+    {OBSERVATORY, STRING, .value.s = "",                "Observatory: %s\n"},
+    {TELESCOPE,   STRING, .value.s = "",                "Telescope: %s\n"},
     {INSTRUMENT,  STRING, .value.s = "Puoko-nui",       "Instrument: %s\n"},
-    {FILTER,      STRING, .value.s = "BG-40",           "Filter: %s\n"},
+    {FILTER,      STRING, .value.s = "",                "Filter: %s\n"},
 
     {EXPOSURE_TIME,             CHAR, .value.c = 5,     "ExposureTime: %hhu\n"},
     {SAVE_FRAMES,               CHAR, .value.c = false, "SaveFrames: %hhu\n"},
