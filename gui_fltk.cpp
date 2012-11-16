@@ -734,7 +734,7 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
 
 void FLTKGui::updateButtonGroup()
 {
-    bool acquire_pressed = cached_camera_mode != IDLE;
+    bool acquire_pressed = cached_camera_mode == ACQUIRE_START || cached_camera_mode == ACQUIRING;
     bool acquire_enabled = cached_camera_mode == ACQUIRING || cached_camera_mode == IDLE;
     bool save_enabled = cached_camera_mode == ACQUIRING && pn_preference_allow_save();
     bool save_pressed = save_enabled && pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save();
