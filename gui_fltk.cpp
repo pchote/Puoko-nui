@@ -729,19 +729,22 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
 
     gui->updateAcquisitionGroup();
     gui->m_metadataWindow->hide();
+    gui->updateButtonGroup();
 }
 
 void FLTKGui::updateButtonGroup()
 {
-    bool save_pressed = pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save();
     bool acquire_pressed = cached_camera_mode != IDLE;
-    bool acquire_disabled = cached_camera_mode != ACQUIRING && cached_camera_mode != IDLE;
+    bool acquire_enabled = cached_camera_mode == ACQUIRING || cached_camera_mode == IDLE;
+    bool save_enabled = cached_camera_mode == ACQUIRING && pn_preference_allow_save();
+    bool save_pressed = save_enabled && pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save();
+    bool reduction_enabled = save_pressed;
 
     m_buttonAcquire->value(acquire_pressed);
-    if (acquire_disabled)
-        m_buttonAcquire->deactivate();
-    else
+    if (acquire_enabled)
         m_buttonAcquire->activate();
+    else
+        m_buttonAcquire->deactivate();
 
     if (acquire_pressed)
     {
