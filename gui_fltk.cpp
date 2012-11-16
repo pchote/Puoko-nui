@@ -344,6 +344,8 @@ void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
         camera_stop_exposure(gui->m_cameraRef);
         timer_stop_exposure(gui->m_timerRef);
     }
+
+    gui->updateButtonGroup();
 }
 
 void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
