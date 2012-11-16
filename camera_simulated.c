@@ -24,7 +24,6 @@ struct internal
     TimerUnit *timer;
     uint16_t frame_width;
     uint16_t frame_height;
-    bool first_frame;
 };
 
 static char *speed_names[] = {"Slow", "Fast"};
@@ -160,7 +159,6 @@ void camera_simulated_start_acquiring(Camera *camera, void *_internal)
     // TODO: Take preferences for binning into account
     internal->frame_height = 512;
     internal->frame_width = 512;
-    internal->first_frame = true;
 
     // Wait a bit to simulate hardware delays
     millisleep(2000);
@@ -183,37 +181,29 @@ void camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current
 
     if (current_mode == ACQUIRING && timer_mode(internal->timer) == TIMER_READOUT)
     {
-        if (internal->first_frame)
+        // Copy frame data and pass ownership to main thread
+        CameraFrame *frame = malloc(sizeof(CameraFrame));
+        if (frame)
         {
-            pn_log("Discarding pre-exposure readout.");
-            internal->first_frame = false;
-        }
-        else
-        {
-            // Copy frame data and pass ownership to main thread
-            CameraFrame *frame = malloc(sizeof(CameraFrame));
-            if (frame)
+            size_t frame_bytes = internal->frame_width*internal->frame_height*sizeof(uint16_t);
+            frame->data = malloc(frame_bytes);
+
+            if (frame->data)
             {
-                size_t frame_bytes = internal->frame_width*internal->frame_height*sizeof(uint16_t);
-                frame->data = malloc(frame_bytes);
+                // Fill frame with random numbers
+                for (size_t i = 0; i < internal->frame_width*internal->frame_height; i++)
+                    frame->data[i] = rand();
 
-                if (frame->data)
-                {
-                    // Fill frame with random numbers
-                    for (size_t i = 0; i < internal->frame_width*internal->frame_height; i++)
-                        frame->data[i] = rand();
-
-                    frame->width = internal->frame_width;
-                    frame->height = internal->frame_height;
-                    frame->temperature = current_temperature;
-                    queue_framedata(frame);
-                }
-                else
-                    pn_log("Failed to allocate CameraFrame->data. Discarding frame.");
+                frame->width = internal->frame_width;
+                frame->height = internal->frame_height;
+                frame->temperature = current_temperature;
+                queue_framedata(frame);
             }
             else
-                pn_log("Failed to allocate CameraFrame. Discarding frame.");
+                pn_log("Failed to allocate CameraFrame->data. Discarding frame.");
         }
+        else
+            pn_log("Failed to allocate CameraFrame. Discarding frame.");
 
         // There is no physical camera for the timer to monitor
         // so we must toggle this manually

@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <fitsio.h>
+#include <math.h>
 #include "main.h"
 #include "atomicqueue.h"
 #include "camera.h"
@@ -380,24 +381,33 @@ int main(int argc, char *argv[])
 
             // Add 1 second of leeway to account for imprecision of tagging downloaded frames
             uint8_t exptime = pn_preference_char(TIMER_SUBSECOND_MODE) ? 0 : pn_preference_char(EXPOSURE_TIME);
-            time_t estimated_end_time = timestamp_to_time_t(&frame->downloaded_time) - readout_time + 1;
-            time_t frame_end_time = timestamp_to_time_t(trigger) + exptime;
+            time_t estimated_start_time = timestamp_to_time_t(&frame->downloaded_time) - readout_time + 1 - exptime;
 
-            if (estimated_end_time >= frame_end_time)
-                process_framedata(frame, *trigger);
-            else
+            // PVCAM/simulated triggers indicate the end of the frame
+#ifndef USE_PICAM
+            trigger->seconds -= exptime;
+            timestamp_normalize(trigger);
+#endif
+            time_t trigger_start_time = timestamp_to_time_t(trigger);
+
+            double mismatch = difftime(estimated_start_time, trigger_start_time);
+            if (fabs(mismatch) > 1.5)
             {
-                TimerTimestamp download = frame->downloaded_time;
-                download.seconds -= readout_time;
-                timestamp_normalize(&download);
+                TimerTimestamp estimate_start = frame->downloaded_time;
+                estimate_start.seconds -= readout_time + exptime;
+                timestamp_normalize(&estimate_start);
 
-                pn_log("ERROR: Frame downloaded before trigger was received.");
-                pn_log("Download timestamp: %02d:%02d:%02d", frame->downloaded_time.hours, frame->downloaded_time.minutes, frame->downloaded_time.seconds);
-                pn_log("Estimated download start: %02d:%02d:%02d", download.hours, download.minutes, download.seconds);
-                pn_log("Trigger timestamp: %02d:%02d:%02d", trigger->hours, trigger->minutes, trigger->seconds);
+                pn_log("ERROR: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);
+                pn_log("Frame recieved: %02d:%02d:%02d", frame->downloaded_time.hours, frame->downloaded_time.minutes, frame->downloaded_time.seconds);
+                pn_log("Estimated frame start: %02d:%02d:%02d", estimate_start.hours, estimate_start.minutes, estimate_start.seconds);
+                pn_log("Trigger start: %02d:%02d:%02d", trigger->hours, trigger->minutes, trigger->seconds);
+
                 pn_log("Discarding all stored frames and triggers.");
                 clear_queued_data();
             }
+            else
+                process_framedata(frame, *trigger);
+
             free(trigger);
             free(frame->data);
             free(frame);

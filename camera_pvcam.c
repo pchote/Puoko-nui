@@ -39,7 +39,6 @@ struct internal
 
     uint16_t frame_width;
     uint16_t frame_height;
-    bool first_frame;
 };
 
 static char *gain_names[] = {"Low", "Medium", "High"};
@@ -415,8 +414,6 @@ void camera_pvcam_start_acquiring(Camera *camera, void *_internal)
     // Start waiting for sync pulses to trigger exposures
     if (!pl_exp_start_cont(internal->handle, internal->frame_buffer, buffer_size))
         fatal_pvcam_error("Failed to start exposure sequence.");
-
-    internal->first_frame = true;
 }
 
 void camera_pvcam_stop_acquiring(Camera *camera, void *_internal)
@@ -461,36 +458,26 @@ void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mod
         if (!pl_exp_get_oldest_frame(internal->handle, &camera_frame))
             fatal_pvcam_error("Error retrieving oldest frame.");
 
-        // PVCAM triggers end the frame, and so the first frame
-        // will consist of the sync and align time period.
-        // Discard this frame.
-        if (internal->first_frame)
+
+        // Copy frame data and pass ownership to main thread
+        CameraFrame *frame = malloc(sizeof(CameraFrame));
+        if (frame)
         {
-            pn_log("Discarding pre-exposure readout.");
-            internal->first_frame = false;
-        }
-        else
-        {
-            // Copy frame data and pass ownership to main thread
-            CameraFrame *frame = malloc(sizeof(CameraFrame));
-            if (frame)
+            size_t frame_bytes = internal->frame_width*internal->frame_height*sizeof(uint16_t);
+            frame->data = malloc(frame_bytes);
+            if (frame->data)
             {
-                size_t frame_bytes = internal->frame_width*internal->frame_height*sizeof(uint16_t);
-                frame->data = malloc(frame_bytes);
-                if (frame->data)
-                {
-                    memcpy(frame->data, camera_frame, frame_bytes);
-                    frame->width = internal->frame_width;
-                    frame->height = internal->frame_height;
-                    frame->temperature = current_temperature;
-                    queue_framedata(frame);
-                }
-                else
-                    pn_log("Failed to allocate CameraFrame->data. Discarding frame.");
+                memcpy(frame->data, camera_frame, frame_bytes);
+                frame->width = internal->frame_width;
+                frame->height = internal->frame_height;
+                frame->temperature = current_temperature;
+                queue_framedata(frame);
             }
             else
-                pn_log("Failed to allocate CameraFrame. Discarding frame.");
+                pn_log("Failed to allocate CameraFrame->data. Discarding frame.");
         }
+        else
+            pn_log("Failed to allocate CameraFrame. Discarding frame.");
 
         // Unlock the frame buffer for reuse
         if (!pl_exp_unlock_oldest_frame(internal->handle))
