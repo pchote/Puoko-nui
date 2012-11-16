@@ -74,11 +74,15 @@ char *canonicalize_path(const char *path)
     return strdup(path_buf);
 }
 
-bool rename_atomically(const char *src, const char *dest)
+bool rename_atomically(const char *src, const char *dest, bool overwrite)
 {
 #ifdef _WIN32
-    return MoveFileEx(src, dest, MOVEFILE_REPLACE_EXISTING);
+    return MoveFileEx(src, dest, overwrite ? MOVEFILE_REPLACE_EXISTING : 0);
 #else
+    // File exists
+    if (!overwrite && access(dest, F_OK) == 0)
+        return false;
+
     return rename(src, dest) == 0;
 #endif
 }

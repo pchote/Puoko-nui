@@ -247,34 +247,69 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
     if (pn_preference_char(SAVE_FRAMES))
     {
         // Construct the output filepath from the output dir, run prefix, and run number.
-        // Saving will fail if a file with the same name already exists
         int run_number = pn_preference_int(RUN_NUMBER);
         char *output_dir = pn_preference_string(OUTPUT_DIR);
         char *run_prefix = pn_preference_string(RUN_PREFIX);
-        size_t filepath_len = snprintf(NULL, 0, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number) + 1;
-        char *filepath = malloc(filepath_len*sizeof(char));
-        if (!filepath)
+
+        // Save to a temporary file and then rename to the final name
+        // to ensure the save operation appears atomic to tsreduce,
+        // which uses the frame prefix to determine frames
+        size_t temppath_len = snprintf(NULL, 0, "%s/XXXXXX", output_dir) + 1;
+        char *temppath = malloc(temppath_len*sizeof(char));
+        if (!temppath)
         {
-            pn_log("Failed to allocate filepath. Discarding frame");
+            pn_log("Failed to allocate memory. Discarding frame");
             free(run_prefix);
             free(output_dir);
             return;
         }
 
-        snprintf(filepath, filepath_len, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number);
-        free(run_prefix);
-        free(output_dir);
-
-        pn_log("Saving `%s'.", filepath);
-        if (!save_frame(frame, timestamp, filepath))
+        snprintf(temppath, temppath_len, "%s/XXXXXX", output_dir);
+        mktemp(temppath);
+        if (strlen(temppath) == 0)
         {
-            pn_log("Save failed. Discarding frame.");
+            pn_log("Failed to create unique temporary filename. Discarding frame");
+            free(run_prefix);
+            free(output_dir);
             return;
         }
 
+        if (!save_frame(frame, timestamp, temppath))
+        {
+            free(output_dir);
+            free(run_prefix);
+            free(temppath);
+            pn_log("Saving to save temporary file. Discarding frame.");
+            return;
+        }
+
+        size_t filepath_len = snprintf(NULL, 0, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number) + 1;
+        char *filepath = malloc(filepath_len*sizeof(char));
+        if (!filepath)
+        {
+            pn_log("Failed to allocate memory. Discarding frame");
+            free(run_prefix);
+            free(output_dir);
+            free(temppath);
+            return;
+        }
+        snprintf(filepath, filepath_len, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number);
+
+        // Don't overwrite existing files
+        if (!rename_atomically(temppath, filepath, false))
+            pn_log("Failed to save `%s' (already exists?). Saved instead as `%s' ", basename(filepath), basename(temppath));
+        else
+        {
+            scripting_notify_frame(scripting, filepath);
+            pn_log("Saved `%s'.", basename(filepath));
+        }
+
         pn_preference_increment_framecount();
-        scripting_notify_frame(scripting, filepath);
         free(filepath);
+        free(temppath);
+
+        free(run_prefix);
+        free(output_dir);
     }
 
     // Update frame preview atomically
@@ -283,7 +318,7 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
     mktemp(preview);
     save_frame(frame, timestamp, preview);
 
-    if (!rename_atomically(preview, "preview.fits.gz"))
+    if (!rename_atomically(preview, "preview.fits.gz", true))
     {
         pn_log("Failed to overwrite preview frame.");
         delete_file(preview);
