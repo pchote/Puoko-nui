@@ -2,8 +2,15 @@
 
 # Load configuration overrides if defined
 if [ -f config.sh ]; then source ./config.sh; fi
-if [ -z "${REDUCTION_FILENAME}" ]; then REDUCTION_FILENAME="undefined.dat"; fi
 if [ -z "${REDUCTION_PLOTSIZE}" ]; then REDUCTION_PLOTSIZE="9"; fi
+if [ -z "${REDUCTION_FILENAME}" ]; then
+	# Extract the run prefix from the first frame argument
+	PREFIX=$(basename $1)
+	PREFIX=(${PREFIX//-/ })
+	unset PREFIX[${#PREFIX[@]}-1]
+	PREFIX=$(IFS="-"; echo "${PREFIX[*]}")
+	REDUCTION_FILENAME=${PREFIX}".dat";
+fi
 
 # Path to online reduction file to update
 # By default, look for the given name in the frame directory
