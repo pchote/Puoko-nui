@@ -96,6 +96,21 @@ bool delete_file(const char *path)
 #endif
 }
 
+// Cross platform equivalent of basename() that doesn't modify the string.
+// Assumes '/' as path separator, so only use after canonicalize_path()
+char *last_path_component(char *path)
+{
+    char *str = path;
+    char *last = path;
+    while (*str != '\0')
+    {
+        if (*str == '/')
+            last = str+1;
+        str++;
+    }
+    return last;
+}
+
 // Run a command synchronously, logging output with a given prefix
 int run_command(const char *cmd, char *log_prefix)
 {

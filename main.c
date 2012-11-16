@@ -310,11 +310,11 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
 
         // Don't overwrite existing files
         if (!rename_atomically(temppath, filepath, false))
-            pn_log("Failed to save `%s' (already exists?). Saved instead as `%s' ", basename(filepath), basename(temppath));
+            pn_log("Failed to save `%s' (already exists?). Saved instead as `%s' ", last_path_component(filepath), last_path_component(temppath));
         else
         {
             scripting_notify_frame(scripting, filepath);
-            pn_log("Saved `%s'.", basename(filepath));
+            pn_log("Saved `%s'.", last_path_component(filepath));
         }
 
         pn_preference_increment_framecount();
