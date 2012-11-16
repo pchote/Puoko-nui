@@ -102,8 +102,16 @@ void *reduction_thread(void *_scripting)
         // Check for new frames to reduce
         if (atomicqueue_length(scripting->new_frames))
         {
-            char *command = strdup("./reduction.sh ");
-            
+            char *command = calloc(22, sizeof(char));
+            if (!command)
+            {
+                pn_log("Failed to allocate reduction string. Skipping reduction");
+                break;
+            }
+
+            strcpy(command, "./reduction.sh ");
+            strcat(command, pn_preference_char(REDUCE_FRAMES) ? "true " : "false ");
+
             char *frame;
             while ((frame = atomicqueue_pop(scripting->new_frames)) != NULL)
             {
