@@ -422,6 +422,18 @@ void _set_string_from_input(PNPreferenceType key, const char *name, Fl_Input *in
     free(oldval);
 }
 
+#define set_string(a,b) _set_string(a, # a, b)
+void _set_string(PNPreferenceType key, const char *name, const char *str)
+{
+    char *oldval = pn_preference_string(key);
+    if (strcmp(oldval, str))
+    {
+        pn_preference_set_string(key, str);
+        pn_log("%s set to `%s'.", name, str);
+    }
+    free(oldval);
+}
+
 #define set_int(a,b) _set_int(a, # a, b)
 void _set_int(PNPreferenceType key, const char *name, int newval)
 {
@@ -715,7 +727,10 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
     }
 
     // Update preferences from fields
-    set_string_from_input(OUTPUT_DIR, gui->m_metadataOutputDir);
+    char *output = canonicalize_path(gui->m_metadataOutputDir->value());
+    set_string(OUTPUT_DIR, output);
+    free(output);
+
     set_string_from_input(RUN_PREFIX, gui->m_metadataRunPrefix);
     set_int(RUN_NUMBER, run_number);
 
