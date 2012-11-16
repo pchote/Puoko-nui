@@ -754,16 +754,33 @@ void FLTKGui::updateButtonGroup()
     else
         m_buttonCamera->activate();
 
-    m_buttonSave->value(save_pressed);
-    if (save_pressed)
+    if (save_enabled)
     {
-        m_buttonMetadata->deactivate();
-        m_metadataWindow->hide();
-        m_buttonReduction->activate();
+        m_buttonSave->activate();
+        m_buttonSave->value(save_pressed);
+
+        if (save_pressed)
+        {
+            m_buttonMetadata->deactivate();
+            m_metadataWindow->hide();
+            m_buttonReduction->activate();
+        }
+        else
+            m_buttonMetadata->activate();
     }
     else
     {
         m_buttonMetadata->activate();
+
+        m_buttonSave->value(false);
+        m_buttonSave->deactivate();
+        pn_preference_set_char(SAVE_FRAMES, false);
+    }
+
+    if (reduction_enabled)
+        m_buttonReduction->activate();
+    else
+    {
         m_buttonReduction->value(false);
         m_buttonReduction->deactivate();
         pn_preference_set_char(REDUCE_FRAMES, false);
