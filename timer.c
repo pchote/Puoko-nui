@@ -190,6 +190,9 @@ static void initialize_timer(TimerUnit *timer)
         millisleep(500);
     }
 
+    if (timer->shutdown)
+        return;
+
     if (ftdi_usb_purge_rx_buffer(timer->context))
         fatal_timer_error(timer, "Error purging timer rx buffer: %s", timer->context->error_str);
 
@@ -219,6 +222,9 @@ static void initialize_timer(TimerUnit *timer)
         pn_log("Waiting for timer...");
         millisleep(1000);
     }
+
+    if (timer->shutdown)
+        return;
 
     if (FT_Purge(timer->handle, FT_PURGE_RX | FT_PURGE_TX) != FT_OK)
         fatal_timer_error(timer, "Error purging timer buffers");
@@ -415,10 +421,6 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
 // Main timer thread loop
 static void timer_loop(TimerUnit *timer, Camera *camera)
 {
-    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
-    TimerUnit *timer = args->timer;
-    Camera *camera = args->camera;
-
     // Store received bytes in a 256 byte circular buffer indexed by an unsigned char
     // This ensures the correct circular behavior on over/underflow
     uint8_t input_buf[256];
@@ -430,9 +432,6 @@ static void timer_loop(TimerUnit *timer, Camera *camera)
     uint8_t packet_length = 0;
     uint8_t packet_expected_length = 0;
     TimerUnitPacketType packet_type = UNKNOWN_PACKET;
-
-    // Initialization
-    initialize_timer(timer);
 
     // Reset timer to its idle state
     queue_data(timer, RESET, NULL, 0);
@@ -450,7 +449,7 @@ static void timer_loop(TimerUnit *timer, Camera *camera)
         write_data(timer);
 
         if (timer->shutdown)
-            break;
+            return;
 
         // Check for new data
         uint8_t bytes_read;
@@ -493,8 +492,18 @@ static void timer_loop(TimerUnit *timer, Camera *camera)
             }
         }
     }
+}
 
-    // Uninitialize the timer connection and exit
+// Main timer thread loop
+void *timer_thread(void *_args)
+{
+    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
+    TimerUnit *timer = args->timer;
+
+    initialize_timer(timer);
+    if (!timer->shutdown)
+        timer_loop(timer, args->camera);
+
     uninitialize_timer(timer);
     return NULL;
 }
