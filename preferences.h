@@ -60,6 +60,10 @@ typedef enum
     PROEM_EXPOSURE_SHORTCUT,
     VALIDATE_TIMESTAMPS,
 
+    FRAME_FLIP_X,
+    FRAME_FLIP_Y,
+    FRAME_TRANSPOSE,
+
 #if (defined _WIN32)
     MSYS_BASH_PATH,
 #endif

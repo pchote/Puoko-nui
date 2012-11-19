@@ -257,6 +257,39 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
         return;
     }
 
+    if (pn_preference_char(FRAME_FLIP_X))
+    {
+        for (uint16_t j = 0; j < frame->height; j++)
+            for (uint16_t i = 0; i < frame->width/2; i++)
+            {
+                uint16_t temp = frame->data[j*frame->width + i];
+                frame->data[j*frame->width + i] = frame->data[j*frame->width + (frame->width - i - 1)];
+                frame->data[j*frame->width + (frame->width - i - 1)] = temp;
+            }
+    }
+
+    if (pn_preference_char(FRAME_FLIP_Y))
+    {
+        for (uint16_t j = 0; j < frame->height/2; j++)
+            for (uint16_t i = 0; i < frame->width; i++)
+            {
+                uint16_t temp = frame->data[j*frame->width + i];
+                frame->data[j*frame->width + i] = frame->data[(frame->height - j - 1)*frame->width + i];
+                frame->data[(frame->height - j - 1)*frame->width + i] = temp;
+            }
+    }
+
+    if (pn_preference_char(FRAME_TRANSPOSE))
+    {
+        for (uint16_t j = 0; j < frame->height; j++)
+            for (uint16_t i = 0; i < j; i++)
+            {
+                uint16_t temp = frame->data[j*frame->width + i];
+                frame->data[j*frame->width + i] = frame->data[i*frame->width + j];
+                frame->data[i*frame->width + j] = temp;
+            }
+    }
+
     if (pn_preference_char(SAVE_FRAMES))
     {
         // Construct the output filepath from the output dir, run prefix, and run number.
