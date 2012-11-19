@@ -432,6 +432,7 @@ int main(int argc, char *argv[])
             time_t estimated_start_time = timestamp_to_time_t(&frame->downloaded_time) - readout_time + 1 - exptime;
 
             // PVCAM/simulated triggers indicate the end of the frame
+            // TODO: Move this into camera implementation
 #ifndef USE_PICAM
             trigger->seconds -= exptime;
             timestamp_normalize(trigger);
