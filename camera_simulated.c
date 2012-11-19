@@ -194,6 +194,14 @@ void camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current
                 for (size_t i = 0; i < internal->frame_width*internal->frame_height; i++)
                     frame->data[i] = rand();
 
+                // Add orientation squares to top corners of frame
+                for (size_t j = 20; j < 30; j++)
+                    for (size_t i = 20; i < 30; i++)
+                    {
+                        frame->data[(internal->frame_height - j)*internal->frame_width + i] = 0;
+                        frame->data[(internal->frame_height - j)*internal->frame_width +
+                                    internal->frame_width - i] = 65535;
+                    }
                 frame->width = internal->frame_width;
                 frame->height = internal->frame_height;
                 frame->temperature = current_temperature;
