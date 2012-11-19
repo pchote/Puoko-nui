@@ -77,7 +77,7 @@ timerutil: timerutil.o
 	$(CC) -o $@ timerutil.o $(UTIL_LFLAGS)
 
 clean:
-	-rm $(OBJS) puokonui puokonui.exe timerutil.o timerutil timerutil.exe
+	-rm $(OBJS) camera_pvcam.o camera_picam.o gui_fltk.o gui_ncurses.o puokonui puokonui.exe timerutil.o timerutil timerutil.exe
 
 # Force version.o to be recompiled every time
 version.o: .FORCE
