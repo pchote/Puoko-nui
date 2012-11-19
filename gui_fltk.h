@@ -127,7 +127,7 @@ private:
     int cached_run_number;
     uint8_t cached_exposure_time;
     TimerMode cached_timer_mode;
-    bool cached_subsecond_mode;
+    bool cached_ms_mode;
 
     // Camera window
     Fl_Double_Window *m_cameraWindow;

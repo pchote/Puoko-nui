@@ -55,7 +55,7 @@ PNPreferenceStore prefs[] =
     {CALIBRATION_COUNTDOWN,     INT, .value.i = 30,     "CalibrationRemainingFrames: %d\n"},
 
     {TIMER_MONITOR_LOGIC_OUT,   CHAR, .value.c = true,  "TimerMonitorLogicOut: %hhu\n"},
-    {TIMER_SUBSECOND_MODE,      CHAR, .value.c = 0,     "TimerSubsecondMode: %d\n"},
+    {TIMER_MILLISECOND_MODE,    CHAR, .value.c = 0,     "TimerMillisecondMode: %d\n"},
     {TIMER_BAUD_RATE,           INT,  .value.i = 9600,  "TimerBaudRate: %d\n"},
 
     {CAMERA_BINNING,            CHAR, .value.c = 1,     "CameraBinning: %hhu\n"},

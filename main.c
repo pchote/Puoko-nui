@@ -134,11 +134,11 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
         }
     }
 
-    bool subsecond_mode = pn_preference_char(TIMER_SUBSECOND_MODE);
+    bool ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
     long exposure_time = pn_preference_char(EXPOSURE_TIME);
-    if (subsecond_mode)
+    if (ms_mode)
     {
-        double exptime = exposure_time / 100.0;
+        double exptime = exposure_time / 1000.0;
         fits_update_key(fptr, TDOUBLE, "EXPTIME", &exptime, "Actual integration time (sec)", &status);
     }
     else
@@ -181,8 +181,8 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     // Trigger timestamp defines the *start* of the frame
     TimerTimestamp start = timestamp;
     TimerTimestamp end = start;
-    if (subsecond_mode)
-        end.milliseconds += 10*exposure_time;
+    if (ms_mode)
+        end.milliseconds += exposure_time;
     else
         end.seconds += exposure_time;
     timestamp_normalize(&end);
@@ -190,7 +190,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     char datebuf[15], gpstimebuf[15];
     snprintf(datebuf, 15, "%04d-%02d-%02d", start.year, start.month, start.day);
 
-    if (subsecond_mode)
+    if (ms_mode)
         snprintf(gpstimebuf, 15, "%02d:%02d:%02d.%03d", start.hours, start.minutes, start.seconds, start.milliseconds);
     else
         snprintf(gpstimebuf, 15, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
@@ -203,7 +203,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
     fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
 
-    if (subsecond_mode)
+    if (ms_mode)
         snprintf(gpstimebuf, 15, "%02d:%02d:%02d.%03d", end.hours, end.minutes, end.seconds, end.milliseconds);
     else
         snprintf(gpstimebuf, 15, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
@@ -428,7 +428,7 @@ int main(int argc, char *argv[])
             time_t readout_time = camera_readout_time(camera);
 
             // Add 1 second of leeway to account for imprecision of tagging downloaded frames
-            uint8_t exptime = pn_preference_char(TIMER_SUBSECOND_MODE) ? 0 : pn_preference_char(EXPOSURE_TIME);
+            uint8_t exptime = pn_preference_char(TIMER_MILLISECOND_MODE) ? 0 : pn_preference_char(EXPOSURE_TIME);
             time_t estimated_start_time = timestamp_to_time_t(&frame->downloaded_time) - readout_time + 1 - exptime;
 
             // PVCAM/simulated triggers indicate the end of the frame

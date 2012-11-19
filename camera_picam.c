@@ -463,9 +463,10 @@ double camera_picam_update_camera_settings(Camera *camera, void *_internal)
 
     double exposure_time = pn_preference_char(EXPOSURE_TIME);
 
-    // Convert readout time to the base exposure unit (10*ms or s) to ms for comparison
-    bool subsecond = pn_preference_char(TIMER_SUBSECOND_MODE);
-    readout_time /= subsecond ? 10 : 1000;
+    // Convert readout time from to the base exposure unit (s or ms) for comparison
+    bool ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
+    if (!ms_mode)
+        readout_time /= 1000;
 
     if (exposure_time < readout_time)
     {
@@ -474,7 +475,7 @@ double camera_picam_update_camera_settings(Camera *camera, void *_internal)
         pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 
-    return subsecond ? readout_time / 100 : readout_time;
+    return ms_mode ? readout_time / 1000 : readout_time;
 }
 
 uint8_t camera_picam_port_table(Camera *camera, void *_internal, struct camera_port_option **out_ports)
@@ -571,8 +572,9 @@ void camera_picam_start_acquiring(Camera *camera, void *_internal)
 
     piflt exptime = pn_preference_char(EXPOSURE_TIME);
 
-    // Convert from base exposure units (10*ms or s) to ms
-    exptime *= pn_preference_char(TIMER_SUBSECOND_MODE) ? 10 : 1000;
+    // Convert from base exposure units (s or ms) to ms
+    if (!pn_preference_char(TIMER_MILLISECOND_MODE))
+        exptime *= 1000;
 
     // Set exposure period shorter than the trigger period, allowing
     // the camera to complete the frame transfer and be ready for the next trigger
