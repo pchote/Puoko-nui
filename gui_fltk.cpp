@@ -741,6 +741,7 @@ void FLTKGui::updateButtonGroup()
     bool save_enabled = cached_camera_mode == ACQUIRING && pn_preference_allow_save();
     bool save_pressed = save_enabled && pn_preference_char(SAVE_FRAMES) && pn_preference_allow_save();
     bool reduction_enabled = save_pressed;
+    bool camera_enabled = cached_camera_mode == IDLE;
 
     m_buttonAcquire->value(acquire_pressed);
     if (acquire_enabled)
@@ -748,13 +749,13 @@ void FLTKGui::updateButtonGroup()
     else
         m_buttonAcquire->deactivate();
 
-    if (acquire_pressed)
+    if (camera_enabled)
+        m_buttonCamera->activate();
+    else
     {
         m_buttonCamera->deactivate();
         m_cameraWindow->hide();
     }
-    else
-        m_buttonCamera->activate();
 
     if (save_enabled)
     {
