@@ -370,17 +370,17 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
             t->minutes = data[1];
             t->seconds = data[2];
             t->locked = data[7];
-            t->milliseconds = 0;
+            t->milliseconds = data[8] | data[9];
             t->remaining_exposure = 0;
 
-            if (data_length == 10)
-            {
-                t->milliseconds = data[8] | data[9];
+            // The timer sends unnormalized timestamps, where milliseconds may
+            // be greater than 1000.
+            timestamp_normalize(t);
 
-                // The timer sends unnormalized timestamps, where milliseconds may
-                // be greater than 1000.
-                timestamp_normalize(t);
-            }
+            // Update current time
+            pthread_mutex_lock(&timer->read_mutex);
+            timer->current_timestamp = *t;
+            pthread_mutex_unlock(&timer->read_mutex);
 
             // Pass ownership to main thread
             queue_trigger(t);
@@ -686,8 +686,8 @@ void timestamp_normalize(TimerTimestamp *ts)
     ts->year = a.tm_year + 1900;
 }
 
-time_t timestamp_to_time_t(TimerTimestamp *ts)
+double timestamp_to_unixtime(TimerTimestamp *ts)
 {
     struct tm t = {ts->seconds, ts->minutes, ts->hours, ts->day, ts->month, ts->year - 1900,0,0,0};
-    return struct_tm_to_time_t(&t);
+    return struct_tm_to_time_t(&t) + ts->milliseconds / 1000.0;
 }

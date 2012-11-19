@@ -457,15 +457,9 @@ int main(int argc, char *argv[])
             CameraFrame *frame = atomicqueue_pop(frame_queue);
             TimerTimestamp *trigger = atomicqueue_pop(trigger_queue);
 
-            // Ensure that the trigger and frame download times are consistent
-            time_t readout_time = camera_readout_time(camera);
-
-            // Add 1 second of leeway to account for imprecision of tagging downloaded frames
-            uint16_t exptime = pn_preference_int(EXPOSURE_TIME);
+            double exptime = pn_preference_int(EXPOSURE_TIME);
             if (pn_preference_char(TIMER_MILLISECOND_MODE))
                 exptime /= 1000;
-
-            time_t estimated_start_time = timestamp_to_time_t(&frame->downloaded_time) - readout_time + 1 - exptime;
 
             // PVCAM/simulated triggers indicate the end of the frame
             // TODO: Move this into camera implementation
@@ -473,17 +467,20 @@ int main(int argc, char *argv[])
             trigger->seconds -= exptime;
             timestamp_normalize(trigger);
 #endif
-            time_t trigger_start_time = timestamp_to_time_t(trigger);
 
-            double mismatch = difftime(estimated_start_time, trigger_start_time);
+            // Ensure that the trigger and frame download times are consistent
+            double estimated_start_time = timestamp_to_unixtime(&frame->downloaded_time) - camera_readout_time(camera) - exptime;
+            double mismatch = estimated_start_time - timestamp_to_unixtime(trigger);
             bool process = true;
 
+            // Allow at least 1 second of leeway to account for the
+            // delay in recieving the GPS time and any other factors
             if (fabs(mismatch) > 1.5)
             {
                 if (pn_preference_char(VALIDATE_TIMESTAMPS))
                 {
                     TimerTimestamp estimate_start = frame->downloaded_time;
-                    estimate_start.seconds -= readout_time + exptime;
+                    estimate_start.seconds -= camera_readout_time(camera) + exptime;
                     timestamp_normalize(&estimate_start);
 
                     pn_log("ERROR: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);

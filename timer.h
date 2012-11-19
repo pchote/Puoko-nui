@@ -36,6 +36,6 @@ void timer_shutdown(TimerUnit *timer);
 void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading);
 
 void timestamp_normalize(TimerTimestamp *ts);
-time_t timestamp_to_time_t(TimerTimestamp *ts);
+double timestamp_to_unixtime(TimerTimestamp *ts);
 
 #endif
