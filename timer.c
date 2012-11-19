@@ -64,8 +64,8 @@ typedef enum
 } TimerUnitPacketType;
 
 
-void *pn_timer_thread(void *timer);
-void *pn_simulated_timer_thread(void *args);
+void *timer_thread(void *timer);
+void *simulated_timer_thread(void *args);
 #pragma mark Creation and Destruction (Called from main thread)
 
 // Initialize a new TimerUnit struct.
@@ -91,9 +91,9 @@ void timer_free(TimerUnit *timer)
 void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args)
 {
     if (timer->simulated)
-        pthread_create(&timer->timer_thread, NULL, pn_simulated_timer_thread, (void *)args);
+        pthread_create(&timer->timer_thread, NULL, simulated_timer_thread, (void *)args);
     else
-        pthread_create(&timer->timer_thread, NULL, pn_timer_thread, (void *)args);
+        pthread_create(&timer->timer_thread, NULL, timer_thread, (void *)args);
 
     timer->thread_initialized = true;
 }
@@ -413,7 +413,7 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
 }
 
 // Main timer thread loop
-void *pn_timer_thread(void *_args)
+static void timer_loop(TimerUnit *timer, Camera *camera)
 {
     ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
     TimerUnit *timer = args->timer;
@@ -500,7 +500,7 @@ void *pn_timer_thread(void *_args)
 }
 
 // Main simulated timer thread loop
-void *pn_simulated_timer_thread(void *_args)
+void *simulated_timer_thread(void *_args)
 {
     ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
     TimerUnit *timer = args->timer;
