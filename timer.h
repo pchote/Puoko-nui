@@ -28,7 +28,7 @@ TimerUnit *timer_new(bool simulate_hardware);
 void timer_free(TimerUnit *timer);
 void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args);
 
-void timer_start_exposure(TimerUnit *timer, unsigned char exptime, bool use_monitor);
+void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor);
 void timer_stop_exposure(TimerUnit *timer);
 TimerMode timer_mode(TimerUnit *timer);
 TimerTimestamp timer_current_timestamp(TimerUnit *timer);

@@ -47,7 +47,7 @@ PNPreferenceStore prefs[] =
     {INSTRUMENT,  STRING, .value.s = "Puoko-nui",       "Instrument: %s\n"},
     {FILTER,      STRING, .value.s = "",                "Filter: %s\n"},
 
-    {EXPOSURE_TIME,             CHAR, .value.c = 5,     "ExposureTime: %hhu\n"},
+    {EXPOSURE_TIME,             INT,  .value.c = 5,     "ExposureTime: %d\n"},
     {SAVE_FRAMES,               CHAR, .value.c = false, "SaveFrames: %hhu\n"},
     {REDUCE_FRAMES,             CHAR, .value.c = false, "ReduceFrames: %hhu\n"},
     {OBJECT_TYPE,               CHAR, .value.c = OBJECT_TARGET, "ObjectType: %hhu\n"},

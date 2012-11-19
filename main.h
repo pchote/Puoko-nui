@@ -19,17 +19,18 @@ typedef struct
 } ThreadCreationArgs;
 
 // Represents a timestamp from the GPS
+// Signed ints to allow subtracting times without hidden gotchas
 typedef struct
 {
-    int year;
-    int month;
-    int day;
-    int hours;
-    int minutes;
-    int seconds;
-    int milliseconds;
+    int32_t year;
+    int32_t month;
+    int32_t day;
+    int32_t hours;
+    int32_t minutes;
+    int32_t seconds;
+    int32_t milliseconds;
     bool locked;
-    int remaining_exposure; // for current time
+    int32_t remaining_exposure; // for current time
 } TimerTimestamp;
 
 // Represents an aquired frame

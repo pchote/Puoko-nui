@@ -342,14 +342,14 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
             pthread_mutex_lock(&timer->read_mutex);
             timer->current_timestamp = (TimerTimestamp)
             {
-                .year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00),
+                .year = data[5] | data[6] << 8,
                 .month = data[4],
                 .day = data[3],
                 .hours = data[0],
                 .minutes = data[1],
                 .seconds = data[2],
                 .locked = data[7],
-                .remaining_exposure = data[8],
+                .remaining_exposure = data[8] | data[9] << 8
             };
             pthread_mutex_unlock(&timer->read_mutex);
             break;
@@ -363,7 +363,7 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
                 break;
             }
 
-            t->year = (data[5] & 0x00FF) | ((data[6] << 8) & 0xFF00);
+            t->year = data[5] | data[6] << 8;
             t->month = data[4];
             t->day = data[3];
             t->hours = data[0];
@@ -375,7 +375,7 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
 
             if (data_length == 10)
             {
-                t->milliseconds = (data[8] & 0x00FF) | ((data[9] << 8) & 0xFF00);
+                t->milliseconds = data[8] | data[9];
 
                 // The timer sends unnormalized timestamps, where milliseconds may
                 // be greater than 1000.
@@ -600,7 +600,7 @@ void *simulated_timer_thread(void *_args)
 #pragma mark Timer communication Routines (Called from any thread)
 
 // Start an exposure sequence with a specified exposure time
-void timer_start_exposure(TimerUnit *timer, unsigned char exptime, bool use_monitor)
+void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
 {
     pn_log("Starting %d %s exposures.", exptime,
            pn_preference_char(TIMER_MILLISECOND_MODE) ? "ms" : "s");
@@ -612,9 +612,11 @@ void timer_start_exposure(TimerUnit *timer, unsigned char exptime, bool use_moni
         if (!use_monitor)
             pn_log("WARNING: Timer monitor is disabled.");
 
-        unsigned char simulate_camera = !use_monitor;
+        uint8_t simulate_camera = !use_monitor;
+        uint8_t data[2] = {exptime & 0xFF, (exptime >> 8) & 0xFF};
+
         queue_data(timer, SIMULATE_CAMERA, &simulate_camera, 1);
-        queue_data(timer, START_EXPOSURE, &exptime, 1);
+        queue_data(timer, START_EXPOSURE, data, 2);
     }
 }
 

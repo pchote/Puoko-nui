@@ -461,7 +461,7 @@ double camera_picam_update_camera_settings(Camera *camera, void *_internal)
     if (error != PicamError_None)
         print_error("Failed to query readout time.", error);
 
-    double exposure_time = pn_preference_char(EXPOSURE_TIME);
+    double exposure_time = pn_preference_int(EXPOSURE_TIME);
 
     // Convert readout time from to the base exposure unit (s or ms) for comparison
     bool ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
@@ -470,8 +470,8 @@ double camera_picam_update_camera_settings(Camera *camera, void *_internal)
 
     if (exposure_time < readout_time)
     {
-        uint8_t new_exposure = (uint8_t)(ceil(readout_time));
-        pn_preference_set_char(EXPOSURE_TIME, new_exposure);
+        uint16_t new_exposure = (uint16_t)(ceil(readout_time));
+        pn_preference_set_int(EXPOSURE_TIME, new_exposure);
         pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 
@@ -570,7 +570,7 @@ void camera_picam_start_acquiring(Camera *camera, void *_internal)
     struct internal *internal = _internal;
     PicamError error;
 
-    piflt exptime = pn_preference_char(EXPOSURE_TIME);
+    piflt exptime = pn_preference_int(EXPOSURE_TIME);
 
     // Convert from base exposure units (s or ms) to ms
     if (!pn_preference_char(TIMER_MILLISECOND_MODE))

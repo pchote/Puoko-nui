@@ -73,7 +73,7 @@ bool FLTKGui::update()
     double temperature = camera_temperature(m_cameraRef);
     double readout = camera_readout_time(m_cameraRef);
     TimerMode timermode = timer_mode(m_timerRef);
-    unsigned char exposure_time = pn_preference_char(EXPOSURE_TIME);
+    uint16_t exposure_time = pn_preference_int(EXPOSURE_TIME);
 
     if (cached_camera_mode != mode ||
         cached_timer_mode != timermode)
@@ -337,7 +337,7 @@ void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
         clear_queued_data();
         camera_start_exposure(gui->m_cameraRef);
         bool use_monitor = !camera_is_simulated(gui->m_cameraRef) && pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
-        timer_start_exposure(gui->m_timerRef, pn_preference_char(EXPOSURE_TIME), use_monitor);
+        timer_start_exposure(gui->m_timerRef, pn_preference_int(EXPOSURE_TIME), use_monitor);
     }
     else if (mode == ACQUIRING)
     {
@@ -465,7 +465,7 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_int(CAMERA_WINDOW_HEIGHT, (int)(gui->m_cameraWindowHeight->value()));
 
     set_char(CAMERA_BINNING, (uint8_t)(gui->m_cameraBinningSpinner->value()));
-    set_char(EXPOSURE_TIME, (uint8_t)(gui->m_cameraExposureSpinner->value()));
+    set_int(EXPOSURE_TIME, (uint16_t)(gui->m_cameraExposureSpinner->value()));
 
     camera_update_settings(gui->m_cameraRef);
     gui->updateAcquisitionGroup();
@@ -553,7 +553,7 @@ void FLTKGui::createCameraWindow()
 
     const char *expstring = pn_preference_char(TIMER_MILLISECOND_MODE) ? "Exposure (ms):" : "Exposure (s):";
     m_cameraExposureSpinner = new Fl_Spinner(x, y, w, h, expstring); y += margin;
-    m_cameraExposureSpinner->maximum(255);
+    m_cameraExposureSpinner->maximum(65535);
     m_cameraExposureSpinner->minimum(1);
 
     x = 220; w = 120;
@@ -570,7 +570,7 @@ void FLTKGui::showCameraWindow()
     uint8_t gain_id = pn_preference_char(CAMERA_GAIN_MODE);
     cameraRebuildPortTree(port_id, speed_id, gain_id);
 
-    m_cameraExposureSpinner->value(pn_preference_char(EXPOSURE_TIME));
+    m_cameraExposureSpinner->value(pn_preference_int(EXPOSURE_TIME));
     m_cameraBinningSpinner->value(pn_preference_char(CAMERA_BINNING));
 
     // Useable chip region xmin,xmax, ymin,ymax
@@ -831,7 +831,7 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     cached_run_number = pn_preference_int(RUN_NUMBER);
     cached_timer_mode = timer_mode(timer);
     cached_camera_readout = camera_readout_time(m_cameraRef);
-    cached_exposure_time = pn_preference_char(EXPOSURE_TIME);
+    cached_exposure_time = pn_preference_int(EXPOSURE_TIME);
     cached_ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
 
     updateTimerGroup();

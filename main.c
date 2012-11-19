@@ -135,7 +135,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     }
 
     bool ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
-    long exposure_time = pn_preference_char(EXPOSURE_TIME);
+    long exposure_time = pn_preference_int(EXPOSURE_TIME);
     if (ms_mode)
     {
         double exptime = exposure_time / 1000.0;
@@ -461,7 +461,10 @@ int main(int argc, char *argv[])
             time_t readout_time = camera_readout_time(camera);
 
             // Add 1 second of leeway to account for imprecision of tagging downloaded frames
-            uint8_t exptime = pn_preference_char(TIMER_MILLISECOND_MODE) ? 0 : pn_preference_char(EXPOSURE_TIME);
+            uint16_t exptime = pn_preference_int(EXPOSURE_TIME);
+            if (pn_preference_char(TIMER_MILLISECOND_MODE))
+                exptime /= 1000;
+
             time_t estimated_start_time = timestamp_to_time_t(&frame->downloaded_time) - readout_time + 1 - exptime;
 
             // PVCAM/simulated triggers indicate the end of the frame

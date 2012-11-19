@@ -303,7 +303,7 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
     // Query readout time
     flt64 readout_time;
     get_param(internal->handle, PARAM_READOUT_TIME, ATTR_CURRENT, &readout_time);
-    double exposure_time = pn_preference_char(EXPOSURE_TIME);
+    double exposure_time = pn_preference_int(EXPOSURE_TIME);
 
     // Convert readout time from to the base exposure unit (s or ms) for comparison
     bool ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
@@ -312,8 +312,8 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
 
     if (exposure_time < readout_time)
     {
-        uint8_t new_exposure = (uint8_t)(ceil(readout_time));
-        pn_preference_set_char(EXPOSURE_TIME, new_exposure);
+        uint16_t new_exposure = (uint16_t)(ceil(readout_time));
+        pn_preference_set_int(EXPOSURE_TIME, new_exposure);
         pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 

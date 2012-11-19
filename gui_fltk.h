@@ -125,7 +125,7 @@ private:
     double cached_camera_readout;
     int cached_calibration_framecount;
     int cached_run_number;
-    uint8_t cached_exposure_time;
+    uint16_t cached_exposure_time;
     TimerMode cached_timer_mode;
     bool cached_ms_mode;
 

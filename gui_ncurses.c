@@ -189,7 +189,7 @@ static WINDOW *create_acquisition_window()
 static void update_acquisition_window()
 {
     PNFrameType type = pn_preference_char(OBJECT_TYPE);
-    unsigned char exptime = pn_preference_char(EXPOSURE_TIME);
+    uint16_t exptime = pn_preference_int(EXPOSURE_TIME);
     int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
     char *run_prefix = pn_preference_string(RUN_PREFIX);
     int run_number = pn_preference_int(RUN_NUMBER);
@@ -481,7 +481,7 @@ double last_camera_temperature;
 int last_calibration_framecount;
 int last_run_number;
 int last_camera_downloading;
-int last_exposure_time;
+uint16_t last_exposure_time;
 PNUIInputType input_type = INPUT_MAIN;
 
 void pn_ui_new(Camera *camera, TimerUnit *timer)
@@ -650,7 +650,7 @@ bool pn_ui_update()
                             clear_queued_data();
                             camera_start_exposure(camera);
                             bool use_monitor = !camera_is_simulated(camera) && pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
-                            timer_start_exposure(timer, pn_preference_char(EXPOSURE_TIME), use_monitor);
+                            timer_start_exposure(timer, pn_preference_int(EXPOSURE_TIME), use_monitor);
                         }
                         else if (mode == ACQUIRING)
                         {
@@ -767,11 +767,11 @@ bool pn_ui_update()
 
                     if (input_type == INPUT_EXPOSURE)
                     {
-                        unsigned char oldexp = pn_preference_char(EXPOSURE_TIME);
-                        if (new > 255)
+                        uint16_t oldexp = pn_preference_int(EXPOSURE_TIME);
+                        if (new > 65535)
                         {
                             // Invalid entry
-                            pn_log("Maximum exposure: 255 seconds.");
+                            pn_log("Maximum exposure: 65535 seconds.");
                             input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", oldexp);
                         }
                         else
@@ -783,7 +783,7 @@ bool pn_ui_update()
                             if (oldexp != new)
                             {
                                 // Update preferences
-                                pn_preference_set_char(EXPOSURE_TIME, new);
+                                pn_preference_set_int(EXPOSURE_TIME, new);
                                 update_acquisition_window();
                                 pn_log("Exposure set to %d seconds.", new);
                             }
@@ -969,7 +969,7 @@ bool pn_ui_update()
 
     int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
     int run_number = pn_preference_int(RUN_NUMBER);
-    int exposure_time = pn_preference_char(EXPOSURE_TIME);
+    uint16_t exposure_time = pn_preference_int(EXPOSURE_TIME);
 
     if (remaining_frames != last_calibration_framecount ||
         run_number != last_run_number ||
