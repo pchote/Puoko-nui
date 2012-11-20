@@ -199,9 +199,9 @@ void FLTKGui::updateTimerGroup()
         }
 
         if (display_progress)
-            snprintf(buf, 32, "%d / %d sec %s", cached_exposure_time - ts.remaining_exposure, cached_exposure_time, message);
+            snprintf(buf, 32, "%u / %u sec %s", (uint16_t)(cached_exposure_time - ts.remaining_exposure), cached_exposure_time, message);
         else
-            snprintf(buf, 32, "%d sec %s", cached_exposure_time, message);
+            snprintf(buf, 32, "%u sec %s", cached_exposure_time, message);
     }
 
     m_timerExposureOutput->value(buf);
