@@ -30,7 +30,7 @@ typedef struct
     int32_t seconds;
     int32_t milliseconds;
     bool locked;
-    int32_t remaining_exposure; // for current time
+    int32_t exposure_progress; // for current time
 } TimerTimestamp;
 
 // Represents an aquired frame

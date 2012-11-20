@@ -96,8 +96,8 @@ static void update_time_window()
         mvwaddstr(time_window, 1, 13, (ts.locked ? "Locked     " : "Unlocked   "));
         mvwprintw(time_window, 3, 13, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
 
-        if (ts.remaining_exposure > 0)
-            mvwprintw(time_window, 4, 13, "%03d        ", ts.remaining_exposure);
+        if (ts.exposure_progress != last_exposure_time)
+            mvwprintw(time_window, 4, 13, "%03d        ", ts.exposure_progress);
         else
             mvwaddstr(time_window, 4, 13, "Disabled    ");
     }

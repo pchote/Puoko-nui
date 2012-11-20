@@ -170,12 +170,13 @@ void FLTKGui::updateTimerGroup()
         m_timerUTCDateOutput->value("NA");
     }
 
+    bool exposure_active = (ts.exposure_progress != cached_exposure_time && ts.year > 0);
     if (cached_ms_mode)
-        snprintf(buf, 32, "%s / %d ms", (ts.remaining_exposure > 0 && ts.year > 0) ? "Active" : "Disabled", cached_exposure_time);
+        snprintf(buf, 32, "%s / %d ms", exposure_active ? "Active" : "Disabled", cached_exposure_time);
     else
     {
         const char *message = "";
-        bool display_progress = (ts.remaining_exposure > 0 && ts.year > 0);
+        bool display_progress = exposure_active;
         switch (cached_timer_mode)
         {
 #ifndef USE_PICAM
@@ -199,7 +200,7 @@ void FLTKGui::updateTimerGroup()
         }
 
         if (display_progress)
-            snprintf(buf, 32, "%u / %u sec %s", (uint16_t)(cached_exposure_time - ts.remaining_exposure), cached_exposure_time, message);
+            snprintf(buf, 32, "%u / %u sec %s", ts.exposure_progress, cached_exposure_time, message);
         else
             snprintf(buf, 32, "%u sec %s", cached_exposure_time, message);
     }

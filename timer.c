@@ -342,14 +342,15 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
             pthread_mutex_lock(&timer->read_mutex);
             timer->current_timestamp = (TimerTimestamp)
             {
-                .year = data[5] | data[6] << 8,
-                .month = data[4],
+                .year = data[0] | data[1] << 8,
+                .month = data[2],
                 .day = data[3],
-                .hours = data[0],
-                .minutes = data[1],
-                .seconds = data[2],
-                .locked = data[7],
-                .remaining_exposure = data[8] | data[9] << 8
+                .hours = data[4],
+                .minutes = data[5],
+                .seconds = data[6],
+                .milliseconds = data[7] | data[8] << 8,
+                .locked = data[9],
+                .exposure_progress = data[10] | data[11] << 8
             };
             pthread_mutex_unlock(&timer->read_mutex);
             break;
@@ -363,15 +364,15 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
                 break;
             }
 
-            t->year = data[5] | data[6] << 8;
-            t->month = data[4];
+            t->year = data[0] | data[1] << 8;
+            t->month = data[2];
             t->day = data[3];
-            t->hours = data[0];
-            t->minutes = data[1];
-            t->seconds = data[2];
-            t->locked = data[7];
-            t->milliseconds = data[8] | data[9];
-            t->remaining_exposure = 0;
+            t->hours = data[4];
+            t->minutes = data[5];
+            t->seconds = data[6];
+            t->milliseconds = data[7] | data[8] << 8;
+            t->locked = data[9];
+            t->exposure_progress = 0;
 
             // The timer sends unnormalized timestamps, where milliseconds may
             // be greater than 1000.
@@ -563,7 +564,7 @@ void *simulated_timer_thread(void *_args)
                 t->seconds = pc_time->tm_sec;
                 t->milliseconds = 0;
                 t->locked = true;
-                t->remaining_exposure = 0;
+                t->exposure_progress = 0;
 
                 // Pass ownership to main thread
                 queue_trigger(t);
@@ -584,7 +585,7 @@ void *simulated_timer_thread(void *_args)
                 .seconds = pc_time->tm_sec,
                 .milliseconds = 0,
                 .locked = 1,
-                .remaining_exposure = timer->simulated_remaining,
+                .exposure_progress = timer->simulated_remaining,
             };
 
             pthread_mutex_unlock(&timer->read_mutex);
