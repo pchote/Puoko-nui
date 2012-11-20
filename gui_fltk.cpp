@@ -147,22 +147,22 @@ void FLTKGui::createTimerGroup()
 void FLTKGui::updateTimerGroup()
 {
     // PC time
-    char strtime[20];
+    char buf[32];
     time_t t = time(NULL);
-    strftime(strtime, 20, "%H:%M:%S", gmtime(&t));
-    m_timerPCTimeOutput->value(strtime);
+    strftime(buf, 32, "%H:%M:%S", gmtime(&t));
+    m_timerPCTimeOutput->value(buf);
 
     // GPS time
     TimerTimestamp ts = timer_current_timestamp(m_timerRef);
 
     if (ts.year > 0)
     {
-        snprintf(strtime, 20, "%04d-%02d-%02d", ts.year, ts.month, ts.day);
-        m_timerUTCDateOutput->value(strtime);
-        snprintf(strtime, 20, "%02d:%02d:%02d (%s)",
+        snprintf(buf, 32, "%04d-%02d-%02d", ts.year, ts.month, ts.day);
+        m_timerUTCDateOutput->value(buf);
+        snprintf(buf, 32, "%02d:%02d:%02d (%s)",
                  ts.hours, ts.minutes, ts.seconds,
                  (ts.locked ? "Locked" : "Unlocked"));
-        m_timerUTCTimeOutput->value(strtime);
+        m_timerUTCTimeOutput->value(buf);
     }
     else
     {
@@ -170,9 +170,8 @@ void FLTKGui::updateTimerGroup()
         m_timerUTCDateOutput->value("NA");
     }
 
-    char buf[20];
     if (cached_ms_mode)
-        snprintf(buf, 20, "%s / %d ms", (ts.remaining_exposure > 0 && ts.year > 0) ? "Active" : "Disabled", cached_exposure_time);
+        snprintf(buf, 32, "%s / %d ms", (ts.remaining_exposure > 0 && ts.year > 0) ? "Active" : "Disabled", cached_exposure_time);
     else
     {
         const char *message = "";
@@ -200,9 +199,9 @@ void FLTKGui::updateTimerGroup()
         }
 
         if (display_progress)
-            snprintf(buf, 20, "%d / %d sec %s", cached_exposure_time - ts.remaining_exposure, cached_exposure_time, message);
+            snprintf(buf, 32, "%d / %d sec %s", cached_exposure_time - ts.remaining_exposure, cached_exposure_time, message);
         else
-            snprintf(buf, 20, "%d sec %s", cached_exposure_time, message);
+            snprintf(buf, 32, "%d sec %s", cached_exposure_time, message);
     }
 
     m_timerExposureOutput->value(buf);
