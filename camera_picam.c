@@ -281,8 +281,9 @@ void *camera_picam_initialize(Camera *camera, ThreadCreationArgs *args)
     // Set output high when the camera is able to respond to a readout trigger
     set_integer_param(internal->model_handle, PicamParameter_OutputSignal, PicamOutputSignal_WaitingForTrigger);
 
-    // Enable cleaning while waiting for trigger
-    set_integer_param(internal->model_handle, PicamParameter_CleanUntilTrigger, 1);
+    // Disable CCD cleaning between exposures
+    set_integer_param(internal->model_handle, PicamParameter_CleanUntilTrigger, 0);
+    set_integer_param(internal->model_handle, PicamParameter_CleanBeforeExposure, 0);
 
     // Keep the shutter closed until we start a sequence
     set_integer_param(internal->model_handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
