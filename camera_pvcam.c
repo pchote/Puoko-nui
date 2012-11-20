@@ -472,6 +472,8 @@ void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mod
                 frame->width = internal->frame_width;
                 frame->height = internal->frame_height;
                 frame->temperature = current_temperature;
+                frame->has_timestamp = false;
+                frame->timestamp = 0;
                 queue_framedata(frame);
             }
             else

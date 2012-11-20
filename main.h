@@ -41,6 +41,9 @@ typedef struct
     uint16_t *data;
     double temperature;
     TimerTimestamp downloaded_time;
+
+    bool has_timestamp;
+    double timestamp;
 } CameraFrame;
 
 void pn_log(const char * format, ...);

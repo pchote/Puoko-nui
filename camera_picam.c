@@ -27,6 +27,10 @@ struct internal
     uint16_t frame_width;
     uint16_t frame_height;
     size_t frame_bytes;
+
+    uint64_t timestamp_resolution;
+    uint64_t start_timestamp;
+    bool first_frame;
 };
 
 static void fatal_error(struct internal *internal, char *format, ...)
@@ -146,10 +150,26 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
             frame->data = malloc(callback_internal_ref->frame_bytes);
             if (frame->data)
             {
+                // Calculate camera timestamp
+                uint64_t timestamp = *(uint64_t *)(data->initial_readout + callback_internal_ref->frame_bytes);
+
+                if (callback_internal_ref->first_frame)
+                {
+                    callback_internal_ref->start_timestamp = timestamp;
+                    timestamp = 0;
+                    callback_internal_ref->first_frame = false;
+                }
+                else
+                    timestamp -= callback_internal_ref->start_timestamp;
+
                 memcpy(frame->data, data->initial_readout, callback_internal_ref->frame_bytes);
                 frame->width = callback_internal_ref->frame_width;
                 frame->height = callback_internal_ref->frame_height;
                 frame->temperature = read_temperature(callback_internal_ref->model_handle);
+
+                frame->has_timestamp = true;
+                frame->timestamp = timestamp*1.0/callback_internal_ref->timestamp_resolution;
+
                 queue_framedata(frame);
             }
             else
@@ -266,6 +286,15 @@ void *camera_picam_initialize(Camera *camera, ThreadCreationArgs *args)
 
     // Keep the shutter closed until we start a sequence
     set_integer_param(internal->model_handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
+
+    // Tag each frame with start time from the camera
+    set_integer_param(internal->model_handle, PicamParameter_TimeStamps, PicamTimeStampsMask_ExposureStarted);
+
+    pi64s timestamp_resolution;
+    PicamError error = Picam_GetParameterLargeIntegerValue(internal->model_handle, PicamParameter_TimeStampResolution, &timestamp_resolution);
+    if (error != PicamError_None)
+        print_error("Failed to set PicamParameter_TimeStampResolution.", error);
+    internal->timestamp_resolution = timestamp_resolution;
 
     // Continue exposing until explicitly stopped or error
     // Requires a user specified image buffer to be provided - the interal
@@ -539,6 +568,8 @@ void camera_picam_start_acquiring(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
     PicamError error;
+
+    internal->first_frame = true;
 
     // Create a buffer large enough for PICAM to hold multiple frames.
     size_t buffer_size = pn_preference_int(CAMERA_FRAME_BUFFER_SIZE);
