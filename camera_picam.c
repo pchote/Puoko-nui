@@ -26,6 +26,7 @@ struct internal
 
     uint16_t frame_width;
     uint16_t frame_height;
+    size_t frame_bytes;
 };
 
 static void fatal_error(struct internal *internal, char *format, ...)
@@ -142,11 +143,10 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
         CameraFrame *frame = malloc(sizeof(CameraFrame));
         if (frame)
         {
-            size_t frame_bytes = callback_internal_ref->frame_width*callback_internal_ref->frame_height*sizeof(uint16_t);
-            frame->data = malloc(frame_bytes);
+            frame->data = malloc(callback_internal_ref->frame_bytes);
             if (frame->data)
             {
-                memcpy(frame->data, data->initial_readout, frame_bytes);
+                memcpy(frame->data, data->initial_readout, callback_internal_ref->frame_bytes);
                 frame->width = callback_internal_ref->frame_width;
                 frame->height = callback_internal_ref->frame_height;
                 frame->temperature = read_temperature(callback_internal_ref->model_handle);
@@ -271,33 +271,9 @@ void *camera_picam_initialize(Camera *camera, ThreadCreationArgs *args)
     // Requires a user specified image buffer to be provided - the interal
     // routines appears to use this parameter to determine the size of the
     // internal buffer to use.
-    PicamError error = Picam_SetParameterLargeIntegerValue(internal->model_handle, PicamParameter_ReadoutCount, 0);
+    error = Picam_SetParameterLargeIntegerValue(internal->model_handle, PicamParameter_ReadoutCount, 0);
     if (error != PicamError_None)
         print_error("Failed to set PicamParameter_ReadoutCount.", error);
-
-    // Create a buffer large enough for PICAM to hold multiple frames.
-    size_t buffer_size = pn_preference_int(CAMERA_FRAME_BUFFER_SIZE);
-    piint frame_stride = 0;
-    error = Picam_GetParameterIntegerValue(internal->model_handle, PicamParameter_ReadoutStride, &frame_stride);
-    if (error != PicamError_None)
-        print_error("Failed to set PicamParameter_ReadoutStride.", error);
-
-    internal->image_buffer = (pibyte *)malloc(buffer_size*frame_stride*sizeof(pibyte));
-    if (!internal->image_buffer)
-        fatal_error(internal, "Failed to allocate frame buffer.");
-
-    PicamAcquisitionBuffer buffer =
-    {
-        .memory = internal->image_buffer,
-        .memory_size = buffer_size*frame_stride
-    };
-
-    error = PicamAdvanced_SetAcquisitionBuffer(internal->device_handle, &buffer);
-    if (error != PicamError_None)
-    {
-        print_error("PicamAdvanced_SetAcquisitionBuffer failed.", error);
-        fatal_error(internal, "Acquisition setup failed.");
-    }
 
     // Commit parameter changes to hardware
     commit_camera_params(internal);
@@ -554,12 +530,6 @@ void camera_picam_uninitialize(Camera *camera, void *_internal)
     struct internal *internal = _internal;
 
     // Shutdown camera and PICAM
-    PicamAcquisitionBuffer buffer = {.memory = NULL, .memory_size = 0};
-    PicamError error = PicamAdvanced_SetAcquisitionBuffer(internal->device_handle, &buffer);
-    if (error != PicamError_None)
-        print_error("PicamAdvanced_SetAcquisitionBuffer failed.", error);
-    free(internal->image_buffer);
-
     PicamAdvanced_UnregisterForAcquisitionUpdated(internal->device_handle, acquisitionUpdatedCallback);
     PicamAdvanced_CloseCameraDevice(internal->device_handle);
     Picam_UninitializeLibrary();
@@ -570,9 +540,39 @@ void camera_picam_start_acquiring(Camera *camera, void *_internal)
     struct internal *internal = _internal;
     PicamError error;
 
-    piflt exptime = pn_preference_int(EXPOSURE_TIME);
+    // Create a buffer large enough for PICAM to hold multiple frames.
+    size_t buffer_size = pn_preference_int(CAMERA_FRAME_BUFFER_SIZE);
+
+    piint readout_stride = 0;
+    error = Picam_GetParameterIntegerValue(internal->model_handle, PicamParameter_ReadoutStride, &readout_stride);
+    if (error != PicamError_None)
+        print_error("Failed to set PicamParameter_ReadoutStride.", error);
+
+    internal->image_buffer = (pibyte *)malloc(buffer_size*readout_stride*sizeof(pibyte));
+    if (!internal->image_buffer)
+        fatal_error(internal, "Failed to allocate frame buffer.");
+
+    PicamAcquisitionBuffer buffer =
+    {
+        .memory = internal->image_buffer,
+        .memory_size = buffer_size*readout_stride
+    };
+
+    error = PicamAdvanced_SetAcquisitionBuffer(internal->device_handle, &buffer);
+    if (error != PicamError_None)
+    {
+        print_error("PicamAdvanced_SetAcquisitionBuffer failed.", error);
+        fatal_error(internal, "Acquisition setup failed.");
+    }
+
+    piint frame_size = 0;
+    error = Picam_GetParameterIntegerValue(internal->model_handle, PicamParameter_FrameSize, &frame_size);
+    if (error != PicamError_None)
+        print_error("Failed to set PicamParameter_FrameSize.", error);
+    internal->frame_bytes = frame_size;
 
     // Convert from base exposure units (s or ms) to ms
+    piflt exptime = pn_preference_int(EXPOSURE_TIME);
     if (!pn_preference_char(TIMER_MILLISECOND_MODE))
         exptime *= 1000;
 
@@ -624,6 +624,12 @@ void camera_picam_stop_acquiring(Camera *camera, void *_internal)
     // Close the shutter until the next exposure sequence
     set_integer_param(internal->model_handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysClosed);
     commit_camera_params(internal);
+
+    PicamAcquisitionBuffer buffer = {.memory = NULL, .memory_size = 0};
+    error = PicamAdvanced_SetAcquisitionBuffer(internal->device_handle, &buffer);
+    if (error != PicamError_None)
+        print_error("PicamAdvanced_SetAcquisitionBuffer failed.", error);
+    free(internal->image_buffer);
 }
 
 // New frames are notified by callback, so we don't need to do anything here
