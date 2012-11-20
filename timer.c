@@ -171,6 +171,13 @@ static void queue_data(TimerUnit *timer, unsigned char type, unsigned char *data
 // Initialize the usb connection to the timer
 static void initialize_timer(TimerUnit *timer)
 {
+    // Data to send timer on startup to exit
+    // relay / upgrade mode and purge input buffer
+    const uint16_t reset_data_length = 257;
+    uint8_t reset_data[257];
+    memset(reset_data, 0, reset_data_length);
+    reset_data[0] = 'E';
+
 #ifdef USE_LIBFTDI
     timer->context = ftdi_new();
     if (timer->context == NULL)
@@ -193,12 +200,6 @@ static void initialize_timer(TimerUnit *timer)
     if (timer->shutdown)
         return;
 
-    if (ftdi_usb_purge_rx_buffer(timer->context))
-        fatal_timer_error(timer, "Error purging timer rx buffer: %s", timer->context->error_str);
-
-    if (ftdi_usb_purge_tx_buffer(timer->context))
-        fatal_timer_error(timer, "Error purging timer tx buffer: %s", timer->context->error_str);
-
     if (ftdi_set_baudrate(timer->context, pn_preference_int(TIMER_BAUD_RATE)) < 0)
         fatal_timer_error(timer, "Error setting timer baudrate: %s", timer->context->error_str);
 
@@ -211,6 +212,19 @@ static void initialize_timer(TimerUnit *timer)
     // the latency in milliseconds before partially full bit buffers are sent.
     if (ftdi_set_latency_timer(timer->context, 1) < 0)
         fatal_timer_error(timer, "Error setting timer read timeout: %s", timer->context->error_str);
+
+    // Purge any data in the chip receive buffer
+    if (ftdi_usb_purge_rx_buffer(timer->context))
+        fatal_timer_error(timer, "Error purging timer rx buffer: %s", timer->context->error_str);
+
+    // Send reset data
+    if (ftdi_write_data(timer->context, reset_data, reset_data_length) != reset_data_length)
+        fatal_timer_error(timer, "Error sending reset data: %s", timer->context->error_str);
+
+    // Purge any data in the chip transmit buffer
+    if (ftdi_usb_purge_tx_buffer(timer->context))
+        fatal_timer_error(timer, "Error purging timer tx buffer: %s", timer->context->error_str);
+
 #else
     // Open the first available FTDI device, under the
     // assumption that it is the timer
@@ -226,9 +240,6 @@ static void initialize_timer(TimerUnit *timer)
     if (timer->shutdown)
         return;
 
-    if (FT_Purge(timer->handle, FT_PURGE_RX | FT_PURGE_TX) != FT_OK)
-        fatal_timer_error(timer, "Error purging timer buffers");
-
     if (FT_SetBaudRate(timer->handle, pn_preference_int(TIMER_BAUD_RATE)) != FT_OK)
         fatal_timer_error(timer, "Error setting timer baudrate");
 
@@ -239,7 +250,24 @@ static void initialize_timer(TimerUnit *timer)
     // Set read timeout to 1ms, write timeout unchanged
     if (FT_SetTimeouts(timer->handle, 1, 0) != FT_OK)
         fatal_timer_error(timer, "Error setting timer read timeout");
+
+    // Purge any data in the chip receive buffer
+    if (FT_Purge(timer->handle, FT_PURGE_RX) != FT_OK)
+        fatal_timer_error(timer, "Error purging timer buffers");
+
+    // Send reset data
+    DWORD bytes_written;
+    FT_STATUS status = FT_Write(timer->handle, reset_data, reset_data_length, &bytes_written);
+    if (status != FT_OK || bytes_written != reset_data_length)
+        fatal_timer_error(timer, "Error sending reset data");
+
+    // Purge any data in the chip transmit buffer
+    if (FT_Purge(timer->handle, FT_PURGE_TX) != FT_OK)
+        fatal_timer_error(timer, "Error purging timer buffers");
+
 #endif
+
+    queue_data(timer, RESET, NULL, 0);
     pn_log("Timer is now active.");
 }
 
@@ -433,9 +461,6 @@ static void timer_loop(TimerUnit *timer, Camera *camera)
     uint8_t packet_length = 0;
     uint8_t packet_expected_length = 0;
     TimerUnitPacketType packet_type = UNKNOWN_PACKET;
-
-    // Reset timer to its idle state
-    queue_data(timer, RESET, NULL, 0);
 
     // Loop until shutdown, parsing incoming data
     while (true)
