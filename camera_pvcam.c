@@ -496,3 +496,8 @@ void camera_pvcam_query_ccd_region(Camera *camera, void *_internal, uint16_t reg
     region[2] = 0;
     region[3] = internal->ccd_width - 1;
 }
+
+bool camera_pvcam_supports_readout_display(Camera *camera, void *internal)
+{
+    return true;
+}

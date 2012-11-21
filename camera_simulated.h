@@ -23,5 +23,6 @@ void camera_simulated_stop_acquiring(Camera *camera, void *internal);
 void camera_simulated_tick(Camera *camera, void *internal, PNCameraMode current_mode, double current_temperature);
 double camera_simulated_read_temperature(Camera *camera, void *internal);
 void camera_simulated_query_ccd_region(Camera *camera, void *internal, uint16_t region[4]);
+bool camera_simulated_supports_readout_display(Camera *camera, void *internal);
 
 #endif

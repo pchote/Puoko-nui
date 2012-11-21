@@ -221,3 +221,8 @@ void camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current
         timer_set_simulated_camera_downloading(internal->timer, false);
     }
 }
+
+bool camera_simulated_supports_readout_display(Camera *camera, void *internal)
+{
+    return false;
+}

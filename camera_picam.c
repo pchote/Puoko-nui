@@ -687,3 +687,8 @@ void camera_picam_query_ccd_region(Camera *camera, void *_internal, uint16_t reg
 
     Picam_DestroyRoisConstraints(roi_constraint);
 }
+
+bool camera_picam_supports_readout_display(Camera *camera, void *internal)
+{
+    return false;
+}

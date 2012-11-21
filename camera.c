@@ -57,20 +57,22 @@ struct Camera
     void (*stop_acquiring)(Camera *, void *);
     double (*read_temperature)(Camera *, void *);
     void (*query_ccd_region)(Camera *, void *, uint16_t[4]);
+    bool (*supports_readout_display)(Camera *, void *);
 };
 
 #define HOOK(type, suffix) camera->suffix = camera_##type##_##suffix
-#define HOOK_FUNCTIONS(type)            \
-{                                       \
-    HOOK(type, initialize);             \
-    HOOK(type, update_camera_settings); \
-    HOOK(type, port_table);             \
-    HOOK(type, uninitialize);           \
-    HOOK(type, tick);                   \
-    HOOK(type, start_acquiring);        \
-    HOOK(type, stop_acquiring);         \
-    HOOK(type, read_temperature);       \
-    HOOK(type, query_ccd_region);       \
+#define HOOK_FUNCTIONS(type)              \
+{                                         \
+    HOOK(type, initialize);               \
+    HOOK(type, update_camera_settings);   \
+    HOOK(type, port_table);               \
+    HOOK(type, uninitialize);             \
+    HOOK(type, tick);                     \
+    HOOK(type, start_acquiring);          \
+    HOOK(type, stop_acquiring);           \
+    HOOK(type, read_temperature);         \
+    HOOK(type, query_ccd_region);         \
+    HOOK(type, supports_readout_display); \
 }
 
 Camera *camera_new(bool simulate_hardware)
@@ -325,6 +327,11 @@ void camera_update_settings(Camera *camera)
     pthread_mutex_lock(&camera->read_mutex);
     camera->camera_settings_dirty = true;
     pthread_mutex_unlock(&camera->read_mutex);
+}
+
+bool camera_supports_readout_display(Camera *camera)
+{
+    return camera->supports_readout_display(camera, camera->internal);
 }
 
 // Warning: These are not thread safe, but this is only touched by the camera
