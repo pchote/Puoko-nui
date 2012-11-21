@@ -166,45 +166,64 @@ void FLTKGui::updateTimerGroup()
     }
     else
     {
+        // No valid timestamp
         m_timerUTCTimeOutput->value("NA");
         m_timerUTCDateOutput->value("NA");
     }
 
-    bool exposure_active = (ts.exposure_progress != cached_exposure_time && ts.year > 0);
-    if (cached_ms_mode)
-        snprintf(buf, 32, "%s / %d ms", exposure_active ? "Active" : "Disabled", cached_exposure_time);
-    else
+    const char *message = "";
+    bool display_progress = false;
+    switch (cached_timer_mode)
     {
-        const char *message = "";
-        bool display_progress = exposure_active;
-        switch (cached_timer_mode)
+        case TIMER_READOUT:
+        case TIMER_EXPOSING:
         {
-#ifndef USE_PICAM
-            case TIMER_READOUT:
-                message = "(Read)";
-                break;
-#endif
-            case TIMER_WAITING:
-                message = "(Waiting)";
-                display_progress = false;
-                break;
-            case TIMER_ALIGN:
-                message = "(Align)";
-                display_progress = false;
-                break;
-            case TIMER_IDLE:
-                message = "(Disabled)";
-                display_progress = false;
-                break;
-            default: break;
-        }
+            bool short_exposure = (cached_ms_mode && cached_exposure_time < 5000) || cached_exposure_time < 5;
 
-        if (display_progress)
-            snprintf(buf, 32, "%u / %u sec %s", ts.exposure_progress, cached_exposure_time, message);
-        else
-            snprintf(buf, 32, "%u sec %s", cached_exposure_time, message);
+            if (short_exposure)
+                message = "(Active)";
+            else if (cached_readout_display && cached_timer_mode == TIMER_READOUT)
+                message = "(Read)";
+
+            if (!short_exposure)
+                display_progress = true;
+            break;
+        }
+        break;
+        case TIMER_WAITING:
+            message = "(Waiting)";
+        break;
+        case TIMER_ALIGN:
+            message = "(Align)";
+        break;
+        case TIMER_IDLE:
+            message = "(Disabled)";
+        break;
+        default:
+        break;
     }
 
+    // Construct "Exposure:" string
+    buf[0] = '\0';
+    uint16_t progress = ts.exposure_progress;
+    uint16_t total = cached_exposure_time;
+    uint16_t total_ms = 0;
+
+    if (cached_ms_mode)
+    {
+        progress /= 1000;
+        total /= 1000;
+        total_ms = cached_exposure_time % 1000;
+    }
+
+    if (display_progress)
+        strncatf(buf, 32, "%u / ", progress);
+
+    strncatf(buf, 32, "%u", total);
+    if (total_ms)
+        strncatf(buf, 32, ".%03d", total_ms);
+
+    strncatf(buf, 32, " s %s", message);
     m_timerExposureOutput->value(buf);
 }
 
@@ -833,6 +852,7 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     cached_camera_readout = camera_readout_time(m_cameraRef);
     cached_exposure_time = pn_preference_int(EXPOSURE_TIME);
     cached_ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
+    cached_readout_display = camera_supports_readout_display(m_cameraRef);
 
     updateTimerGroup();
     updateCameraGroup();

@@ -128,6 +128,7 @@ private:
     uint16_t cached_exposure_time;
     TimerMode cached_timer_mode;
     bool cached_ms_mode;
+    bool cached_readout_display;
 
     // Camera window
     Fl_Double_Window *m_cameraWindow;
