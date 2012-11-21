@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #ifdef USE_LIBFTDI
 #   include <ftdi.h>
 #else
@@ -28,8 +29,8 @@ struct TimerUnit
     bool thread_initialized;
 
     bool simulated;
-    int simulated_exptime;
-    int simulated_remaining;
+    uint16_t simulated_total;
+    uint16_t simulated_progress;
     bool simulated_send_shutdown;
 
 #ifdef USE_LIBFTDI
@@ -545,13 +546,14 @@ void *simulated_timer_thread(void *_args)
 
     // Initialization
     pn_log("Initializing simulated Timer.");
-    timer->simulated_remaining = timer->simulated_exptime = 0;
-    time_t last_unixtime = time(NULL);
+    timer->simulated_progress = timer->simulated_total = 0;
+
+    TimerTimestamp last = system_time();
 
     // Loop until shutdown, parsing incoming data
     while (!timer->shutdown)
     {
-        millisleep(100);
+        millisleep(1);
 
         pthread_mutex_lock(&timer->read_mutex);
         bool send_shutdown = timer->simulated_send_shutdown;
@@ -559,22 +561,27 @@ void *simulated_timer_thread(void *_args)
         pthread_mutex_unlock(&timer->read_mutex);
         if (send_shutdown)
         {
-            timer->simulated_exptime = 0;
-            timer->simulated_remaining = 0;
+            timer->simulated_total = 0;
+            timer->simulated_progress = 0;
             camera_notify_safe_to_stop(camera);
         }
 
-        time_t cur_unixtime = time(NULL);
-        if (cur_unixtime != last_unixtime)
-        {
-            struct tm *pc_time = gmtime(&cur_unixtime);
-            if (timer->simulated_exptime > 0)
-                timer->simulated_remaining -= (int)(cur_unixtime - last_unixtime);
+        TimerTimestamp cur = system_time();
 
-            // Will behave badly if remaining < 0, but this should never happen
-            if (timer->simulated_remaining <= 0 && timer->simulated_exptime > 0)
+        if (cur.seconds != last.seconds ||
+            cur.milliseconds != last.milliseconds)
+        {
+            if (timer->simulated_total > 0)
             {
-                timer->simulated_remaining = timer->simulated_exptime;
+                if (pn_preference_char(TIMER_MILLISECOND_MODE))
+                    timer->simulated_progress += (cur.seconds - last.seconds)*1000 + (cur.milliseconds - last.milliseconds);
+                else
+                    timer->simulated_progress += cur.seconds - last.seconds;
+            }
+
+            if (timer->simulated_progress >= timer->simulated_total && timer->simulated_total > 0)
+            {
+                timer->simulated_progress -= timer->simulated_total;
 
                 TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
                 if (!t)
@@ -583,15 +590,7 @@ void *simulated_timer_thread(void *_args)
                     break;
                 }
 
-                t->year = pc_time->tm_year + 1900;
-                t->month = pc_time->tm_mon;
-                t->day = pc_time->tm_wday;
-                t->hours = pc_time->tm_hour;
-                t->minutes = pc_time->tm_min;
-                t->seconds = pc_time->tm_sec;
-                t->milliseconds = 0;
-                t->locked = true;
-                t->exposure_progress = 0;
+                *t = cur;
 
                 // Pass ownership to main thread
                 queue_trigger(t);
@@ -601,23 +600,12 @@ void *simulated_timer_thread(void *_args)
                 pthread_mutex_unlock(&timer->read_mutex);
             }
 
+            cur.exposure_progress = timer->simulated_progress;
             pthread_mutex_lock(&timer->read_mutex);
-            timer->current_timestamp = (TimerTimestamp)
-            {
-                .year = pc_time->tm_year + 1900,
-                .month = pc_time->tm_mon,
-                .day = pc_time->tm_wday,
-                .hours = pc_time->tm_hour,
-                .minutes = pc_time->tm_min,
-                .seconds = pc_time->tm_sec,
-                .milliseconds = 0,
-                .locked = 1,
-                .exposure_progress = timer->simulated_remaining,
-            };
-
+            timer->current_timestamp = cur;
             pthread_mutex_unlock(&timer->read_mutex);
 
-            last_unixtime = cur_unixtime;
+            last = cur;
         }
     }
 
@@ -634,7 +622,13 @@ void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
            pn_preference_char(TIMER_MILLISECOND_MODE) ? "ms" : "s");
 
     if (timer->simulated)
-        timer->simulated_remaining = timer->simulated_exptime = exptime;
+    {
+        pthread_mutex_lock(&timer->read_mutex);
+        timer->simulated_progress = 0;
+        timer->simulated_total = exptime;
+        timer->mode = TIMER_EXPOSING;
+        pthread_mutex_unlock(&timer->read_mutex);
+    }
     else
     {
         if (!use_monitor)
@@ -656,6 +650,7 @@ void timer_stop_exposure(TimerUnit *timer)
     {
         pthread_mutex_lock(&timer->read_mutex);
         timer->simulated_send_shutdown = true;
+        timer->mode = TIMER_IDLE;
         pthread_mutex_unlock(&timer->read_mutex);
     }
     else

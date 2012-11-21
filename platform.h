@@ -12,7 +12,9 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <time.h>
+#include "main.h"
 
+TimerTimestamp system_time();
 time_t struct_tm_to_time_t(struct tm *t);
 void normalize_tm(struct tm *t);
 void millisleep(int ms);

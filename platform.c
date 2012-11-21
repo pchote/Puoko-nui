@@ -23,6 +23,43 @@
 
 #include "platform.h"
 
+TimerTimestamp system_time()
+{
+#ifdef _WIN32
+    SYSTEMTIME st;
+    GetSystemTime(&st);
+
+    return (TimerTimestamp) {
+        .year = st.wYear,
+        .month = st.wMonth,
+        .day = st.wDay,
+        .hours = st.wHour,
+        .minutes = st.wMinute,
+        .seconds = st.wSecond,
+        .milliseconds = st.wMilliseconds,
+        .locked = true,
+        .exposure_progress = 0
+    };
+#else
+    struct timeval tv;
+    struct timezone tz;
+    gettimeofday(&tv, &tz);
+
+    struct tm *st = gmtime(&tv.tv_sec);
+    return (TimerTimestamp) {
+        .year = st->tm_year + 1900,
+        .month = st->tm_mon,
+        .day = st->tm_wday,
+        .hours = st->tm_hour,
+        .minutes = st->tm_min,
+        .seconds = st->tm_sec,
+        .milliseconds = tv.tv_usec / 1000,
+        .locked = true,
+        .exposure_progress = 0
+    };
+#endif
+}
+
 time_t struct_tm_to_time_t(struct tm *t)
 {
 #ifdef _WIN32
