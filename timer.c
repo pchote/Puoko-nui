@@ -453,11 +453,13 @@ static void timer_loop(TimerUnit *timer, Camera *camera)
     // Store received bytes in a 256 byte circular buffer indexed by an unsigned char
     // This ensures the correct circular behavior on over/underflow
     uint8_t input_buf[256];
+    memset(input_buf, 0, 256);
     uint8_t write_index = 0;
     uint8_t read_index = 0;
 
     // Current packet storage
     uint8_t packet[256];
+    memset(packet, 0, 256);
     uint8_t packet_length = 0;
     uint8_t packet_expected_length = 0;
     TimerUnitPacketType packet_type = UNKNOWN_PACKET;
