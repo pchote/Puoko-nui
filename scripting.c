@@ -112,6 +112,8 @@ void *reduction_thread(void *_scripting)
             strcpy(command, "./reduction.sh ");
             strcat(command, pn_preference_char(REDUCE_FRAMES) ? "true " : "false ");
 
+            // TODO: FIXME: This strlen and realloc juggling is just asking for trouble
+            // Rewrite this
             char *frame;
             while ((frame = atomicqueue_pop(scripting->new_frames)) != NULL)
             {
@@ -126,7 +128,7 @@ void *reduction_thread(void *_scripting)
                 snprintf(command + command_len, frame_len + 4, "\"%s\" ", frame);
             }
 
-            command = realloc(command, strlen(command) + 5);
+            command = realloc(command, strlen(command) + 6);
             if (!command)
             {
                 pn_log("Failed to allocate reduction string. Skipping reduction");
