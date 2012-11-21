@@ -1,14 +1,56 @@
 {
-   libz.so.1.2.3.4
-   Memcheck:Cond
-   obj:*libz.so.1.2.3.4
-   obj:*libz.so.1.2.3.4
-   obj:*libz.so.1.2.3.4
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   obj:/usr/lib/i386-linux-gnu/libfontconfig.so.1.4.4
+   obj:*
 }
 {
-   libfontconfig.so.1.4.4
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   obj:/usr/lib/i386-linux-gnu/libfontconfig.so.1.4.4
+   obj:*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   obj:/usr/lib/i386-linux-gnu/libftdi.so.1.19.0
+   obj:*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   obj:/usr/lib/i386-linux-gnu/libftdi.so.1.19.0
+   obj:*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   obj:/usr/lib/libpvcam.so.2.7.1.7
+   obj:*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   obj:/usr/lib/libpvcam.so.2.7.1.7
+   obj:*
+}
+{
+   <insert_a_suppression_name_here>
    Memcheck:Cond
-   obj:*libfontconfig.so.1.4.4
-   obj:*libfontconfig.so.1.4.4
-   obj:*libfontconfig.so.1.4.4
+   obj:/usr/lib/libpvcam.so.2.7.1.7
+   obj:*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr2
+   obj:/usr/lib/libpvcam.so.2.7.1.7
+   obj:*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   obj:/usr/lib/libpvcam.so.2.7.1.7
+   obj:*
 }
