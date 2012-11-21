@@ -23,6 +23,21 @@
 
 #include "platform.h"
 
+// Append a formatted string to another string
+// Appends not more than size - strlen(s1) - 1 characters from
+// the formatted string, and then adds a terminating `\0'
+int strncatf(char *restrict str, size_t size, const char *restrict format, ...)
+{
+    va_list args;
+    size_t len = strlen(str);
+    
+    va_start(args, format);
+    int ret = vsnprintf(str + len, size - len, format, args);
+    va_end(args);
+    
+    return len + ret;
+}
+
 TimerTimestamp system_time()
 {
 #ifdef _WIN32

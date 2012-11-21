@@ -14,6 +14,7 @@
 #include <time.h>
 #include "main.h"
 
+int strncatf(char *str, size_t size, const char *format, ...);
 TimerTimestamp system_time();
 time_t struct_tm_to_time_t(struct tm *t);
 void normalize_tm(struct tm *t);
