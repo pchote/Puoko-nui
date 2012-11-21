@@ -700,7 +700,14 @@ void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading)
 // Ensure all time components are within their allowed range
 void timestamp_normalize(TimerTimestamp *ts)
 {
-    // Let gmtime/timegm do the hard work of normalizing the time
+    // Normalize milliseconds manually
+    while (ts->milliseconds < 0)
+    {
+        ts->milliseconds += 1000;
+        ts->seconds--;
+    }
+
+    // Let gmtime/timegm normalize the rest
     struct tm a = {ts->seconds + ts->milliseconds / 1000, ts->minutes, ts->hours, ts->day, ts->month, ts->year - 1900,0,0,0};
     normalize_tm(&a);
 
