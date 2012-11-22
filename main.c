@@ -74,7 +74,7 @@ void queue_trigger(TimerTimestamp *t)
 }
 
 // Remove all queued frames and timestamps
-void clear_queued_data()
+void clear_queued_data(bool reset_first)
 {
     void *item;
     pthread_mutex_lock(&reset_mutex);
@@ -91,7 +91,9 @@ void clear_queued_data()
         free(item);
     }
 
-    first_frame = true;
+    if (reset_first)
+        first_frame = true;
+
     pthread_mutex_unlock(&reset_mutex);
 }
 
@@ -500,7 +502,7 @@ int main(int argc, char *argv[])
                     pn_log("Trigger start: %02d:%02d:%02d", trigger->hours, trigger->minutes, trigger->seconds);
 
                     pn_log("Discarding all stored frames and triggers.");
-                    clear_queued_data();
+                    clear_queued_data(false);
                     process = false;
                 }
                 else
@@ -537,7 +539,7 @@ int main(int argc, char *argv[])
     camera_shutdown(camera);
     timer_shutdown(timer);
     scripting_shutdown(scripting);
-    clear_queued_data();
+    clear_queued_data(true);
 
     timer_free(timer);
     camera_free(camera);

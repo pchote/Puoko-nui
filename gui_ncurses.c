@@ -647,7 +647,7 @@ bool pn_ui_update()
                     case 0x01: // ^A - Toggle Acquire
                         if (mode == IDLE)
                         {
-                            clear_queued_data();
+                            clear_queued_data(true);
                             camera_start_exposure(camera);
                             bool use_monitor = !camera_is_simulated(camera) && pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
                             timer_start_exposure(timer, pn_preference_int(EXPOSURE_TIME), use_monitor);

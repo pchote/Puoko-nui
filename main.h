@@ -49,7 +49,7 @@ typedef struct
 void pn_log(const char * format, ...);
 void queue_framedata(CameraFrame *frame);
 void queue_trigger(TimerTimestamp *timestamp);
-void clear_queued_data();
+void clear_queued_data(bool reset_first);
 
 void trigger_fatal_error(char *message);
 #endif
