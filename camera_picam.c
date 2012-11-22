@@ -169,6 +169,8 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
 
                 frame->has_timestamp = true;
                 frame->timestamp = timestamp*1.0/callback_internal_ref->timestamp_resolution;
+                frame->has_image_region = false;
+                frame->has_bias_region = false;
 
                 queue_framedata(frame);
             }

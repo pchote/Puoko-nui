@@ -44,6 +44,11 @@ typedef struct
 
     bool has_timestamp;
     double timestamp;
+
+    bool has_image_region;
+    bool has_bias_region;
+    uint16_t image_region[4];
+    uint16_t bias_region[4];
 } CameraFrame;
 
 void pn_log(const char * format, ...);

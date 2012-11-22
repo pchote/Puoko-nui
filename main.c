@@ -168,18 +168,6 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
 
     fits_update_key(fptr, TSTRING, "PROG-VER", (void *)program_version() , "Acquisition program version reported by git", &status);
 
-    if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
-    {
-        char buf[25];
-        unsigned char skip = pn_preference_char(CAMERA_OVERSCAN_SKIP_COLS);
-        unsigned char bias = pn_preference_char(CAMERA_OVERSCAN_BIAS_COLS);
-        unsigned char bin = pn_preference_char(CAMERA_BINNING);
-        snprintf(buf, 25, "[%d, %d, %d, %d]", 0, frame->width - (skip + bias)/bin, 0, frame->height);
-        fits_update_key(fptr, TSTRING, "IMAG-RGN", buf, "Frame image subregion", &status);
-        snprintf(buf, 25, "[%d, %d, %d, %d]", frame->width - skip/bin, frame->width, 0, frame->height);
-        fits_update_key(fptr, TSTRING, "BIAS-RGN", buf, "Frame bias subregion", &status);
-    }
-
     // Trigger timestamp defines the *start* of the frame
     TimerTimestamp start = timestamp;
     TimerTimestamp end = start;
@@ -238,6 +226,24 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TDOUBLE, "IM-SCALE",  &(double){pn_preference_char(CAMERA_BINNING)*atof(pscale)},  "Image scale (arcsec/px)", &status);
     free(pscale);
 
+    if (frame->has_image_region)
+    {
+        char buf[25];
+        snprintf(buf, 25, "[%d, %d, %d, %d]",
+                 frame->image_region[0], frame->image_region[1],
+                 frame->image_region[2], frame->image_region[3]);
+        fits_update_key(fptr, TSTRING, "IMAG-RGN", buf, "Frame image subregion", &status);
+    }
+
+    if (frame->has_bias_region)
+    {
+        char buf[25];
+        snprintf(buf, 25, "[%d, %d, %d, %d]",
+                 frame->bias_region[0], frame->bias_region[1],
+                 frame->bias_region[2], frame->bias_region[3]);
+        fits_update_key(fptr, TSTRING, "BIAS-RGN", buf, "Frame bias subregion", &status);
+    }
+
     // Write the frame data to the image and close the file
     fits_write_img(fptr, TUSHORT, 1, frame->width*frame->height, frame->data, &status);
     fits_close_file(fptr, &status);
@@ -271,6 +277,20 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
                 frame->data[j*frame->width + i] = frame->data[j*frame->width + (frame->width - i - 1)];
                 frame->data[j*frame->width + (frame->width - i - 1)] = temp;
             }
+
+        if (frame->has_image_region)
+        {
+            uint16_t temp = frame->width - frame->image_region[0];
+            frame->image_region[0] = frame->width - frame->image_region[1];
+            frame->image_region[1] = temp;
+        }
+
+        if (frame->has_bias_region)
+        {
+            uint16_t temp = frame->width - frame->bias_region[0];
+            frame->bias_region[0] = frame->width - frame->bias_region[1];
+            frame->bias_region[1] = temp;
+        }
     }
 
     if (pn_preference_char(FRAME_FLIP_Y))
@@ -282,6 +302,20 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
                 frame->data[j*frame->width + i] = frame->data[(frame->height - j - 1)*frame->width + i];
                 frame->data[(frame->height - j - 1)*frame->width + i] = temp;
             }
+
+        if (frame->has_image_region)
+        {
+            uint16_t temp = frame->width - frame->image_region[2];
+            frame->image_region[2] = frame->width - frame->image_region[3];
+            frame->image_region[3] = temp;
+        }
+
+        if (frame->has_bias_region)
+        {
+            uint16_t temp = frame->width - frame->bias_region[2];
+            frame->bias_region[2] = frame->width - frame->bias_region[3];
+            frame->bias_region[3] = temp;
+        }
     }
 
     if (pn_preference_char(FRAME_TRANSPOSE))
@@ -292,6 +326,22 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
                 uint16_t temp = frame->data[j*frame->width + i];
                 frame->data[j*frame->width + i] = frame->data[i*frame->width + j];
                 frame->data[i*frame->width + j] = temp;
+            }
+
+        if (frame->has_image_region)
+            for (uint8_t i = 0; i < 2; i++)
+            {
+                uint16_t temp = frame->image_region[i];
+                frame->image_region[i] = frame->image_region[i+2];
+                frame->image_region[i+2] = temp;
+            }
+
+        if (frame->has_bias_region)
+            for (uint8_t i = 0; i < 2; i++)
+            {
+                uint16_t temp = frame->bias_region[i];
+                frame->bias_region[i] = frame->bias_region[i+2];
+                frame->bias_region[i+2] = temp;
             }
     }
 

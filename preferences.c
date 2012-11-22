@@ -64,9 +64,7 @@ PNPreferenceStore prefs[] =
     {CAMERA_GAIN_MODE,          CHAR, .value.c = 0,     "CameraGainMode: %hhu\n"},
     {CAMERA_TEMPERATURE,        INT,  .value.i = -5000, "CameraTemperature: %d\n"},
 
-    {CAMERA_OVERSCAN_ENABLED,   CHAR, .value.c = false, "CameraOverscanEnabled: %d\n"},
-    {CAMERA_OVERSCAN_SKIP_COLS, CHAR, .value.c = 24,    "CameraOverscanSkipCols: %d\n"},
-    {CAMERA_OVERSCAN_BIAS_COLS, CHAR, .value.c = 24,    "CameraOverscanBiasCols: %d\n"},
+    {CAMERA_OVERSCAN_COLS,      CHAR, .value.c = 0,     "CameraOverscanColumns: %d\n"},
     {CAMERA_PLATESCALE,       STRING, .value.s = "0.33","CameraPlatescale: %s\n"},
 
     {CAMERA_WINDOW_X,           INT,  .value.i = 0,     "CameraWindowX: %d\n"},

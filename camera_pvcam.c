@@ -39,6 +39,16 @@ struct internal
 
     uint16_t frame_width;
     uint16_t frame_height;
+
+    // First postscan and bias column in CCD pixels
+    uint16_t postscan_start;
+    uint16_t bias_start;
+
+    // Image and bias regions in window pixels
+    bool has_image_region;
+    bool has_bias_region;
+    uint16_t image_region[4];
+    uint16_t bias_region[4];
 };
 
 static char *gain_names[] = {"Low", "Medium", "High"};
@@ -148,18 +158,26 @@ static void initialize_camera(struct internal *internal)
     get_param(internal->handle, PARAM_SER_SIZE, ATTR_DEFAULT, &internal->ccd_width);
     get_param(internal->handle, PARAM_PAR_SIZE, ATTR_DEFAULT, &internal->ccd_height);
 
-    if (pn_preference_char(CAMERA_OVERSCAN_ENABLED))
+    uint8_t overscan = pn_preference_char(CAMERA_OVERSCAN_COLS);
+    internal->postscan_start = internal->ccd_width;
+    internal->bias_start = internal->postscan_start;
+
+    if (overscan > 0)
     {
         // Enable custom chip so we can add a bias strip
         set_param(internal->handle, PARAM_CUSTOM_CHIP, &(rs_bool){true});
 
-        // Increase frame width by the requested amount
-        internal->ccd_width += pn_preference_char(CAMERA_OVERSCAN_SKIP_COLS) + pn_preference_char(CAMERA_OVERSCAN_BIAS_COLS);
-        set_param(internal->handle, PARAM_SER_SIZE, &(uns16){internal->ccd_width});
-
-        // Remove postscan - this is handled by the additional overscan readouts
+        // Query the number of masked pixels that are adjacent to the exposure region
         // PVCAM seems to have mislabeled *SCAN and *MASK
+        uint16_t postscan;
+        get_param(internal->handle, PARAM_POSTMASK, ATTR_DEFAULT, &postscan);
         set_param(internal->handle, PARAM_POSTMASK, &(uns16){0});
+        internal->bias_start += postscan;
+
+        // Increase the frame width to allow readout of the postscan pixels
+        // and the requested number of overscan columns
+        internal->ccd_width += postscan + overscan;
+        set_param(internal->handle, PARAM_SER_SIZE, &(uns16){internal->ccd_width});
     }
 
     // Init exposure control libs
@@ -295,6 +313,29 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
 
     internal->frame_width = ww / bin;
     internal->frame_height = wh / bin;
+
+    // Record image and bias regions (in window coordinates)
+    // for inclusion in the FITS header
+    internal->has_image_region = false;
+    internal->has_bias_region = false;
+
+    if (region.s2 >= internal->postscan_start)
+    {
+        internal->image_region[0] = 0;
+        internal->image_region[1] = (internal->postscan_start - region.s1) / bin;
+        internal->image_region[2] = 0;
+        internal->image_region[3] = wh / bin;
+        internal->has_image_region = true;
+    }
+
+    if (region.s2 >= internal->bias_start)
+    {
+        internal->bias_region[0] = (internal->bias_start - region.s1) / bin;
+        internal->bias_region[1] = ww / bin;
+        internal->bias_region[2] = 0;
+        internal->bias_region[3] = wh / bin;
+        internal->has_bias_region = true;
+    }
 
     // Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer
     if (!pl_exp_setup_cont(internal->handle, 1, &region, STROBED_MODE, 0, &internal->frame_size, CIRC_NO_OVERWRITE))
@@ -473,7 +514,15 @@ void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mod
                 frame->height = internal->frame_height;
                 frame->temperature = current_temperature;
                 frame->has_timestamp = false;
-                frame->timestamp = 0;
+
+                frame->has_image_region = internal->has_image_region;
+                if (frame->has_image_region)
+                    memcpy(frame->image_region, internal->image_region, 4*sizeof(uint16_t));
+
+                frame->has_bias_region = internal->has_bias_region;
+                if (frame->has_bias_region)
+                    memcpy(frame->bias_region, internal->bias_region, 4*sizeof(uint16_t));
+
                 queue_framedata(frame);
             }
             else
