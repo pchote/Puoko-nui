@@ -320,13 +320,20 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
 
     if (pn_preference_char(FRAME_TRANSPOSE))
     {
+        // Create a copy of the frame to simplify transpose when width != height
+        size_t s = frame->width*frame->height*sizeof(uint16_t);
+        uint16_t *data = malloc(s);
+        if (!data)
+        {
+            pn_log("Failed to allocate memory. Discarding frame");
+            return;
+        }
+        memcpy(data, frame->data, s);
+
         for (uint16_t j = 0; j < frame->height; j++)
-            for (uint16_t i = 0; i < j; i++)
-            {
-                uint16_t temp = frame->data[j*frame->width + i];
-                frame->data[j*frame->width + i] = frame->data[i*frame->width + j];
-                frame->data[i*frame->width + j] = temp;
-            }
+            for (uint16_t i = 0; i < frame->width; i++)
+                frame->data[i*frame->height + j] = data[j*frame->width + i];
+        free(data);
 
         if (frame->has_image_region)
             for (uint8_t i = 0; i < 2; i++)
@@ -343,6 +350,10 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
                 frame->bias_region[i] = frame->bias_region[i+2];
                 frame->bias_region[i+2] = temp;
             }
+
+        uint16_t temp = frame->height;
+        frame->height = frame->width;
+        frame->width = temp;
     }
 
     if (pn_preference_char(SAVE_FRAMES))
