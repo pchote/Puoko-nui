@@ -102,39 +102,54 @@ void *reduction_thread(void *_scripting)
         // Check for new frames to reduce
         if (atomicqueue_length(scripting->new_frames))
         {
-            char *command = calloc(22, sizeof(char));
+            size_t command_size = 256;
+            char *command = calloc(command_size, sizeof(char));
             if (!command)
             {
                 pn_log("Failed to allocate reduction string. Skipping reduction");
                 break;
             }
 
-            strcpy(command, "./reduction.sh ");
-            strcat(command, pn_preference_char(REDUCE_FRAMES) ? "true " : "false ");
+            char *reduce_string = pn_preference_char(REDUCE_FRAMES) ? "true" : "false";
+            size_t command_len = strncatf(command, command_size, "./reduction.sh %s ", reduce_string);
 
-            // TODO: FIXME: This strlen and realloc juggling is just asking for trouble
-            // Rewrite this
             char *frame;
             while ((frame = atomicqueue_pop(scripting->new_frames)) != NULL)
             {
-                size_t command_len = strlen(command);
                 size_t frame_len = strlen(frame);
-                command = realloc(command, command_len + frame_len + 4);
+
+                if (command_len + frame_len >= command_size)
+                {
+                    do
+                    {
+                        command_size += 256;
+                    } while (command_len + frame_len >= command_size);
+
+                    command = realloc(command, command_size);
+                    if (!command)
+                    {
+                        pn_log("Failed to allocate reduction string. Skipping reduction");
+                        break;
+                    }
+                }
+
+                command_len = strncatf(command, command_size, "\"%s\" ", frame);
+            }
+
+            if (!command)
+                continue;
+
+            if (command_len + 5 >= command_size)
+            {
+                command_size += 5;
+                command = realloc(command, command_size);
                 if (!command)
                 {
                     pn_log("Failed to allocate reduction string. Skipping reduction");
-                    break;
+                    continue;
                 }
-                snprintf(command + command_len, frame_len + 4, "\"%s\" ", frame);
             }
-
-            command = realloc(command, strlen(command) + 6);
-            if (!command)
-            {
-                pn_log("Failed to allocate reduction string. Skipping reduction");
-                break;
-            }
-            strcat(command, " 2>&1");
+            strncatf(command, command_size, "2>&1");
 
             if (command)
             {
