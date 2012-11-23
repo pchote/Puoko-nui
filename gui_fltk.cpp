@@ -485,6 +485,8 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
 
     set_char(CAMERA_BINNING, (uint8_t)(gui->m_cameraBinningSpinner->value()));
     set_int(EXPOSURE_TIME, (uint16_t)(gui->m_cameraExposureSpinner->value()));
+    set_char(TIMER_MILLISECOND_MODE, (uint8_t)(gui->m_cameraMillisecondCheckbox->value()));
+    gui->cached_ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
 
     camera_update_settings(gui->m_cameraRef);
     gui->updateAcquisitionGroup();
@@ -529,9 +531,17 @@ void FLTKGui::cameraPortSpeedGainChangedCallback(Fl_Widget *input, void *userdat
     gui->cameraRebuildPortTree(port_id, speed_id, gain_id);
 }
 
+void FLTKGui::cameraMillisecondChangedCallback(Fl_Widget *input, void *userdata)
+{
+    FLTKGui* gui = (FLTKGui *)userdata;
+
+    const char *expstring = gui->m_cameraMillisecondCheckbox->value() ? "Exposure (ms):" : "Exposure (s):";
+    gui->m_cameraExposureSpinner->label(expstring);
+}
+
 void FLTKGui::createCameraWindow()
 {
-    m_cameraWindow = new Fl_Double_Window(350, 180, "Set Camera Parameters");
+    m_cameraWindow = new Fl_Double_Window(350, 205, "Set Camera Parameters");
     m_cameraWindow->user_data((void*)(this));
 
     Fl_Group *readoutGroup = new Fl_Group(10, 10, 330, 80, "Readout Geometry");
@@ -566,14 +576,17 @@ void FLTKGui::createCameraWindow()
     m_cameraGainInput->callback(cameraPortSpeedGainChangedCallback);
     m_cameraGainInput->user_data((void*)(this));
 
-    x = 285; y = 100; w = 55;
+    x = 275; y = 100; w = 65;
 
     m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (\u00B0C):"); y += margin;
 
-    const char *expstring = pn_preference_char(TIMER_MILLISECOND_MODE) ? "Exposure (ms):" : "Exposure (s):";
-    m_cameraExposureSpinner = new Fl_Spinner(x, y, w, h, expstring); y += margin;
+    m_cameraExposureSpinner = new Fl_Spinner(x, y, w, h, ""); y += margin;
     m_cameraExposureSpinner->maximum(65535);
     m_cameraExposureSpinner->minimum(1);
+
+    m_cameraMillisecondCheckbox = new Fl_Check_Button(x - 90, y, w + 90, h, "High-resolution timing"); y += margin;
+    m_cameraMillisecondCheckbox->callback(cameraMillisecondChangedCallback);
+    m_cameraMillisecondCheckbox->user_data((void*)(this));
 
     x = 220; w = 120;
     m_cameraButtonConfirm = new Fl_Button(x, y, w, h, "Save");
@@ -614,6 +627,9 @@ void FLTKGui::showCameraWindow()
     char buf[32];
     snprintf(buf, 32, "%.2f", pn_preference_int(CAMERA_TEMPERATURE) / 100.0);
     m_cameraTemperatureInput->value(buf);
+
+    m_cameraMillisecondCheckbox->value(pn_preference_char(TIMER_MILLISECOND_MODE));
+    cameraMillisecondChangedCallback(m_cameraMillisecondCheckbox, this);
 
     m_cameraWindow->show();
 }

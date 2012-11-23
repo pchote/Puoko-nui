@@ -27,6 +27,7 @@
 #include <FL/Fl_Float_Input.H>
 #include <FL/Fl_Choice.H>
 #include <FL/fl_ask.H>
+#include <FL/Fl_Check_Button.H>
 
 #pragma GCC diagnostic warning "-Wint-to-pointer-cast"
 
@@ -67,6 +68,7 @@ private:
     void showMetadataWindow();
 
     static void cameraPortSpeedGainChangedCallback(Fl_Widget *input, void *userdata);
+    static void cameraMillisecondChangedCallback(Fl_Widget *input, void *userdata);
     static void buttonMetadataPressed(Fl_Widget* o, void *v);
     static void buttonCameraPressed(Fl_Widget* o, void *v);
     static void buttonAcquirePressed(Fl_Widget* o, void *v);
@@ -136,6 +138,7 @@ private:
     Fl_Choice *m_cameraSpeedInput;
     Fl_Choice *m_cameraGainInput;
 
+    Fl_Check_Button *m_cameraMillisecondCheckbox;
     Fl_Spinner *m_cameraExposureSpinner;
     Fl_Float_Input *m_cameraTemperatureInput;
     Fl_Spinner *m_cameraBinningSpinner;
