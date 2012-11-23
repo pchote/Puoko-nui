@@ -60,7 +60,6 @@ typedef enum
     STOP_EXPOSURE = 'F',
     RESET = 'G',
     STATUSMODE = 'H',
-    SIMULATE_CAMERA = 'I',
     UNKNOWN_PACKET = 0
 } TimerUnitPacketType;
 
@@ -618,8 +617,8 @@ void *simulated_timer_thread(void *_args)
 // Start an exposure sequence with a specified exposure time
 void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
 {
-    pn_log("Starting %d %s exposures.", exptime,
-           pn_preference_char(TIMER_MILLISECOND_MODE) ? "ms" : "s");
+    bool ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
+    pn_log("Starting %d %s exposures.", exptime, ms_mode ? "ms" : "s");
 
     if (timer->simulated)
     {
@@ -634,11 +633,8 @@ void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
         if (!use_monitor)
             pn_log("WARNING: Timer monitor is disabled.");
 
-        uint8_t simulate_camera = !use_monitor;
-        uint8_t data[2] = {exptime & 0xFF, (exptime >> 8) & 0xFF};
-
-        queue_data(timer, SIMULATE_CAMERA, &simulate_camera, 1);
-        queue_data(timer, START_EXPOSURE, data, 2);
+        uint8_t data[4] = {use_monitor, ms_mode, exptime & 0xFF, (exptime >> 8) & 0xFF};
+        queue_data(timer, START_EXPOSURE, data, 4);
     }
 }
 
