@@ -347,8 +347,8 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
     double exposure_time = pn_preference_int(EXPOSURE_TIME);
 
     // Convert readout time from to the base exposure unit (s or ms) for comparison
-    bool ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
-    if (!ms_mode)
+    bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
+    if (!highres)
         readout_time /= 1000;
 
     if (exposure_time < readout_time)
@@ -358,7 +358,7 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
         pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 
-    return ms_mode ? readout_time / 1000 : readout_time;
+    return highres ? readout_time / 1000 : readout_time;
 }
 
 uint8_t camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_port_option **out_ports)

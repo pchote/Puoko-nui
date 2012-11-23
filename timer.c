@@ -572,7 +572,7 @@ void *simulated_timer_thread(void *_args)
         {
             if (timer->simulated_total > 0)
             {
-                if (pn_preference_char(TIMER_MILLISECOND_MODE))
+                if (pn_preference_char(TIMER_HIGHRES_TIMING))
                     timer->simulated_progress += (cur.seconds - last.seconds)*1000 + (cur.milliseconds - last.milliseconds);
                 else
                     timer->simulated_progress += cur.seconds - last.seconds;
@@ -617,8 +617,8 @@ void *simulated_timer_thread(void *_args)
 // Start an exposure sequence with a specified exposure time
 void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
 {
-    bool ms_mode = pn_preference_char(TIMER_MILLISECOND_MODE);
-    pn_log("Starting %d %s exposures.", exptime, ms_mode ? "ms" : "s");
+    bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
+    pn_log("Starting %d %s exposures.", exptime, highres ? "ms" : "s");
 
     if (timer->simulated)
     {
@@ -633,7 +633,7 @@ void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
         if (!use_monitor)
             pn_log("WARNING: Timer monitor is disabled.");
 
-        uint8_t data[4] = {use_monitor, ms_mode, exptime & 0xFF, (exptime >> 8) & 0xFF};
+        uint8_t data[4] = {use_monitor, highres, exptime & 0xFF, (exptime >> 8) & 0xFF};
         queue_data(timer, START_EXPOSURE, data, 4);
     }
 }

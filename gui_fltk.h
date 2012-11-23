@@ -68,7 +68,7 @@ private:
     void showMetadataWindow();
 
     static void cameraPortSpeedGainChangedCallback(Fl_Widget *input, void *userdata);
-    static void cameraMillisecondChangedCallback(Fl_Widget *input, void *userdata);
+    static void cameraTimingResolutionChangedCallback(Fl_Widget *input, void *userdata);
     static void buttonMetadataPressed(Fl_Widget* o, void *v);
     static void buttonCameraPressed(Fl_Widget* o, void *v);
     static void buttonAcquirePressed(Fl_Widget* o, void *v);
@@ -129,7 +129,7 @@ private:
     int cached_run_number;
     uint16_t cached_exposure_time;
     TimerMode cached_timer_mode;
-    bool cached_ms_mode;
+    bool cached_highres_timing;
     bool cached_readout_display;
 
     // Camera window
@@ -138,7 +138,7 @@ private:
     Fl_Choice *m_cameraSpeedInput;
     Fl_Choice *m_cameraGainInput;
 
-    Fl_Check_Button *m_cameraMillisecondCheckbox;
+    Fl_Check_Button *m_cameraHighResTimingCheckbox;
     Fl_Spinner *m_cameraExposureSpinner;
     Fl_Float_Input *m_cameraTemperatureInput;
     Fl_Spinner *m_cameraBinningSpinner;
