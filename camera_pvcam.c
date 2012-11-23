@@ -550,3 +550,18 @@ bool camera_pvcam_supports_readout_display(Camera *camera, void *internal)
 {
     return true;
 }
+
+void camera_pvcam_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger)
+{
+    // Convert trigger time from end of exposure to start of exposure
+    uint16_t exposure = pn_preference_int(EXPOSURE_TIME);
+    if (pn_preference_char(TIMER_HIGHRES_TIMING))
+    {
+        trigger->seconds -= exposure / 1000;
+        trigger->milliseconds -= exposure % 1000;
+    }
+    else
+        trigger->seconds -= exposure;
+
+    timestamp_normalize(trigger);
+}

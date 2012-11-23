@@ -58,6 +58,7 @@ struct Camera
     double (*read_temperature)(Camera *, void *);
     void (*query_ccd_region)(Camera *, void *, uint16_t[4]);
     bool (*supports_readout_display)(Camera *, void *);
+    void (*normalize_trigger)(Camera *, void *, TimerTimestamp *);
 };
 
 #define HOOK(type, suffix) camera->suffix = camera_##type##_##suffix
@@ -73,6 +74,7 @@ struct Camera
     HOOK(type, read_temperature);         \
     HOOK(type, query_ccd_region);         \
     HOOK(type, supports_readout_display); \
+    HOOK(type, normalize_trigger);        \
 }
 
 Camera *camera_new(bool simulate_hardware)
@@ -332,6 +334,11 @@ void camera_update_settings(Camera *camera)
 bool camera_supports_readout_display(Camera *camera)
 {
     return camera->supports_readout_display(camera, camera->internal);
+}
+
+void camera_normalize_trigger(Camera *camera, TimerTimestamp *trigger)
+{
+    return camera->normalize_trigger(camera, camera->internal, trigger);
 }
 
 // Warning: These are not thread safe, but this is only touched by the camera

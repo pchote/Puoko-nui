@@ -523,20 +523,8 @@ int main(int argc, char *argv[])
             CameraFrame *frame = atomicqueue_pop(frame_queue);
             TimerTimestamp *trigger = atomicqueue_pop(trigger_queue);
 
-            // PVCAM/simulated triggers indicate the end of the frame
-            // TODO: Move this into camera implementation
-#ifndef USE_PICAM
-            uint16_t exposure = pn_preference_int(EXPOSURE_TIME);
-            if (pn_preference_char(TIMER_HIGHRES_TIMING))
-            {
-                trigger->seconds -= exposure / 1000;
-                trigger->milliseconds -= exposure % 1000;
-            }
-            else
-                trigger->seconds -= exposure;
-
-            timestamp_normalize(trigger);
-#endif
+            // Conver trigger to start of the exposure
+            camera_normalize_trigger(camera, trigger);
 
             double exptime = pn_preference_int(EXPOSURE_TIME);
             if (pn_preference_char(TIMER_HIGHRES_TIMING))

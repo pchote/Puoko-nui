@@ -63,6 +63,7 @@ PNCameraMode camera_mode(Camera *camera);
 PNCameraMode camera_desired_mode(Camera *camera);
 void camera_update_settings(Camera *camera);
 bool camera_supports_readout_display(Camera *camera);
+void camera_normalize_trigger(Camera *camera, TimerTimestamp *trigger);
 
 // Warning: These are not thread safe, but this is only touched by the camera
 // thread during startup, when the main thread is designed to not call these

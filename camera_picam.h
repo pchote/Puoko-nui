@@ -24,5 +24,6 @@ void camera_picam_tick(Camera *camera, void *internal, PNCameraMode current_mode
 double camera_picam_read_temperature(Camera *camera, void *internal);
 void camera_picam_query_ccd_region(Camera *camera, void *internal, uint16_t region[4]);
 bool camera_picam_supports_readout_display(Camera *camera, void *internal);
+void camera_picam_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger);
 
 #endif

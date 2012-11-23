@@ -694,3 +694,8 @@ bool camera_picam_supports_readout_display(Camera *camera, void *internal)
 {
     return false;
 }
+
+void camera_picam_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger)
+{
+    // Do nothing: ProEM triggers already represent the start of the frame
+}
