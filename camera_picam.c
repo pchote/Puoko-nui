@@ -12,6 +12,7 @@
 #include <string.h>
 #include <picam.h>
 #include <picam_advanced.h>
+#include <pthread.h>
 
 #include "main.h"
 #include "camera.h"

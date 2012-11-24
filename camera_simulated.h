@@ -8,7 +8,6 @@
 #ifndef CAMERA_SIMULATED_H
 #define CAMERA_SIMULATED_H
 
-#include <pthread.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "main.h"

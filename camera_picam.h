@@ -8,7 +8,6 @@
 #ifndef CAMERA_PICAM_H
 #define CAMERA_PICAM_H
 
-#include <pthread.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "main.h"
