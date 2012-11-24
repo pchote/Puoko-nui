@@ -34,7 +34,7 @@ struct Camera
     void *internal;
 
     pthread_t camera_thread;
-    bool thread_initialized;
+    bool thread_alive;
 
     pthread_mutex_t read_mutex;
     PNCameraMode desired_mode;
@@ -303,18 +303,14 @@ setup_failure:
 initialization_failure:
     pn_log("Camera uninitialized.");
 
+    camera->thread_alive = false;
     return NULL;
-}
-
-bool camera_thread_alive(Camera *camera)
-{
-    return pthread_kill(camera->camera_thread, 0) == 0;
 }
 
 void camera_spawn_thread(Camera *camera, ThreadCreationArgs *args)
 {
+    camera->thread_alive = true;
     pthread_create(&camera->camera_thread, NULL, camera_thread, (void *)args);
-    camera->thread_initialized = true;
 }
 
 void camera_shutdown(Camera *camera)
@@ -322,10 +318,13 @@ void camera_shutdown(Camera *camera)
     set_desired_mode(camera, SHUTDOWN);
 
     void **retval = NULL;
-    if (camera->thread_initialized)
+    if (camera->thread_alive)
         pthread_join(camera->camera_thread, retval);
+}
 
-    camera->thread_initialized = false;
+bool camera_thread_alive(Camera *camera)
+{
+    return camera->thread_alive;
 }
 
 void camera_notify_safe_to_stop(Camera *camera)
