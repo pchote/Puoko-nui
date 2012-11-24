@@ -8,7 +8,6 @@
 #ifndef CAMERA_PVCAM_H
 #define CAMERA_PVCAM_H
 
-#include <pthread.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "main.h"
