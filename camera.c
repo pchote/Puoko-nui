@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 #include <string.h>
 
 #include "main.h"
@@ -150,27 +151,27 @@ static void *camera_thread(void *_args)
     }
     else if (ret != CAMERA_OK)
     {
-        trigger_fatal_error(strdup("Failed to initialize camera."));
-        return NULL;
+        pn_log("Failed to initialize camera.");
+        goto initialization_failure;
     }
 
     if (camera->port_table(camera, camera->internal, &camera->port_options, &camera->port_count) != CAMERA_OK)
     {
-        trigger_fatal_error(strdup("Failed to query port table"));
-        return NULL;
+        pn_log("Failed to query port table");
+        goto setup_failure;
     }
 
     if (camera->query_ccd_region(camera, camera->internal, camera->ccd_region) != CAMERA_OK)
     {
-        trigger_fatal_error(strdup("Failed to query ccd region"));
-        return NULL;
+        pn_log("Failed to query ccd region");
+        goto setup_failure;
     }
 
     double readout;
     if (camera->update_camera_settings(camera, camera->internal, &readout) != CAMERA_OK)
     {
-        trigger_fatal_error(strdup("Failed to update camera settings"));
-        return NULL;
+        pn_log("Failed to update camera settings");
+        goto setup_failure;
     }
     pthread_mutex_lock(&camera->read_mutex);
     camera->readout_time = readout;
@@ -187,9 +188,10 @@ static void *camera_thread(void *_args)
     bool safe_to_stop_acquiring = camera->safe_to_stop_acquiring;
     pthread_mutex_unlock(&camera->read_mutex);
 
+    PNCameraMode current_mode;
     while (desired_mode != SHUTDOWN)
     {
-        PNCameraMode current_mode = camera_mode(camera);
+        current_mode = camera_mode(camera);
         pthread_mutex_lock(&camera->read_mutex);
         bool camera_settings_dirty = camera->camera_settings_dirty;
         pthread_mutex_unlock(&camera->read_mutex);
@@ -199,8 +201,8 @@ static void *camera_thread(void *_args)
             double readout;
             if (camera->update_camera_settings(camera, camera->internal, &readout) != CAMERA_OK)
             {
-                trigger_fatal_error(strdup("Failed to update camera settings"));
-                return NULL;
+                pn_log("Failed to update camera settings");
+                goto failure;
             }
 
             pthread_mutex_lock(&camera->read_mutex);
@@ -214,10 +216,11 @@ static void *camera_thread(void *_args)
         {
             set_mode(camera, ACQUIRE_START);
             pn_log("Camera is preparing for acquisition.");
+
             if (camera->start_acquiring(camera, camera->internal) != CAMERA_OK)
             {
-                trigger_fatal_error(strdup("Failed to start camera acquisition"));
-                return NULL;
+                pn_log("Failed to start camera acquisition");
+                goto failure;
             }
             pn_log("Camera is now acquiring.");
             set_mode(camera, ACQUIRING);
@@ -242,8 +245,8 @@ static void *camera_thread(void *_args)
 
             if (camera->stop_acquiring(camera, camera->internal) != CAMERA_OK)
             {
-                trigger_fatal_error(strdup("Failed to stop camera acquisition"));
-                return NULL;
+                pn_log("Failed to stop camera acquisition");
+                goto failure;
             }
 
             pn_log("Camera is now idle.");
@@ -253,8 +256,8 @@ static void *camera_thread(void *_args)
         // Check for new frames, etc
         if (camera->tick(camera, camera->internal, current_mode, camera->temperature) != CAMERA_OK)
         {
-            trigger_fatal_error(strdup("Failed to tick camera"));
-            return NULL;
+            pn_log("Camera tick failed");
+            goto failure;
         }
 
         // Check temperature
@@ -264,8 +267,8 @@ static void *camera_thread(void *_args)
             double temperature;
             if (camera->read_temperature(camera, camera->internal, &temperature)!= CAMERA_OK)
             {
-                trigger_fatal_error(strdup("Failed to query camera temperature"));
-                return NULL;
+                pn_log("Failed to query camera temperature");
+                goto failure;
             }
 
             pthread_mutex_lock(&camera->read_mutex);
@@ -280,29 +283,32 @@ static void *camera_thread(void *_args)
         pthread_mutex_unlock(&camera->read_mutex);
     }
 
-    // Shutdown camera
-    PNCameraMode current_mode = camera_mode(camera);
+failure:
+    // Attempt to shutdown camera
+    current_mode = camera_mode(camera);
 
     if (current_mode == ACQUIRING || current_mode == IDLE_WHEN_SAFE)
     {
         if (camera->stop_acquiring(camera, camera->internal) != CAMERA_OK)
-        {
-            trigger_fatal_error(strdup("Failed to stop camera acquisition"));
-            return NULL;
-        }
-        pn_log("Camera is now idle.");
+            pn_log("Failed to stop camera acquisition");
+        else
+            pn_log("Camera is now idle.");
     }
 
+setup_failure:
     // Uninitialize hardware, etc
     if (camera->uninitialize(camera, camera->internal) != CAMERA_OK)
-    {
-        trigger_fatal_error(strdup("Failed to stop camera acquisition"));
-        return NULL;
-    }
+        pn_log("Failed to uninitialize camera");
 
+initialization_failure:
     pn_log("Camera uninitialized.");
 
     return NULL;
+}
+
+bool camera_thread_alive(Camera *camera)
+{
+    return pthread_kill(camera->camera_thread, 0) == 0;
 }
 
 void camera_spawn_thread(Camera *camera, ThreadCreationArgs *args)

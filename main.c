@@ -511,6 +511,9 @@ int main(int argc, char *argv[])
     // Main program loop
     for (;;)
     {
+        if (!camera_thread_alive(camera))
+            trigger_fatal_error(strdup("Camera thread exited unexpectedly"));
+
         if (fatal_error)
         {
             pn_ui_show_fatal_error(fatal_error);

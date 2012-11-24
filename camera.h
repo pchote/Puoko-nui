@@ -55,6 +55,7 @@ Camera *camera_new(bool simulate_hardware);
 void camera_free(Camera *camera);
 void camera_spawn_thread(Camera *camera, ThreadCreationArgs *args);
 void camera_shutdown(Camera *camera);
+bool camera_thread_alive(Camera *camera);
 
 void camera_set_mode(Camera *camera, PNCameraMode mode);
 void camera_notify_safe_to_stop(Camera *camera);
