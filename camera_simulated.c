@@ -29,18 +29,18 @@ struct internal
 static char *speed_names[] = {"Slow", "Fast"};
 static char *gain_names[] = {"S Low", "S Medium", "S High", "F Low", "F Medium", "F High"};
 
-void *camera_simulated_initialize(Camera *camera, ThreadCreationArgs *args)
+int camera_simulated_initialize(Camera *camera, ThreadCreationArgs *args, void **out_internal)
 {
     struct internal *internal = calloc(1, sizeof(struct internal));
     if (!internal)
-        return NULL;
+        return CAMERA_ALLOCATION_FAILED;
 
     internal->timer = args->timer;
-
-    return internal;
+    *out_internal = internal;
+    return CAMERA_OK;
 }
 
-double camera_simulated_update_camera_settings(Camera *camera, void *_internal)
+int camera_simulated_update_camera_settings(Camera *camera, void *_internal, double *out_readout_time)
 {
     uint8_t port_id = pn_preference_char(CAMERA_READPORT_MODE);
     if (port_id > 0)
@@ -104,20 +104,21 @@ double camera_simulated_update_camera_settings(Camera *camera, void *_internal)
         pn_preference_set_char(CAMERA_BINNING, bin);
     }
 
-    return 0;
+    *out_readout_time = 0;
+    return CAMERA_OK;
 }
 
-uint8_t camera_simulated_port_table(Camera *camera, void *internal, struct camera_port_option **ports)
+int camera_simulated_port_table(Camera *camera, void *internal, struct camera_port_option **out_ports, uint8_t *out_port_count)
 {
     struct camera_port_option *port = calloc(1, sizeof(struct camera_port_option));
     if (!port)
-        trigger_fatal_error(strdup("Failed to allocate readout port options"));
+        return CAMERA_ALLOCATION_FAILED;
 
     port->name = strdup("Normal");
     port->speed_count = 2;
     port->speed = calloc(port->speed_count, sizeof(struct camera_speed_option));
     if (!port->speed)
-        trigger_fatal_error(strdup("Failed to allocate readout speed options"));
+        return CAMERA_ALLOCATION_FAILED;
 
     for (uint8_t i = 0; i < 2; i++)
     {
@@ -126,7 +127,7 @@ uint8_t camera_simulated_port_table(Camera *camera, void *internal, struct camer
         s->gain_count = 3;
         s->gain = calloc(s->gain_count, sizeof(struct camera_gain_option));
         if (!s->gain)
-            trigger_fatal_error(strdup("Failed to allocate readout gain options"));
+            return CAMERA_ALLOCATION_FAILED;
 
         for (uint8_t j = 0; j < s->gain_count; j++)
         {
@@ -135,24 +136,27 @@ uint8_t camera_simulated_port_table(Camera *camera, void *internal, struct camer
         }
     }
 
-    *ports = port;
-    return 1;
+    *out_ports = port;
+    *out_port_count = 1;
+    return CAMERA_OK;
 }
 
-void camera_simulated_query_ccd_region(Camera *camera, void *internal, uint16_t region[4])
+int camera_simulated_query_ccd_region(Camera *camera, void *internal, uint16_t region[4])
 {
-     region[0] = 0;
-     region[1] = 511;
-     region[2] = 0;
-     region[3] = 511;
+    region[0] = 0;
+    region[1] = 511;
+    region[2] = 0;
+    region[3] = 511;
+    return CAMERA_OK;
 }
 
-void camera_simulated_uninitialize(Camera *camera, void *internal)
+int camera_simulated_uninitialize(Camera *camera, void *internal)
 {
     free(internal);
+    return CAMERA_OK;
 }
 
-void camera_simulated_start_acquiring(Camera *camera, void *_internal)
+int camera_simulated_start_acquiring(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
 
@@ -162,20 +166,23 @@ void camera_simulated_start_acquiring(Camera *camera, void *_internal)
 
     // Wait a bit to simulate hardware delays
     millisleep(2000);
+    return CAMERA_OK;
 }
 
-void camera_simulated_stop_acquiring(Camera *camera, void *_internal)
+int camera_simulated_stop_acquiring(Camera *camera, void *_internal)
 {
     // Wait a bit to simulate hardware delays
     millisleep(1000);
+    return CAMERA_OK;
 }
 
-double camera_simulated_read_temperature(Camera *camera, void *internal)
+int camera_simulated_read_temperature(Camera *camera, void *internal, double *out_temperature)
 {
-    return 0;
+    *out_temperature = 0;
+    return CAMERA_OK;
 }
 
-void camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_mode, double current_temperature)
+int camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_mode, double current_temperature)
 {
     struct internal *internal = _internal;
 
@@ -221,6 +228,8 @@ void camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current
         // so we must toggle this manually
         timer_set_simulated_camera_downloading(internal->timer, false);
     }
+
+    return CAMERA_OK;
 }
 
 bool camera_simulated_supports_readout_display(Camera *camera, void *internal)

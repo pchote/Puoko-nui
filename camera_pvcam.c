@@ -194,11 +194,11 @@ static void uninitialize_camera(struct internal *internal)
         pn_log("Failed to close camera.");
 }
 
-void *camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args)
+int camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args, void **out_internal)
 {
     struct internal *internal = calloc(1, sizeof(struct internal));
     if (!internal)
-        return NULL;
+        CAMERA_ALLOCATION_FAILED;
 
     if (!pl_pvcam_init())
         fatal_pvcam_error("Failed to initialize PVCAM.");
@@ -210,10 +210,11 @@ void *camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args)
     pn_log("PVCAM Version %d.%d.%d.", pversion>>8, (pversion & 0x00F0)>>4, pversion & 0x000F, pversion);
     initialize_camera(internal);
 
-    return internal;
+    *out_internale = internal;
+    return CAMERA_OK;
 }
 
-double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
+int camera_pvcam_update_camera_settings(Camera *camera, void *_internal, double *out_readout_time)
 {
     struct internal *internal = _internal;
 
@@ -358,10 +359,11 @@ double camera_pvcam_update_camera_settings(Camera *camera, void *_internal)
         pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 
-    return highres ? readout_time / 1000 : readout_time;
+    *out_readout_time = highres ? readout_time / 1000 : readout_time;
+    return CAMERA_OK;
 }
 
-uint8_t camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_port_option **out_ports)
+int camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_port_option **out_ports, uint8_t *out_port_count)
 {
     struct internal *internal = _internal;
     uns32 port_count;
@@ -369,7 +371,7 @@ uint8_t camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_p
 
     struct camera_port_option *ports = calloc(port_count, sizeof(struct camera_port_option));
     if (!ports)
-        fatal_error("Failed to allocate memory for %d readout ports.", port_count);
+        return CAMERA_ALLOCATION_FAILED;
 
     char str[100];
     int32 value;
@@ -420,10 +422,11 @@ uint8_t camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_p
     }
 
     *out_ports = ports;
-    return port_count;
+    *out_port_count = port_count;
+    return CAMERA_OK;
 }
 
-void camera_pvcam_uninitialize(Camera *camera, void *_internal)
+int camera_pvcam_uninitialize(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
     uninitialize_camera(internal);
@@ -432,9 +435,10 @@ void camera_pvcam_uninitialize(Camera *camera, void *_internal)
         pn_log("Failed to uninitialize camera.");
 
     free(internal);
+    return CAMERA_OK;
 }
 
-void camera_pvcam_start_acquiring(Camera *camera, void *_internal)
+int camera_pvcam_start_acquiring(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
 
@@ -456,9 +460,11 @@ void camera_pvcam_start_acquiring(Camera *camera, void *_internal)
     // Start waiting for sync pulses to trigger exposures
     if (!pl_exp_start_cont(internal->handle, internal->frame_buffer, buffer_size))
         fatal_pvcam_error("Failed to start exposure sequence.");
+
+    return CAMERA_OK;
 }
 
-void camera_pvcam_stop_acquiring(Camera *camera, void *_internal)
+int camera_pvcam_stop_acquiring(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
 
@@ -478,18 +484,21 @@ void camera_pvcam_stop_acquiring(Camera *camera, void *_internal)
         pn_log("Failed to finish exposure sequence.");
 
     free(internal->frame_buffer);
+    return CAMERA_OK;
 }
 
-double camera_pvcam_read_temperature(Camera *camera, void *_internal)
+int camera_pvcam_read_temperature(Camera *camera, void *_internal, double *out_temperature)
 {
     struct internal *internal = _internal;
 
     int16 temp;
     get_param(internal->handle, PARAM_TEMP, ATTR_CURRENT, &temp);
-    return temp/100.0;
+    *out_temperature = temp/100.0;
+
+    return CAMERA_OK;
 }
 
-void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode, double current_temperature)
+int camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode, double current_temperature)
 {
     struct internal *internal = _internal;
 
@@ -499,7 +508,6 @@ void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mod
         void_ptr camera_frame;
         if (!pl_exp_get_oldest_frame(internal->handle, &camera_frame))
             fatal_pvcam_error("Error retrieving oldest frame.");
-
 
         // Copy frame data and pass ownership to main thread
         CameraFrame *frame = malloc(sizeof(CameraFrame));
@@ -535,15 +543,19 @@ void camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mod
         if (!pl_exp_unlock_oldest_frame(internal->handle))
             fatal_pvcam_error("Failed to unlock oldest frame.");
     }
+
+    return CAMERA_OK;
 }
 
-void camera_pvcam_query_ccd_region(Camera *camera, void *_internal, uint16_t region[4])
+int camera_pvcam_query_ccd_region(Camera *camera, void *_internal, uint16_t region[4])
 {
     struct internal *internal = _internal;
     region[0] = 0;
     region[1] = internal->ccd_width - 1;
     region[2] = 0;
     region[3] = internal->ccd_width - 1;
+
+    return CAMERA_OK;
 }
 
 bool camera_pvcam_supports_readout_display(Camera *camera, void *internal)

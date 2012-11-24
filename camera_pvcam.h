@@ -14,15 +14,16 @@
 #include "main.h"
 #include "camera.h"
 
-void *camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args);
-double camera_pvcam_update_camera_settings(Camera *camera, void *internal);
-uint8_t camera_pvcam_port_table(Camera *camera, void *internal, struct camera_port_option **ports);
-void camera_pvcam_uninitialize(Camera *camera, void *internal);
-void camera_pvcam_start_acquiring(Camera *camera, void *internal);
-void camera_pvcam_stop_acquiring(Camera *camera, void *internal);
-void camera_pvcam_tick(Camera *camera, void *internal, PNCameraMode current_mode, double current_temperature);
-double camera_pvcam_read_temperature(Camera *camera, void *internal);
-void camera_pvcam_query_ccd_region(Camera *camera, void *internal, uint16_t region[4]);
+int camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args, void **internal);
+int camera_pvcam_update_camera_settings(Camera *camera, void *internal, double *readout_time);
+int camera_pvcam_port_table(Camera *camera, void *internal, struct camera_port_option **ports, uint8_t *port_count);
+int camera_pvcam_uninitialize(Camera *camera, void *internal);
+int camera_pvcam_start_acquiring(Camera *camera, void *internal);
+int camera_pvcam_stop_acquiring(Camera *camera, void *internal);
+int camera_pvcam_tick(Camera *camera, void *internal, PNCameraMode current_mode, double current_temperature);
+int camera_pvcam_read_temperature(Camera *camera, void *internal, double *temperature);
+int camera_pvcam_query_ccd_region(Camera *camera, void *internal, uint16_t region[4]);
+
 bool camera_pvcam_supports_readout_display(Camera *camera, void *internal);
 void camera_pvcam_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger);
 

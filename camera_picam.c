@@ -247,11 +247,11 @@ static void connect_camera(Camera *camera, struct internal *internal)
     }
 }
 
-void *camera_picam_initialize(Camera *camera, ThreadCreationArgs *args)
+int camera_picam_initialize(Camera *camera, ThreadCreationArgs *args, void **out_internal)
 {
     struct internal *internal = calloc(1, sizeof(struct internal));
     if (!internal)
-        return NULL;
+        return CAMERA_ALLOCATION_FAILED;
 
     Picam_InitializeLibrary();
 
@@ -259,7 +259,7 @@ void *camera_picam_initialize(Camera *camera, ThreadCreationArgs *args)
 
     // User has given up waiting for a camera
     if (camera_desired_mode(camera) == SHUTDOWN)
-        return NULL;
+        return CAMERA_INITIALIZATION_ABORTED;
 
     PicamCameraID id;
     Picam_GetCameraID(internal->device_handle, &id);
@@ -319,10 +319,11 @@ void *camera_picam_initialize(Camera *camera, ThreadCreationArgs *args)
         fatal_error(internal, "Acquisition setup failed.");
     }
 
-    return internal;
+    *out_internal = internal;
+    return CAMERA_OK;
 }
 
-double camera_picam_update_camera_settings(Camera *camera, void *_internal)
+int camera_picam_update_camera_settings(Camera *camera, void *_internal, double *out_readout_time)
 {
     struct internal *internal = _internal;
     PicamError error;
@@ -483,10 +484,11 @@ double camera_picam_update_camera_settings(Camera *camera, void *_internal)
         pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 
-    return highres ? readout_time / 1000 : readout_time;
+    *out_readout_time = highres ? readout_time / 1000 : readout_time;
+    return CAMERA_OK;
 }
 
-uint8_t camera_picam_port_table(Camera *camera, void *_internal, struct camera_port_option **out_ports)
+int camera_picam_port_table(Camera *camera, void *_internal, struct camera_port_option **out_ports, uint8_t *out_port_count)
 {
     struct internal *internal = _internal;
 
@@ -497,7 +499,7 @@ uint8_t camera_picam_port_table(Camera *camera, void *_internal, struct camera_p
     uint8_t port_count = port_constraint->values_count;
     struct camera_port_option *ports = calloc(port_count, sizeof(struct camera_port_option));
     if (!ports)
-        fatal_error(internal, "Failed to allocate memory for %d readout ports.", port_count);
+        return CAMERA_ALLOCATION_FAILED;
 
     const pichar *value;
     char str[100];
@@ -520,7 +522,7 @@ uint8_t camera_picam_port_table(Camera *camera, void *_internal, struct camera_p
         port->speed_count = speed_constraint->values_count;
         port->speed = calloc(port->speed_count, sizeof(struct camera_speed_option));
         if (!port->speed)
-            fatal_error(internal, "Failed to allocate memory for %d readout speeds.", port->speed_count);
+            return CAMERA_ALLOCATION_FAILED;
 
         for (uint8_t j = 0; j < port->speed_count; j++)
         {
@@ -539,7 +541,7 @@ uint8_t camera_picam_port_table(Camera *camera, void *_internal, struct camera_p
             speed->gain_count = gain_constraint->values_count;
             speed->gain = calloc(speed->gain_count, sizeof(struct camera_gain_option));
             if (!speed->gain)
-                fatal_error(internal, "Failed to allocate memory for readout gains.");
+                return CAMERA_ALLOCATION_FAILED;
 
             for (uint8_t k = 0; k < speed->gain_count; k++)
             {
@@ -554,10 +556,11 @@ uint8_t camera_picam_port_table(Camera *camera, void *_internal, struct camera_p
     Picam_DestroyCollectionConstraints(port_constraint);
 
     *out_ports = ports;
-    return port_count;
+    *out_port_count = port_count;
+    return CAMERA_OK;
 }
 
-void camera_picam_uninitialize(Camera *camera, void *_internal)
+int camera_picam_uninitialize(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
 
@@ -565,9 +568,11 @@ void camera_picam_uninitialize(Camera *camera, void *_internal)
     PicamAdvanced_UnregisterForAcquisitionUpdated(internal->device_handle, acquisitionUpdatedCallback);
     PicamAdvanced_CloseCameraDevice(internal->device_handle);
     Picam_UninitializeLibrary();
+
+    return CAMERA_OK;
 }
 
-void camera_picam_start_acquiring(Camera *camera, void *_internal)
+int camera_picam_start_acquiring(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
     PicamError error;
@@ -629,10 +634,12 @@ void camera_picam_start_acquiring(Camera *camera, void *_internal)
         print_error("Picam_StartAcquisition failed.", error);
         fatal_error(internal, "Aquisition initialization failed.");
     }
+    
+    return CAMERA_OK;
 }
 
 // Stop an acquisition sequence
-void camera_picam_stop_acquiring(Camera *camera, void *_internal)
+int camera_picam_stop_acquiring(Camera *camera, void *_internal)
 {
     struct internal *internal = _internal;
 
@@ -664,18 +671,24 @@ void camera_picam_stop_acquiring(Camera *camera, void *_internal)
     if (error != PicamError_None)
         print_error("PicamAdvanced_SetAcquisitionBuffer failed.", error);
     free(internal->image_buffer);
+    
+    return CAMERA_OK;
 }
 
 // New frames are notified by callback, so we don't need to do anything here
-void camera_picam_tick(Camera *camera, void *internal, PNCameraMode current_mode, double current_temperature) {}
-
-double camera_picam_read_temperature(Camera *camera, void *_internal)
+int camera_picam_tick(Camera *camera, void *internal, PNCameraMode current_mode, double current_temperature)
 {
-    struct internal *internal = _internal;
-    return read_temperature(internal->model_handle);
+    return CAMERA_OK;
 }
 
-void camera_picam_query_ccd_region(Camera *camera, void *_internal, uint16_t region[4])
+int camera_picam_read_temperature(Camera *camera, void *_internal, double *out_temperature)
+{
+    struct internal *internal = _internal;
+    *out_temperature = read_temperature(internal->model_handle);
+    return CAMERA_OK;
+}
+
+int camera_picam_query_ccd_region(Camera *camera, void *_internal, uint16_t region[4])
 {
     struct internal *internal = _internal;
     const PicamRoisConstraint  *roi_constraint;
@@ -688,6 +701,8 @@ void camera_picam_query_ccd_region(Camera *camera, void *_internal, uint16_t reg
     region[3] = roi_constraint->y_constraint.maximum;
 
     Picam_DestroyRoisConstraints(roi_constraint);
+
+    return CAMERA_OK;
 }
 
 bool camera_picam_supports_readout_display(Camera *camera, void *internal)

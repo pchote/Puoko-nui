@@ -13,6 +13,11 @@
 #include <stdbool.h>
 #include "main.h"
 
+#define CAMERA_OK 0
+#define CAMERA_ALLOCATION_FAILED -1
+#define CAMERA_ERROR -2
+#define CAMERA_INITIALIZATION_ABORTED -3
+
 struct camera_gain_option
 {
     char *name;

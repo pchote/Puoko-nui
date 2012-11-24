@@ -48,15 +48,16 @@ struct Camera
 
     bool camera_settings_dirty;
 
-    void *(*initialize)(Camera *, ThreadCreationArgs *);
-    double (*update_camera_settings)(Camera *, void *);
-    uint8_t (*port_table)(Camera *, void *, struct camera_port_option **);
-    void (*uninitialize)(Camera *, void *);
-    void (*tick)(Camera *, void *, PNCameraMode, double);
-    void (*start_acquiring)(Camera *, void *);
-    void (*stop_acquiring)(Camera *, void *);
-    double (*read_temperature)(Camera *, void *);
-    void (*query_ccd_region)(Camera *, void *, uint16_t[4]);
+    int (*initialize)(Camera *, ThreadCreationArgs *, void **);
+    int (*update_camera_settings)(Camera *, void *, double *);
+    int (*port_table)(Camera *, void *, struct camera_port_option **, uint8_t *);
+    int (*uninitialize)(Camera *, void *);
+    int (*tick)(Camera *, void *, PNCameraMode, double);
+    int (*start_acquiring)(Camera *, void *);
+    int (*stop_acquiring)(Camera *, void *);
+    int (*read_temperature)(Camera *, void *, double *);
+    int (*query_ccd_region)(Camera *, void *, uint16_t[4]);
+
     bool (*supports_readout_display)(Camera *, void *);
     void (*normalize_trigger)(Camera *, void *, TimerTimestamp *);
 };
@@ -141,20 +142,36 @@ static void *camera_thread(void *_args)
 
     // Initialize hardware, etc
     set_mode(camera, INITIALISING);
-    camera->internal = camera->initialize(camera, args);
-    if (!camera->internal)
+    int ret = camera->initialize(camera, args, &camera->internal);
+    if (ret == CAMERA_INITIALIZATION_ABORTED)
     {
-        if (camera_desired_mode(camera) == SHUTDOWN)
-            pn_log("Camera initialization aborted.");
-        else
-            trigger_fatal_error(strdup("Failed to initialize camera."));
+        pn_log("Camera initialization aborted.");
+        return NULL;
+    }
+    else if (ret != CAMERA_OK)
+    {
+        trigger_fatal_error(strdup("Failed to initialize camera."));
         return NULL;
     }
 
-    camera->port_count = camera->port_table(camera, camera->internal, &camera->port_options);
-    camera->query_ccd_region(camera, camera->internal, camera->ccd_region);
+    if (camera->port_table(camera, camera->internal, &camera->port_options, &camera->port_count) != CAMERA_OK)
+    {
+        trigger_fatal_error(strdup("Failed to query port table"));
+        return NULL;
+    }
 
-    double readout = camera->update_camera_settings(camera, camera->internal);
+    if (camera->query_ccd_region(camera, camera->internal, camera->ccd_region) != CAMERA_OK)
+    {
+        trigger_fatal_error(strdup("Failed to query ccd region"));
+        return NULL;
+    }
+
+    double readout;
+    if (camera->update_camera_settings(camera, camera->internal, &readout) != CAMERA_OK)
+    {
+        trigger_fatal_error(strdup("Failed to update camera settings"));
+        return NULL;
+    }
     pthread_mutex_lock(&camera->read_mutex);
     camera->readout_time = readout;
     pthread_mutex_unlock(&camera->read_mutex);
@@ -179,7 +196,13 @@ static void *camera_thread(void *_args)
 
         if (current_mode == IDLE && camera_settings_dirty)
         {
-            double readout = camera->update_camera_settings(camera, camera->internal);
+            double readout;
+            if (camera->update_camera_settings(camera, camera->internal, &readout) != CAMERA_OK)
+            {
+                trigger_fatal_error(strdup("Failed to update camera settings"));
+                return NULL;
+            }
+
             pthread_mutex_lock(&camera->read_mutex);
             camera->readout_time = readout;
             camera->camera_settings_dirty = false;
@@ -191,7 +214,11 @@ static void *camera_thread(void *_args)
         {
             set_mode(camera, ACQUIRE_START);
             pn_log("Camera is preparing for acquisition.");
-            camera->start_acquiring(camera, camera->internal);
+            if (camera->start_acquiring(camera, camera->internal) != CAMERA_OK)
+            {
+                trigger_fatal_error(strdup("Failed to start camera acquisition"));
+                return NULL;
+            }
             pn_log("Camera is now acquiring.");
             set_mode(camera, ACQUIRING);
 
@@ -212,19 +239,35 @@ static void *camera_thread(void *_args)
         if (camera->mode == IDLE_WHEN_SAFE && safe_to_stop_acquiring)
         {
             set_mode(camera, ACQUIRE_STOP);
-            camera->stop_acquiring(camera, camera->internal);
+
+            if (camera->stop_acquiring(camera, camera->internal) != CAMERA_OK)
+            {
+                trigger_fatal_error(strdup("Failed to stop camera acquisition"));
+                return NULL;
+            }
+
             pn_log("Camera is now idle.");
             set_mode(camera, IDLE);
         }
 
         // Check for new frames, etc
-        camera->tick(camera, camera->internal, current_mode, camera->temperature);
+        if (camera->tick(camera, camera->internal, current_mode, camera->temperature) != CAMERA_OK)
+        {
+            trigger_fatal_error(strdup("Failed to tick camera"));
+            return NULL;
+        }
 
         // Check temperature
         if (++temp_ticks >= 50)
         {
             temp_ticks = 0;
-            double temperature = camera->read_temperature(camera, camera->internal);
+            double temperature;
+            if (camera->read_temperature(camera, camera->internal, &temperature)!= CAMERA_OK)
+            {
+                trigger_fatal_error(strdup("Failed to query camera temperature"));
+                return NULL;
+            }
+
             pthread_mutex_lock(&camera->read_mutex);
             camera->temperature = temperature;
             pthread_mutex_unlock(&camera->read_mutex);
@@ -242,12 +285,21 @@ static void *camera_thread(void *_args)
 
     if (current_mode == ACQUIRING || current_mode == IDLE_WHEN_SAFE)
     {
-        camera->stop_acquiring(camera, camera->internal);
+        if (camera->stop_acquiring(camera, camera->internal) != CAMERA_OK)
+        {
+            trigger_fatal_error(strdup("Failed to stop camera acquisition"));
+            return NULL;
+        }
         pn_log("Camera is now idle.");
     }
 
     // Uninitialize hardware, etc
-    camera->uninitialize(camera, camera->internal);
+    if (camera->uninitialize(camera, camera->internal) != CAMERA_OK)
+    {
+        trigger_fatal_error(strdup("Failed to stop camera acquisition"));
+        return NULL;
+    }
+
     pn_log("Camera uninitialized.");
 
     return NULL;
@@ -338,7 +390,7 @@ bool camera_supports_readout_display(Camera *camera)
 
 void camera_normalize_trigger(Camera *camera, TimerTimestamp *trigger)
 {
-    return camera->normalize_trigger(camera, camera->internal, trigger);
+    camera->normalize_trigger(camera, camera->internal, trigger);
 }
 
 // Warning: These are not thread safe, but this is only touched by the camera
