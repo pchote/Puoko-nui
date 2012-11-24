@@ -310,7 +310,11 @@ initialization_failure:
 void camera_spawn_thread(Camera *camera, ThreadCreationArgs *args)
 {
     camera->thread_alive = true;
-    pthread_create(&camera->camera_thread, NULL, camera_thread, (void *)args);
+    if (pthread_create(&camera->camera_thread, NULL, camera_thread, (void *)args))
+    {
+        pn_log("Failed to create camera thread");
+        camera->thread_alive = false;
+    }
 }
 
 void camera_shutdown(Camera *camera)
