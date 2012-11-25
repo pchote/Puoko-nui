@@ -541,10 +541,10 @@ void FLTKGui::cameraTimingResolutionChangedCallback(Fl_Widget *input, void *user
 
 void FLTKGui::createCameraWindow()
 {
-    m_cameraWindow = new Fl_Double_Window(350, 205, "Set Camera Parameters");
+    m_cameraWindow = new Fl_Double_Window(370, 205, "Set Camera Parameters");
     m_cameraWindow->user_data((void*)(this));
 
-    Fl_Group *readoutGroup = new Fl_Group(10, 10, 330, 80, "Readout Geometry");
+    Fl_Group *readoutGroup = new Fl_Group(10, 10, 350, 80, "Readout Geometry");
     readoutGroup->box(FL_ENGRAVED_BOX);
     readoutGroup->align(FL_ALIGN_INSIDE|FL_ALIGN_TOP);
     readoutGroup->labelsize(14);
@@ -557,7 +557,7 @@ void FLTKGui::createCameraWindow()
     m_cameraWindowWidth = new Fl_Spinner(90, y, w, 20, "Size (px):");
     m_cameraWindowHeight = new Fl_Spinner(167, y, w, 20, " x ");
 
-    m_cameraBinningSpinner = new Fl_Spinner(300, y, 30, 20, "Bin (px):");
+    m_cameraBinningSpinner = new Fl_Spinner(300, y, 50, 20, "Bin (px):");
     m_cameraBinningSpinner->maximum(255);
     m_cameraBinningSpinner->minimum(1);
 
@@ -576,7 +576,7 @@ void FLTKGui::createCameraWindow()
     m_cameraGainInput->callback(cameraPortSpeedGainChangedCallback);
     m_cameraGainInput->user_data((void*)(this));
 
-    x = 275; y = 100; w = 65;
+    x = 295; y = 100; w = 65;
 
     m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (\u00B0C):"); y += margin;
 
@@ -584,11 +584,11 @@ void FLTKGui::createCameraWindow()
     m_cameraExposureSpinner->maximum(65535);
     m_cameraExposureSpinner->minimum(1);
 
-    m_cameraHighResTimingCheckbox = new Fl_Check_Button(x - 90, y, w + 90, h, "High-resolution timing"); y += margin;
+    m_cameraHighResTimingCheckbox = new Fl_Check_Button(x - 110, y, w + 110, h, "High-resolution timing"); y += margin;
     m_cameraHighResTimingCheckbox->callback(cameraTimingResolutionChangedCallback);
     m_cameraHighResTimingCheckbox->user_data((void*)(this));
 
-    x = 220; w = 120;
+    x = 240; w = 120;
     m_cameraButtonConfirm = new Fl_Button(x, y, w, h, "Save");
     m_cameraButtonConfirm->user_data((void*)(this));
     m_cameraButtonConfirm->callback(buttonCameraConfirmPressed);
