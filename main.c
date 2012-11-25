@@ -211,7 +211,7 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
 
     // Camera temperature
     char tempbuf[10];
-    snprintf(tempbuf, 10, "%0.02f", camera_temperature(camera));
+    snprintf(tempbuf, 10, "%0.02f", frame->temperature);
     fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)tempbuf, "CCD temperature at end of exposure (deg C)", &status);
     fits_update_key(fptr, TSTRING, "CCD-PORT", (void *)frame->port_desc, "CCD readout port description", &status);
     fits_update_key(fptr, TSTRING, "CCD-RATE", (void *)frame->speed_desc, "CCD readout rate description", &status);
