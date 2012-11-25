@@ -85,4 +85,10 @@
    <FileRef
       location = "group:timerutil.c">
    </FileRef>
+   <FileRef
+      location = "group:frame.c">
+   </FileRef>
+   <FileRef
+      location = "group:frame.h">
+   </FileRef>
 </Workspace>

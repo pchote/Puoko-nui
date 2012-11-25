@@ -11,7 +11,7 @@ CFLAGS   = -g -Wall -Wno-unknown-pragmas --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
 UTIL_LFLAGS = -lcfitsio -lpthread -lm
 LFLAGS   = $(UTIL_LFLAGS)
-OBJS     = main.o camera.o camera_simulated.o timer.o preferences.o scripting.o platform.o atomicqueue.o version.o
+OBJS     = main.o frame.o camera.o camera_simulated.o timer.o preferences.o scripting.o platform.o atomicqueue.o version.o
 
 ifeq ($(CAMERA_TYPE),PVCAM)
 	CFLAGS += -DUSE_PVCAM
