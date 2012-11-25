@@ -30,6 +30,8 @@ pthread_mutex_t reset_mutex;
 struct atomicqueue *log_queue, *frame_queue, *trigger_queue;
 bool first_frame = true;
 
+// Called by the camera thread to pass ownership of an acquired
+// frame to the main thread for processing.
 void queue_framedata(CameraFrame *frame)
 {
     frame->downloaded_time = timer_current_timestamp(timer);
@@ -50,6 +52,8 @@ void queue_framedata(CameraFrame *frame)
     }
 }
 
+// Called by the timer thread to pass ownership of a received
+// trigger timestamp to the main thread for processing.
 void queue_trigger(TimerTimestamp *t)
 {
     pthread_mutex_lock(&reset_mutex);
@@ -68,8 +72,10 @@ void queue_trigger(TimerTimestamp *t)
     }
 }
 
-// Remove all queued frames and timestamps
-void clear_queued_data(bool reset_first)
+// Called by main thread to remove all queued frames and
+// triggers before starting an acquisition or if a match
+// error occurs.
+void clear_queued_data(bool reset_first_frame)
 {
     void *item;
     pthread_mutex_lock(&reset_mutex);
@@ -86,12 +92,14 @@ void clear_queued_data(bool reset_first)
         free(item);
     }
 
-    if (reset_first)
+    if (reset_first_frame)
         first_frame = true;
 
     pthread_mutex_unlock(&reset_mutex);
 }
 
+// Helper function for determining the
+// filepath of the next frame
 static char *next_filepath()
 {
     // Construct the output filepath from the output dir, run prefix, and run number.
@@ -111,6 +119,8 @@ static char *next_filepath()
     return filepath;
 }
 
+// Helper function for creating a temporary filename
+// that can be saved to without conflict
 static char *temporary_filepath(char *base)
 {
     size_t len = strlen(base) + 8;
@@ -124,6 +134,8 @@ static char *temporary_filepath(char *base)
     return path;
 }
 
+// Called by the main thread to save a matched frame
+// and trigger timestamp to disk.
 void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
 {
     if (first_frame)
