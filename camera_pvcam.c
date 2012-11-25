@@ -50,6 +50,11 @@ struct internal
     bool has_bias_region;
     uint16_t image_region[4];
     uint16_t bias_region[4];
+
+    // String descriptions to store in frame headers
+    char *current_port_desc;
+    char *current_speed_desc;
+    char *current_gain_desc;
 };
 
 static char *gain_names[] = {"Low", "Medium", "High"};
@@ -113,6 +118,61 @@ static int _set_param(int16 handle, uns32 param, char *param_name, void_ptr valu
         return CAMERA_ERROR;
     }
     return CAMERA_OK;
+}
+
+static int port_description(struct internal *internal, char **out_desc)
+{
+    char str[100];
+    int32 value;
+    uns32 port = 0;
+    get_param(error, internal->handle, PARAM_READOUT_PORT, ATTR_CURRENT, &port);
+
+    // PVCAM returns port = 1 for the Puoko-nui MicroMax camera, but port = 0
+    // is the only valid choice for get_enum_parameter...
+    // We assume that this off-by-one is also true for cameras with multiple
+    // readout ports.
+    port -= 1;
+
+    if (!pl_get_enum_param(internal->handle, PARAM_READOUT_PORT, port, &value, str, 100))
+        goto error;
+
+    *out_desc = strdup(str);
+    return CAMERA_OK;
+error:
+    pn_log("Failed to query port name for port %d", port);
+    log_pvcam_error();
+    return CAMERA_ERROR;
+}
+
+static int speed_description(struct internal *internal, char **out_desc)
+{
+    char str[100];
+    int16 pix_time;
+
+    get_param(error, internal->handle, PARAM_PIX_TIME, ATTR_CURRENT, &pix_time);
+    snprintf(str, 100, "%0.1f MHz", 1.0e3/pix_time);
+    *out_desc = strdup(str);
+
+    return CAMERA_OK;
+error:
+    pn_log("Failed to query PARAM_PIX_TIME");
+    log_pvcam_error();
+    return CAMERA_ERROR;
+}
+
+static int gain_description(struct internal *internal, char **out_desc)
+{
+    int16 min, max, cur;
+    get_param(error, internal->handle, PARAM_GAIN_INDEX, ATTR_MIN, &min);
+    get_param(error, internal->handle, PARAM_GAIN_INDEX, ATTR_MAX, &max);
+    get_param(error, internal->handle, PARAM_GAIN_INDEX, ATTR_CURRENT, &cur);
+
+    *out_desc = (max - min == 2) ? strdup(gain_names[cur - min]) : strdup("Unknown");
+    return CAMERA_OK;
+error:
+    pn_log("Failed to query gain parameters");
+    log_pvcam_error();
+    return CAMERA_ERROR;
 }
 
 static int initialize_camera(struct internal *internal)
@@ -275,10 +335,9 @@ int camera_pvcam_update_camera_settings(Camera *camera, void *_internal, double 
     set_param(error, internal->handle, PARAM_SPDTAB_INDEX, &speed_value);
 
     uint8_t gain_id = pn_preference_char(CAMERA_GAIN_MODE);
-    int16 gain_min, gain_max, pix_time;
+    int16 gain_min, gain_max;
     get_param(error, internal->handle, PARAM_GAIN_INDEX, ATTR_MIN, &gain_min);
     get_param(error, internal->handle, PARAM_GAIN_INDEX, ATTR_MAX, &gain_max);
-    get_param(error, internal->handle, PARAM_PIX_TIME, ATTR_CURRENT, &pix_time);
 
     int16 gain_value = gain_id + gain_min;
     if (gain_value > gain_max)
@@ -289,6 +348,20 @@ int camera_pvcam_update_camera_settings(Camera *camera, void *_internal, double 
     }
 
     set_param(error, internal->handle, PARAM_GAIN_INDEX, &gain_value);
+
+    // Store port/speed/gain descriptions to store in frames
+    free(internal->current_port_desc);
+    if (port_description(internal, &internal->current_port_desc) != CAMERA_OK)
+        goto error;
+
+    free(internal->current_speed_desc);
+    if (speed_description(internal, &internal->current_speed_desc) != CAMERA_OK)
+        goto error;
+
+    free(internal->current_gain_desc);
+    if (gain_description(internal, &internal->current_gain_desc) != CAMERA_OK)
+        goto error;
+
     set_param(error, internal->handle, PARAM_TEMP_SETPOINT, &(int){pn_preference_int(CAMERA_TEMPERATURE)});
 
     // Set readout area
@@ -408,20 +481,12 @@ int camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_port_
     if (!ports)
         return CAMERA_ALLOCATION_FAILED;
 
-    char str[100];
-    int32 value;
     for (uint8_t i = 0; i < port_count; i++)
     {
         struct camera_port_option *port = &ports[i];
-        if (!pl_get_enum_param(internal->handle, PARAM_READOUT_PORT, i, &value, str, 100))
-        {
-            free(ports);
-            pn_log("Failed to query PARAM_READOUT_PORT");
-            log_pvcam_error();
-            return CAMERA_ERROR;
-        }
 
-        port->name = strdup(str);
+        if (port_description(internal, &port->name) != CAMERA_OK)
+            return CAMERA_ERROR;
 
         // Set the active port then query readout speeds
         if (port_count > 1)
@@ -441,13 +506,12 @@ int camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_port_
             struct camera_speed_option *speed = &port->speed[j];
             set_param(error, internal->handle, PARAM_SPDTAB_INDEX, &(int16){speed_min + j});
 
-            int16 gain_min, gain_max, pix_time;
+            int16 gain_min, gain_max;
             get_param(error, internal->handle, PARAM_GAIN_INDEX, ATTR_MIN, &gain_min);
             get_param(error, internal->handle, PARAM_GAIN_INDEX, ATTR_MAX, &gain_max);
-            get_param(error, internal->handle, PARAM_PIX_TIME, ATTR_CURRENT, &pix_time);
 
-            snprintf(str, 100, "%0.1f MHz", 1.0e3/pix_time);
-            speed->name = strdup(str);
+            if (speed_description(internal, &speed->name) != CAMERA_OK)
+                return CAMERA_ERROR;
 
             speed->gain_count = gain_max - gain_min + 1;
             speed->gain = calloc(speed->gain_count, sizeof(struct camera_gain_option));
@@ -456,8 +520,9 @@ int camera_pvcam_port_table(Camera *camera, void *_internal, struct camera_port_
 
             for (uint8_t k = 0; k <= gain_max - gain_min; k++)
             {
-                struct camera_gain_option *gain = &speed->gain[k];
-                gain->name = (gain_max - gain_min == 2) ? strdup(gain_names[k]) : strdup("Unknown");
+                set_param(error, internal->handle, PARAM_GAIN_INDEX, &(int16){gain_min + k});
+                if (gain_description(internal, &speed->gain[k].name) != CAMERA_OK)
+                    return CAMERA_ERROR;
             }
         }
     }
@@ -606,6 +671,10 @@ int camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode
                 frame->has_bias_region = internal->has_bias_region;
                 if (frame->has_bias_region)
                     memcpy(frame->bias_region, internal->bias_region, 4*sizeof(uint16_t));
+
+                frame->port_desc = strdup(internal->current_port_desc);
+                frame->speed_desc = strdup(internal->current_speed_desc);
+                frame->gain_desc = strdup(internal->current_gain_desc);
 
                 queue_framedata(frame);
             }

@@ -49,6 +49,10 @@ typedef struct
     bool has_bias_region;
     uint16_t image_region[4];
     uint16_t bias_region[4];
+
+    char *port_desc;
+    char *speed_desc;
+    char *gain_desc;
 } CameraFrame;
 
 void pn_log(const char * format, ...);

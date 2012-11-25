@@ -414,33 +414,3 @@ uint8_t camera_port_options(Camera *camera, struct camera_port_option **options)
     *options = camera->port_options;
     return camera->port_count;
 }
-
-const char *camera_port_desc(Camera *camera)
-{
-    uint8_t pid = pn_preference_char(CAMERA_READPORT_MODE);
-    if (pid > camera->port_count)
-        return "Unknown";
-    return camera->port_options[pid].name;
-}
-
-const char *camera_speed_desc(Camera *camera)
-{
-    uint8_t pid = pn_preference_char(CAMERA_READPORT_MODE);
-    uint8_t sid = pn_preference_char(CAMERA_READSPEED_MODE);
-    if (pid >= camera->port_count ||
-        sid >= camera->port_options[pid].speed_count)
-        return "Unknown";
-    return camera->port_options[pid].speed[sid].name;
-}
-
-const char *camera_gain_desc(Camera *camera)
-{
-    uint8_t pid = pn_preference_char(CAMERA_READPORT_MODE);
-    uint8_t sid = pn_preference_char(CAMERA_READSPEED_MODE);
-    uint8_t gid = pn_preference_char(CAMERA_GAIN_MODE);
-    if (pid >= camera->port_count ||
-        sid >= camera->port_options[pid].speed_count ||
-        gid >= camera->port_options[pid].speed[sid].gain_count)
-        return "Unknown";
-    return camera->port_options[pid].speed[sid].gain[gid].name;
-}

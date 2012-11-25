@@ -24,6 +24,11 @@ struct internal
     TimerUnit *timer;
     uint16_t frame_width;
     uint16_t frame_height;
+
+    // String descriptions to store in frame headers
+    char *current_port_desc;
+    char *current_speed_desc;
+    char *current_gain_desc;
 };
 
 static char *speed_names[] = {"Slow", "Fast"};
@@ -42,6 +47,8 @@ int camera_simulated_initialize(Camera *camera, ThreadCreationArgs *args, void *
 
 int camera_simulated_update_camera_settings(Camera *camera, void *_internal, double *out_readout_time)
 {
+    struct internal *internal = _internal;
+
     uint8_t port_id = pn_preference_char(CAMERA_READPORT_MODE);
     if (port_id > 0)
     {
@@ -62,6 +69,10 @@ int camera_simulated_update_camera_settings(Camera *camera, void *_internal, dou
         pn_log("Invalid gain index: %d. Reset to %d.", gain_id, 0);
         pn_preference_set_char(CAMERA_GAIN_MODE, 0);
     }
+
+    internal->current_port_desc = "Normal";
+    internal->current_speed_desc = speed_names[speed_id];
+    internal->current_gain_desc = gain_names[speed_id*3 + gain_id];
 
     // Set readout area
     uint16_t ww = pn_preference_int(CAMERA_WINDOW_WIDTH);
@@ -215,6 +226,10 @@ int camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_
                 frame->has_timestamp = false;
                 frame->has_image_region = false;
                 frame->has_bias_region = false;
+
+                frame->port_desc = strdup(internal->current_port_desc);
+                frame->speed_desc = strdup(internal->current_speed_desc);
+                frame->gain_desc = strdup(internal->current_gain_desc);
 
                 queue_framedata(frame);
             }

@@ -32,6 +32,11 @@ struct internal
     uint64_t timestamp_resolution;
     uint64_t start_timestamp;
     bool first_frame;
+
+    // String descriptions to store in frame headers
+    char *current_port_desc;
+    char *current_speed_desc;
+    char *current_gain_desc;
 };
 
 static void log_picam_error(PicamError error)
@@ -164,6 +169,9 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
                 frame->has_image_region = false;
                 frame->has_bias_region = false;
 
+                frame->port_desc = strdup(callback_internal_ref->current_port_desc);
+                frame->speed_desc = strdup(callback_internal_ref->current_speed_desc);
+                frame->gain_desc = strdup(callback_internal_ref->current_gain_desc);
                 queue_framedata(frame);
             }
             else
@@ -356,6 +364,13 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
     }
     set_integer_param(internal->model_handle, PicamParameter_AdcQuality,
                       (piint)(port_constraint->values_array[port_id]));
+
+    const pichar *value;
+    free(internal->current_port_desc);
+    Picam_GetEnumerationString(PicamEnumeratedType_AdcQuality, port_constraint->values_array[port_id], &value);
+    internal->current_port_desc = strdup(value);
+    Picam_DestroyString(value);
+
     Picam_DestroyCollectionConstraints(port_constraint);
 
     // Validate and set readout speed
@@ -384,6 +399,13 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
         log_picam_error(error);
         return CAMERA_ERROR;
     }
+
+    free(internal->current_speed_desc);
+    char str[100];
+    snprintf(str, 100, "%0.1f MHz", speed_constraint->values_array[speed_id]);
+    internal->current_speed_desc = strdup(str);
+    Picam_DestroyString(value);
+
     Picam_DestroyCollectionConstraints(speed_constraint);
 
     // Validate and set readout gain
@@ -406,6 +428,12 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
     }
     set_integer_param(internal->model_handle, PicamParameter_AdcAnalogGain,
                       (piint)(gain_constraint->values_array[gain_id]));
+
+    free(internal->current_gain_desc);
+    Picam_GetEnumerationString(PicamParameter_AdcAnalogGain, gain_constraint->values_array[gain_id], &value);
+    internal->current_gain_desc = strdup(value);
+    Picam_DestroyString(value);
+
     Picam_DestroyCollectionConstraints(gain_constraint);
 
     // Set temperature

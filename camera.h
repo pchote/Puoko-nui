@@ -74,8 +74,5 @@ void camera_normalize_trigger(Camera *camera, TimerTimestamp *trigger);
 // thread during startup, when the main thread is designed to not call these
 void camera_ccd_region(Camera *camera, uint16_t region[4]);
 uint8_t camera_port_options(Camera *camera, struct camera_port_option **options);
-const char *camera_port_desc(Camera *camera);
-const char *camera_speed_desc(Camera *camera);
-const char *camera_gain_desc(Camera *camera);
 
 #endif

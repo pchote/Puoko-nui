@@ -214,9 +214,9 @@ bool save_frame(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     char tempbuf[10];
     snprintf(tempbuf, 10, "%0.02f", camera_temperature(camera));
     fits_update_key(fptr, TSTRING, "CCD-TEMP", (void *)tempbuf, "CCD temperature at end of exposure (deg C)", &status);
-    fits_update_key(fptr, TSTRING, "CCD-PORT", (void *)camera_port_desc(camera), "CCD readout port description", &status);
-    fits_update_key(fptr, TSTRING, "CCD-RATE", (void *)camera_speed_desc(camera), "CCD readout rate description", &status);
-    fits_update_key(fptr, TSTRING, "CCD-GAIN", (void *)camera_gain_desc(camera), "CCD readout gain description", &status);
+    fits_update_key(fptr, TSTRING, "CCD-PORT", (void *)frame->port_desc, "CCD readout port description", &status);
+    fits_update_key(fptr, TSTRING, "CCD-RATE", (void *)frame->speed_desc, "CCD readout rate description", &status);
+    fits_update_key(fptr, TSTRING, "CCD-GAIN", (void *)frame->gain_desc, "CCD readout gain description", &status);
     fits_update_key(fptr, TLONG,   "CCD-BIN",  &(long){pn_preference_char(CAMERA_BINNING)},  "CCD pixel binning", &status);
 
     if (frame->has_timestamp)
