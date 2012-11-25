@@ -8,8 +8,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <time.h>
-#include <sys/time.h>
 #include <pthread.h>
 #include <string.h>
 #include <math.h>
@@ -376,7 +374,7 @@ void pn_log(const char *format, ...)
     va_end(args);
 
     // Allocate message string with additional space for a timestamp
-    char *message = calloc(len+16,sizeof(char));
+    char *message = calloc(len + 16,sizeof(char));
     if (!message)
     {
         fprintf(stderr, "Failed to allocate format for log message\n");
@@ -384,16 +382,8 @@ void pn_log(const char *format, ...)
     }
 
     // Add timestamp to beginning of format string
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    time_t seconds = tv.tv_sec;
-    struct tm *ptm = gmtime(&seconds);
-
-    // Construct log line
-    strcat(message, "[");
-    strftime(&message[1], 9, "%H:%M:%S", ptm);
-    snprintf(&message[9], 5, ".%03d", (int)(tv.tv_usec / 1000));
-    strcat(message, "] ");
+    TimerTimestamp t = system_time();
+    snprintf(message, 16, "[%02d:%02d:%02d.%03d] ", t.hours, t.minutes, t.seconds, t.milliseconds);
 
     va_start(args, format);
     vsnprintf(&message[15], len + 1, format, args);
