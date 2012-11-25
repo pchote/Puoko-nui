@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #ifdef USE_LIBFTDI
@@ -22,11 +23,16 @@
 #include "platform.h"
 #include "camera.h"
 
+#define TIMER_OK 0
+#define TIMER_ALLOCATION_FAILED -1
+#define TIMER_ERROR -2
+#define TIMER_INITIALIZATION_ABORTED -3
+
 // Private struct implementation
 struct TimerUnit
 {
     pthread_t timer_thread;
-    bool thread_initialized;
+    bool thread_alive;
 
     bool simulated;
     uint16_t simulated_total;
@@ -90,38 +96,17 @@ void timer_free(TimerUnit *timer)
 
 void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args)
 {
-    if (timer->simulated)
-        pthread_create(&timer->timer_thread, NULL, simulated_timer_thread, (void *)args);
-    else
-        pthread_create(&timer->timer_thread, NULL, timer_thread, (void *)args);
+    void *(*start_routine)(void *) = timer->simulated ? simulated_timer_thread : timer_thread;
 
-    timer->thread_initialized = true;
+    timer->thread_alive = true;
+    if (pthread_create(&timer->timer_thread, NULL, start_routine, (void *)args))
+    {
+        pn_log("Failed to create timer thread");
+        timer->thread_alive = false;
+    }
 }
 
 #pragma mark Timer Routines (Called from Timer thread)
-
-// Trigger a fatal error
-// Sets the error message and kills the thread
-static void fatal_timer_error(TimerUnit *timer, char *format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    int len = vsnprintf(NULL, 0, format, args);
-    va_end(args);
-
-    char *fatal_error = malloc((len + 1)*sizeof(char));
-    if (fatal_error)
-    {
-        va_start(args, format);
-        vsnprintf(fatal_error, len + 1, format, args);
-        va_end(args);
-    }
-    else
-        pn_log("Failed to allocate memory for fatal error.");
-
-    trigger_fatal_error(fatal_error);
-    pthread_exit(NULL);
-}
 
 // Calculate the checksum of a series of bytes by xoring them together
 static unsigned char checksum(unsigned char *data, unsigned char length)
@@ -169,7 +154,7 @@ static void queue_data(TimerUnit *timer, unsigned char type, unsigned char *data
 }
 
 // Initialize the usb connection to the timer
-static void initialize_timer(TimerUnit *timer)
+static int initialize_timer(TimerUnit *timer)
 {
     // Data to send timer on startup to exit
     // relay / upgrade mode and purge input buffer
@@ -181,10 +166,16 @@ static void initialize_timer(TimerUnit *timer)
 #ifdef USE_LIBFTDI
     timer->context = ftdi_new();
     if (timer->context == NULL)
-        fatal_timer_error(timer, "Error creating timer context");
+    {
+        pn_log("Error creating timer context");
+        return TIMER_ERROR;
+    }
 
     if (ftdi_init(timer->context) < 0)
-        fatal_timer_error(timer, "Error initializing timer context: %s", timer->context->error_str);
+    {
+        pn_log("Error initializing timer context: %s", timer->context->error_str);
+        return TIMER_ERROR;
+    }
 
     // Open the first available FTDI device, under the
     // assumption that it is the timer
@@ -198,32 +189,53 @@ static void initialize_timer(TimerUnit *timer)
     }
 
     if (timer->shutdown)
-        return;
+        return TIMER_INITIALIZATION_ABORTED;
 
     if (ftdi_set_baudrate(timer->context, pn_preference_int(TIMER_BAUD_RATE)) < 0)
-        fatal_timer_error(timer, "Error setting timer baudrate: %s", timer->context->error_str);
+    {
+        pn_log("Error setting timer baudrate: %s", timer->context->error_str);
+        return TIMER_ERROR;
+    }
 
     if (ftdi_set_line_property(timer->context, BITS_8, STOP_BIT_1, NONE) < 0)
-        fatal_timer_error(timer, "Error setting timer data frame properties: %s", timer->context->error_str);
+    {
+        pn_log("Error setting timer data frame properties: %s", timer->context->error_str);
+        return TIMER_ERROR;
+    }
 
     if (ftdi_setflowctrl(timer->context, SIO_DISABLE_FLOW_CTRL) < 0)
-        fatal_timer_error(timer, "Error setting timer flow control: %s", timer->context->error_str);
+    {
+        pn_log("Error setting timer flow control: %s", timer->context->error_str);
+        return TIMER_ERROR;
+    }
 
     // the latency in milliseconds before partially full bit buffers are sent.
     if (ftdi_set_latency_timer(timer->context, 1) < 0)
-        fatal_timer_error(timer, "Error setting timer read timeout: %s", timer->context->error_str);
+    {
+        pn_log("Error setting timer read timeout: %s", timer->context->error_str);
+        return TIMER_ERROR;
+    }
 
     // Purge any data in the chip receive buffer
     if (ftdi_usb_purge_rx_buffer(timer->context))
-        fatal_timer_error(timer, "Error purging timer rx buffer: %s", timer->context->error_str);
+    {
+        pn_log("Error purging timer rx buffer: %s", timer->context->error_str);
+        return TIMER_ERROR;
+    }
 
     // Send reset data
     if (ftdi_write_data(timer->context, reset_data, reset_data_length) != reset_data_length)
-        fatal_timer_error(timer, "Error sending reset data: %s", timer->context->error_str);
+    {
+        pn_log("Error sending reset data: %s", timer->context->error_str);
+        return TIMER_ERROR;
+    }
 
     // Purge any data in the chip transmit buffer
     if (ftdi_usb_purge_tx_buffer(timer->context))
-        fatal_timer_error(timer, "Error purging timer tx buffer: %s", timer->context->error_str);
+    {
+        pn_log("Error purging timer tx buffer: %s", timer->context->error_str);
+        return TIMER_ERROR;
+    }
 
 #else
     // Open the first available FTDI device, under the
@@ -238,37 +250,62 @@ static void initialize_timer(TimerUnit *timer)
     }
 
     if (timer->shutdown)
-        return;
+        return TIMER_INITIALIZATION_ABORTED;
 
-    if (FT_SetBaudRate(timer->handle, pn_preference_int(TIMER_BAUD_RATE)) != FT_OK)
-        fatal_timer_error(timer, "Error setting timer baudrate");
+    FT_STATUS status = FT_SetBaudRate(timer->handle, pn_preference_int(TIMER_BAUD_RATE));
+    if (status != FT_OK)
+    {
+        pn_log("Error setting timer baudrate. Errorcode: %d", status);
+        return TIMER_ERROR;
+    }
 
     // Set data frame: 8N1
-    if (FT_SetDataCharacteristics(timer->handle, FT_BITS_8, FT_STOP_BITS_1, FT_PARITY_NONE) != FT_OK)
-        fatal_timer_error(timer, "Error setting timer data characteristics");
+    status = FT_SetDataCharacteristics(timer->handle, FT_BITS_8, FT_STOP_BITS_1, FT_PARITY_NONE);
+    if (status != FT_OK)
+    {
+        pn_log("Error setting timer data characteristics. Errorcode: %d", status);
+        return TIMER_ERROR;
+    }
 
     // Set read timeout to 1ms, write timeout unchanged
-    if (FT_SetTimeouts(timer->handle, 1, 0) != FT_OK)
-        fatal_timer_error(timer, "Error setting timer read timeout");
+    status = FT_SetTimeouts(timer->handle, 1, 0);
+    if (status != FT_OK)
+    {
+        pn_log("Error setting timer read timeout. Errorcode: %d", status);
+        return TIMER_ERROR;
+    }
 
     // Purge any data in the chip receive buffer
-    if (FT_Purge(timer->handle, FT_PURGE_RX) != FT_OK)
-        fatal_timer_error(timer, "Error purging timer buffers");
+    status = FT_Purge(timer->handle, FT_PURGE_RX);
+    if (status != FT_OK)
+    {
+        pn_log("Error purging timer buffers. Errorcode: %d", status);
+        return TIMER_ERROR;
+    }
 
     // Send reset data
     DWORD bytes_written;
-    FT_STATUS status = FT_Write(timer->handle, reset_data, reset_data_length, &bytes_written);
+    status = FT_Write(timer->handle, reset_data, reset_data_length, &bytes_written);
     if (status != FT_OK || bytes_written != reset_data_length)
-        fatal_timer_error(timer, "Error sending reset data");
+    {
+        pn_log("Error sending reset data. Errorcode: %d. Bytes sent %u", status, bytes_written);
+        return TIMER_ERROR;
+    }
 
     // Purge any data in the chip transmit buffer
-    if (FT_Purge(timer->handle, FT_PURGE_TX) != FT_OK)
-        fatal_timer_error(timer, "Error purging timer buffers");
+    status = FT_Purge(timer->handle, FT_PURGE_TX);
+    if (status != FT_OK)
+    {
+        pn_log("Error purging timer buffers. Errorcode: %d", status);
+        return TIMER_ERROR;
+    }
 
 #endif
 
     queue_data(timer, RESET, NULL, 0);
     pn_log("Timer is now active.");
+
+    return TIMER_OK;
 }
 
 // Close the usb connection to the timer
@@ -277,7 +314,7 @@ static void uninitialize_timer(TimerUnit *timer)
     pn_log("Shutting down timer.");
 #ifdef USE_LIBFTDI
     if (ftdi_usb_close(timer->context) < 0)
-        fatal_timer_error(timer, "Error closing timer connection");
+        pn_log("Error closing usb connection");
 
     ftdi_deinit(timer->context);
     ftdi_free(timer->context);
@@ -303,8 +340,9 @@ static void log_raw_data(unsigned char *data, int len)
     free(msg);
 }
 
-static void write_data(TimerUnit *timer)
+static int write_data(TimerUnit *timer)
 {
+    int status = TIMER_OK;
     pthread_mutex_lock(&timer->sendbuffer_mutex);
     if (timer->send_length > 0)
     {
@@ -312,31 +350,47 @@ static void write_data(TimerUnit *timer)
         if (ftdi_write_data(timer->context, timer->send_buffer, timer->send_length) == timer->send_length)
             timer->send_length = 0;
         else
+        {
             pn_log("Failed to send buffered data.");
+            status = TIMER_ERROR;
+        }
 #else
         DWORD bytes_written;
         FT_STATUS status = FT_Write(timer->handle, timer->send_buffer, timer->send_length, &bytes_written);
         if (status == FT_OK && bytes_written == timer->send_length)
             timer->send_length = 0;
         else
+        {
             pn_log("Failed to send buffered data.");
+            status = TIMER_ERROR;
+        }
 #endif
     }
     pthread_mutex_unlock(&timer->sendbuffer_mutex);
+
+    return status;
 }
 
-static void read_data(TimerUnit *timer, uint8_t *read_buffer, uint8_t *bytes_read)
+static int read_data(TimerUnit *timer, uint8_t *read_buffer, uint8_t *bytes_read)
 {
 #ifdef USE_LIBFTDI
     int read = ftdi_read_data(timer->context, read_buffer, 255);
     if (read < 0)
-        fatal_timer_error(timer, "Timer I/O error.");
+    {
+        pn_log("Timer I/O error.");
+        return TIMER_ERROR;
+    }
 #else
     DWORD read;
     if (FT_Read(timer->handle, read_buffer, 255, &read) != FT_OK)
-        fatal_timer_error(timer, "Timer I/O error.");
+    {
+        pn_log("Timer I/O error.");
+        return TIMER_ERROR;
+    }
 #endif
     *bytes_read = (uint8_t)read;
+
+    return TIMER_OK;
 }
 
 static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint8_t packet_length)
@@ -469,20 +523,21 @@ static void timer_loop(TimerUnit *timer, Camera *camera)
     {
         millisleep(100);
 
-        // Reset the timer before shutting down
-        if (timer->shutdown)
-            queue_data(timer, RESET, NULL, 0);
-
         // Send any data in the send buffer
-        write_data(timer);
+        if (write_data(timer) != TIMER_OK)
+            break;
 
+        // Check for shutdown request
+        // Note: this is done after sending data
+        // to allow any final commands to be sent
         if (timer->shutdown)
-            return;
+            break;
 
         // Check for new data
         uint8_t bytes_read;
         uint8_t read_buffer[256];
-        read_data(timer, read_buffer, &bytes_read);
+        if (read_data(timer, read_buffer, &bytes_read))
+            break;
 
         // Copy received bytes into the circular input buffer
         for (uint8_t i = 0; i < bytes_read; i++)
@@ -528,11 +583,13 @@ void *timer_thread(void *_args)
     ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
     TimerUnit *timer = args->timer;
 
-    initialize_timer(timer);
-    if (!timer->shutdown)
+    int status = initialize_timer(timer);
+    if (status == TIMER_OK)
         timer_loop(timer, args->camera);
 
     uninitialize_timer(timer);
+    
+    timer->thread_alive = false;
     return NULL;
 }
 
@@ -609,6 +666,7 @@ void *simulated_timer_thread(void *_args)
     }
 
     pn_log("Simulated Timer shutdown.");
+    timer->thread_alive = false;
     return NULL;
 }
 
@@ -671,12 +729,16 @@ TimerTimestamp timer_current_timestamp(TimerUnit *timer)
 
 void timer_shutdown(TimerUnit *timer)
 {
+    queue_data(timer, RESET, NULL, 0);
     timer->shutdown = true;
     void **retval = NULL;
-    if (timer->thread_initialized)
+    if (timer->thread_alive)
         pthread_join(timer->timer_thread, retval);
+}
 
-    timer->thread_initialized = false;
+bool timer_thread_alive(TimerUnit *timer)
+{
+    return timer->thread_alive;
 }
 
 // Callback to notify that the simulated camera has read out

@@ -10,7 +10,6 @@
 
 #include <time.h>
 #include <stdbool.h>
-#include <pthread.h>
 #include "main.h"
 
 typedef enum
@@ -33,6 +32,8 @@ void timer_stop_exposure(TimerUnit *timer);
 TimerMode timer_mode(TimerUnit *timer);
 TimerTimestamp timer_current_timestamp(TimerUnit *timer);
 void timer_shutdown(TimerUnit *timer);
+bool timer_thread_alive(TimerUnit *timer);
+
 void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading);
 
 void timestamp_normalize(TimerTimestamp *ts);
