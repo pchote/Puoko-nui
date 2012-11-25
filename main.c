@@ -92,6 +92,38 @@ void clear_queued_data(bool reset_first)
     pthread_mutex_unlock(&reset_mutex);
 }
 
+static char *next_filepath()
+{
+    // Construct the output filepath from the output dir, run prefix, and run number.
+    int run_number = pn_preference_int(RUN_NUMBER);
+    char *output_dir = pn_preference_string(OUTPUT_DIR);
+    char *run_prefix = pn_preference_string(RUN_PREFIX);
+
+    size_t filepath_len = snprintf(NULL, 0, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number) + 1;
+    char *filepath = malloc(filepath_len*sizeof(char));
+
+    if (filepath)
+        snprintf(filepath, filepath_len, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number);
+
+    free(run_prefix);
+    free(output_dir);
+
+    return filepath;
+}
+
+static char *temporary_filepath(char *base)
+{
+    size_t len = strlen(base) + 8;
+    char *path = malloc(len*sizeof(char));
+    if (path)
+    {
+        strcpy(path, base);
+        strcat(path, ".XXXXXX");
+        mktemp(path);
+    }
+    return path;
+}
+
 void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
 {
     if (first_frame)
@@ -108,54 +140,27 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
     frame_process_transforms(frame);
     if (pn_preference_char(SAVE_FRAMES))
     {
-        // Construct the output filepath from the output dir, run prefix, and run number.
-        int run_number = pn_preference_int(RUN_NUMBER);
-        char *output_dir = pn_preference_string(OUTPUT_DIR);
-        char *run_prefix = pn_preference_string(RUN_PREFIX);
-
-        // Save to a temporary file and then rename to the final name
-        // to ensure the save operation appears atomic to tsreduce,
-        // which uses the frame prefix to determine frames
-        size_t temppath_len = snprintf(NULL, 0, "%s/XXXXXX", output_dir) + 1;
-        char *temppath = malloc(temppath_len*sizeof(char));
-        if (!temppath)
+        char *filepath = next_filepath();
+        if (!filepath)
         {
-            pn_log("Failed to allocate memory. Discarding frame");
-            free(run_prefix);
-            free(output_dir);
+            pn_log("Failed to determine next file path. Discarding frame");
             return;
         }
 
-        snprintf(temppath, temppath_len, "%s/XXXXXX", output_dir);
-        mktemp(temppath);
-        if (strlen(temppath) == 0)
+        char *temppath = temporary_filepath(filepath);
+        if (!filepath)
         {
             pn_log("Failed to create unique temporary filename. Discarding frame");
-            free(run_prefix);
-            free(output_dir);
             return;
         }
 
         if (!frame_save(frame, timestamp, temppath))
         {
-            free(output_dir);
-            free(run_prefix);
+            free(filepath);
             free(temppath);
             pn_log("Saving to save temporary file. Discarding frame.");
             return;
         }
-
-        size_t filepath_len = snprintf(NULL, 0, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number) + 1;
-        char *filepath = malloc(filepath_len*sizeof(char));
-        if (!filepath)
-        {
-            pn_log("Failed to allocate memory. Discarding frame");
-            free(run_prefix);
-            free(output_dir);
-            free(temppath);
-            return;
-        }
-        snprintf(filepath, filepath_len, "%s/%s-%04d.fits.gz", output_dir, run_prefix, run_number);
 
         // Don't overwrite existing files
         if (!rename_atomically(temppath, filepath, false))
@@ -169,24 +174,27 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
         pn_preference_increment_framecount();
         free(filepath);
         free(temppath);
-
-        free(run_prefix);
-        free(output_dir);
     }
 
     // Update frame preview atomically
-    char preview[16];
-    strcpy(preview, "preview.XXXXXX");
-    mktemp(preview);
-    frame_save(frame, timestamp, preview);
+    char *preview = "preview.fits.gz";
+    char *temp_preview = temporary_filepath(preview);
+    if (!temp_preview)
+    {
+        pn_log("Error creating temporary filepath. Skipping preview");
+        return;
+    }
 
-    if (!rename_atomically(preview, "preview.fits.gz", true))
+    frame_save(frame, timestamp, temp_preview);
+    if (!rename_atomically(temp_preview, preview, true))
     {
         pn_log("Failed to overwrite preview frame.");
-        delete_file(preview);
+        delete_file(temp_preview);
     }
     else
         scripting_update_preview(scripting);
+
+    free(temp_preview);
 }
 
 int main(int argc, char *argv[])
