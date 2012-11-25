@@ -20,8 +20,8 @@ struct ScriptingInterface
 {
     pthread_t reduction_thread;
     pthread_t preview_thread;
-    bool reduction_thread_initialized;
-    bool preview_thread_initialized;
+    bool reduction_thread_alive;
+    bool preview_thread_alive;
     bool shutdown;
 
     struct atomicqueue *new_frames;
@@ -56,9 +56,6 @@ static int run_script(char *script, char *log_prefix)
 #endif
 }
 
-void *reduction_thread(void *args);
-void *preview_thread(void *args);
-
 ScriptingInterface *scripting_new()
 {
     ScriptingInterface *scripting = calloc(1, sizeof(struct ScriptingInterface));
@@ -78,14 +75,6 @@ ScriptingInterface *scripting_new()
 void scripting_free(ScriptingInterface *scripting)
 {
     atomicqueue_destroy(scripting->new_frames);
-}
-
-void scripting_spawn_thread(ScriptingInterface *scripting, ThreadCreationArgs *args)
-{
-    pthread_create(&scripting->reduction_thread, NULL, reduction_thread, (void *)scripting);
-    scripting->reduction_thread_initialized = true;
-    pthread_create(&scripting->preview_thread, NULL, preview_thread, (void *)scripting);
-    scripting->preview_thread_initialized = true;
 }
 
 void *reduction_thread(void *_scripting)
@@ -159,6 +148,7 @@ void *reduction_thread(void *_scripting)
         }
     }
 
+    scripting->reduction_thread_alive = false;
     return NULL;
 }
 
@@ -187,7 +177,37 @@ void *preview_thread(void *_scripting)
         }
     }
 
+    scripting->preview_thread_alive = false;
     return NULL;
+}
+
+void scripting_spawn_thread(ScriptingInterface *scripting, ThreadCreationArgs *args)
+{
+    scripting->reduction_thread_alive = true;
+    if (pthread_create(&scripting->reduction_thread, NULL, reduction_thread, (void *)scripting))
+    {
+        pn_log("Failed to create reduction thread");
+        scripting->reduction_thread_alive = false;
+    }
+
+    scripting->preview_thread_alive = true;
+    if (pthread_create(&scripting->preview_thread, NULL, preview_thread, (void *)scripting))
+    {
+        pn_log("Failed to create preview thread");
+        scripting->preview_thread_alive = false;
+    }
+}
+
+void scripting_shutdown(ScriptingInterface *scripting)
+{
+    scripting->shutdown = true;
+
+    void **retval = NULL;
+    if (scripting->reduction_thread_alive)
+        pthread_join(scripting->reduction_thread, retval);
+
+    if (scripting->preview_thread_alive)
+        pthread_join(scripting->preview_thread, retval);
 }
 
 void scripting_update_preview(ScriptingInterface *scripting)
@@ -207,17 +227,4 @@ void scripting_notify_frame(ScriptingInterface *scripting, const char *filepath)
 
     if (!atomicqueue_push(scripting->new_frames, copy))
         pn_log("Failed to push filepath. Reduction notification has been ignored");
-}
-
-void scripting_shutdown(ScriptingInterface *scripting)
-{
-    scripting->shutdown = true;
-    void **retval = NULL;
-    if (scripting->reduction_thread_initialized)
-        pthread_join(scripting->reduction_thread, retval);
-    scripting->reduction_thread_initialized = false;
-    if (scripting->preview_thread_initialized)
-        pthread_join(scripting->preview_thread, retval);
-    scripting->preview_thread_initialized = false;
-
 }
