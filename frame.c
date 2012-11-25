@@ -13,6 +13,8 @@
 #include "version.h"
 #include "frame.h"
 
+// Transform the frame data in a CameraFrame with the
+// flip/transpose operations specified in the preferences.
 void frame_process_transforms(CameraFrame *frame)
 {
     if (pn_preference_char(FRAME_FLIP_X))
@@ -104,7 +106,8 @@ void frame_process_transforms(CameraFrame *frame)
     }
 }
 
-// Write frame data to a fits file
+// Save a frame and trigger to disk
+// Returns true on success or false on failure
 bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
 {
     fitsfile *fptr;
