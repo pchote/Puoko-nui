@@ -181,7 +181,7 @@ static void *camera_thread(void *_args)
     set_mode(camera, IDLE);
 
     // Loop and respond to user commands
-    int temp_ticks = 0;
+    time_t last_temperature_check = 0;
 
     pthread_mutex_lock(&camera->read_mutex);
     PNCameraMode desired_mode = camera->desired_mode;
@@ -261,9 +261,10 @@ static void *camera_thread(void *_args)
         }
 
         // Check temperature
-        if (++temp_ticks >= 50)
+        time_t t = time(NULL);
+        if (difftime(t, last_temperature_check) > 5)
         {
-            temp_ticks = 0;
+            last_temperature_check = t;
             double temperature;
             if (camera->read_temperature(camera, camera->internal, &temperature)!= CAMERA_OK)
             {
