@@ -54,6 +54,14 @@ PANEL   *time_panel, *camera_panel, *acquisition_panel,
         *status_panel, *separator_panel,
         *input_panel, *parameters_panel, *frametype_panel;
 
+PNCameraMode last_camera_mode;
+double last_camera_temperature;
+int last_calibration_framecount;
+int last_run_number;
+int last_camera_downloading;
+uint16_t last_exposure_time;
+PNUIInputType input_type = INPUT_MAIN;
+
 // A circular buffer for storing log messages
 static char *log_messages[256];
 static unsigned char log_position;
@@ -475,14 +483,6 @@ static void update_input_window()
     mvwaddnstr(input_window, 0, input_entry_margin, input_entry_buf, input_entry_length);
     wclrtoeol(input_window);
 }
-
-PNCameraMode last_camera_mode;
-double last_camera_temperature;
-int last_calibration_framecount;
-int last_run_number;
-int last_camera_downloading;
-uint16_t last_exposure_time;
-PNUIInputType input_type = INPUT_MAIN;
 
 void pn_ui_new(Camera *camera, TimerUnit *timer)
 {
