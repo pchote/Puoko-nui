@@ -630,7 +630,7 @@ error:
     return CAMERA_ERROR;
 }
 
-int camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode, double current_temperature)
+int camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode)
 {
     struct internal *internal = _internal;
 
@@ -661,7 +661,7 @@ int camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode
                 memcpy(frame->data, camera_frame, frame_bytes);
                 frame->width = internal->frame_width;
                 frame->height = internal->frame_height;
-                frame->temperature = current_temperature;
+                camera_pvcam_read_temperature(camera, internal, &frame->temperature);
                 frame->has_timestamp = false;
 
                 frame->has_image_region = internal->has_image_region;

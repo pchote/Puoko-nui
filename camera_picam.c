@@ -810,7 +810,7 @@ int camera_picam_stop_acquiring(Camera *camera, void *_internal)
 }
 
 // New frames are notified by callback, so we don't need to do anything here
-int camera_picam_tick(Camera *camera, void *internal, PNCameraMode current_mode, double current_temperature)
+int camera_picam_tick(Camera *camera, void *internal, PNCameraMode current_mode)
 {
     return CAMERA_OK;
 }

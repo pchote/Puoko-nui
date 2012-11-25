@@ -19,7 +19,7 @@ int camera_picam_port_table(Camera *camera, void *internal, struct camera_port_o
 int camera_picam_uninitialize(Camera *camera, void *internal);
 int camera_picam_start_acquiring(Camera *camera, void *internal);
 int camera_picam_stop_acquiring(Camera *camera, void *internal);
-int camera_picam_tick(Camera *camera, void *internal, PNCameraMode current_mode, double current_temperature);
+int camera_picam_tick(Camera *camera, void *internal, PNCameraMode current_mode);
 int camera_picam_read_temperature(Camera *camera, void *internal, double *temperature);
 int camera_picam_query_ccd_region(Camera *camera, void *internal, uint16_t region[4]);
 

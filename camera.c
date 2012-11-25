@@ -53,7 +53,7 @@ struct Camera
     int (*update_camera_settings)(Camera *, void *, double *);
     int (*port_table)(Camera *, void *, struct camera_port_option **, uint8_t *);
     int (*uninitialize)(Camera *, void *);
-    int (*tick)(Camera *, void *, PNCameraMode, double);
+    int (*tick)(Camera *, void *, PNCameraMode);
     int (*start_acquiring)(Camera *, void *);
     int (*stop_acquiring)(Camera *, void *);
     int (*read_temperature)(Camera *, void *, double *);
@@ -254,7 +254,7 @@ static void *camera_thread(void *_args)
         }
 
         // Check for new frames, etc
-        if (camera->tick(camera, camera->internal, current_mode, camera->temperature) != CAMERA_OK)
+        if (camera->tick(camera, camera->internal, current_mode) != CAMERA_OK)
         {
             pn_log("Camera tick failed");
             goto failure;
