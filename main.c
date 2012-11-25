@@ -32,7 +32,6 @@ ScriptingInterface *scripting;
 pthread_mutex_t reset_mutex;
 
 struct atomicqueue *log_queue, *frame_queue, *trigger_queue;
-char *fatal_error = NULL;
 bool first_frame = true;
 
 void queue_framedata(CameraFrame *frame)
@@ -439,12 +438,6 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
         scripting_update_preview(scripting);
 }
 
-void trigger_fatal_error(char *message)
-{
-    pn_log("Fatal Error: %s", message);
-    fatal_error = message;
-}
-
 int main(int argc, char *argv[])
 {
     // Parse the commandline args
@@ -512,14 +505,14 @@ int main(int argc, char *argv[])
     for (;;)
     {
         if (!camera_thread_alive(camera))
-            trigger_fatal_error(strdup("Camera thread exited unexpectedly"));
+        {
+            pn_ui_show_fatal_error("Camera thread exited unexpectedly");
+            break;
+        }
 
         if (!timer_thread_alive(timer))
-            trigger_fatal_error(strdup("Timer thread exited unexpectedly"));
-
-        if (fatal_error)
         {
-            pn_ui_show_fatal_error(fatal_error);
+            pn_ui_show_fatal_error("Timer thread exited unexpectedly");
             break;
         }
 
@@ -613,9 +606,6 @@ int main(int argc, char *argv[])
     fclose(logFile);
 
     // Final cleanup
-    if (fatal_error)
-        free(fatal_error);
-
     atomicqueue_destroy(trigger_queue);
     atomicqueue_destroy(frame_queue);
     atomicqueue_destroy(log_queue);
