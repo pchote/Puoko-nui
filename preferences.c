@@ -27,6 +27,7 @@ typedef struct
         char c;
         int i;
     } value;
+    char *name;
     char *format;
 } PNPreferenceStore;
 
@@ -38,50 +39,50 @@ typedef struct
 PNPreferenceStore prefs[] =
 {
     // Key, Default value, Output format
-    {OUTPUT_DIR,  STRING, .value.s = "",                "OutputDir: %s\n"},
-    {RUN_PREFIX,  STRING, .value.s = "run",             "RunPrefix: %s\n"},
-    {OBJECT_NAME, STRING, .value.s = "",                "ObjectName: %s\n"},
-    {OBSERVERS,   STRING, .value.s = "",                "Observers: %s\n"},
-    {OBSERVATORY, STRING, .value.s = "",                "Observatory: %s\n"},
-    {TELESCOPE,   STRING, .value.s = "",                "Telescope: %s\n"},
-    {INSTRUMENT,  STRING, .value.s = "Puoko-nui",       "Instrument: %s\n"},
-    {FILTER,      STRING, .value.s = "",                "Filter: %s\n"},
+    {OUTPUT_DIR,  STRING, .value.s = "",                "OutputDir"},
+    {RUN_PREFIX,  STRING, .value.s = "run",             "RunPrefix"},
+    {OBJECT_NAME, STRING, .value.s = "",                "ObjectName"},
+    {OBSERVERS,   STRING, .value.s = "",                "Observers"},
+    {OBSERVATORY, STRING, .value.s = "",                "Observatory"},
+    {TELESCOPE,   STRING, .value.s = "",                "Telescope"},
+    {INSTRUMENT,  STRING, .value.s = "Puoko-nui",       "Instrument"},
+    {FILTER,      STRING, .value.s = "",                "Filter"},
 
-    {EXPOSURE_TIME,             INT,  .value.c = 5,     "ExposureTime: %d\n"},
-    {SAVE_FRAMES,               CHAR, .value.c = false, "SaveFrames: %hhu\n"},
-    {REDUCE_FRAMES,             CHAR, .value.c = false, "ReduceFrames: %hhu\n"},
-    {OBJECT_TYPE,               CHAR, .value.c = OBJECT_TARGET, "ObjectType: %hhu\n"},
-    {RUN_NUMBER,                INT,  .value.i = 0,     "RunNumber: %d\n"},
-    {CALIBRATION_COUNTDOWN,     INT, .value.i = 30,     "CalibrationRemainingFrames: %d\n"},
+    {EXPOSURE_TIME,             INT,  .value.c = 5,     "ExposureTime"},
+    {SAVE_FRAMES,               CHAR, .value.c = false, "SaveFrames"},
+    {REDUCE_FRAMES,             CHAR, .value.c = false, "ReduceFrames"},
+    {OBJECT_TYPE,               CHAR, .value.c = OBJECT_TARGET, "ObjectType"},
+    {RUN_NUMBER,                INT,  .value.i = 0,     "RunNumber"},
+    {CALIBRATION_COUNTDOWN,     INT, .value.i = 30,     "CalibrationRemainingFrames"},
 
-    {TIMER_MONITOR_LOGIC_OUT,   CHAR, .value.c = true,  "TimerMonitorLogicOut: %hhu\n"},
-    {TIMER_HIGHRES_TIMING,      CHAR, .value.c = 0,     "TimerHighResolutionTiming: %hhu\n"},
-    {TIMER_BAUD_RATE,           INT,  .value.i = 9600,  "TimerBaudRate: %d\n"},
+    {TIMER_MONITOR_LOGIC_OUT,   CHAR, .value.c = true,  "TimerMonitorLogicOut"},
+    {TIMER_HIGHRES_TIMING,      CHAR, .value.c = 0,     "TimerHighResolutionTiming"},
+    {TIMER_BAUD_RATE,           INT,  .value.i = 9600,  "TimerBaudRate"},
 
-    {CAMERA_BINNING,            CHAR, .value.c = 1,     "CameraBinning: %hhu\n"},
-    {CAMERA_READPORT_MODE,      CHAR, .value.c = 0,     "CameraReadoutPortMode: %hhu\n"},
-    {CAMERA_READSPEED_MODE,     CHAR, .value.c = 0,     "CameraReadoutSpeedMode: %hhu\n"},
-    {CAMERA_GAIN_MODE,          CHAR, .value.c = 0,     "CameraGainMode: %hhu\n"},
-    {CAMERA_TEMPERATURE,        INT,  .value.i = -5000, "CameraTemperature: %d\n"},
+    {CAMERA_BINNING,            CHAR, .value.c = 1,     "CameraBinning"},
+    {CAMERA_READPORT_MODE,      CHAR, .value.c = 0,     "CameraReadoutPortMode"},
+    {CAMERA_READSPEED_MODE,     CHAR, .value.c = 0,     "CameraReadoutSpeedMode"},
+    {CAMERA_GAIN_MODE,          CHAR, .value.c = 0,     "CameraGainMode"},
+    {CAMERA_TEMPERATURE,        INT,  .value.i = -5000, "CameraTemperature"},
 
-    {CAMERA_OVERSCAN_COLS,      CHAR, .value.c = 0,     "CameraOverscanColumns: %d\n"},
-    {CAMERA_PLATESCALE,       STRING, .value.s = "0.33","CameraPlatescale: %s\n"},
+    {CAMERA_OVERSCAN_COLS,      CHAR, .value.c = 0,     "CameraOverscanColumns"},
+    {CAMERA_PLATESCALE,       STRING, .value.s = "0.33","CameraPlatescale"},
 
-    {CAMERA_WINDOW_X,           INT,  .value.i = 0,     "CameraWindowX: %d\n"},
-    {CAMERA_WINDOW_Y,           INT,  .value.i = 0,     "CameraWindowY: %d\n"},
-    {CAMERA_WINDOW_WIDTH,       INT,  .value.i = 1024,  "CameraWindowWidth: %d\n"},
-    {CAMERA_WINDOW_HEIGHT,      INT,  .value.i = 1024,  "CameraWindowHeight: %d\n"},
-    {CAMERA_FRAME_BUFFER_SIZE,  INT,  .value.i = 5,     "CameraFrameBufferSize: %d\n"},
+    {CAMERA_WINDOW_X,           INT,  .value.i = 0,     "CameraWindowX"},
+    {CAMERA_WINDOW_Y,           INT,  .value.i = 0,     "CameraWindowY"},
+    {CAMERA_WINDOW_WIDTH,       INT,  .value.i = 1024,  "CameraWindowWidth"},
+    {CAMERA_WINDOW_HEIGHT,      INT,  .value.i = 1024,  "CameraWindowHeight"},
+    {CAMERA_FRAME_BUFFER_SIZE,  INT,  .value.i = 5,     "CameraFrameBufferSize"},
 
-    {PROEM_EXPOSURE_SHORTCUT,   INT,  .value.i = 5,    "ProEMExposureShortcut: %d\n"},
-    {VALIDATE_TIMESTAMPS,       CHAR, .value.c = 1,     "ValidateTimestamps: %hhu\n"},
+    {PROEM_EXPOSURE_SHORTCUT,   INT,  .value.i = 5,    "ProEMExposureShortcut"},
+    {VALIDATE_TIMESTAMPS,       CHAR, .value.c = 1,     "ValidateTimestamps"},
 
-    {FRAME_FLIP_X,              CHAR, .value.c = 0,     "FrameFlipX: %hhu\n"},
-    {FRAME_FLIP_Y,              CHAR, .value.c = 0,     "FrameFlipY: %hhu\n"},
-    {FRAME_TRANSPOSE,           CHAR, .value.c = 0,     "FrameTranspose: %hhu\n"},
+    {FRAME_FLIP_X,              CHAR, .value.c = 0,     "FrameFlipX"},
+    {FRAME_FLIP_Y,              CHAR, .value.c = 0,     "FrameFlipY"},
+    {FRAME_TRANSPOSE,           CHAR, .value.c = 0,     "FrameTranspose"},
 
 #if (defined _WIN32)
-    {MSYS_BASH_PATH, STRING, .value.s = "C:/MinGW/MSYS/bin/bash.exe",    "MsysBashPath: %s\n"}
+    {MSYS_BASH_PATH, STRING, .value.s = "C:/MinGW/MSYS/bin/bash.exe",    "MsysBashPath"}
 #endif
 };
 int pref_count = sizeof(prefs) / sizeof(prefs[0]);
@@ -98,10 +99,24 @@ void pn_init_preferences(const char *path)
 {
     filename = strdup(path);
 
-    // Copy string values onto the heap
-    for (int i = 0; i < pref_count; i++)
-        if (prefs[i].type == STRING)
-            prefs[i].value.s = strdup(prefs[i].value.s);
+    for (size_t i = 0; i < pref_count; i++)
+    {
+        char *fmt;
+        switch (prefs[i].type)
+        {
+            case STRING:
+                fmt = "%s: %%s\n";
+                prefs[i].value.s = strdup(prefs[i].value.s);
+            break;
+            case CHAR: fmt = "%s: %%hhu\n"; break;
+            case INT: fmt = "%s: %%d\n"; break;
+        }
+
+        // Build format string
+        size_t len = snprintf(NULL, 0, fmt, prefs[i].name) + 1;
+        prefs[i].format = malloc(len*sizeof(char));
+        snprintf(prefs[i].format, len, fmt, prefs[i].name);
+    }
 
     FILE *fp = fopen(filename, "r");
     if (fp)
@@ -113,7 +128,7 @@ void pn_init_preferences(const char *path)
             if (compare == strlen(linebuf))
                 continue; // Line is not in `key: value' format
 
-            for (int i = 0; i < pref_count; i++)
+            for (size_t i = 0; i < pref_count; i++)
             {
                 if (strncmp(linebuf, prefs[i].format, compare))
                     continue;
@@ -151,6 +166,13 @@ void pn_init_preferences(const char *path)
 
 void pn_free_preferences()
 {
+    for (size_t i = 0; i < pref_count; i++)
+    {
+        free(prefs[i].format);
+        if (prefs[i].type == STRING)
+            free(prefs[i].value.s);
+    }
+
     pthread_mutex_destroy(&access_mutex);
     free(filename);
 }
