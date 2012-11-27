@@ -130,23 +130,14 @@ void pn_init_preferences(const char *path)
 
             for (size_t i = 0; i < pref_count; i++)
             {
-                if (strncmp(linebuf, prefs[i].format, compare))
+                if (strncmp(linebuf, prefs[i].name, compare))
                     continue;
 
                 if (prefs[i].type == STRING)
                 {
-                    free(prefs[i].value.s);
-
-                    // Value starts after the ': ' characters
-                    char *value = linebuf + compare + 2;
-                    size_t value_len = strlen(value);
-
-                    // Remove newline from input
-                    if (value_len > 0)
-                    {
-                        prefs[i].value.s = strdup(value);
-                        prefs[i].value.s[value_len - 1] = '\0';
-                    }
+                    char stringbuf[1024];
+                    sscanf(linebuf + compare, ": %[^\n]", stringbuf);
+                    prefs[i].value.s = strdup(stringbuf);
                 }
                 else
                     sscanf(linebuf, prefs[i].format, &prefs[i].value);
