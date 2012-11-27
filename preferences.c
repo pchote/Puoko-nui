@@ -271,7 +271,11 @@ void pn_preference_set_char(PNPreferenceType key, unsigned char val)
         return;
     }
 
+    if (val == prefs[key].value.c)
+        return;
+
     pn_preference_set(key, &val);
+    pn_log("%s set to `%d'.", prefs[key].name, prefs[key].value.c);
 }
 
 void pn_preference_set_string(PNPreferenceType key, const char *val)
@@ -282,7 +286,11 @@ void pn_preference_set_string(PNPreferenceType key, const char *val)
         return;
     }
 
+    if (strcmp(val, prefs[key].value.s) == 0)
+        return;
+
     pn_preference_set(key, &val);
+    pn_log("%s set to `%s'.", prefs[key].name, prefs[key].value.s);
 }
 
 void pn_preference_set_int(PNPreferenceType key, int val)
@@ -293,5 +301,9 @@ void pn_preference_set_int(PNPreferenceType key, int val)
         return;
     }
 
+    if (val == prefs[key].value.c)
+        return;
+
     pn_preference_set(key, &val);
+    pn_log("%s set to `%d'.", prefs[key].name, prefs[key].value.i);
 }

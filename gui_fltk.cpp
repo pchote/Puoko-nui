@@ -440,28 +440,6 @@ void _set_string(PNPreferenceType key, const char *name, const char *str)
     free(oldval);
 }
 
-#define set_int(a,b) _set_int(a, # a, b)
-void _set_int(PNPreferenceType key, const char *name, int newval)
-{
-    int oldval = pn_preference_int(key);
-    if (oldval != newval)
-    {
-        pn_preference_set_int(key, newval);
-        pn_log("%s set to `%d'.", name, newval);
-    }
-}
-
-#define set_char(a,b) _set_char(a, # a, b)
-void _set_char(PNPreferenceType key, const char *name, int newval)
-{
-    char oldval = pn_preference_char(key);
-    if (oldval != newval)
-    {
-        pn_preference_set_char(key, newval);
-        pn_log("%s set to `%d'.", name, newval);
-    }
-}
-
 void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
 {
     FLTKGui* gui = (FLTKGui *)userdata;
@@ -474,18 +452,18 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     }
 
     // Validated by the camera implementation
-    set_char(CAMERA_READPORT_MODE, (uint8_t)(gui->m_cameraPortInput->value()));
-    set_char(CAMERA_READSPEED_MODE, (uint8_t)(gui->m_cameraSpeedInput->value()));
-    set_char(CAMERA_GAIN_MODE, (uint8_t)(gui->m_cameraGainInput->value()));
-    set_int(CAMERA_TEMPERATURE, (int)(atof(gui->m_cameraTemperatureInput->value())*100));
-    set_int(CAMERA_WINDOW_X, (int)(gui->m_cameraWindowX->value()));
-    set_int(CAMERA_WINDOW_Y, (int)(gui->m_cameraWindowY->value()));
-    set_int(CAMERA_WINDOW_WIDTH, (int)(gui->m_cameraWindowWidth->value()));
-    set_int(CAMERA_WINDOW_HEIGHT, (int)(gui->m_cameraWindowHeight->value()));
+    pn_preference_set_char(CAMERA_READPORT_MODE, (uint8_t)(gui->m_cameraPortInput->value()));
+    pn_preference_set_char(CAMERA_READSPEED_MODE, (uint8_t)(gui->m_cameraSpeedInput->value()));
+    pn_preference_set_char(CAMERA_GAIN_MODE, (uint8_t)(gui->m_cameraGainInput->value()));
+    pn_preference_set_int(CAMERA_TEMPERATURE, (int)(atof(gui->m_cameraTemperatureInput->value())*100));
+    pn_preference_set_int(CAMERA_WINDOW_X, (int)(gui->m_cameraWindowX->value()));
+    pn_preference_set_int(CAMERA_WINDOW_Y, (int)(gui->m_cameraWindowY->value()));
+    pn_preference_set_int(CAMERA_WINDOW_WIDTH, (int)(gui->m_cameraWindowWidth->value()));
+    pn_preference_set_int(CAMERA_WINDOW_HEIGHT, (int)(gui->m_cameraWindowHeight->value()));
 
-    set_char(CAMERA_BINNING, (uint8_t)(gui->m_cameraBinningSpinner->value()));
-    set_int(EXPOSURE_TIME, (uint16_t)(gui->m_cameraExposureSpinner->value()));
-    set_char(TIMER_HIGHRES_TIMING, (uint8_t)(gui->m_cameraHighResTimingCheckbox->value()));
+    pn_preference_set_char(CAMERA_BINNING, (uint8_t)(gui->m_cameraBinningSpinner->value()));
+    pn_preference_set_int(EXPOSURE_TIME, (uint16_t)(gui->m_cameraExposureSpinner->value()));
+    pn_preference_set_char(TIMER_HIGHRES_TIMING, (uint8_t)(gui->m_cameraHighResTimingCheckbox->value()));
     gui->cached_highres_timing = pn_preference_char(TIMER_HIGHRES_TIMING);
 
     camera_update_settings(gui->m_cameraRef);
@@ -750,19 +728,19 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
 
     // Update preferences from fields
     char *output = canonicalize_path(gui->m_metadataOutputDir->value());
-    set_string(OUTPUT_DIR, output);
+    pn_preference_set_string(OUTPUT_DIR, output);
     free(output);
 
-    set_string(RUN_PREFIX, gui->m_metadataRunPrefix->value());
-    set_int(RUN_NUMBER, run_number);
+    pn_preference_set_string(RUN_PREFIX, gui->m_metadataRunPrefix->value());
+    pn_preference_set_int(RUN_NUMBER, run_number);
 
     pn_preference_set_char(OBJECT_TYPE, gui->m_metadataFrameTypeInput->value());
-    set_string(OBJECT_NAME, gui->m_metadataTargetInput->value());
-    set_string(OBSERVERS, gui->m_metadataObserversInput->value());
-    set_string(OBSERVATORY, gui->m_metadataObservatoryInput->value());
-    set_string(TELESCOPE, gui->m_metadataTelecopeInput->value());
-    set_string(FILTER, gui->m_metadataFilterInput->value());
-    set_int(CALIBRATION_COUNTDOWN, calibration_countdown);
+    pn_preference_set_string(OBJECT_NAME, gui->m_metadataTargetInput->value());
+    pn_preference_set_string(OBSERVERS, gui->m_metadataObserversInput->value());
+    pn_preference_set_string(OBSERVATORY, gui->m_metadataObservatoryInput->value());
+    pn_preference_set_string(TELESCOPE, gui->m_metadataTelecopeInput->value());
+    pn_preference_set_string(FILTER, gui->m_metadataFilterInput->value());
+    pn_preference_set_int(CALIBRATION_COUNTDOWN, calibration_countdown);
 
     gui->updateAcquisitionGroup();
     gui->m_metadataWindow->hide();
