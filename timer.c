@@ -761,7 +761,7 @@ void timestamp_normalize(TimerTimestamp *ts)
     }
 
     // Let gmtime/timegm normalize the rest
-    struct tm a = {ts->seconds + ts->milliseconds / 1000, ts->minutes, ts->hours, ts->day, ts->month, ts->year - 1900,0,0,0};
+    struct tm a = {ts->seconds + ts->milliseconds / 1000, ts->minutes, ts->hours, ts->day, ts->month - 1, ts->year - 1900, 0, 0, 0};
     normalize_tm(&a);
 
     // Construct a new timestamp to return
@@ -770,7 +770,7 @@ void timestamp_normalize(TimerTimestamp *ts)
     ts->minutes = a.tm_min;
     ts->hours = a.tm_hour;
     ts->day = a.tm_mday;
-    ts->month = a.tm_mon;
+    ts->month = a.tm_mon + 1;
     ts->year = a.tm_year + 1900;
 }
 
