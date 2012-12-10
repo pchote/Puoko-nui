@@ -8,39 +8,52 @@
 		var ts_name = 'online_ts.gif';
 		var dft_name = 'online_dft.gif';
 
-		function update_ts()
+		function update(url, id)
 		{
 			var img = new Image();
 			img.onload = function()
 			{
-				var canvas = document.getElementById('ts');
+				var canvas = document.getElementById(id);
 				var ctx = canvas.getContext('2d');
 				canvas.setAttribute('width', img.width);
 				canvas.setAttribute('height', img.height);
 			  	ctx.drawImage(img, 0, 0);
-				var c = ctx.getImageData(0, 0, 1, 1).data;
-				document.getElementById('body').style.background = 'rgb('+c[0]+','+c[1]+','+c[2]+')'
-			};
-			img.src = ts_name+'?'+ new Date().getTime();
-		}
 
-		function update_dft()
-		{
-			var img = new Image();
-			img.onload = function()
-			{
-				var canvas = document.getElementById('dft');
-				canvas.setAttribute('width', img.width);
-				canvas.setAttribute('height', img.height);
-			  	canvas.getContext('2d').drawImage(img, 0, 0);
+				var data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+				var px = img.width*img.height;
+				var c = data.data;
+
+				// PGPLOT on windows swaps color indices 0 and 1 (black and white)
+				// so swap black and white if the background isn't black
+				if (c[0] == 0 && c[1] == 0 && c[2] == 0)
+					return;
+
+				for (var i = 0; i < px; i++)
+				{
+					var r = 4*i, g = 4*i + 1, b = 4*i + 2;
+					if (c[r] == 0 && c[g] == 0 && c[b] == 0)
+					{
+						c[r] = 255;
+						c[g] = 255;
+						c[b] = 255;
+					}
+					else if (c[r] == 255 && c[g] == 255 && c[b] == 255)
+					{
+						c[r] = 0;
+						c[g] = 0;
+						c[b] = 0;
+					}
+				}
+
+			    ctx.putImageData(data, 0, 0);
 			};
-			img.src = dft_name+'?'+ new Date().getTime();
+			img.src = url+'?'+ new Date().getTime();
 		}
 
 		function loop()
 		{
-			update_ts();
-			update_dft();
+			update(ts_name, 'ts');
+			update(dft_name, 'dft');
 			setTimeout(loop, delay);
 		}
 		loop();
@@ -49,7 +62,7 @@
 		body {margin:0px; padding:0px; font-size:0}
 	</style>
 </head>
-<body id="body">
+<body id="body" style="background:#000">
 	<canvas id="ts"></canvas><br />
 	<canvas id="dft"></canvas>
 </body>
