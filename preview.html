@@ -56,14 +56,29 @@
 			update(dft_name, 'dft');
 			setTimeout(loop, delay);
 		}
-		loop();
+
+		function update_delay()
+		{
+			delay = parseInt(document.getElementById("rate").value, 10);
+		}
 	</script>
 	<style type="text/css" media="all">
-		body {margin:0px; padding:0px; font-size:0}
+		body {margin:0px; padding:0px; font-size:0; background:#000}
+		div {color:#fff; font-size:12px; margin:10px}
+		input {background:#333; color:#fff; border:1px solid #666}
 	</style>
 </head>
-<body id="body" style="background:#000">
+<body id="body">
 	<canvas id="ts"></canvas><br />
 	<canvas id="dft"></canvas>
+	<div>Update rate: <input size="5" id="rate"> ms <input type="button" value="Update" onclick="update_delay()"></div>
 </body>
+<script type="text/javascript">
+	function start()
+	{
+		document.getElementById("rate").value = delay;
+		loop();
+	}
+	start();
+</script>
 </html>
