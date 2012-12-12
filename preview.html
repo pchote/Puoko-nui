@@ -23,8 +23,11 @@
 				var px = img.width*img.height;
 				var c = data.data;
 
+				document.getElementById("timestamp").innerHTML = "Updated "+new Date().toTimeString();
+				document.getElementById("table").width = img.width;
+
 				// PGPLOT on windows swaps color indices 0 and 1 (black and white)
-				// so swap black and white if the background isn't black
+				// so swap them back if necessary
 				if (c[0] == 0 && c[1] == 0 && c[2] == 0)
 					return;
 
@@ -64,14 +67,24 @@
 	</script>
 	<style type="text/css" media="all">
 		body {margin:0px; padding:0px; font-size:0; background:#000}
-		div {color:#fff; font-size:12px; margin:10px}
+		table {color:#fff; font-size:12px; padding:0px 10px 5px 10px;}
+		td {width:50%}
 		input {background:#333; color:#fff; border:1px solid #666}
+		#buttons {text-align:right}
 	</style>
 </head>
 <body id="body">
 	<canvas id="ts"></canvas><br />
-	<canvas id="dft"></canvas>
-	<div>Update rate: <input size="5" id="rate"> ms <input type="button" value="Update" onclick="update_delay()"></div>
+	<canvas id="dft"></canvas><br />
+	<table id="table">
+		<tr>
+			<td id="timestamp"></td>
+			<td id="buttons">
+				Update rate: <input size="5" id="rate"> ms
+				<input type="button" value="Update" onclick="update_delay()">
+			</td>
+		</tr>
+	</table>
 </body>
 <script type="text/javascript">
 	function start()
