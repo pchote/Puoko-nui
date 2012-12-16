@@ -46,11 +46,22 @@ if [ "$?" != '0' ]; then
 	exit 1
 fi
 
-# Save to a temporary file then move to make the save look like an atomic operation wrt the preview html
-tsreduce plot ${FILE} online_ts_temp.gif/gif ${REDUCTION_PLOTSIZE} online_dft_temp.gif/gif ${REDUCTION_PLOTSIZE}
-if [ "$?" == '0' ]; then
-	mv online_ts_temp.gif online_ts.gif
-	mv online_dft_temp.gif online_dft.gif
+if [ "${PREFIX}" == "focus" ]; then
+	tsreduce focus-plot ${FILE} online_focus_temp.gif/png ${REDUCTION_PLOTSIZE}
+	if [ "$?" == '0' ]; then
+		mv online_focus_temp.gif online_ts.gif
+		if [ -f "online_dft.gif" ]; then
+			rm online_dft.gif
+		fi
+	else
+		echo 'tsreduce focus-plot FAILED.'
+	fi
 else
-	echo 'tsreduce plot FAILED.'
+	tsreduce plot ${FILE} online_ts_temp.gif/png online_dft_temp.gif/png ${REDUCTION_PLOTSIZE}
+	if [ "$?" == '0' ]; then
+		mv online_ts_temp.gif online_ts.gif
+		mv online_dft_temp.gif online_dft.gif
+	else
+		echo 'tsreduce plot FAILED.'
+	fi
 fi
