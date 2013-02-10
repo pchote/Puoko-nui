@@ -15,6 +15,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include "serial.h"
+#include "main.h"
 
 struct serial_port
 {
@@ -22,7 +23,7 @@ struct serial_port
     struct termios initial_tio;
 };
 
-struct serial_port *serial_port_open(const char *path, uint32_t baud)
+struct serial_port *serial_port_open(const char *path, uint32_t baud, ssize_t *error)
 {
     struct serial_port *port = calloc(1, sizeof(struct serial_port));
     if (!port)
@@ -32,15 +33,14 @@ struct serial_port *serial_port_open(const char *path, uint32_t baud)
     port->fd = open(path, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (port->fd == -1)
     {
-        printf("Failed to open port: %s\n", path);
+        *error = -errno;
         return NULL;
     }
 
     // Require exclusive access to the port
     if (ioctl(port->fd, TIOCEXCL) == -1)
     {
-        printf("Failed to set TIOCEXCL; errno %d (%s).\n", errno,
-               strerror(errno));
+        *error = -errno;
         goto configuration_error;
     }
 
@@ -48,16 +48,14 @@ struct serial_port *serial_port_open(const char *path, uint32_t baud)
     // mode VMIN=VTIME=0, which gives nicer semantics than O_NONBLOCK.
     if (fcntl(port->fd, F_SETFL, 0) == -1)
     {
-        printf("Failed to clear O_NONBLOCK; errno %d (%s).\n", errno,
-               strerror(errno));
+        *error = -errno;
         goto configuration_error;
     }
 
     // Get the current options to restore when we are finished.
     if (tcgetattr(port->fd, &port->initial_tio) == -1)
     {
-        printf("Failed to query port attributes; errno %d (%s).\n", errno,
-               strerror(errno));
+        *error = -errno;
         goto configuration_error;
     }
 
@@ -87,8 +85,7 @@ struct serial_port *serial_port_open(const char *path, uint32_t baud)
     // Apply attributes
     if (tcsetattr(port->fd, TCSANOW, &tio) == -1)
     {
-        printf("Failed to set port attributes; errno %d (%s).\n", errno,
-               strerror(errno));
+        *error = -errno;
         goto configuration_error;
     }
 
@@ -120,7 +117,7 @@ ssize_t serial_port_write(struct serial_port *port, const uint8_t *buf, size_t l
     return (ret == -1) ? -errno : ret;
 }
 
-const char *serial_port_error_string(struct serial_port *port, ssize_t code)
+const char *serial_port_error_string(ssize_t code)
 {
     return strerror(-code);
 }
