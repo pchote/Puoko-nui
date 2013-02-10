@@ -2,7 +2,6 @@ CAMERA_TYPE := NONE
 #CAMERA_TYPE := PVCAM
 #CAMERA_TYPE := PICAM
 GUI_TYPE := FLTK
-USB_TYPE := LIBFTDI
 
 GIT_SHA1 = $(shell sh -c 'git describe --dirty --always')
 CC       = gcc
@@ -11,7 +10,7 @@ CFLAGS   = -g -Wall -Wno-unknown-pragmas --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
 UTIL_LFLAGS = -lcfitsio -lpthread -lm
 LFLAGS   = $(UTIL_LFLAGS)
-OBJS     = main.o frame.o camera.o camera_simulated.o timer.o preferences.o scripting.o platform.o atomicqueue.o version.o
+OBJS     = main.o frame.o camera.o camera_simulated.o timer.o preferences.o scripting.o platform.o atomicqueue.o version.o serial.o
 
 ifeq ($(CAMERA_TYPE),PVCAM)
 	CFLAGS += -DUSE_PVCAM
@@ -51,16 +50,6 @@ else
     OBJS += gui_ncurses.o
 endif
 
-ifeq ($(USB_TYPE),LIBFTDI)
-    CFLAGS += -DUSE_LIBFTDI
-    LFLAGS += -lftdi
-    UTIL_LFLAGS += -lftdi
-else
-    CFLAGS += -Iftd2xx
-    LFLAGS += -lftd2xx
-    UTIL_LFLAGS += -lftd2xx
-endif
-
 # Statically link libgcc and libstdc++ to avoid needing extra dlls under windows
 ifeq ($(MSYSTEM),MINGW32)
     CFLAGS += -DWIN32 -I/usr/local/include
@@ -73,8 +62,8 @@ all: puokonui timerutil
 puokonui: $(OBJS)
 	$(CXX) -o $@ $(OBJS) $(LFLAGS)
 
-timerutil: timerutil.o
-	$(CC) -o $@ timerutil.o $(UTIL_LFLAGS)
+timerutil: timerutil.o serial.o
+	$(CC) -o $@ timerutil.o serial.o $(UTIL_LFLAGS)
 
 clean:
 	-rm $(OBJS) camera_pvcam.o camera_picam.o gui_fltk.o gui_ncurses.o puokonui puokonui.exe timerutil.o timerutil timerutil.exe

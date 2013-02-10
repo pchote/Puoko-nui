@@ -12,16 +12,12 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#ifdef USE_LIBFTDI
-#   include <ftdi.h>
-#else
-#   include <ftd2xx.h>
-#endif
 #include "timer.h"
 #include "main.h"
 #include "preferences.h"
 #include "platform.h"
 #include "camera.h"
+#include "serial.h"
 
 #define TIMER_OK 0
 #define TIMER_ALLOCATION_FAILED -1
@@ -39,11 +35,7 @@ struct TimerUnit
     uint16_t simulated_progress;
     bool simulated_send_shutdown;
 
-#ifdef USE_LIBFTDI
-    struct ftdi_context *context;
-#else
-    FT_HANDLE handle;
-#endif
+    struct serial_port *port;
 
     bool shutdown;
     TimerTimestamp current_timestamp;
@@ -163,144 +155,19 @@ static int initialize_timer(TimerUnit *timer)
     memset(reset_data, 0, reset_data_length);
     reset_data[0] = 'E';
 
-#ifdef USE_LIBFTDI
-    timer->context = ftdi_new();
-    if (timer->context == NULL)
+    char *port_path = pn_preference_string(TIMER_SERIAL_PORT);
+    int port_baud = pn_preference_int(TIMER_BAUD_RATE);
+    pn_log("Initializing timer at %s with %d baud", port_path, port_baud);
+
+    ssize_t error;
+    timer->port = serial_port_open(port_path, port_baud, &error);
+    free(port_path);
+
+    if (!timer->port)
     {
-        pn_log("Error creating timer context");
+        pn_log("Timer initialization error (%zd): %s", error, serial_port_error_string(error));
         return TIMER_ERROR;
     }
-
-    if (ftdi_init(timer->context) < 0)
-    {
-        pn_log("Error initializing timer context: %s", timer->context->error_str);
-        return TIMER_ERROR;
-    }
-
-    // Open the first available FTDI device, under the
-    // assumption that it is the timer
-    while (!timer->shutdown)
-    {
-        if (ftdi_usb_open(timer->context, 0x0403, 0x6001) == 0)
-            break;
-
-        pn_log("Waiting for timer...");
-        millisleep(500);
-    }
-
-    if (timer->shutdown)
-        return TIMER_INITIALIZATION_ABORTED;
-
-    if (ftdi_set_baudrate(timer->context, pn_preference_int(TIMER_BAUD_RATE)) < 0)
-    {
-        pn_log("Error setting timer baudrate: %s", timer->context->error_str);
-        return TIMER_ERROR;
-    }
-
-    if (ftdi_set_line_property(timer->context, BITS_8, STOP_BIT_1, NONE) < 0)
-    {
-        pn_log("Error setting timer data frame properties: %s", timer->context->error_str);
-        return TIMER_ERROR;
-    }
-
-    if (ftdi_setflowctrl(timer->context, SIO_DISABLE_FLOW_CTRL) < 0)
-    {
-        pn_log("Error setting timer flow control: %s", timer->context->error_str);
-        return TIMER_ERROR;
-    }
-
-    // the latency in milliseconds before partially full bit buffers are sent.
-    if (ftdi_set_latency_timer(timer->context, 1) < 0)
-    {
-        pn_log("Error setting timer read timeout: %s", timer->context->error_str);
-        return TIMER_ERROR;
-    }
-
-    // Purge any data in the chip receive buffer
-    if (ftdi_usb_purge_rx_buffer(timer->context))
-    {
-        pn_log("Error purging timer rx buffer: %s", timer->context->error_str);
-        return TIMER_ERROR;
-    }
-
-    // Send reset data
-    if (ftdi_write_data(timer->context, reset_data, reset_data_length) != reset_data_length)
-    {
-        pn_log("Error sending reset data: %s", timer->context->error_str);
-        return TIMER_ERROR;
-    }
-
-    // Purge any data in the chip transmit buffer
-    if (ftdi_usb_purge_tx_buffer(timer->context))
-    {
-        pn_log("Error purging timer tx buffer: %s", timer->context->error_str);
-        return TIMER_ERROR;
-    }
-
-#else
-    // Open the first available FTDI device, under the
-    // assumption that it is the timer
-    while (!timer->shutdown)
-    {
-        if (FT_Open(0, &timer->handle) == FT_OK)
-            break;
-
-        pn_log("Waiting for timer...");
-        millisleep(1000);
-    }
-
-    if (timer->shutdown)
-        return TIMER_INITIALIZATION_ABORTED;
-
-    FT_STATUS status = FT_SetBaudRate(timer->handle, pn_preference_int(TIMER_BAUD_RATE));
-    if (status != FT_OK)
-    {
-        pn_log("Error setting timer baudrate. Errorcode: %d", status);
-        return TIMER_ERROR;
-    }
-
-    // Set data frame: 8N1
-    status = FT_SetDataCharacteristics(timer->handle, FT_BITS_8, FT_STOP_BITS_1, FT_PARITY_NONE);
-    if (status != FT_OK)
-    {
-        pn_log("Error setting timer data characteristics. Errorcode: %d", status);
-        return TIMER_ERROR;
-    }
-
-    // Set read timeout to 1ms, write timeout unchanged
-    status = FT_SetTimeouts(timer->handle, 1, 0);
-    if (status != FT_OK)
-    {
-        pn_log("Error setting timer read timeout. Errorcode: %d", status);
-        return TIMER_ERROR;
-    }
-
-    // Purge any data in the chip receive buffer
-    status = FT_Purge(timer->handle, FT_PURGE_RX);
-    if (status != FT_OK)
-    {
-        pn_log("Error purging timer buffers. Errorcode: %d", status);
-        return TIMER_ERROR;
-    }
-
-    // Send reset data
-    DWORD bytes_written;
-    status = FT_Write(timer->handle, reset_data, reset_data_length, &bytes_written);
-    if (status != FT_OK || bytes_written != reset_data_length)
-    {
-        pn_log("Error sending reset data. Errorcode: %d. Bytes sent %u", status, bytes_written);
-        return TIMER_ERROR;
-    }
-
-    // Purge any data in the chip transmit buffer
-    status = FT_Purge(timer->handle, FT_PURGE_TX);
-    if (status != FT_OK)
-    {
-        pn_log("Error purging timer buffers. Errorcode: %d", status);
-        return TIMER_ERROR;
-    }
-
-#endif
 
     queue_data(timer, RESET, NULL, 0);
     pn_log("Timer is now active.");
@@ -312,16 +179,8 @@ static int initialize_timer(TimerUnit *timer)
 static void uninitialize_timer(TimerUnit *timer)
 {
     pn_log("Shutting down timer.");
-#ifdef USE_LIBFTDI
-    if (ftdi_usb_close(timer->context) < 0)
-        pn_log("Error closing usb connection");
-
-    ftdi_deinit(timer->context);
-    ftdi_free(timer->context);
-    timer->context = NULL;
-#else
-    FT_Close(timer->handle);
-#endif
+    if (timer->port)
+        serial_port_close(timer->port);
 }
 
 static void log_raw_data(unsigned char *data, int len)
@@ -346,25 +205,19 @@ static int write_data(TimerUnit *timer)
     pthread_mutex_lock(&timer->sendbuffer_mutex);
     if (timer->send_length > 0)
     {
-#ifdef USE_LIBFTDI
-        if (ftdi_write_data(timer->context, timer->send_buffer, timer->send_length) == timer->send_length)
-            timer->send_length = 0;
-        else
+        ssize_t ret = serial_port_write(timer->port, timer->send_buffer, timer->send_length);
+        if (ret < 0)
         {
-            pn_log("Failed to send buffered data.");
+            pn_log("Timer write error (%zd): %s", ret, serial_port_error_string(ret));
             status = TIMER_ERROR;
         }
-#else
-        DWORD bytes_written;
-        FT_STATUS status = FT_Write(timer->handle, timer->send_buffer, timer->send_length, &bytes_written);
-        if (status == FT_OK && bytes_written == timer->send_length)
-            timer->send_length = 0;
-        else
+        else if (ret != timer->send_length)
         {
-            pn_log("Failed to send buffered data.");
+            pn_log("Timer write error: only %zu of %u bytes written\n", ret, timer->send_length);
             status = TIMER_ERROR;
         }
-#endif
+
+        timer->send_length = 0;
     }
     pthread_mutex_unlock(&timer->sendbuffer_mutex);
 
@@ -373,22 +226,13 @@ static int write_data(TimerUnit *timer)
 
 static int read_data(TimerUnit *timer, uint8_t *read_buffer, uint8_t *bytes_read)
 {
-#ifdef USE_LIBFTDI
-    int read = ftdi_read_data(timer->context, read_buffer, 255);
-    if (read < 0)
+    ssize_t ret = serial_port_read(timer->port, read_buffer, 255);
+    if (ret < 0)
     {
-        pn_log("Timer I/O error.");
+        pn_log("Timer read error (%zd): %s", ret, serial_port_error_string(ret));
         return TIMER_ERROR;
     }
-#else
-    DWORD read;
-    if (FT_Read(timer->handle, read_buffer, 255, &read) != FT_OK)
-    {
-        pn_log("Timer I/O error.");
-        return TIMER_ERROR;
-    }
-#endif
-    *bytes_read = (uint8_t)read;
+    *bytes_read = (uint8_t)ret;
 
     return TIMER_OK;
 }

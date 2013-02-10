@@ -8,129 +8,64 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#ifdef USE_LIBFTDI
-#   include <ftdi.h>
+#include "serial.h"
+
+#ifdef _WIN32
+#   include <windows.h>
 #else
-#   include <ftd2xx.h>
+#   include <sys/time.h>
 #endif
 
-static int send_data(uint8_t *data, uint16_t length)
+
+static void millisleep(int ms)
 {
-#ifdef USE_LIBFTDI
-    // Initialize
-    struct ftdi_context *context = ftdi_new();
-    if (context == NULL)
-    {
-        fprintf(stderr, "Error creating timer context\n");
-        return 1;
-    }
-
-    if (ftdi_init(context) < 0)
-    {
-        fprintf(stderr, "Error initializing timer context: %s\n", context->error_str);
-        return 1;
-    }
-
-    if (ftdi_usb_open(context, 0x0403, 0x6001) != 0)
-    {
-        fprintf(stderr, "Timer not found\n");
-        return 1;
-    }
-
-    if (ftdi_set_baudrate(context, 9600) < 0)
-    {
-        fprintf(stderr, "Error setting timer baudrate: %s\n", context->error_str);
-        return 1;
-    }
-
-    if (ftdi_set_line_property(context, BITS_8, STOP_BIT_1, NONE) < 0)
-    {
-        fprintf(stderr, "Error setting timer data frame properties: %s\n", context->error_str);
-        return 1;
-    }
-
-    if (ftdi_setflowctrl(context, SIO_DISABLE_FLOW_CTRL) < 0)
-    {
-        fprintf(stderr, "Error setting timer flow control: %s\n", context->error_str);
-        return 1;
-    }
-
-    // Send data
-    if (ftdi_write_data(context, data, length) != length)
-    {
-        fprintf(stderr, "Failed to send buffered data.\n");
-        return 1;
-    }
-
-    // Shutdown
-    if (ftdi_usb_close(context) < 0)
-    {
-        fprintf(stderr, "Error closing timer connection\n");
-        return 1;
-    }
-
-    ftdi_deinit(context);
-    ftdi_free(context);
+#if (defined _WIN32 || defined _WIN64)
+    Sleep(ms);
 #else
-    // Initialize
-    FT_HANDLE handle;
-    if (FT_Open(0, &handle) != FT_OK)
-    {
-        fprintf(stderr, "Timer not found\n");
-        return 1;
-    }
-
-    if (FT_SetBaudRate(handle, 9600) != FT_OK)
-    {
-        fprintf(stderr, "Error setting timer baudrate\n");
-        return 1;
-    }
-
-    if (FT_SetDataCharacteristics(handle, FT_BITS_8, FT_STOP_BITS_1, FT_PARITY_NONE) != FT_OK)
-    {
-        fprintf(stderr, "Error setting timer data characteristics\n");
-        return 1;
-    }
-
-    DWORD bytes_written;
-    FT_STATUS status = FT_Write(handle, data, length, &bytes_written);
-    if (status != FT_OK && bytes_written == length)
-    {
-        fprintf(stderr, "Failed to send buffered data.\n");
-        return 1;
-    }
-
-    FT_Close(handle);
+    nanosleep(&(struct timespec){ms / 1000, (ms % 1000)*1e6}, NULL);
 #endif
-
-    return 0;
 }
 
 int main(int argc, char *argv[])
 {
-    if (argc == 2)
+    if (argc == 3)
     {
-        if (strcmp(argv[1], "--relay") == 0)
-            return send_data((uint8_t []){'$','$','R',0, 0,'\r','\n'}, 7);
-
-        if (strcmp(argv[1], "--upgrade") == 0)
-            return send_data((uint8_t []){'$','$','U',0, 0,'\r','\n'}, 7);
-
-        if (strcmp(argv[1], "--flush") == 0)
+        ssize_t error;
+        struct serial_port *port = serial_port_open(argv[1], 9600, &error);
+        if (!port)
         {
-            // Send a single 'E' to exit upgrade mode
-            // followed by 256 0's to force a soft-restart
-            uint8_t data[257];
-            memset(data, 0, 257);
-            data[0] = 'E';
-            return send_data(data, 257);
+            printf("Timer error %zd: %s\n", error, serial_port_error_string(error));
+            return 1;
         }
+
+        // Force a second hardware reset to clear relay mode flag if it was enabled
+        serial_port_set_dtr(port, true);
+        millisleep(500);
+        serial_port_set_dtr(port, false);
+
+        // Wait for bootloader timeout
+        millisleep(1000);
+
+        ssize_t ret;
+        if (strcmp(argv[2], "relay") == 0)
+        {
+            // TODO: Fix syncing to the first packet and remove this
+            ret = serial_port_write(port, (uint8_t []){'$','$','R',0, 0,'\r','\n'}, 7);
+            ret = serial_port_write(port, (uint8_t []){'$','$','R',0, 0,'\r','\n'}, 7);
+        }
+        if (ret < 0)
+        {
+            printf("Write error %zd: %s\n", ret, serial_port_error_string(ret));
+            serial_port_close(port);
+            return 1;
+        }
+
+        serial_port_close(port);
+        return 0;
     }
 
     printf("Example usage:\n");
-    printf("  timerutil --relay\n");
-    printf("  timerutil --upgrade\n");
-    printf("  timerutil --flush\n");
+    printf("  timerutil <port> relay\n");
 
     return 1;
 }

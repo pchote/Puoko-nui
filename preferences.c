@@ -56,6 +56,7 @@ PNPreferenceStore prefs[] =
 
     {TIMER_MONITOR_LOGIC_OUT,   CHAR, .value.c = true,  "TimerMonitorLogicOut: %hhu\n"},
     {TIMER_HIGHRES_TIMING,      CHAR, .value.c = 0,     "TimerHighResolutionTiming: %hhu\n"},
+    {TIMER_SERIAL_PORT,       STRING, .value.s = "/dev/ttyUSB0", "TimerSerialPort: %s\n"},
     {TIMER_BAUD_RATE,           INT,  .value.i = 9600,  "TimerBaudRate: %d\n"},
 
     {CAMERA_BINNING,            CHAR, .value.c = 1,     "CameraBinning: %hhu\n"},
