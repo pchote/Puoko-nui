@@ -91,4 +91,10 @@
    <FileRef
       location = "group:frame.h">
    </FileRef>
+   <FileRef
+      location = "group:serial.c">
+   </FileRef>
+   <FileRef
+      location = "group:serial.h">
+   </FileRef>
 </Workspace>
