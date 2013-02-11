@@ -11,6 +11,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef _WIN32
+typedef int ssize_t;
+#endif
+
 struct serial_port;
 struct serial_port *serial_port_open(const char *path, uint32_t baud, ssize_t *error);
 void serial_port_close(struct serial_port *port);
