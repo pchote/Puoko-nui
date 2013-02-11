@@ -105,6 +105,12 @@ void serial_port_close(struct serial_port *port)
     close(port->fd);
 }
 
+void serial_port_set_dtr(struct serial_port *port, bool enabled)
+{
+    int val = enabled ? TIOCM_DTR : 0;
+    ioctl(port->fd, TIOCMSET, &val);
+}
+
 ssize_t serial_port_read(struct serial_port *port, uint8_t *buf, size_t length)
 {
     ssize_t ret = read(port->fd, buf, length);
