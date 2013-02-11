@@ -16,11 +16,12 @@ typedef int ssize_t;
 #endif
 
 struct serial_port;
-struct serial_port *serial_port_open(const char *path, uint32_t baud, ssize_t *error);
-void serial_port_close(struct serial_port *port);
-ssize_t serial_port_read(struct serial_port *port, uint8_t *buf, size_t length);
-ssize_t serial_port_write(struct serial_port *port, const uint8_t *buf, size_t length);
-const char *serial_port_error_string(ssize_t code);
-void serial_port_set_dtr(struct serial_port *port, bool enabled);
+
+struct serial_port *serial_new(const char *path, uint32_t baud, ssize_t *error);
+void serial_free(struct serial_port *port);
+void serial_set_dtr(struct serial_port *port, bool enabled);
+ssize_t serial_read(struct serial_port *port, uint8_t *buf, size_t length);
+ssize_t serial_write(struct serial_port *port, const uint8_t *buf, size_t length);
+const char *serial_error_string(ssize_t code);
 
 #endif

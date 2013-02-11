@@ -155,23 +155,23 @@ static int initialize_timer(TimerUnit *timer)
     pn_log("Initializing timer at %s with %d baud", port_path, port_baud);
 
     ssize_t error;
-    timer->port = serial_port_open(port_path, port_baud, &error);
+    timer->port = serial_new(port_path, port_baud, &error);
     free(port_path);
 
     if (!timer->port)
     {
-        pn_log("Timer initialization error (%zd): %s", error, serial_port_error_string(error));
+        pn_log("Timer initialization error (%zd): %s", error, serial_error_string(error));
         return TIMER_ERROR;
     }
 
     // Force a second hardware reset to clear relay mode flag if it was enabled
-    serial_port_set_dtr(timer->port, true);
+    serial_set_dtr(timer->port, true);
     millisleep(100);
-    serial_port_set_dtr(timer->port, false);
+    serial_set_dtr(timer->port, false);
     millisleep(100);
-    serial_port_set_dtr(timer->port, true);
+    serial_set_dtr(timer->port, true);
     millisleep(100);
-    serial_port_set_dtr(timer->port, false);
+    serial_set_dtr(timer->port, false);
 
     // Wait for bootloader timeout
     millisleep(1000);
@@ -185,7 +185,7 @@ static void uninitialize_timer(TimerUnit *timer)
 {
     pn_log("Shutting down timer.");
     if (timer->port)
-        serial_port_close(timer->port);
+        serial_free(timer->port);
 }
 
 static void log_raw_data(unsigned char *data, int len)
@@ -210,10 +210,10 @@ static int write_data(TimerUnit *timer)
     pthread_mutex_lock(&timer->sendbuffer_mutex);
     if (timer->send_length > 0)
     {
-        ssize_t ret = serial_port_write(timer->port, timer->send_buffer, timer->send_length);
+        ssize_t ret = serial_write(timer->port, timer->send_buffer, timer->send_length);
         if (ret < 0)
         {
-            pn_log("Timer write error (%zd): %s", ret, serial_port_error_string(ret));
+            pn_log("Timer write error (%zd): %s", ret, serial_error_string(ret));
             status = TIMER_ERROR;
         }
         else if (ret != timer->send_length)
@@ -231,10 +231,10 @@ static int write_data(TimerUnit *timer)
 
 static int read_data(TimerUnit *timer, uint8_t *read_buffer, uint8_t *bytes_read)
 {
-    ssize_t ret = serial_port_read(timer->port, read_buffer, 255);
+    ssize_t ret = serial_read(timer->port, read_buffer, 255);
     if (ret < 0)
     {
-        pn_log("Timer read error (%zd): %s", ret, serial_port_error_string(ret));
+        pn_log("Timer read error (%zd): %s", ret, serial_error_string(ret));
         return TIMER_ERROR;
     }
     *bytes_read = (uint8_t)ret;

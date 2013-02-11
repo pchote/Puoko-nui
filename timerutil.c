@@ -29,39 +29,39 @@ static void millisleep(int ms)
 int send_config_string(const char *device, uint32_t baud, char *str, size_t len)
 {
     ssize_t error;
-    struct serial_port *port = serial_port_open(device, baud, &error);
+    struct serial_port *port = serial_new(device, baud, &error);
     if (!port)
     {
-        printf("Timer error %zd: %s\n", error, serial_port_error_string(error));
+        printf("Timer error %zd: %s\n", error, serial_error_string(error));
         return 1;
     }
 
     // Reset twice to cancel relay mode if it was activated
-    serial_port_set_dtr(port, true);
+    serial_set_dtr(port, true);
     millisleep(100);
-    serial_port_set_dtr(port, false);
+    serial_set_dtr(port, false);
     millisleep(100);
-    serial_port_set_dtr(port, true);
+    serial_set_dtr(port, true);
     millisleep(100);
-    serial_port_set_dtr(port, false);
+    serial_set_dtr(port, false);
 
     // Wait for bootloader to timeout
     millisleep(1000);
 
     // Send synchronization packet
-    if ((error = serial_port_write(port, (uint8_t *)"$$S\x00\x00\r\n", 7)) < 0)
+    if ((error = serial_write(port, (uint8_t *)"$$S\x00\x00\r\n", 7)) < 0)
     {
-        printf("Write error %zd: %s\n", error, serial_port_error_string(error));
+        printf("Write error %zd: %s\n", error, serial_error_string(error));
         return 1;
     }
 
-    if (str && (error = serial_port_write(port, (uint8_t *)str, len)) < 0)
+    if (str && (error = serial_write(port, (uint8_t *)str, len)) < 0)
     {
-        printf("Write error %zd: %s\n", error, serial_port_error_string(error));
+        printf("Write error %zd: %s\n", error, serial_error_string(error));
         return 1;
     }
 
-    serial_port_close(port);
+    serial_free(port);
     return 0;
 }
 

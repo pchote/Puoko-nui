@@ -40,7 +40,7 @@ struct serial_port
 TCHAR error_buf[1024];
 #endif
 
-struct serial_port *serial_port_open(const char *path, uint32_t baud, ssize_t *error)
+struct serial_port *serial_new(const char *path, uint32_t baud, ssize_t *error)
 {
     struct serial_port *port = calloc(1, sizeof(struct serial_port));
 
@@ -199,26 +199,27 @@ open_error:
 #endif
 }
 
-void serial_port_close(struct serial_port *port)
+void serial_free(struct serial_port *port)
 {
 #ifdef _WIN32
-    if (!port->handle)
-        return;
-
-    // Attempt to restore original configuration
-    SetCommState(port->handle, &port->initial_dcb);
-    CloseHandle(port->handle);
+    if (port->handle != 0)
+    {
+        // Attempt to restore original configuration
+        SetCommState(port->handle, &port->initial_dcb);
+        CloseHandle(port->handle);
+    }
 #else
-    if (port->fd == -1)
-        return;
-
-    // Attempt to restore original configuration
-    tcsetattr(port->fd, TCSANOW, &port->initial_tio);
-    close(port->fd);
+    if (port->fd != -1)
+    {
+        // Attempt to restore original configuration
+        tcsetattr(port->fd, TCSANOW, &port->initial_tio);
+        close(port->fd);
+    }
 #endif
+    free(port);
 }
 
-void serial_port_set_dtr(struct serial_port *port, bool enabled)
+void serial_set_dtr(struct serial_port *port, bool enabled)
 {
 #ifdef _WIN32
     EscapeCommFunction(port->handle, enabled ? SETDTR : CLRDTR);
@@ -228,7 +229,7 @@ void serial_port_set_dtr(struct serial_port *port, bool enabled)
 #endif
 }
 
-ssize_t serial_port_read(struct serial_port *port, uint8_t *buf, size_t length)
+ssize_t serial_read(struct serial_port *port, uint8_t *buf, size_t length)
 {
 #ifdef _WIN32
     DWORD read;
@@ -254,7 +255,7 @@ ssize_t serial_port_read(struct serial_port *port, uint8_t *buf, size_t length)
 #endif
 }
 
-ssize_t serial_port_write(struct serial_port *port, const uint8_t *buf, size_t length)
+ssize_t serial_write(struct serial_port *port, const uint8_t *buf, size_t length)
 {
 #ifdef _WIN32
     DWORD written;
@@ -267,7 +268,7 @@ ssize_t serial_port_write(struct serial_port *port, const uint8_t *buf, size_t l
 #endif
 }
 
-const char *serial_port_error_string(ssize_t code)
+const char *serial_error_string(ssize_t code)
 {
 #ifdef _WIN32
     DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
