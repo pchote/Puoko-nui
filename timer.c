@@ -118,6 +118,7 @@ void timer_free(TimerUnit *timer)
 {
     pthread_mutex_destroy(&timer->read_mutex);
     pthread_mutex_destroy(&timer->write_mutex);
+    free(timer);
 }
 
 void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args)
