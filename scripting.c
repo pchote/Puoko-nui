@@ -213,6 +213,16 @@ void scripting_join_threads(ScriptingInterface *scripting)
         pthread_join(scripting->preview_thread, retval);
 }
 
+bool scripting_reduction_thread_alive(ScriptingInterface *scripting)
+{
+    return scripting->reduction_thread_alive;
+}
+
+bool scripting_preview_thread_alive(ScriptingInterface *scripting)
+{
+    return scripting->preview_thread_alive;
+}
+
 void scripting_update_preview(ScriptingInterface *scripting)
 {
     // TODO: Use signals so the preview thread can sleep

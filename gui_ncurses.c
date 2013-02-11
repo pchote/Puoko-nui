@@ -64,9 +64,9 @@ PNUIInputType input_type = INPUT_MAIN;
 
 // A circular buffer for storing log messages
 static char *log_messages[256];
-static unsigned char log_position;
-static unsigned char last_log_position;
-static int should_quit = false;
+static uint8_t log_position;
+static uint8_t last_log_position;
+static bool should_quit = false;
 
 static WINDOW *create_time_window()
 {
@@ -546,9 +546,9 @@ void pn_ui_new(Camera *camera, TimerUnit *timer)
     timeout(100);
 }
 
-void pn_ui_show_fatal_error(char *message)
+void pn_ui_show_fatal_error()
 {
-    WINDOW *error_window = create_error_window(message);
+    WINDOW *error_window = create_error_window("See log for more details");
     PANEL *error_panel = new_panel(error_window);
     int row,col;
     getmaxyx(stdscr, row, col);
@@ -566,6 +566,7 @@ void pn_ui_show_fatal_error(char *message)
     }
     del_panel(error_panel);
     delwin(error_window);
+    should_quit = true;
 }
 
 bool pn_ui_update()
@@ -578,7 +579,7 @@ bool pn_ui_update()
 
     bool camera_downloading = timer_mode(timer) == TIMER_READOUT;
     unsigned char is_input = false;
-    while ((ch = getch()) != ERR)
+    while (!should_quit && (ch = getch()) != ERR)
     {
         // Resized terminal window
         if (ch == 0x19a)

@@ -24,9 +24,9 @@ void pn_ui_log_line(char *message)
     gui->addLogLine(message);
 }
 
-void pn_ui_show_fatal_error(char *message)
+void pn_ui_show_fatal_error()
 {
-    fl_alert("A fatal error has occurred and the program will now close:\n\n%s", message);
+    gui->showErrorPanel();
 }
 
 bool pn_ui_update()
@@ -107,7 +107,8 @@ bool FLTKGui::update()
     updateTimerGroup();
 
     Fl::redraw();
-    return Fl::check() == 0;
+    Fl::check();
+    return shutdown_requested;
 }
 
 Fl_Group *FLTKGui::createGroupBox(int y, int h, const char *label)
@@ -383,7 +384,6 @@ void FLTKGui::buttonSavePressed(Fl_Widget* o, void *userdata)
     pn_log("%s saving.", save ? "Enabled" : "Disabled");
 }
 
-
 void FLTKGui::buttonReductionPressed(Fl_Widget* o, void *userdata)
 {
     bool reduce = pn_preference_char(REDUCE_FRAMES);
@@ -392,7 +392,6 @@ void FLTKGui::buttonReductionPressed(Fl_Widget* o, void *userdata)
     pn_log("%s reduction of %s.dat.", !reduce ? "Enabled" : "Disabled", prefix);
     free(prefix);
 }
-
 
 void FLTKGui::buttonQuitPressed(Fl_Widget* o, void *userdata)
 {
@@ -769,8 +768,67 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
     gui->updateButtonGroup();
 }
 
+void FLTKGui::createErrorPanel()
+{
+    int width = 360, height = 105;
+    int x = (m_mainWindow->decorated_w() - width) / 2;
+    int y = (m_mainWindow->decorated_h() - height) / 2;
+
+    // FLTK doesn't render sub-windows correctly on OSX,
+    // so use a group instead of a window
+    m_errorPanel = new Fl_Group(x, y, width, height);
+    m_errorPanel->box(FL_UP_BOX);
+
+    Fl_Box *message = new Fl_Box(x + 105, y + 15, 255, 75);
+    message->align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
+    message->label("A problem has occurred and the\nacquisition software must close.\n\nSee the log for more details.");
+
+    Fl_Box *icon = new Fl_Box(x + 15, y + 15, 75, 75);
+    icon->box(FL_THIN_UP_BOX);
+    icon->labelfont(FL_TIMES_BOLD);
+    icon->labelsize(64);
+    icon->color(FL_WHITE);
+    icon->labelcolor(FL_RED);
+    icon->label("!");
+
+    m_errorPanel->end();
+    m_errorPanel->hide();
+    m_mainWindow->add(m_errorPanel);
+}
+
+void FLTKGui::showErrorPanel()
+{
+    // Hide any windows that may be open
+    m_metadataWindow->hide();
+    m_cameraWindow->hide();
+
+    // Disable all buttons except quit
+    m_buttonMetadata->deactivate();
+    m_buttonCamera->deactivate();
+    m_buttonAcquire->deactivate();
+    m_buttonSave->deactivate();
+    m_buttonReduction->deactivate();
+
+    m_errorPanel->show();
+}
+
 void FLTKGui::updateButtonGroup()
 {
+    if (shutdown_requested || m_errorPanel->visible())
+    {
+        m_buttonMetadata->deactivate();
+        m_buttonCamera->deactivate();
+        m_buttonAcquire->deactivate();
+        m_buttonSave->deactivate();
+        m_buttonReduction->deactivate();
+        if (shutdown_requested)
+        {
+            m_buttonQuit->value(true);
+            m_buttonQuit->deactivate();
+        }
+        return;
+    }
+
     bool acquire_pressed = cached_camera_mode == ACQUIRE_START || cached_camera_mode == ACQUIRING;
     bool acquire_enabled = cached_camera_mode == ACQUIRING || cached_camera_mode == IDLE;
     bool save_enabled = cached_camera_mode == ACQUIRING && pn_preference_allow_save();
@@ -833,16 +891,19 @@ void FLTKGui::closeMainWindowCallback(Fl_Widget *window, void *v)
     if (Fl::event() == FL_SHORTCUT && Fl::event_key() == FL_Escape)
         return;
 
-    // Hide all windows.
-    // The next Fl::check() call in pn_update_ui() will
-    // return false, causing the program to shutdown.
+    // Hide all but the main window (used to display the log)
+    gui->m_errorPanel->hide();
     gui->m_cameraWindow->hide();
     gui->m_metadataWindow->hide();
-    window->hide();
+
+    // Set a flag to be passed to the main loop which
+    // will close the final window when it's ready
+    gui->shutdown_requested = true;
+    gui->updateButtonGroup();
 }
 
 FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
-    : m_cameraRef(camera), m_timerRef(timer)
+    : m_cameraRef(camera), m_timerRef(timer), shutdown_requested(false)
 {
 	// Create the main window
 	m_mainWindow = new Fl_Double_Window(710, 355, "Acquisition Control");
@@ -857,6 +918,7 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
 
     createCameraWindow();
     createMetadataWindow();
+    createErrorPanel();
 	m_mainWindow->end();
 
     // Set initial state

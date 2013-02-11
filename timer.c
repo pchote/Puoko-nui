@@ -416,6 +416,13 @@ error:
     pn_log("Shutting down timer.");
     serial_free(port);
 serial_error:
+
+    // Invalidate current time
+    pthread_mutex_lock(&timer->read_mutex);
+    timer->current_timestamp.year = 0;
+    timer->mode = TIMER_IDLE;
+    pthread_mutex_unlock(&timer->read_mutex);
+
     timer->thread_alive = false;
     return NULL;
 }
@@ -493,6 +500,13 @@ void *simulated_timer_thread(void *_args)
     }
 
     pn_log("Simulated Timer shutdown.");
+
+    // Invalidate current time
+    pthread_mutex_lock(&timer->read_mutex);
+    timer->current_timestamp.year = 0;
+    timer->mode = TIMER_IDLE;
+    pthread_mutex_unlock(&timer->read_mutex);
+
     timer->thread_alive = false;
     return NULL;
 }

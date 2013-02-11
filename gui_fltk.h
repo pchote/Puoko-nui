@@ -15,19 +15,19 @@
 #include <FL/Fl.H>
 #pragma GCC diagnostic warning "-Wlong-long"
 
-#include <FL/Fl_Double_Window.H>
-#include <FL/Fl_Output.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
-#include <FL/Fl_Toggle_Button.H>
-#include <FL/Fl_Multi_Browser.H>
-#include <FL/Fl_Text_Display.H>
-#include <FL/Fl_Int_Input.H>
-#include <FL/Fl_Spinner.H>
-#include <FL/Fl_Float_Input.H>
-#include <FL/Fl_Choice.H>
-#include <FL/fl_ask.H>
 #include <FL/Fl_Check_Button.H>
+#include <FL/Fl_Choice.H>
+#include <FL/Fl_Double_Window.H>
+#include <FL/Fl_Float_Input.H>
+#include <FL/Fl_Group.H>
+#include <FL/Fl_Int_Input.H>
+#include <FL/Fl_Multi_Browser.H>
+#include <FL/Fl_Output.H>
+#include <FL/Fl_Spinner.H>
+#include <FL/Fl_Text_Display.H>
+#include <FL/Fl_Toggle_Button.H>
 
 #pragma GCC diagnostic warning "-Wint-to-pointer-cast"
 
@@ -51,6 +51,7 @@ public:
     void updateCameraGroup();
     void updateAcquisitionGroup();
     void updateButtonGroup();
+    void showErrorPanel();
 
 private:
     static Fl_Group *createGroupBox(int y, int h, const char *label);
@@ -66,6 +67,7 @@ private:
     void showCameraWindow();
     void createMetadataWindow();
     void showMetadataWindow();
+    void createErrorPanel();
 
     static void cameraPortSpeedGainChangedCallback(Fl_Widget *input, void *userdata);
     static void cameraTimingResolutionChangedCallback(Fl_Widget *input, void *userdata);
@@ -78,6 +80,7 @@ private:
 
     static void buttonCameraConfirmPressed(Fl_Widget* o, void *v);
     static void buttonMetadataConfirmPressed(Fl_Widget* o, void *v);
+    static void buttonErrorConfirmPressed(Fl_Widget* o, void *v);
 
     static void metadataFrameTypeChangedCallback(Fl_Widget *input, void *v);
 
@@ -87,6 +90,7 @@ private:
     TimerUnit *m_timerRef;
 
     Fl_Double_Window *m_mainWindow;
+    bool shutdown_requested;
 
     // Timer info
     Fl_Group *m_timerGroup;
@@ -164,6 +168,9 @@ private:
     Fl_Input *m_metadataObservatoryInput;
     Fl_Input *m_metadataTelecopeInput;
     Fl_Input *m_metadataFilterInput;
+
+    // Error panel
+    Fl_Group *m_errorPanel;
  };
 
 #endif

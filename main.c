@@ -273,22 +273,25 @@ int main(int argc, char *argv[])
     camera_spawn_thread(camera, &args);
 
     // Main program loop
+    enum main_status {NORMAL, ERROR, SHUTDOWN};
+    enum main_status status = NORMAL;
+    time_t last_shutdown_update = 0;
     for (;;)
     {
-        if (!camera_thread_alive(camera))
+        if (status == NORMAL && (!camera_thread_alive(camera) || !timer_thread_alive(timer) ||
+            !scripting_reduction_thread_alive(scripting) || !scripting_preview_thread_alive(scripting)))
         {
-            pn_ui_show_fatal_error("Camera thread exited unexpectedly");
-            break;
-        }
-
-        if (!timer_thread_alive(timer))
-        {
-            pn_ui_show_fatal_error("Timer thread exited unexpectedly");
-            break;
+            pn_ui_show_fatal_error();
+            camera_notify_shutdown(camera);
+            timer_notify_shutdown(timer);
+            scripting_notify_shutdown(scripting);
+            status = ERROR;
+            pn_log("A fatal error has occurred.");
+            pn_log("Uninitializing hardware...");
         }
 
         // Match frame with trigger and save to disk
-        while (atomicqueue_length(frame_queue) && atomicqueue_length(trigger_queue))
+        while (status == NORMAL && atomicqueue_length(frame_queue) && atomicqueue_length(trigger_queue))
         {
             CameraFrame *frame = atomicqueue_pop(frame_queue);
             TimerTimestamp *trigger = atomicqueue_pop(trigger_queue);
@@ -348,18 +351,45 @@ int main(int argc, char *argv[])
         }
 
         bool request_shutdown = pn_ui_update();
-        if (request_shutdown)
-            break;
-        
+        if ((status == NORMAL || status == ERROR) && request_shutdown)
+        {
+            camera_notify_shutdown(camera);
+            timer_notify_shutdown(timer);
+            scripting_notify_shutdown(scripting);
+            status = SHUTDOWN;
+        }
+
+        // Normal shutdown complete
+        if (status == SHUTDOWN)
+        {
+            bool ca = camera_thread_alive(camera);
+            bool ta = timer_thread_alive(timer);
+            bool ra = scripting_reduction_thread_alive(scripting);
+            bool pa = scripting_preview_thread_alive(scripting);
+
+            time_t current = time(NULL);
+            // Threads have terminated - continue shutdown
+            if (!ca && !ta && !ra && !pa)
+                break;
+            else if (current > last_shutdown_update + 5)
+            {
+                // Update log with shutdown status every 5 seconds
+                last_shutdown_update = current;
+                if (ca)
+                    pn_log("Waiting for camera thread to terminate...");
+                if (ta)
+                    pn_log("Waiting for timer thread to terminate...");
+                if (ra)
+                    pn_log("Waiting for reduction thread to terminate...");
+                if (pa)
+                    pn_log("Waiting for preview thread to terminate...");
+            }
+        }
+
         millisleep(100);
     }
 
     // Wait for camera and timer threads to terminate
-    camera_notify_shutdown(camera);
-    timer_notify_shutdown(timer);
-    scripting_notify_shutdown(scripting);
-    clear_queued_data(true);
-
     timer_join_thread(timer);
     camera_join_thread(camera);
     scripting_join_threads(scripting);
@@ -367,6 +397,7 @@ int main(int argc, char *argv[])
     timer_free(timer);
     camera_free(camera);
     scripting_free(scripting);
+
     pn_free_preferences();
     pn_ui_free();
 
@@ -381,6 +412,8 @@ int main(int argc, char *argv[])
     fclose(logFile);
 
     // Final cleanup
+    clear_queued_data(true);
+
     atomicqueue_destroy(trigger_queue);
     atomicqueue_destroy(frame_queue);
     atomicqueue_destroy(log_queue);
