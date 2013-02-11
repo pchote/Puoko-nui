@@ -19,10 +19,59 @@
 #include "camera.h"
 #include "serial.h"
 
-#define TIMER_OK 0
-#define TIMER_ALLOCATION_FAILED -1
-#define TIMER_ERROR -2
-#define TIMER_INITIALIZATION_ABORTED -3
+
+// Timer message protocol definitions
+#define MAX_DATA_LENGTH 200
+enum packet_state {HEADERA = 0, HEADERB, TYPE, LENGTH, DATA, CHECKSUM, FOOTERA, FOOTERB};
+enum packet_type
+{
+    CURRENTTIME = 'A',
+    DOWNLOADTIME = 'B',
+    DEBUG_STRING = 'C',
+    DEBUG_RAW = 'D',
+    START_EXPOSURE = 'E',
+    STOP_EXPOSURE = 'F',
+    STATUSMODE = 'H',
+    SYNC = 'S',
+    UNKNOWN_PACKET = 0
+};
+
+struct __attribute__((__packed__)) packet_time
+{
+    uint16_t year;
+    uint8_t month;
+    uint8_t day;
+    uint8_t hours;
+    uint8_t minutes;
+    uint8_t seconds;
+    uint16_t milliseconds;
+    uint8_t locked;
+    uint16_t exposure_progress;
+};
+
+enum __attribute__((__packed__)) packet_timingmode {TIME_SECONDS, TIME_MILLISECONDS};
+struct __attribute__((__packed__)) packet_startexposure
+{
+    uint8_t use_monitor;
+    enum packet_timingmode timing_mode;
+    uint16_t exposure;
+};
+
+struct timer_packet
+{
+    enum packet_state state;
+    enum packet_type type;
+    uint8_t length;
+    uint8_t progress;
+    uint8_t checksum;
+
+    union
+    {
+        // Extra byte allows us to always null-terminate strings for display
+        uint8_t bytes[MAX_DATA_LENGTH+1];
+        struct packet_time time;
+    } data;
+};
 
 // Private struct implementation
 struct TimerUnit
@@ -44,24 +93,8 @@ struct TimerUnit
     unsigned char send_buffer[256];
     unsigned char send_length;
     pthread_mutex_t read_mutex;
-    pthread_mutex_t sendbuffer_mutex;
+    pthread_mutex_t write_mutex;
 };
-
-// Command packet types
-typedef enum
-{
-    CURRENTTIME = 'A',
-    DOWNLOADTIME = 'B',
-    DEBUG_STRING = 'C',
-    DEBUG_RAW = 'D',
-    START_EXPOSURE = 'E',
-    STOP_EXPOSURE = 'F',
-    RESET = 'G',
-    STATUSMODE = 'H',
-    SYNC = 'S',
-    UNKNOWN_PACKET = 0
-} TimerUnitPacketType;
-
 
 void *timer_thread(void *timer);
 void *simulated_timer_thread(void *args);
@@ -76,7 +109,7 @@ TimerUnit *timer_new(bool simulate_hardware)
 
     timer->simulated = simulate_hardware;
     pthread_mutex_init(&timer->read_mutex, NULL);
-    pthread_mutex_init(&timer->sendbuffer_mutex, NULL);
+    pthread_mutex_init(&timer->write_mutex, NULL);
 
     return timer;
 }
@@ -84,7 +117,7 @@ TimerUnit *timer_new(bool simulate_hardware)
 void timer_free(TimerUnit *timer)
 {
     pthread_mutex_destroy(&timer->read_mutex);
-    pthread_mutex_destroy(&timer->sendbuffer_mutex);
+    pthread_mutex_destroy(&timer->write_mutex);
 }
 
 void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args)
@@ -101,15 +134,6 @@ void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args)
 
 #pragma mark Timer Routines (Called from Timer thread)
 
-// Calculate the checksum of a series of bytes by xoring them together
-static unsigned char checksum(unsigned char *data, unsigned char length)
-{
-    unsigned char csm = 0;
-    for (unsigned char i = 0; i < length; i++)
-        csm ^= data[i];
-    return csm;
-}
-
 // Queue a raw byte to be sent to the timer
 // Should only be called by queue_data
 static void queue_send_byte(TimerUnit *timer, unsigned char b)
@@ -118,13 +142,13 @@ static void queue_send_byte(TimerUnit *timer, unsigned char b)
     // Should never happen in normal operation
     while (timer->send_length >= 255);
 
-    pthread_mutex_lock(&timer->sendbuffer_mutex);
+    pthread_mutex_lock(&timer->write_mutex);
     timer->send_buffer[timer->send_length++] = b;
-    pthread_mutex_unlock(&timer->sendbuffer_mutex);
+    pthread_mutex_unlock(&timer->write_mutex);
 }
 
 // Wrap an array of bytes in a data packet and send it to the timer
-static void queue_data(TimerUnit *timer, unsigned char type, unsigned char *data, unsigned char length)
+static void queue_data(TimerUnit *timer, enum packet_type type, void *data, uint8_t length)
 {
     // Data packet starts with $$ followed by packet type
     queue_send_byte(timer, '$');
@@ -135,157 +159,44 @@ static void queue_data(TimerUnit *timer, unsigned char type, unsigned char *data
     queue_send_byte(timer, length);
 
     // Packet data
-    for (unsigned char i = 0; i < length; i++)
-        queue_send_byte(timer, data[i]);
+    uint8_t checksum = 0;
+    for (uint8_t i = 0; i < length; i++)
+    {
+        checksum ^= ((uint8_t *)data)[i];
+        queue_send_byte(timer, ((uint8_t *)data)[i]);
+    }
 
     // Checksum
-    queue_send_byte(timer, checksum(data,length));
+    queue_send_byte(timer, checksum);
 
     // Data packet ends with linefeed and carriage return
     queue_send_byte(timer, '\r');
     queue_send_byte(timer, '\n');
 }
 
-// Initialize the usb connection to the timer
-static int initialize_timer(TimerUnit *timer)
+static void unpack_timestamp(struct packet_time *pt, TimerTimestamp *tt)
 {
-    // Opening the serial port triggers a hardware reset
-    char *port_path = pn_preference_string(TIMER_SERIAL_PORT);
-    int port_baud = pn_preference_int(TIMER_BAUD_RATE);
-    pn_log("Initializing timer at %s with %d baud", port_path, port_baud);
-
-    ssize_t error;
-    timer->port = serial_new(port_path, port_baud, &error);
-    free(port_path);
-
-    if (!timer->port)
-    {
-        pn_log("Timer initialization error (%zd): %s", error, serial_error_string(error));
-        return TIMER_ERROR;
-    }
-
-    // Force a second hardware reset to clear relay mode flag if it was enabled
-    serial_set_dtr(timer->port, true);
-    millisleep(100);
-    serial_set_dtr(timer->port, false);
-    millisleep(100);
-    serial_set_dtr(timer->port, true);
-    millisleep(100);
-    serial_set_dtr(timer->port, false);
-
-    // Wait for bootloader timeout
-    millisleep(1000);
-
-    queue_data(timer, SYNC, NULL, 0);
-    return TIMER_OK;
+    tt->year = pt->year;
+    tt->month = pt->month;
+    tt->day = pt->day;
+    tt->hours = pt->hours;
+    tt->minutes = pt->minutes;
+    tt->seconds = pt->seconds;
+    tt->milliseconds = pt->milliseconds;
+    tt->locked = pt->locked;
+    tt->exposure_progress = pt->exposure_progress;
 }
 
-// Close the usb connection to the timer
-static void uninitialize_timer(TimerUnit *timer)
+static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *p)
 {
-    pn_log("Shutting down timer.");
-    if (timer->port)
-        serial_free(timer->port);
-}
-
-static void log_raw_data(unsigned char *data, int len)
-{
-    char *msg = (char *)malloc((3*len+7)*sizeof(char));
-    strcpy(msg, "Data: ");
-    if (msg == NULL)
-    {
-        pn_log("Failed to allocate log_raw_data. Ignoring message");
-        return;
-    }
-    for (unsigned char i = 0; i < len; i++)
-        snprintf(&msg[3*i + 6], 4, "%02x ", data[i]);
-
-    pn_log(msg);
-    free(msg);
-}
-
-static int write_data(TimerUnit *timer)
-{
-    int status = TIMER_OK;
-    pthread_mutex_lock(&timer->sendbuffer_mutex);
-    if (timer->send_length > 0)
-    {
-        ssize_t ret = serial_write(timer->port, timer->send_buffer, timer->send_length);
-        if (ret < 0)
-        {
-            pn_log("Timer write error (%zd): %s", ret, serial_error_string(ret));
-            status = TIMER_ERROR;
-        }
-        else if (ret != timer->send_length)
-        {
-            pn_log("Timer write error: only %zu of %u bytes written\n", ret, timer->send_length);
-            status = TIMER_ERROR;
-        }
-
-        timer->send_length = 0;
-    }
-    pthread_mutex_unlock(&timer->sendbuffer_mutex);
-
-    return status;
-}
-
-static int read_data(TimerUnit *timer, uint8_t *read_buffer, uint8_t *bytes_read)
-{
-    ssize_t ret = serial_read(timer->port, read_buffer, 255);
-    if (ret < 0)
-    {
-        pn_log("Timer read error (%zd): %s", ret, serial_error_string(ret));
-        return TIMER_ERROR;
-    }
-    *bytes_read = (uint8_t)ret;
-
-    return TIMER_OK;
-}
-
-static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint8_t packet_length)
-{
-    uint8_t packet_type = packet[2];
-    uint8_t data_length = packet[3];
-    uint8_t *data = &packet[4];
-    uint8_t data_checksum = packet[packet_length - 3];
-
-    // Check that the packet ends correctly
-    if (packet[packet_length - 2] != '\r' || packet[packet_length - 1] != '\n')
-    {
-        pn_log("Invalid packet length, expected %d.", packet_length);
-        log_raw_data(packet, packet_length);
-        return;
-    }
-
-    // Verify packet checksum
-    unsigned char csm = checksum(data, data_length);
-    if (csm != data_checksum)
-    {
-        pn_log("Invalid packet checksum. Got 0x%02x, expected 0x%02x.", csm, data_checksum);
-        return;
-    }
-
     // Handle packet
-    switch (packet_type)
+    switch (p->type)
     {
         case CURRENTTIME:
-        {
             pthread_mutex_lock(&timer->read_mutex);
-            timer->current_timestamp = (TimerTimestamp)
-            {
-                .year = data[0] | data[1] << 8,
-                .month = data[2],
-                .day = data[3],
-                .hours = data[4],
-                .minutes = data[5],
-                .seconds = data[6],
-                .milliseconds = data[7] | data[8] << 8,
-                .locked = data[9],
-                .exposure_progress = data[10] | data[11] << 8
-            };
+            unpack_timestamp(&p->data.time, &timer->current_timestamp);
             pthread_mutex_unlock(&timer->read_mutex);
             break;
-        }
         case DOWNLOADTIME:
         {
             TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
@@ -295,15 +206,8 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
                 break;
             }
 
-            t->year = data[0] | data[1] << 8;
-            t->month = data[2];
-            t->day = data[3];
-            t->hours = data[4];
-            t->minutes = data[5];
-            t->seconds = data[6];
-            t->milliseconds = data[7] | data[8] << 8;
-            t->locked = data[9];
-            t->exposure_progress = 0;
+            p->data.time.exposure_progress = 0;
+            unpack_timestamp(&p->data.time, t);
 
             // The timer sends unnormalized timestamps, where milliseconds may
             // be greater than 1000.
@@ -319,110 +223,37 @@ static void parse_packet(TimerUnit *timer, Camera *camera, uint8_t *packet, uint
             break;
         }
         case STATUSMODE:
-        {
-            TimerMode mode = (data_length == 0) ? TIMER_EXPOSING : data[0];
             pthread_mutex_lock(&timer->read_mutex);
-            timer->mode = mode;
+            timer->mode = p->data.bytes[0];
             pthread_mutex_unlock(&timer->read_mutex);
             break;
-        }
         case DEBUG_STRING:
-        {
-            packet[packet_length - 3] = '\0';
-            pn_log("Timer Debug: `%s`.", data);
+            p->data.bytes[p->length] = '\0';
+            pn_log("Timer message: %s", p->data.bytes);
             break;
-        }
         case DEBUG_RAW:
         {
-            log_raw_data(data, data_length);
+            char *msg = (char *)malloc((3*p->length+7)*sizeof(char));
+            if (!msg)
+            {
+                pn_log("Timer warning: Failed to allocate log_raw_data. Ignoring message");
+                break;
+            }
+
+            strcpy(msg, "Data: ");
+            for (uint8_t i = 0; i < p->length; i++)
+                snprintf(&msg[3*i + 6], 4, "%02x ", p->data.bytes[i]);
+
+            pn_log(msg);
+            free(msg);
             break;
         }
         case STOP_EXPOSURE:
-        {
             pn_log("Timer reports camera ready to stop sequence.");
             camera_notify_safe_to_stop(camera);
             break;
-        }
         default:
-        {
-            pn_log("Unknown packet type %02x.", packet_type);
-        }
-    }
-}
-
-// Main timer thread loop
-static void timer_loop(TimerUnit *timer, Camera *camera)
-{
-    // Store received bytes in a 256 byte circular buffer indexed by an unsigned char
-    // This ensures the correct circular behavior on over/underflow
-    uint8_t input_buf[256];
-    memset(input_buf, 0, 256);
-    uint8_t write_index = 0;
-    uint8_t read_index = 0;
-
-    // Current packet storage
-    uint8_t packet[256];
-    memset(packet, 0, 256);
-    uint8_t packet_length = 0;
-    uint8_t packet_expected_length = 0;
-    TimerUnitPacketType packet_type = UNKNOWN_PACKET;
-
-    // Loop until shutdown, parsing incoming data
-    while (true)
-    {
-        millisleep(100);
-
-        // Send any data in the send buffer
-        if (write_data(timer) != TIMER_OK)
-            break;
-
-        // Check for shutdown request
-        // Note: this is done after sending data
-        // to allow any final commands to be sent
-        if (timer->shutdown)
-            break;
-
-        // Check for new data
-        uint8_t bytes_read;
-        uint8_t read_buffer[256];
-        if (read_data(timer, read_buffer, &bytes_read))
-            break;
-
-        // Copy received bytes into the circular input buffer
-        for (uint8_t i = 0; i < bytes_read; i++)
-            input_buf[write_index++] = read_buffer[i];
-
-        while (read_index != write_index)
-        {
-            // Sync to the start of a data packet
-            for (; packet_type == UNKNOWN_PACKET && read_index != write_index; read_index++)
-            {
-                if (input_buf[(uint8_t)(read_index - 3)] == '$' &&
-                    input_buf[(uint8_t)(read_index - 2)] == '$' &&
-                    input_buf[(uint8_t)(read_index - 1)] != '$')
-                {
-                    packet_type = input_buf[(unsigned char)(read_index - 1)];
-                    packet_expected_length = input_buf[read_index] + 7;
-                    read_index -= 3;
-
-                    //pn_log("sync packet 0x%02x, length %d", packet_type, packet_expected_length);
-                    break;
-                }
-            }
-
-            // Copy packet data into a buffer for parsing
-            for (; read_index != write_index && packet_length != packet_expected_length; read_index++)
-                packet[packet_length++] = input_buf[read_index];
-
-            // Packet ready to parse
-            if (packet_length == packet_expected_length && packet_type != UNKNOWN_PACKET)
-            {
-                parse_packet(timer, camera, packet, packet_length);
-                packet_length = 0;
-                packet_expected_length = 0;
-                packet_type = UNKNOWN_PACKET;
-            }
-        }
+            pn_log("Unknown packet type: %c", p->type);
     }
 }
 
@@ -432,12 +263,141 @@ void *timer_thread(void *_args)
     ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
     TimerUnit *timer = args->timer;
 
-    int status = initialize_timer(timer);
-    if (status == TIMER_OK)
-        timer_loop(timer, args->camera);
+    // Opening the serial port triggers a hardware reset
+    char *port_path = pn_preference_string(TIMER_SERIAL_PORT);
+    int port_baud = pn_preference_int(TIMER_BAUD_RATE);
+    pn_log("Initializing timer at %s with %d baud", port_path, port_baud);
 
-    uninitialize_timer(timer);
-    
+    ssize_t error;
+    struct serial_port *port = serial_new(port_path, port_baud, &error);
+    free(port_path);
+
+    if (!port)
+    {
+        pn_log("Timer initialization error (%zd): %s", error, serial_error_string(error));
+        goto serial_error;
+    }
+
+    // Reset twice - the first reset may put the unit into relay mode
+    serial_set_dtr(port, true);
+    millisleep(100);
+    serial_set_dtr(port, false);
+    millisleep(100);
+    serial_set_dtr(port, true);
+    millisleep(100);
+    serial_set_dtr(port, false);
+
+    // Wait for bootloader timeout
+    millisleep(1000);
+    queue_data(timer, SYNC, NULL, 0);
+
+    struct timer_packet p = (struct timer_packet){.state = HEADERA};
+
+    while (!timer->shutdown)
+    {
+        // Send any queued data
+        pthread_mutex_lock(&timer->write_mutex);
+        if (timer->send_length > 0)
+        {
+            ssize_t ret = serial_write(port, timer->send_buffer, timer->send_length);
+            if (ret < 0)
+            {
+                pn_log("Timer write error (%zd): %s", ret, serial_error_string(ret));
+                pthread_mutex_unlock(&timer->write_mutex);
+                break;
+            }
+
+            if (ret != timer->send_length)
+            {
+                pn_log("Timer write error: only %zu of %u bytes written", ret, timer->send_length);
+                pthread_mutex_unlock(&timer->write_mutex);
+                break;
+            }
+
+            timer->send_length = 0;
+        }
+        pthread_mutex_unlock(&timer->write_mutex);
+
+        // Check for new data
+        uint8_t b;
+        ssize_t status;
+        while ((status = serial_read(port, &b, 1)))
+        {
+            if (status < 0)
+            {
+                pn_log("Timer read error (%zd): %s", status, serial_error_string(status));
+                goto error;
+            }
+
+            switch (p.state)
+            {
+                case HEADERA:
+                case HEADERB:
+                    if (b == '$')
+                        p.state++;
+                    else
+                        p.state = HEADERA;
+                    break;
+                case TYPE:
+                    p.type = b;
+                    p.state++;
+                    break;
+                case LENGTH:
+                    p.length = b;
+                    p.progress = 0;
+                    p.checksum = 0;
+                    if (p.length == 0)
+                        p.state = CHECKSUM;
+                    else if (p.length <= sizeof(p.data))
+                        p.state++;
+                    else
+                    {
+                        pn_log("Timer warning: ignoring long packet: %c (length %u)", p.type, p.length);
+                        p.state = HEADERA;
+                    }
+                    break;
+                case DATA:
+                    p.checksum ^= b;
+                    p.data.bytes[p.progress++] = b;
+                    if (p.progress == p.length)
+                        p.state++;
+                    break;
+                case CHECKSUM:
+                    if (p.checksum == b)
+                        p.state++;
+                    else
+                    {
+                        pn_log("Timer warning: Packet checksum failed. Got 0x%02x, expected 0x%02x.", b, p.checksum);
+                        p.state = HEADERA;
+                    }
+                    break;
+                case FOOTERA:
+                    if (b == '\r')
+                        p.state++;
+                    else
+                    {
+                        pn_log("Timer warning: Invalid packet end byte. Got 0x%02x, expected 0x%02x.", b, '\r');
+                        p.state = HEADERA;
+                    }
+                    break;
+                case FOOTERB:
+                    if (b == '\n')
+                        parse_packet(timer, args->camera, &p);
+                    else
+                        pn_log("Timer warning: Invalid packet end byte. Got 0x%02x, expected 0x%02x.", b, '\n');
+
+                    p.state = HEADERA;
+                    break;
+            }
+        }
+
+        millisleep(100);
+    }
+
+error:
+    pn_log("Shutting down timer.");
+    serial_free(port);
+serial_error:
     timer->thread_alive = false;
     return NULL;
 }
@@ -540,8 +500,14 @@ void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
         if (!use_monitor)
             pn_log("WARNING: Timer monitor is disabled.");
 
-        uint8_t data[4] = {use_monitor, highres, exptime & 0xFF, (exptime >> 8) & 0xFF};
-        queue_data(timer, START_EXPOSURE, data, 4);
+        struct packet_startexposure data = (struct packet_startexposure)
+        {
+            .use_monitor = use_monitor,
+            .timing_mode = highres ? TIME_MILLISECONDS : TIME_SECONDS,
+            .exposure = exptime,
+        };
+
+        queue_data(timer, START_EXPOSURE, &data, sizeof(struct packet_startexposure));
     }
 }
 
