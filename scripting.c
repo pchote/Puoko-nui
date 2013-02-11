@@ -181,7 +181,7 @@ void *preview_thread(void *_scripting)
     return NULL;
 }
 
-void scripting_spawn_thread(ScriptingInterface *scripting, ThreadCreationArgs *args)
+void scripting_spawn_threads(ScriptingInterface *scripting, ThreadCreationArgs *args)
 {
     scripting->reduction_thread_alive = true;
     if (pthread_create(&scripting->reduction_thread, NULL, reduction_thread, (void *)scripting))
@@ -198,10 +198,13 @@ void scripting_spawn_thread(ScriptingInterface *scripting, ThreadCreationArgs *a
     }
 }
 
-void scripting_shutdown(ScriptingInterface *scripting)
+void scripting_notify_shutdown(ScriptingInterface *scripting)
 {
     scripting->shutdown = true;
+}
 
+void scripting_join_threads(ScriptingInterface *scripting)
+{
     void **retval = NULL;
     if (scripting->reduction_thread_alive)
         pthread_join(scripting->reduction_thread, retval);

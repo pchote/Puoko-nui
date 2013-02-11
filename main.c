@@ -268,7 +268,7 @@ int main(int argc, char *argv[])
     args.camera = camera;
     args.timer = timer;
 
-    scripting_spawn_thread(scripting, &args);
+    scripting_spawn_threads(scripting, &args);
     timer_spawn_thread(timer, &args);
     camera_spawn_thread(camera, &args);
 
@@ -355,10 +355,14 @@ int main(int argc, char *argv[])
     }
 
     // Wait for camera and timer threads to terminate
-    camera_shutdown(camera);
-    timer_shutdown(timer);
-    scripting_shutdown(scripting);
+    camera_notify_shutdown(camera);
+    timer_notify_shutdown(timer);
+    scripting_notify_shutdown(scripting);
     clear_queued_data(true);
+
+    timer_join_thread(timer);
+    camera_join_thread(camera);
+    scripting_join_threads(scripting);
 
     timer_free(timer);
     camera_free(camera);

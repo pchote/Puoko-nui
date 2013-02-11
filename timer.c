@@ -133,6 +133,23 @@ void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args)
     }
 }
 
+void timer_join_thread(TimerUnit *timer)
+{
+    void **retval = NULL;
+    if (timer->thread_alive)
+        pthread_join(timer->timer_thread, retval);
+}
+
+void timer_notify_shutdown(TimerUnit *timer)
+{
+    timer->shutdown = true;
+}
+
+bool timer_thread_alive(TimerUnit *timer)
+{
+    return timer->thread_alive;
+}
+
 #pragma mark Timer Routines (Called from Timer thread)
 
 // Queue a raw byte to be sent to the timer
@@ -541,20 +558,6 @@ TimerTimestamp timer_current_timestamp(TimerUnit *timer)
     TimerTimestamp ts = timer->current_timestamp;
     pthread_mutex_unlock(&timer->read_mutex);
     return ts;
-}
-
-void timer_shutdown(TimerUnit *timer)
-{
-    queue_data(timer, RESET, NULL, 0);
-    timer->shutdown = true;
-    void **retval = NULL;
-    if (timer->thread_alive)
-        pthread_join(timer->timer_thread, retval);
-}
-
-bool timer_thread_alive(TimerUnit *timer)
-{
-    return timer->thread_alive;
 }
 
 // Callback to notify that the simulated camera has read out

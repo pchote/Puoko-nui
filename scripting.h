@@ -14,8 +14,9 @@ typedef struct ScriptingInterface ScriptingInterface;
 
 ScriptingInterface *scripting_new();
 void scripting_free(ScriptingInterface *timer);
-void scripting_spawn_thread(ScriptingInterface *scripting, ThreadCreationArgs *args);
-void scripting_shutdown(ScriptingInterface *timer);
+void scripting_spawn_threads(ScriptingInterface *scripting, ThreadCreationArgs *args);
+void scripting_join_threads(ScriptingInterface *timer);
+void scripting_notify_shutdown(ScriptingInterface *timer);
 
 void scripting_update_preview(ScriptingInterface *scripting);
 void scripting_notify_frame(ScriptingInterface *scripting, const char *filepath);

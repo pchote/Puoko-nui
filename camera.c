@@ -318,10 +318,13 @@ void camera_spawn_thread(Camera *camera, ThreadCreationArgs *args)
     }
 }
 
-void camera_shutdown(Camera *camera)
+void camera_notify_shutdown(Camera *camera)
 {
     set_desired_mode(camera, SHUTDOWN);
+}
 
+void camera_join_thread(Camera *camera)
+{
     void **retval = NULL;
     if (camera->thread_alive)
         pthread_join(camera->camera_thread, retval);

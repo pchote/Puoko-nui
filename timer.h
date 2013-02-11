@@ -26,13 +26,14 @@ typedef struct TimerUnit TimerUnit;
 TimerUnit *timer_new(bool simulate_hardware);
 void timer_free(TimerUnit *timer);
 void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args);
+void timer_join_thread(TimerUnit *timer);
+void timer_notify_shutdown(TimerUnit *timer);
+bool timer_thread_alive(TimerUnit *timer);
 
 void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor);
 void timer_stop_exposure(TimerUnit *timer);
 TimerMode timer_mode(TimerUnit *timer);
 TimerTimestamp timer_current_timestamp(TimerUnit *timer);
-void timer_shutdown(TimerUnit *timer);
-bool timer_thread_alive(TimerUnit *timer);
 
 void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading);
 
