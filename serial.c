@@ -7,6 +7,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,6 +73,9 @@ struct serial_port *serial_port_open(const char *path, uint32_t baud, ssize_t *e
     tio.c_cflag |= CREAD | CLOCAL | CS8;
     tio.c_iflag &= ~(IXON | IXOFF | IXANY);
 
+    // Disable input processing
+    tio.c_iflag &= ~(INLCR | ICRNL | IGNCR);
+
     // Disable output processing
     tio.c_oflag &= ~OPOST;
 
@@ -113,7 +117,20 @@ void serial_port_set_dtr(struct serial_port *port, bool enabled)
 
 ssize_t serial_port_read(struct serial_port *port, uint8_t *buf, size_t length)
 {
+    // Note: On some systems (e.g. Ubuntu 12.04) a non-blocking (VTIME = VMIN = 0)
+    // read() returns 0 instead of -1 / ENXIO when a device has been unplugged.
+    // This makes it difficult to distinguish between no-data and error.
+    // Instead, use poll() to check for the no-data case, so that any read() == 0
+    // indicates that the device has been unplugged.
+    int ready = poll(&(struct pollfd) {.fd = port->fd, .events = POLLIN}, 1, 0);
+    if (ready == 0)
+        return 0;
+    else if (ready == -1)
+        return -errno;
+
     ssize_t ret = read(port->fd, buf, length);
+    if (ret == 0)
+        return -ENXIO;
     return (ret == -1) ? -errno : ret;
 }
 
