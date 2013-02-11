@@ -58,6 +58,7 @@ typedef enum
     STOP_EXPOSURE = 'F',
     RESET = 'G',
     STATUSMODE = 'H',
+    SYNC = 'S',
     UNKNOWN_PACKET = 0
 } TimerUnitPacketType;
 
@@ -148,13 +149,7 @@ static void queue_data(TimerUnit *timer, unsigned char type, unsigned char *data
 // Initialize the usb connection to the timer
 static int initialize_timer(TimerUnit *timer)
 {
-    // Data to send timer on startup to exit
-    // relay / upgrade mode and purge input buffer
-    const uint16_t reset_data_length = 257;
-    uint8_t reset_data[257];
-    memset(reset_data, 0, reset_data_length);
-    reset_data[0] = 'E';
-
+    // Opening the serial port triggers a hardware reset
     char *port_path = pn_preference_string(TIMER_SERIAL_PORT);
     int port_baud = pn_preference_int(TIMER_BAUD_RATE);
     pn_log("Initializing timer at %s with %d baud", port_path, port_baud);
@@ -169,9 +164,19 @@ static int initialize_timer(TimerUnit *timer)
         return TIMER_ERROR;
     }
 
-    queue_data(timer, RESET, NULL, 0);
-    pn_log("Timer is now active.");
+    // Force a second hardware reset to clear relay mode flag if it was enabled
+    serial_port_set_dtr(timer->port, true);
+    millisleep(100);
+    serial_port_set_dtr(timer->port, false);
+    millisleep(100);
+    serial_port_set_dtr(timer->port, true);
+    millisleep(100);
+    serial_port_set_dtr(timer->port, false);
 
+    // Wait for bootloader timeout
+    millisleep(1000);
+
+    queue_data(timer, SYNC, NULL, 0);
     return TIMER_OK;
 }
 
