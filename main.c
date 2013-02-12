@@ -119,18 +119,33 @@ static char *next_filepath()
     return filepath;
 }
 
-// Helper function for creating a temporary filename
-// that can be saved to without conflict
-static char *temporary_filepath(char *base)
+static char *temporary_filepath(const char *dir)
 {
-    size_t len = strlen(base) + 8;
-    char *path = malloc(len*sizeof(char));
+    size_t dirlen = strlen(dir);
+    char *path = malloc((dirlen + 19)*sizeof(char));
+
     if (path)
     {
-        strcpy(path, base);
-        strcat(path, ".XXXXXX");
-        mktemp(path);
+        strcpy(path, dir);
+
+        size_t n = 0;
+        do
+        {
+            // Give up after 1000 failed attempts
+            if (n++ > 1000)
+            {
+                free(path);
+                return NULL;
+            }
+
+            // Windows will only return numbers in the range 0-0x7FFF
+            // but this still gives 32k potential files
+            uint32_t test = rand() & 0xFFFF;
+            snprintf(path + dirlen, 19, "/temp-%04x.fits.gz", test);
+        }
+        while (file_exists(path));
     }
+
     return path;
 }
 
@@ -159,7 +174,9 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
             return;
         }
 
-        char *temppath = temporary_filepath(filepath);
+        char *dir = pn_preference_string(OUTPUT_DIR);
+        char *temppath = temporary_filepath(dir);
+        free(dir);
         if (!filepath)
         {
             pn_log("Failed to create unique temporary filename. Discarding frame");
@@ -176,7 +193,8 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
 
         // Don't overwrite existing files
         if (!rename_atomically(temppath, filepath, false))
-            pn_log("Failed to save `%s' (already exists?). Saved instead as `%s' ", last_path_component(filepath), last_path_component(temppath));
+            pn_log("Failed to save `%s' (already exists?). Saved instead as `%s' ",
+                   last_path_component(filepath), last_path_component(temppath));
         else
         {
             scripting_notify_frame(scripting, filepath);
@@ -189,8 +207,7 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
     }
 
     // Update frame preview atomically
-    char *preview = "preview.fits.gz";
-    char *temp_preview = temporary_filepath(preview);
+    char *temp_preview = temporary_filepath(".");
     if (!temp_preview)
     {
         pn_log("Error creating temporary filepath. Skipping preview");
@@ -198,7 +215,7 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
     }
 
     frame_save(frame, timestamp, temp_preview);
-    if (!rename_atomically(temp_preview, preview, true))
+    if (!rename_atomically(temp_preview, "preview.fits.gz", true))
     {
         pn_log("Failed to overwrite preview frame.");
         delete_file(temp_preview);
@@ -238,6 +255,11 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Failed to allocate queues\n");
         return 1;
     }
+
+    // Seed random number generator
+    // Only used for generating random unused filenames and generating
+    // simulated frame data, so the default rand() is acceptable
+    srand(time(NULL));
 
     // Open the log file for writing
     time_t start = time(NULL);

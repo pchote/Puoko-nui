@@ -126,6 +126,16 @@ char *canonicalize_path(const char *path)
     return strdup(path_buf);
 }
 
+bool file_exists(const char *path)
+{
+#ifdef _WIN32
+    DWORD a = GetFileAttributes(path);
+    return (a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY));
+#else
+    return access(path, F_OK) == 0;
+#endif
+}
+
 bool rename_atomically(const char *src, const char *dest, bool overwrite)
 {
 #ifdef _WIN32
