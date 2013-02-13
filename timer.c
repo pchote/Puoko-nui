@@ -66,6 +66,12 @@ struct __attribute__((__packed__)) packet_status
     uint8_t gps;
 };
 
+struct __attribute__((__packed__)) packet_message
+{
+    uint8_t length;
+    char str[MAX_DATA_LENGTH-1];
+};
+
 struct timer_packet
 {
     enum packet_state state;
@@ -80,6 +86,7 @@ struct timer_packet
         uint8_t bytes[MAX_DATA_LENGTH+1];
         struct packet_time time;
         struct packet_status status;
+        struct packet_message message;
     } data;
 };
 
@@ -109,6 +116,7 @@ struct TimerUnit
 
 void *timer_thread(void *timer);
 void *simulated_timer_thread(void *args);
+
 #pragma mark Creation and Destruction (Called from main thread)
 
 // Initialize a new TimerUnit struct.
@@ -273,12 +281,12 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
             pthread_mutex_unlock(&timer->read_mutex);
             break;
         case DEBUG_STRING:
-            p->data.bytes[p->length] = '\0';
-            pn_log("Timer message: %s", p->data.bytes);
+            p->data.message.str[p->data.message.length] = '\0';
+            pn_log("Timer message: %s", p->data.message.str);
             break;
         case DEBUG_RAW:
         {
-            char *msg = (char *)malloc((3*p->length+7)*sizeof(char));
+            char *msg = (char *)malloc((3*p->data.message.length+7)*sizeof(char));
             if (!msg)
             {
                 pn_log("Timer warning: Failed to allocate log_raw_data. Ignoring message");
@@ -286,8 +294,8 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
             }
 
             strcpy(msg, "Data: ");
-            for (uint8_t i = 0; i < p->length; i++)
-                snprintf(&msg[3*i + 6], 4, "%02x ", p->data.bytes[i]);
+            for (uint8_t i = 0; i < p->data.message.length; i++)
+                snprintf(&msg[3*i + 6], 4, "%02x ", p->data.message.str[i]);
 
             pn_log(msg);
             free(msg);
