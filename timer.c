@@ -57,6 +57,15 @@ struct __attribute__((__packed__)) packet_startexposure
     uint16_t exposure;
 };
 
+struct __attribute__((__packed__)) packet_status
+{
+    // Mirrors (unpacked) TimerMode enum
+    uint8_t timer;
+
+    // Mirrors (unpacked) TimerGPSStatus enum
+    uint8_t gps;
+};
+
 struct timer_packet
 {
     enum packet_state state;
@@ -70,6 +79,7 @@ struct timer_packet
         // Extra byte allows us to always null-terminate strings for display
         uint8_t bytes[MAX_DATA_LENGTH+1];
         struct packet_time time;
+        struct packet_status status;
     } data;
 };
 
@@ -89,6 +99,7 @@ struct TimerUnit
     bool shutdown;
     TimerTimestamp current_timestamp;
     TimerMode mode;
+    TimerGPSStatus gps_status;
 
     unsigned char send_buffer[256];
     unsigned char send_length;
@@ -241,8 +252,24 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
             break;
         }
         case STATUSMODE:
+            if (timer->gps_status != p->data.status.gps)
+            {
+                switch (p->data.status.gps)
+                {
+                case GPS_UNAVAILABLE:
+                    pn_log("Timer: GPS Serial lost.");
+                    break;
+                case GPS_SYNCING:
+                    pn_log("Timer: GPS Serial syncing.");
+                    break;
+                case GPS_ACTIVE:
+                    pn_log("Timer: GPS Serial active.");
+                    break;
+                }
+            }
             pthread_mutex_lock(&timer->read_mutex);
-            timer->mode = p->data.bytes[0];
+            timer->mode = p->data.status.timer;
+            timer->gps_status = p->data.status.gps;
             pthread_mutex_unlock(&timer->read_mutex);
             break;
         case DEBUG_STRING:
@@ -419,7 +446,6 @@ serial_error:
 
     // Invalidate current time
     pthread_mutex_lock(&timer->read_mutex);
-    timer->current_timestamp.year = 0;
     timer->mode = TIMER_IDLE;
     pthread_mutex_unlock(&timer->read_mutex);
 
@@ -437,6 +463,7 @@ void *simulated_timer_thread(void *_args)
     // Initialization
     pn_log("Initializing simulated Timer.");
     timer->simulated_progress = timer->simulated_total = 0;
+    timer->gps_status = GPS_ACTIVE;
 
     TimerTimestamp last = system_time();
 
@@ -503,7 +530,6 @@ void *simulated_timer_thread(void *_args)
 
     // Invalidate current time
     pthread_mutex_lock(&timer->read_mutex);
-    timer->current_timestamp.year = 0;
     timer->mode = TIMER_IDLE;
     pthread_mutex_unlock(&timer->read_mutex);
 
@@ -572,6 +598,12 @@ TimerTimestamp timer_current_timestamp(TimerUnit *timer)
     TimerTimestamp ts = timer->current_timestamp;
     pthread_mutex_unlock(&timer->read_mutex);
     return ts;
+}
+
+TimerGPSStatus timer_gps_status(TimerUnit *timer)
+{
+    // gps_status is atomic, so no need for a mutex
+    return timer->gps_status;
 }
 
 // Callback to notify that the simulated camera has read out

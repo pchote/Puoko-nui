@@ -154,16 +154,17 @@ void FLTKGui::updateTimerGroup()
     m_timerPCTimeOutput->value(buf);
 
     // GPS time
-    TimerTimestamp ts = timer_current_timestamp(m_timerRef);
-
-    if (ts.year > 0)
+    uint16_t progress = 0;
+    if (timer_gps_status(m_timerRef) == GPS_ACTIVE)
     {
+        TimerTimestamp ts = timer_current_timestamp(m_timerRef);
         snprintf(buf, 32, "%04d-%02d-%02d", ts.year, ts.month, ts.day);
         m_timerUTCDateOutput->value(buf);
         snprintf(buf, 32, "%02d:%02d:%02d (%s)",
                  ts.hours, ts.minutes, ts.seconds,
                  (ts.locked ? "Locked" : "Unlocked"));
         m_timerUTCTimeOutput->value(buf);
+        progress = ts.exposure_progress;
     }
     else
     {
@@ -206,7 +207,6 @@ void FLTKGui::updateTimerGroup()
 
     // Construct "Exposure:" string
     buf[0] = '\0';
-    uint16_t progress = ts.exposure_progress;
     uint16_t total = cached_exposure_time;
     uint16_t total_ms = 0;
 

@@ -97,10 +97,9 @@ static void update_time_window()
     mvwaddstr(time_window, 2, 13, strtime);
 
     // GPS time
-    TimerTimestamp ts = timer_current_timestamp(timer);
-
-    if (ts.year > 0)
+    if (timer_gps_status(m_timerRef) == GPS_ACTIVE)
     {
+        TimerTimestamp ts = timer_current_timestamp(m_timerRef);
         mvwaddstr(time_window, 1, 13, (ts.locked ? "Locked     " : "Unlocked   "));
         mvwprintw(time_window, 3, 13, "%04d-%02d-%02d %02d:%02d:%02d", ts.year, ts.month, ts.day, ts.hours, ts.minutes, ts.seconds);
 

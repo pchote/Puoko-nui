@@ -21,6 +21,13 @@ typedef enum
     TIMER_READOUT
 } TimerMode;
 
+typedef enum
+{
+    GPS_UNAVAILABLE = 0,
+    GPS_SYNCING     = 1,
+    GPS_ACTIVE      = 2
+} TimerGPSStatus;
+
 typedef struct TimerUnit TimerUnit;
 
 TimerUnit *timer_new(bool simulate_hardware);
@@ -34,6 +41,7 @@ void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor);
 void timer_stop_exposure(TimerUnit *timer);
 TimerMode timer_mode(TimerUnit *timer);
 TimerTimestamp timer_current_timestamp(TimerUnit *timer);
+TimerGPSStatus timer_gps_status(TimerUnit *timer);
 
 void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading);
 
