@@ -25,15 +25,14 @@
 enum packet_state {HEADERA = 0, HEADERB, TYPE, LENGTH, DATA, CHECKSUM, FOOTERA, FOOTERB};
 enum packet_type
 {
-    CURRENTTIME = 'A',
-    DOWNLOADTIME = 'B',
-    DEBUG_STRING = 'C',
-    DEBUG_RAW = 'D',
+    TIMESTAMP = 'A',
+    TRIGGER = 'B',
+    MESSAGE = 'C',
+    MESSAGE_RAW = 'D',
     START_EXPOSURE = 'E',
     STOP_EXPOSURE = 'F',
-    STATUSMODE = 'H',
-    SYNC = 'S',
-    UNKNOWN_PACKET = 0
+    STATUS = 'H',
+    ENABLE_RELAY = 'R',
 };
 
 struct __attribute__((__packed__)) packet_time
@@ -229,12 +228,12 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
     // Handle packet
     switch (p->type)
     {
-        case CURRENTTIME:
+        case TIMESTAMP:
             pthread_mutex_lock(&timer->read_mutex);
             unpack_timestamp(&p->data.time, &timer->current_timestamp);
             pthread_mutex_unlock(&timer->read_mutex);
             break;
-        case DOWNLOADTIME:
+        case TRIGGER:
         {
             TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
             if (!t)
@@ -259,7 +258,7 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
             queue_trigger(t);
             break;
         }
-        case STATUSMODE:
+        case STATUS:
             if (timer->gps_status != p->data.status.gps)
             {
                 switch (p->data.status.gps)
@@ -280,11 +279,11 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
             timer->gps_status = p->data.status.gps;
             pthread_mutex_unlock(&timer->read_mutex);
             break;
-        case DEBUG_STRING:
+        case MESSAGE:
             p->data.message.str[p->data.message.length] = '\0';
             pn_log("Timer message: %s", p->data.message.str);
             break;
-        case DEBUG_RAW:
+        case MESSAGE_RAW:
         {
             char *msg = (char *)malloc((3*p->data.message.length+7)*sizeof(char));
             if (!msg)
@@ -342,7 +341,6 @@ void *timer_thread(void *_args)
 
     // Wait for bootloader timeout
     millisleep(1000);
-    queue_data(timer, SYNC, NULL, 0);
 
     struct timer_packet p = (struct timer_packet){.state = HEADERA};
 
