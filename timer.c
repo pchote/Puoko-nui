@@ -339,6 +339,9 @@ void *timer_thread(void *_args)
     millisleep(100);
     serial_set_dtr(port, false);
 
+    // Clear any buffered data from before the reset
+    while (serial_read(port, &(uint8_t){0}, 1) > 0);
+
     // Wait for bootloader timeout
     millisleep(1000);
 
