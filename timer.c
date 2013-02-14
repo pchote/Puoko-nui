@@ -294,7 +294,7 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
 
             strcpy(msg, "Data: ");
             for (uint8_t i = 0; i < p->data.message.length; i++)
-                snprintf(&msg[3*i + 6], 4, "%02x ", p->data.message.str[i]);
+                snprintf(&msg[3*i + 6], 4, "%02x ", (uint8_t)p->data.message.str[i]);
 
             pn_log(msg);
             free(msg);
