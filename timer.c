@@ -281,7 +281,7 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
             break;
         case MESSAGE:
             p->data.message.str[p->data.message.length] = '\0';
-            pn_log("Timer message: %s", p->data.message.str);
+            pn_log("Timer: %s", p->data.message.str);
             break;
         case MESSAGE_RAW:
         {
