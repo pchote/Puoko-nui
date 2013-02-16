@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=SAOImage ds9
+Comment=View and analyze astronomical data
+Exec=ds9
+Icon=ds9
+Type=Application
+Categories=Education;Science;Astronomy;

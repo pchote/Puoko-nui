@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Thunderbolt Monitor
+Comment=Desktop software for the Trimble Thunderbolt GPS receiver
+Exec=/bin/sh -c "/home/sullivan/puokonui/timerutil /dev/ttyUSB0 relay; cd /home/sullivan/.wine/drive_c/Program\ Files/TBOLTMON; wine TBOLTMON.EXE"
+Terminal=false
+Type=Application
+Categories=Wine;
+StartupNotify=true
+Icon=trimble
