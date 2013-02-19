@@ -450,6 +450,12 @@ void *timer_thread(void *_args)
 
 error:
     pn_log("Shutting down timer.");
+
+    // Reset hardware
+    serial_set_dtr(port, true);
+    millisleep(100);
+    serial_set_dtr(port, false);
+
     serial_free(port);
 serial_error:
 
