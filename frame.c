@@ -54,15 +54,15 @@ void frame_process_transforms(CameraFrame *frame)
         
         if (frame->has_image_region)
         {
-            uint16_t temp = frame->width - frame->image_region[2];
-            frame->image_region[2] = frame->width - frame->image_region[3];
+            uint16_t temp = frame->height - frame->image_region[2];
+            frame->image_region[2] = frame->height - frame->image_region[3];
             frame->image_region[3] = temp;
         }
         
         if (frame->has_bias_region)
         {
-            uint16_t temp = frame->width - frame->bias_region[2];
-            frame->bias_region[2] = frame->width - frame->bias_region[3];
+            uint16_t temp = frame->height - frame->bias_region[2];
+            frame->bias_region[2] = frame->height - frame->bias_region[3];
             frame->bias_region[3] = temp;
         }
     }
