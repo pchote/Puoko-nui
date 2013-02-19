@@ -702,7 +702,7 @@ int camera_pvcam_query_ccd_region(Camera *camera, void *_internal, uint16_t regi
     region[0] = 0;
     region[1] = internal->ccd_width - 1;
     region[2] = 0;
-    region[3] = internal->ccd_width - 1;
+    region[3] = internal->ccd_height - 1;
     return CAMERA_OK;
 }
 
