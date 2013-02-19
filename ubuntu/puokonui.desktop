@@ -6,3 +6,15 @@ Name=Puoko-nui Acquisition
 Exec=/home/sullivan/puokonui/puokonui
 Path=/home/sullivan/puokonui
 StartupWMClass=FLTK
+X-Ayatana-Desktop-Shortcuts=SimulateCamera;SimulateTimer;
+
+[SimulateCamera Shortcut Group]
+Name=Simulate Camera
+Exec=/bin/bash -c "export PATH=/home/sullivan/tsreduce:$PATH && cd /home/sullivan/puokonui && ./puokonui --simulate-camera"
+TargetEnvironment=Unity
+
+[SimulateTimer Shortcut Group]
+Name=Simulate Timer & Camera
+Exec=/bin/bash -c "export PATH=/home/sullivan/tsreduce:$PATH && cd /home/sullivan/puokonui && ./puokonui --simulate-timer"
+TargetEnvironment=Unity
+
