@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Icon=deja-dup-cloud
+Name=Puoko-nui Acquisition
+Exec=/home/sullivan/puokonui/puokonui
+Path=/home/sullivan/puokonui
+StartupWMClass=FLTK

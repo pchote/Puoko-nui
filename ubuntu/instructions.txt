@@ -1,0 +1,2 @@
+Copy *.desktop to ~/.local/share/applications/
+Copy *.png to ~/.icons/
