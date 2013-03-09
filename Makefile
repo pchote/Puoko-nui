@@ -6,7 +6,7 @@ GUI_TYPE := FLTK
 GIT_SHA1 = $(shell sh -c 'git describe --dirty --always')
 CC       = gcc
 CXX      = g++
-CFLAGS   = -g -Wall -Wno-unknown-pragmas --std=c99 -D_GNU_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
+CFLAGS   = -g -Wall -Wno-unknown-pragmas -pedantic --std=c99 -D_ISOC99_SOURCE -DGIT_SHA1=\"$(GIT_SHA1)\"
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
 UTIL_LFLAGS = -lcfitsio -lpthread -lm
 LFLAGS   = $(UTIL_LFLAGS)
