@@ -3,11 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>The Puoko-nui CCD Time-Series Photometer by pchote</title>
+    <title>The Puoko-nui CCD Time-Series Photometer</title>
     <link rel="stylesheet" href="stylesheets/styles.css">
     <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+	<link rel="stylesheet" href="stylesheets/lightbox.css" />
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
     <script src="javascripts/respond.js"></script>
+	<script src="javascripts/jquery-1.7.2.min.js"></script>
+	<script src="javascripts/lightbox.js"></script>
     <!--[if lt IE 9]>
       <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
@@ -19,15 +22,68 @@
   </head>
   <body>
     <div class="wrapper">
-
       <section>
         <div id="title">
           <h1>The Puoko-nui CCD Time-Series Photometer</h1>
           <p>Information about our instrumentation and asteroseismology of White Dwarfs</p>
           <hr>
         </div>
-		<h3>Under Construction</h3>
-		<p>Come back in a couple of days for more information!</p>
+		<div class="imageRow" style="float:right; margin-left:5px;"><div class="single">
+		  <a href="images/mjuo.jpg" rel="lightbox[images]" title="PC &amp; DJS with the VUW instrument on the 1m telescope at MJUO"><img src="images/mjuo.jpg" width="150" /></a>
+		</div></div>
+		<h3>White Dwarf Stars</h3>
+		<p>TODO...</p>
+		<p>Frequencies identified via the Fourier Transform can then be matched to the spherical harmonics predicted by
+			models of White Dwarf interiors to constrain the internal parameters of the star. Harmonic and linear combination frequencies can be used to model the depth of the stellar atmosphere, which provides an indirect measurement of the temperature of the star.</p>
+		
+			<div class="imageRow" style="float:left; margin-right:5px;"><div class="single">
+	  		  <a href="images/pjmo.jpg" rel="lightbox[images]" title="The UT ProEM instrument mounted on the 24&quot; telescope at PJMO"><img src="images/pjmo.jpg" width="150" /></a>
+			</div></div>
+        <hr style="clear:both;">
+		
+		<div class="imageRow" style="float:left; margin-right:5px;"><div class="single">
+  		  <a href="images/pjmo.jpg" rel="lightbox[images]" title="TODO: Timer unit"><img src="images/pjmo.jpg" width="150" /></a>
+		</div></div>
+		<h3>Instrumentation</h3>
+		<p>We have developed a flexible and robust photometer for studying variable stars. The system integrates a commerical CCD camera and GPS receiver with a custom timer unit and instrument control and online data analysis software.</p>
+		<p>Two variants of the instrument exist with different cameras. The VUW system uses a Princeton Instruments
+			MicroMax CCD. The Texas system uses the Priceton Instruments ProEM CCD. Both cameras are 1024 x 1024px back-illuminated frame-transfer CCDs. The frame transfer operation reduces the dead-time associated with digitization to a negligible level.</p>
+			
+		<p>Our timing hardware provides precise exposure timing with a 1 millisecond resolution for exposures less than 65 seconds, or 1 second resolution for longer intervals. The unit is built around an Atmel AVR microprocessor (similar to those used in the Arduino platform) which communicates with an external GPS receiver. Source code and hardware specifications are available in the <a href="https://github.com/pchote/Karaka" target="_blank">Karaka repository</a>.</p>
+		
+		<div class="imageRow" style="float:right; margin-left:5px;"><div class="single">
+  		  <a href="images/acquisition.png" rel="lightbox[images]" title="The acquisition software and online reduction while observing the pulsating white dwarf L19-2"><img src="images/acquisition.png" width="200" /></a>
+		</div></div>
+		<p>Instrument control software has been developed to run under Linux and Windows. This software is available in the <a href="https://github.com/pchote/Puoko-nui" target="_blank">Puoko-nui repository</a>.</p>
+		
+		<p>TODO: <span style="font-variant: small-caps;">tsreduce</span></p>
+		<p>TODO: Lightbox simulator</p>
+
+        <hr style="clear:both;">
+
+		<h3>Presentations &amp; Publications</h3>
+		<p>This section is under construction, and will be extended as work in progress is completed and published.</p>
+		<p class="reference">
+			<em>Asteroseismology of Pulsating White Dwarfs</em><br />
+			Chote &amp; Sullivan 2013 (poster) [<a href="images/poster_lores.pdf" target="_blank">PDF</a>]
+		</p>
+		<p class="reference">
+			<em>Time series photometry of the helium atmosphere pulsating white dwarf EC 04207−4748</em><br />
+			Chote et al. 2013 (MNRAS) [<a href="http://mnras.oxfordjournals.org/content/early/2013/03/05/mnras.stt180.full.pdf?keytype=ref&ijkey=sb78wQMo5Q4B1P" target="_blank">PDF</a>]
+		</p>
+		<p class="reference">
+			<em>The Puoko-nui CCD Time-Series Photometer</em><br />
+			Chote &amp; Sullivan 2012 (ASPCS, in press) [<a href="images/instrument_krakow.pdf" target="_blank">PDF</a>]
+		</p>
+		<p class="reference">
+			<em>HST and Optical Data Reveal White Dwarf Cooling, Spin, and Periodicities in GW Librae 3-4 Years after Outburst</em><br />
+			Szkody et al. 2012 (ApJ) [<a href="http://adsabs.harvard.edu/abs/2012ApJ...753..158S" target="_blank">ADS</a>] [<a href="http://arxiv.org/abs/1205.2598" target="_blank">arXiv</a>]
+		</p>
+        <div id="footer">
+        <hr>
+		  <span class="credits left">Project maintained by <a href="https://github.com/pchote">pchote</a></span>
+		  <span class="credits right">Hosted on GitHub Pages &mdash; Based on theme by <a href="http://twitter.com/#!/michigangraham">mattgraham</a></span>
+		</div>
       </section>
 
     </div>
