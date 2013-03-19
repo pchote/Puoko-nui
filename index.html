@@ -1,184 +1,191 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>Asteroseismology at VUW</title>
-    <link rel="stylesheet" href="stylesheets/styles.css">
-	<link rel="stylesheet" href="stylesheets/lightbox.css" />
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
-    <script src="javascripts/respond.js"></script>
-	<script src="javascripts/jquery-1.7.2.min.js"></script>
-	<script src="javascripts/lightbox.js"></script>
-    <!--[if lt IE 9]>
-      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
-    <!--[if lt IE 8]>
-    <link rel="stylesheet" href="stylesheets/ie.css">
-    <![endif]-->
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="chrome=1">
+		<title>Asteroseismology at VUW</title>
+		<link rel="stylesheet" href="stylesheets/styles.css">
+		<link rel="stylesheet" href="stylesheets/lightbox.css" />
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+		<script src="javascripts/respond.js"></script>
+		<script src="javascripts/jquery-1.7.2.min.js"></script>
+		<script src="javascripts/lightbox.js"></script>
+		<!--[if lt IE 9]>
+			<script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+		<![endif]-->
+		<!--[if lt IE 8]>
+			<link rel="stylesheet" href="stylesheets/ie.css">
+		<![endif]-->
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+	</head>
+	<body>
+		<div class="wrapper">
+			<section>
+				<div id="title">
+					<h1>Asteroseismology at VUW</h1>
+					<p>Pulsating White Dwarfs &amp; The Puoko-nui CCD Time-Series Photometer</p>
+					<hr>
+				</div>
+				<h3>White Dwarf Stars</h3>
+				<div class="imageRow" style="float:right; margin-right:5px;"><div class="single">
+					<a href="images/mjuo.jpg" rel="lightbox[images]" title="PC &amp; DJS with the VUW system mounted on the 1m telescope at MJUO">
+					<img src="images/mjuo_thumb.jpg" width="150" /></a>
+				</div></div>
+				<p align="justify">
+					Stars exist as a balance between gravity pulling in and energy created by
+					nuclear fusion pushing out.  When a star runs out of nuclear fuel this outward force
+					ceases, and the star will evolve into a small and extremely dense object. Depending
+					on their mass they will become a white
+					dwarf, neutron star, or black hole.  The vast majority of stars (over 97%) are
+					predicted to end their lives as a white dwarf.
+				</p>
+				<p align="justify">
+					The forces sustaining a white dwarf are dominated by quantum and relativistic effects.
+					They contain a core about the size of the Earth     which contains a classical gas of
+					nuclides (mainly carbon and oxygen) and a quantum gas of electrons travelling near the
+					speed of light.  The core is covered with an atmosphere (of similar thickness to our
+					own) containing mainly hydrogen and/or helium.
+				</p>
+				<p align="justify">
+					Most white dwarfs are hot which makes them appear blue compared to
+					other stars, but their small size means that they are usually very faint.  They slowly
+					cool as they radiate away their internal energy, causing their radiation to shift
+					to longer wavelengths (become redder) over time.  The observed distribution of white
+					dwarf temperatures/colours provides an important constraint on the age of our galaxy.
+				</p>
+				<div class="imageRow" style="float:left; margin-left:5px;"><div class="single">
+					<a href="images/pjmo.jpg" rel="lightbox[images]" title="The UT system mounted on the 24&quot; telescope at Meyer Observatory">
+					<img src="images/pjmo_thumb.jpg" width="150" /></a>
+				</div></div>
+				<p align="justify">
+					As they cool, there are certain temperature regimes where the outflowing
+					energy is able to interact with the hydrogen or helium in the atmosphere
+					to drive complicated pulsations.  The strong gravity at the surface of a
+					white dwarfs mean that these pulsations are largely non-radial.
+					These pulsations manifest as periodic temperature variations at the surface,
+					made up of many sinusoidal frequencies, which cause the apparant brightness
+					of the star to change on timescales of a few minutes.  The spectrum of
+					frequencies within the pulsations are related to the internal structure and
+					composition of the star.
+				</p>
+				<p align="justify">
+					We are able to identify the frequencies that a star pulsates at by measuring
+					its intensity over time and using the Fourier transform to find the equivalent
+					sinusoids that it contains.  These frequencies can then be used to constrain
+					numerical models of white dwarf interiors to indirectly measure important
+					physical charactersics of the star.  Some stars show non-sinusoidal pulsations,
+					which is related to convection within the stellar atmosphere.
+				</p>
+				<p align="justify">
+					The short timescale of the pulsations means that we must continuosly monitor
+					a single star with integrations of tens of seconds.  Most white dwarf research is
+					done with ~1m class telescopes, so it is important to have an efficient
+					photometer that makes the most of the limited number of photons that these faint
+					stars emit.
+				</p>
+				<hr style="clear:both;">
+				<h3>Instrumentation</h3>
+				<div class="imageRow" style="float:right; margin-right:5px;"><div class="single">
+					<a href="images/timer.jpg" rel="lightbox[images]" title="The Puoko-nui timer unit">
+					<img src="images/timer_thumb.jpg" width="200" /></a>
+				</div></div>
+				<p align="justify">
+					We have developed a flexible photometer system for measuring the intensity of
+					variable stars.  The photometer integrates an off-the-shelf
+					<abbr title="Charge-Coupled Device">CCD</abbr> camera and
+					<abbr title="Global Positioning System">GPS</abbr> receiver with custom timing
+					electronics and software for instrument control and data analysis.
+				</p>
+				<p align="justify">
+					Two variants of the instrument exist with different cameras.  The original
+					system operated at <a href="http://www.victoria.ac.nz/scps">VUW</a> uses a Princeton
+					Instruments MicroMax CCD, and is used with the 1m telescope at
+					<a href="http://www.phys.canterbury.ac.nz/research/mt_john/index.shtml">Mt John University Observatory</a>.
+					A second instrument is operated by the White Dwarf group at the
+					<a href="http://www.as.utexas.edu/astronomy/astronomy.html">University of Texas in Austin</a>.
+					This instrument uses a Princeton Instruments ProEM CCD, and has been used
+					with the 82" and 36" telescopes at
+					<a href="http://www.as.utexas.edu/mcdonald/mcdonald.html">McDonald Observatory</a>
+					and the 24" telescope at
+					<a href="http://www.centexastronomy.org/content.aspx?page_id=22&club_id=901132&module_id=8135">Meyer Observatory</a>.
+				</p>
+				<p align="justify">
+					The CCDs in both instruments are back-illuminated 1024&times;1024px
+					frame-transfer CCDs.  The back-illumination provides exceptional quantum
+					efficiency in the blue wavelengths emitted by hot white dwarfs, and the
+					frame-transfer operation allows the cameras to be operated without a
+					mechanical shutter, further increasing the photon collecting ability of
+					the system.
+				</p>
+				<p align="justify">
+					Our timing hardware is built around an Atmel AVR microprocessor (similar
+					to those used in the Arduino platform) which communicates with an external
+					GPS receiver, the acquisition PC, and the CCD.  Precise exposure timing is
+					available with a 1 millisecond resolution for exposures less than 65 seconds,
+					or 1 second resolution for longer intervals.
+				</p>
+				<div class="imageRow" style="float:left; margin-left:5px;"><div class="single">
+					<a href="images/acquisition.png" rel="lightbox[images]" title="The acquisition software and online reduction while observing the pulsating white dwarf L19-2">
+					<img src="images/acquisition_thumb.png" width="200" /></a>
+				</div></div>
+				<p align="justify">
+					<span style="font-variant: small-caps;">tsreduce</span> provides real-time
+					analysis of the acquired data.  It performs     differential aperture photometry
+					on the target star plus several comparison stars to remove the effect of cloud
+					and other atmospheric effects.  The reduction display shows the raw intensities,
+					differential photometry of the target star, an estimate of the atmospheric seeing,
+					and a Fourier Transform of the target pulsations.
+				</p>
+				<p align="justify">
+					We have developed a second AVR based unit for controlling the intensity of
+					<abbr title="Light Emitting Diode">LED</abbr>s in a light-tight box, which allows
+					the instrument and reduction software to be tested on the bench. We are currently
+					adapting this work for an undergraduate physics experiment on CCDs and timeseries
+					photometery.
+				</p>
+				<hr style="clear:both;">
 
-  </head>
-  <body>
-    <div class="wrapper">
-      <section>
-        <div id="title">
-          <h1>Asteroseismology at VUW</h1>
-          <p>Pulsating White Dwarfs &amp; The Puoko-nui CCD Time-Series Photometer</p>
-          <hr>
-        </div>
-		<h3>White Dwarf Stars</h3>
-		<div class="imageRow" style="float:right; margin-right:5px;"><div class="single">
-		  <a href="images/mjuo.jpg" rel="lightbox[images]" title="PC &amp; DJS with the VUW system mounted on the 1m telescope at MJUO"><img src="images/mjuo_thumb.jpg" width="150" /></a>
-		</div></div>
-		<p align="justify">
-			Stars exist as a balance between gravity and the outflow of energy created from
-			nuclear fusion within their core.  When a star runs out of nuclear fuel it
-			will evolve into a small and extremely dense stellar remnant: a white dwarf,
-			neutron star, or black hole.  The vast majority of stars (over 97%) are predicted
-			to end their lives as a white dwarf.
-		</p>
-		<p align="justify">
-			The forces sustaining a white dwarf are dominated by quantum and relativistic effects.
-			They contain a core about the size of the Earth	which contains a classical gas of
-			nuclides (mainly carbon and oxygen) and a quantum gas of electrons travelling near the
-			speed of light.  The core is covered with an atmosphere (of similar thickness to our
-			own) containing mainly hydrogen and/or helium.
-		</p>
-		<p align="justify">
-			Most white dwarfs are relatively hot which makes them appear blue compared to
-			other stars, but their small size makes them intrinsically faint.  They slowly
-			cool as they radiate away their internal energy, causing their radiation to shift
-			to longer wavelengths (become redder) over time.  The observed distribution of white
-			dwarf temperatures provides an important constraint on the age of our galaxy.
-		</p>
-		<div class="imageRow" style="float:left; margin-left:5px;"><div class="single">
-  		  <a href="images/pjmo.jpg" rel="lightbox[images]" title="The UT system mounted on the 24&quot; telescope at Meyer Observatory"><img src="images/pjmo_thumb.jpg" width="150" /></a>
-		</div></div>	
-		<p align="justify">
-			As they cool, there are certain temperature regimes where the outflowing
-			energy is able to interact with the hydrogen or helium in the atmosphere
-			to drive complicated pulsations.  The strong gravity of white dwarfs mean
-			that these pulsations are largely non-radial.
-			These pulsations manifest as periodic temperature variations at the surface,
-			which cause the apparant brightness of the star to change on timescales of
-			a few minutes.  These brightness variations are made up of many sinusoidal
-			frequencies which are related to the internal structure of the star.
-		</p>
-		<p align="justify">
-			We are able to identify the frequencies that a star pulsates at by measuring
-			its intensity over time and using the Fourier transform to find the equivalent
-			sinusoids that it contains.  These frequencies can then be used to constrain
-			numerical models of white dwarf interiors to indirectly measure important
-			physical charactersics of the star.  Some stars show non-sinusoidal pulsations,
-			which is related to convection within the stellar atmosphere.
-		</p>
-		<p align="justify">
-			The short timescale of the pulsations means that we must continuosly measure
-			intensities with integrations of tens of seconds.  Most white dwarf research is
-			done with ~1m class telescopes, and so it is important to have an efficient
-			photometer that makes the most of the limited number of photons available.
-		</p>
-		<hr style="clear:both;">
-		<h3>Instrumentation</h3>
-		<div class="imageRow" style="float:right; margin-right:5px;"><div class="single">
-  			<a href="images/timer.jpg" rel="lightbox[images]" title="The Puoko-nui timer unit">
-			<img src="images/timer_thumb.jpg" width="200" /></a>
-		</div></div>
-		<p align="justify">
-			We have developed a flexible photometer system for measuring the intensity of
-			variable stars.  The photometer integrates an off-the-shelf
-			<abbr title="Charge-Coupled Device">CCD</abbr> camera and
-			<abbr title="Global Positioning System">GPS</abbr> receiver with custom timing
-			electronics and software for instrument control and data analysis.
-		</p>
-		<p align="justify">
-			Two variants of the instrument exist with different cameras.  The original
-			<abbr title="Victoria University of Wellington">VUW</abbr> system uses a Princeton
-			Instruments MicroMax CCD, and is used with the 1m telescope at
-			<a href="http://www.phys.canterbury.ac.nz/research/mt_john/index.shtml">Mt John University Observatory</a>.
-			A second instrument is operated by the White Dwarf group at the
-			<a href="http://www.as.utexas.edu/astronomy/astronomy.html">University of Texas in Austin</a>.
-			This instrument uses a Princeton Instruments ProEM CCD, and has been used
-			with the 82" and 36" telescopes at
-			<a href="http://www.as.utexas.edu/mcdonald/mcdonald.html">McDonald Observatory</a>
-			and the 24" telescope at
-			<a href="http://www.centexastronomy.org/content.aspx?page_id=22&club_id=901132&module_id=8135">Meyer Observatory</a>.
-		</p>
-		<p align="justify">
-			The CCDs in both instruments are back-illuminated 1024&times;1024px
-			frame-transfer CCDs.  The back-illumination provides exceptional quantum
-			efficiency in the blue wavelengths emitted by hot white dwarfs, and the
-			frame-transfer operation allows the cameras to be operated without a
-			mechanical shutter, further increasing the photon collecting ability of
-			the system.
-		</p>
-			
-		<p align="justify">
-			Our timing hardware is built around an Atmel AVR microprocessor (similar
-			to those used in the Arduino platform) which communicates with an external
-			GPS receiver.  Precise exposure timing is available with a 1 millisecond
-			resolution for exposures less than 65 seconds, or 1 second resolution for
-			longer intervals. More information (including hardware specifications and
-			source code) is available in the
-			<a href="https://github.com/pchote/Karaka" target="_blank">Karaka repository</a>.
-		</p>
-		
-		<p align="justify">
-			Instrument control software has been developed to run under Linux and
-			Windows.  More information (including source code) is available in the
-			<a href="https://github.com/pchote/Puoko-nui" target="_blank">Puoko-nui repository</a>.
-		</p>
-		<div class="imageRow" style="float:left; margin-left:5px;"><div class="single">
-			<a href="images/acquisition.png" rel="lightbox[images]" title="The acquisition software and online reduction while observing the pulsating white dwarf L19-2">
-			<img src="images/acquisition_thumb.png" width="200" /></a>
-		</div></div>
-		<p align="justify">
-			<span style="font-variant: small-caps;">tsreduce</span> analyses data as
-			it is acquired to provide real-time analysis of the target star.  It performs
-			differential aperture photometry on the target star plus several comparison
-			stars to remove the effect of cloud and transparency variations.  The online
-			reduction display includes raw intensities, an estimate of the current
-			atmospheric seeing, and time-series and Fourier Transform of the target star.
-			More information is available in the
-			<a href="https://github.com/pchote/tsreduce">tsreduce repository</a>
-		</p>
-		<p align="justify">
-			We have also developed a microprocessor unit used to drive
-			<abbr title="Light Emitting Diode">LED</abbr>s in a light-box for bench-testing
-			the instrument and online reduction. More information is available in the
-			<a href="https://github.com/pchote/star-simulator">Star Simulator repository</a>.
-		</p>
-
-        <hr style="clear:both;">
-
-		<h3>Presentations &amp; Publications</h3>
-		<p>This section is under construction, and will be extended as work in progress is completed and published.</p>
-		<p class="reference">
-			<em>Asteroseismology of Pulsating White Dwarfs</em><br />
-			Chote &amp; Sullivan 2013 (poster) [<a href="images/poster_lores.pdf" target="_blank">PDF</a>]
-		</p>
-		<p class="reference">
-			<em>Time series photometry of the helium atmosphere pulsating white dwarf EC 04207−4748</em><br />
-			Chote et al. 2013 (<abbr title="Monthly Notices of the Royal Astronomical Society">MNRAS</abbr>) [<a href="http://mnras.oxfordjournals.org/content/early/2013/03/05/mnras.stt180.full.pdf?keytype=ref&ijkey=sb78wQMo5Q4B1P" target="_blank">PDF</a>]
-		</p>
-		<p class="reference">
-			<em>The Puoko-nui CCD Time-Series Photometer</em><br />
-			Chote &amp; Sullivan 2012 (<abbr title="Astronomical Society of the Pacific Conference Series">ASPCS</abbr>, in press) [<a href="images/instrument_krakow.pdf" target="_blank">PDF</a>]
-		</p>
-		<p class="reference">
-			<em>HST and Optical Data Reveal White Dwarf Cooling, Spin, and Periodicities in GW Librae 3-4 Years after Outburst</em><br />
-			Szkody et al. 2012 (<abbr title="Astrophysical Journal">ApJ</abbr>) [<a href="http://adsabs.harvard.edu/abs/2012ApJ...753..158S" target="_blank">ADS</a>] [<a href="http://arxiv.org/abs/1205.2598" target="_blank">arXiv</a>]
-		</p>
-        <div id="footer">
-        <hr>
-		  <span class="credits left">Project maintained by <a href="https://github.com/pchote">pchote</a></span>
-		  <span class="credits right">Hosted on GitHub Pages &mdash; Based on theme by <a href="http://twitter.com/#!/michigangraham">mattgraham</a></span>
+				<h3>Development</h3>
+				<p align="justify">
+					Our hardware and software is developed in the open, with source code and hardware
+					specifications hosted on <a href="https://github.com/" targt="_blank">GitHub</a>.
+					More information on each project is available in the repositories below.
+				</p>
+				<ul>
+					<li><a href="https://github.com/pchote/Puoko-nui" target="_blank">Puoko-nui (Acquisition software)</a></li>
+					<li><a href="https://github.com/pchote/Karaka" target="_blank">Karaka (Timer unit)</a></li>
+					<li><a href="https://github.com/pchote/tsreduce" target="_blank">tsreduce (Reduction software)</a></li>
+					<li><a href="https://github.com/pchote/star-simulator">star-simulator (Variable light-source controller)</a></li>
+				</ul>
+				<hr style="clear:both;">
+				<h3>Presentations &amp; Publications</h3>
+				<p align="justify">
+					More information on our research is available from the references below.
+					This section will be expanded as publications in progress are completed.
+				</p>
+				<p class="reference">
+					<em>Asteroseismology of Pulsating White Dwarfs</em><br />
+					Chote &amp; Sullivan 2013 (poster) [<a href="images/poster_lores.pdf" target="_blank">PDF</a>]
+				</p>
+				<p class="reference">
+					<em>Time series photometry of the helium atmosphere pulsating white dwarf EC 04207−4748</em><br />
+					Chote et al. 2013 (<abbr title="Monthly Notices of the Royal Astronomical Society">MNRAS</abbr>) [<a href="http://mnras.oxfordjournals.org/content/early/2013/03/05/mnras.stt180.full.pdf?keytype=ref&ijkey=sb78wQMo5Q4B1P" target="_blank">PDF</a>]
+				</p>
+				<p class="reference">
+					<em>The Puoko-nui CCD Time-Series Photometer</em><br />
+					Chote &amp; Sullivan 2012 (<abbr title="Astronomical Society of the Pacific Conference Series">ASPCS</abbr>, in press) [<a href="images/instrument_krakow.pdf" target="_blank">PDF</a>]
+				</p>
+				<p class="reference">
+					<em>HST and Optical Data Reveal White Dwarf Cooling, Spin, and Periodicities in GW Librae 3-4 Years after Outburst</em><br />
+					Szkody et al. 2012 (<abbr title="Astrophysical Journal">ApJ</abbr>) [<a href="http://adsabs.harvard.edu/abs/2012ApJ...753..158S" target="_blank">ADS</a>] [<a href="http://arxiv.org/abs/1205.2598" target="_blank">arXiv</a>]
+				</p>
+				<div id="footer">
+					<hr>
+					<span class="credits left">Project maintained by <a href="https://github.com/pchote">pchote</a></span>
+					<span class="credits right">Hosted on GitHub Pages &mdash; Based on theme by <a href="http://twitter.com/#!/michigangraham">mattgraham</a></span>
+				</div>
+			</section>
 		</div>
-      </section>
-
-    </div>
-    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
-    
-  </body>
+		<!--[if !IE]><script>fixScale(document);</script><![endif]-->
+	</body>
 </html>
