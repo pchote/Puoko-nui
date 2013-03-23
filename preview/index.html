@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>Test</title>
+    <link class="include" rel="stylesheet" type="text/css" href="jquery.jqplot.min.css" />
+    <!--[if lt IE 9]><script language="javascript" type="text/javascript" src="excanvas.min.js"></script><![endif]-->
+    <script class="include" type="text/javascript" src="jquery.min.js"></script>
+</head>
+<body style="background: #000;">
+  <style type="text/css">
+    .jqplot-cursor-legend {
+      width: 160px;
+      font-family: "Courier New";
+      font-size: 0.8em;
+    }
+
+	.jqplot-cursor-tooltip {
+		background: #333;
+  	  	color: #fff;
+		z-index:10;
+	}
+
+	.jqplot-title {
+		color: #fff;
+        font-size: 1.0em;
+	}
+
+	.jqplot-yaxis-label {
+		background: #CC0000;
+	}
+
+    td.jqplot-cursor-legend-swatch { width: 1.3em; }
+	table.jqplot-table-legend { background: #333; width:150px; }
+	div.jqplot-table-legend-swatch-outline { border: none; }
+  </style>
+
+  <div class="jqPlot" id="mma" style="height:70px; width:600px;"></div>
+  <div class="jqPlot" id="ratio" style="height:59px; width:600px;"></div>
+  <div class="jqPlot" id="fwhm" style="height:59px; width:600px;"></div>
+  <div class="jqPlot" id="raw" style="height:280px; width:600px;"></div>
+  <div class="jqPlot" id="controller" style="margin-top: 30px; height:125px; width:600px;"></div>
+  <button value="reset" onclick="controllerPlot.resetZoom();">Reset</button>
+
+  <script type="text/javascript" class="code">
+	$(document).ready(function() {
+		var rawData = [];
+		var rawLabels = [];
+		var rawColors = [];
+		$.each(data.raw.targets, function(i, d) {
+			rawData.push(d.data);
+			rawLabels.push({label:d.label});
+			rawColors.push(d.color);
+		});
+
+		var gridOptions = {
+			gridLineColor: '#222',
+			background: '#000',
+			borderColor: '#fff',
+			borderWidth: 2.0,
+			shadow: false
+		};
+
+		var axisOptions = {
+			useSeriesColor:false,
+			labelRenderer: $.jqplot.CanvasAxisLabelRenderer,
+			tickOptions: { textColor: '#fff', showGridline: false, mark: 'inside' },
+			labelOptions: { textColor: '#fff' }
+		};
+
+		var cursorOptions = {
+          show: true,
+          zoom: true,
+          showTooltip: true,
+		  followMouse: true,
+          constrainZoomTo: 'x'
+        };
+
+		var seriesOptions = {
+			showMarker: true,
+			showLine: false,
+			shadow: false,
+			markerOptions: {
+	            style: 'circle',
+	            size: 1,
+	            lineWidth: 1,
+				shadow: false,
+	        }
+		};
+
+		var rawPlot = $.jqplot('raw', rawData, {
+			seriesDefaults: seriesOptions,
+			seriesColors: rawColors,
+			series: rawLabels,
+			cursor: cursorOptions,
+			grid: gridOptions,
+			gridPadding: {top: -1, bottom: 30, left: 70, right: 0},
+
+			legend: {
+				show: true,
+				renderer: $.jqplot.EnhancedLegendRenderer,
+				placement: "outside",
+				location: "ne",
+				rowSpacing: "5px",
+				textColor: '#fff'
+			},
+			axesDefaults: axisOptions,
+			axes: {
+				xaxis: {
+					label: data.raw.xlabel,
+					padMin: 0,
+					padMax: 0,
+					min: data.mintime,
+					max: data.maxtime
+				},
+				yaxis: {
+					label: data.raw.ylabel,
+					padMin: 0,
+					padMax: 1.1
+				}
+			}
+		});
+
+		var fwhmPlot = $.jqplot('fwhm', [data.fwhm.data], {
+			seriesDefaults: $.extend({}, seriesOptions, { color: '#fff' }),
+			cursor: cursorOptions,
+			grid: gridOptions,
+			gridPadding: {top: -1, bottom: 0, left: 70, right: 0},
+			legend: { show: false },
+			axesDefaults: axisOptions,
+			axes: {
+				xaxis: { showTicks: false, min: data.mintime, max: data.maxtime },
+				yaxis: { label: 'FWHM (")', min: data.fwhm.min, max: data.fwhm.max }
+			}
+		});
+
+		var ratioPlot = $.jqplot('ratio', [data.ratio.data], {
+			seriesDefaults: $.extend({}, seriesOptions, { color: '#fff' }),
+			cursor: cursorOptions,
+			grid: gridOptions,
+			gridPadding: {top: -1, bottom: 0, left: 70, right: 0},
+			legend: { show: false },
+			axesDefaults: axisOptions,
+			axes: {
+				xaxis: { showTicks: false, min: data.mintime, max: data.maxtime },
+				yaxis: { label: 'Ratio', showTicks: false, min: data.ratio.min, max: data.ratio.max }
+			}
+		});
+
+		var mmaPlot = $.jqplot('mma', [data.mma.data], {
+			seriesDefaults: $.extend({}, seriesOptions, { color: '#fff' }),
+			cursor: cursorOptions,
+			grid: gridOptions,
+			gridPadding: {top: 10, bottom: 0, left: 70, right: 0},
+			legend: { show: false },
+			axesDefaults: axisOptions,
+			axes: {
+				xaxis: { showTicks: false, min: data.mintime, max: data.maxtime },
+				yaxis: { label: 'mma', min: data.mma.min, max: data.mma.max }
+			}
+		});
+
+		controllerPlot = $.jqplot('controller', rawData, {
+			seriesDefaults: seriesOptions,
+			seriesColors: rawColors,
+			series: rawLabels,
+			cursor: cursorOptions,
+			title: 'Time selector',
+			grid: gridOptions,
+			gridPadding: {top: 25, bottom: 30, left: 70, right: 0},
+			axesDefaults: axisOptions
+		});
+
+		$.jqplot.Cursor.zoomProxy(mmaPlot, controllerPlot);
+		$.jqplot.Cursor.zoomProxy(ratioPlot, controllerPlot);
+		$.jqplot.Cursor.zoomProxy(fwhmPlot, controllerPlot);
+		$.jqplot.Cursor.zoomProxy(rawPlot, controllerPlot);
+
+		$.each($(".jqplot-yaxis-label"), function(i, d) {
+			d.style.left = '0px';
+		});
+		$.jqplot._noToImageButton = true;
+	});
+  </script>
+  <script class="include" type="text/javascript" src="jquery.jqplot.min.js"></script>
+  <script class="include" type="text/javascript" src="plugins/jqplot.cursor.min.js"></script>
+  <script class="include" type="text/javascript" src="plugins/jqplot.canvasTextRenderer.min.js"></script>
+  <script class="include" type="text/javascript" src="plugins/jqplot.canvasAxisLabelRenderer.min.js"></script>
+  <script class="include" type="text/javascript" src="plugins/jqplot.enhancedLegendRenderer.min.js"></script>
+  <script class="include" type="text/javascript" src="testdata.js"></script>
+</body>
+</html>
