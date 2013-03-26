@@ -19,6 +19,12 @@
 #include "camera.h"
 #include "serial.h"
 
+// Force gcc ABI for packed structs under windows
+#ifdef _WIN32
+#   define PACKED_STRUCT __attribute__((gcc_struct, __packed__))
+#else
+#   define PACKED_STRUCT __attribute__((__packed__))
+#endif
 
 // Timer message protocol definitions
 #define MAX_DATA_LENGTH 200
@@ -35,7 +41,7 @@ enum packet_type
     ENABLE_RELAY = 'R',
 };
 
-struct __attribute__((__packed__)) packet_time
+struct PACKED_STRUCT packet_time
 {
     uint16_t year;
     uint8_t month;
@@ -49,14 +55,14 @@ struct __attribute__((__packed__)) packet_time
 };
 
 enum __attribute__((__packed__)) packet_timingmode {TIME_SECONDS, TIME_MILLISECONDS};
-struct __attribute__((__packed__)) packet_startexposure
+struct PACKED_STRUCT packet_startexposure
 {
     uint8_t use_monitor;
     enum packet_timingmode timing_mode;
     uint16_t exposure;
 };
 
-struct __attribute__((__packed__)) packet_status
+struct PACKED_STRUCT packet_status
 {
     // Mirrors (unpacked) TimerMode enum
     uint8_t timer;
@@ -65,7 +71,7 @@ struct __attribute__((__packed__)) packet_status
     uint8_t gps;
 };
 
-struct __attribute__((__packed__)) packet_message
+struct PACKED_STRUCT packet_message
 {
     uint8_t length;
     char str[MAX_DATA_LENGTH-1];
