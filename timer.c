@@ -41,6 +41,7 @@ enum packet_type
     ENABLE_RELAY = 'R',
 };
 
+enum __attribute__((__packed__)) packet_timeflags {TIMESTAMP_LOCKED = 1, TIMESTAMP_IS_GPS = 2};
 struct PACKED_STRUCT packet_time
 {
     uint16_t year;
@@ -50,7 +51,8 @@ struct PACKED_STRUCT packet_time
     uint8_t minutes;
     uint8_t seconds;
     uint16_t milliseconds;
-    uint8_t locked;
+    enum packet_timeflags flags;
+    int16_t utc_offset;
     uint16_t exposure_progress;
 };
 
@@ -225,8 +227,16 @@ static void unpack_timestamp(struct packet_time *pt, TimerTimestamp *tt)
     tt->minutes = pt->minutes;
     tt->seconds = pt->seconds;
     tt->milliseconds = pt->milliseconds;
-    tt->locked = pt->locked;
+    tt->locked = (pt->flags & TIMESTAMP_LOCKED);
     tt->exposure_progress = pt->exposure_progress;
+
+	// Convert GPS time to UTC
+	if (pt->flags & TIMESTAMP_IS_GPS)
+		tt->seconds -= pt->utc_offset;
+
+	// Normalize the timestamp so that the milliseconds and
+	// seconds are in their expected range.
+    timestamp_normalize(tt);
 }
 
 static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *p)
@@ -247,13 +257,7 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
                 pn_log("Failed to allocate TimerTimestamp. Discarding trigger");
                 break;
             }
-
-            p->data.time.exposure_progress = 0;
             unpack_timestamp(&p->data.time, t);
-
-            // The timer sends unnormalized timestamps, where milliseconds may
-            // be greater than 1000.
-            timestamp_normalize(t);
 
             // Update current time
             pthread_mutex_lock(&timer->read_mutex);
