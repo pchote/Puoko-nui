@@ -349,7 +349,8 @@ void *timer_thread(void *_args)
     while (serial_read(port, &(uint8_t){0}, 1) > 0);
 
     // Wait for bootloader timeout
-    millisleep(1000);
+	pn_log("Waiting for timer...");
+    millisleep(5000);
 
     struct timer_packet p = (struct timer_packet){.state = HEADERA};
 

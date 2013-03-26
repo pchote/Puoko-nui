@@ -46,7 +46,7 @@ int send_config_string(const char *device, uint32_t baud, char *str, size_t len)
     serial_set_dtr(port, false);
 
     // Wait for bootloader to timeout
-    millisleep(1000);
+    millisleep(5000);
 
     // Send synchronization packet
     if ((error = serial_write(port, (uint8_t *)"$$S\x00\x00\r\n", 7)) < 0)
