@@ -27,10 +27,8 @@ struct serial_port
 {
 #ifdef _WIN32
     HANDLE handle;
-    DCB initial_dcb;
 #else
     int fd;
-    struct termios initial_tio;
 #endif
 };
 
@@ -57,13 +55,6 @@ struct serial_port *serial_new(const char *path, uint32_t baud, ssize_t *error)
     {
         *error = -GetLastError();
         goto open_error;
-    }
-
-    port->initial_dcb.DCBlength = sizeof(DCB);
-    if (!GetCommState(port->handle, &port->initial_dcb))
-    {
-        *error = -GetLastError();
-        goto configuration_error;
     }
 
     DCB dcb;
@@ -151,15 +142,13 @@ open_error:
         goto configuration_error;
     }
 
-    // Get the current options to restore when we are finished.
-    if (tcgetattr(port->fd, &port->initial_tio) == -1)
+    // Get the current options
+    struct termios tio;
+    if (tcgetattr(port->fd, &tio) == -1)
     {
         *error = -errno;
         goto configuration_error;
     }
-
-    struct termios tio;
-    memcpy(&tio, &port->initial_tio, sizeof(struct termios));
 
     // Set baud rate
     cfsetispeed(&tio, baud);
@@ -203,18 +192,10 @@ void serial_free(struct serial_port *port)
 {
 #ifdef _WIN32
     if (port->handle != 0)
-    {
-        // Attempt to restore original configuration
-        SetCommState(port->handle, &port->initial_dcb);
         CloseHandle(port->handle);
-    }
 #else
     if (port->fd != -1)
-    {
-        // Attempt to restore original configuration
-        tcsetattr(port->fd, TCSANOW, &port->initial_tio);
         close(port->fd);
-    }
 #endif
     free(port);
 }
