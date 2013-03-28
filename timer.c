@@ -230,12 +230,12 @@ static void unpack_timestamp(struct packet_time *pt, TimerTimestamp *tt)
     tt->locked = (pt->flags & TIMESTAMP_LOCKED);
     tt->exposure_progress = pt->exposure_progress;
 
-	// Convert GPS time to UTC
-	if (pt->flags & TIMESTAMP_IS_GPS)
-		tt->seconds -= pt->utc_offset;
+    // Convert GPS time to UTC
+    if (pt->flags & TIMESTAMP_IS_GPS)
+        tt->seconds -= pt->utc_offset;
 
-	// Normalize the timestamp so that the milliseconds and
-	// seconds are in their expected range.
+    // Normalize the timestamp so that the milliseconds and
+    // seconds are in their expected range.
     timestamp_normalize(tt);
 }
 
@@ -353,7 +353,7 @@ void *timer_thread(void *_args)
     while (serial_read(port, &(uint8_t){0}, 1) > 0);
 
     // Wait for bootloader timeout
-	pn_log("Waiting for timer...");
+    pn_log("Waiting for timer...");
     millisleep(5000);
 
     struct timer_packet p = (struct timer_packet){.state = HEADERA};
