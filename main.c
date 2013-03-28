@@ -41,11 +41,7 @@ void queue_framedata(CameraFrame *frame)
     bool success = atomicqueue_push(frame_queue, frame);
     pthread_mutex_unlock(&reset_mutex);
 
-    if (success)
-        pn_log("Frame @ %02d:%02d:%02d. %d queued.",
-               t->hours, t->minutes, t->seconds,
-               atomicqueue_length(frame_queue));
-    else
+    if (!success)
     {
         pn_log("Failed to push frame. Discarding.");
         free(frame);
@@ -60,12 +56,7 @@ void queue_trigger(TimerTimestamp *t)
     bool success = atomicqueue_push(trigger_queue, t);
     pthread_mutex_unlock(&reset_mutex);
 
-    if (success)
-        pn_log("Trigger @ %02d:%02d:%02d%s. %d queued.",
-               t->hours, t->minutes, t->seconds,
-               (t->locked ? "" : " (UNLOCKED)"),
-               atomicqueue_length(trigger_queue));
-    else
+    if (!success)
     {
         pn_log("Failed to push trigger. Discarding.");
         free(t);

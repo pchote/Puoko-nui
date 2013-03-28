@@ -62,6 +62,7 @@ struct PACKED_STRUCT packet_startexposure
     uint8_t use_monitor;
     enum packet_timingmode timing_mode;
     uint16_t exposure;
+    uint8_t stride;
 };
 
 struct PACKED_STRUCT packet_status
@@ -104,9 +105,11 @@ struct TimerUnit
     bool thread_alive;
 
     bool simulated;
-    uint16_t simulated_total;
     uint16_t simulated_progress;
     bool simulated_send_shutdown;
+
+    uint16_t exposure_length;
+    uint8_t exposure_stride;
 
     struct serial_port *port;
 
@@ -263,6 +266,28 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
             pthread_mutex_lock(&timer->read_mutex);
             timer->current_timestamp = *t;
             pthread_mutex_unlock(&timer->read_mutex);
+
+            // Interpolate intermediate timestamps if necessary
+            bool highspeed = pn_preference_char(TIMER_HIGHRES_TIMING);
+            for (uint8_t i = timer->exposure_stride - 1; i > 0; i--)
+            {
+                TimerTimestamp *interpolated = malloc(sizeof(TimerTimestamp));
+                if (!interpolated)
+                {
+                    pn_log("Failed to allocate interpolated TimerTimestamp. Ignoring");
+                    break;
+                }
+
+                memcpy(interpolated, t, sizeof(TimerTimestamp));
+                if (highspeed)
+                    interpolated->milliseconds -= i*timer->exposure_length;
+                else
+                    interpolated->seconds -= i*timer->exposure_length;
+                timestamp_normalize(interpolated);
+
+                // Pass ownership to main thread
+                queue_trigger(interpolated);
+            }
 
             // Pass ownership to main thread
             queue_trigger(t);
@@ -488,7 +513,7 @@ void *simulated_timer_thread(void *_args)
 
     // Initialization
     pn_log("Initializing simulated Timer.");
-    timer->simulated_progress = timer->simulated_total = 0;
+    timer->simulated_progress = timer->exposure_length = 0;
     timer->gps_status = GPS_ACTIVE;
 
     TimerTimestamp last = system_time();
@@ -504,7 +529,7 @@ void *simulated_timer_thread(void *_args)
         pthread_mutex_unlock(&timer->read_mutex);
         if (send_shutdown)
         {
-            timer->simulated_total = 0;
+            timer->exposure_length = 0;
             timer->simulated_progress = 0;
             camera_notify_safe_to_stop(camera);
         }
@@ -514,7 +539,7 @@ void *simulated_timer_thread(void *_args)
         if (cur.seconds != last.seconds ||
             cur.milliseconds != last.milliseconds)
         {
-            if (timer->simulated_total > 0)
+            if (timer->exposure_length > 0)
             {
                 if (pn_preference_char(TIMER_HIGHRES_TIMING))
                     timer->simulated_progress += (cur.seconds - last.seconds)*1000 + (cur.milliseconds - last.milliseconds);
@@ -522,9 +547,9 @@ void *simulated_timer_thread(void *_args)
                     timer->simulated_progress += cur.seconds - last.seconds;
             }
 
-            if (timer->simulated_progress >= timer->simulated_total && timer->simulated_total > 0)
+            if (timer->simulated_progress >= timer->exposure_length && timer->exposure_length > 0)
             {
-                timer->simulated_progress -= timer->simulated_total;
+                timer->simulated_progress -= timer->exposure_length;
 
                 TimerTimestamp *t = malloc(sizeof(TimerTimestamp));
                 if (!t)
@@ -569,13 +594,19 @@ void *simulated_timer_thread(void *_args)
 void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
 {
     bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
-    pn_log("Starting %d %s exposures.", exptime, highres ? "ms" : "s");
+
+    uint8_t stride = (highres && exptime <= 500) ? (exptime < 5) ? 250 : 1000 / exptime : 1;
+
+    pn_log("Starting %d %s exposures with stride %u.", exptime, highres ? "ms" : "s", stride);
+    pthread_mutex_lock(&timer->read_mutex);
+    timer->exposure_length = exptime;
+    timer->exposure_stride = stride;
+    pthread_mutex_unlock(&timer->read_mutex);
 
     if (timer->simulated)
     {
         pthread_mutex_lock(&timer->read_mutex);
         timer->simulated_progress = 0;
-        timer->simulated_total = exptime;
         timer->mode = TIMER_EXPOSING;
         pthread_mutex_unlock(&timer->read_mutex);
     }
@@ -589,6 +620,7 @@ void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
             .use_monitor = use_monitor,
             .timing_mode = highres ? TIME_MILLISECONDS : TIME_SECONDS,
             .exposure = exptime,
+            .stride = stride
         };
 
         queue_data(timer, START_EXPOSURE, &data, sizeof(struct packet_startexposure));
