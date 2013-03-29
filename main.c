@@ -35,7 +35,6 @@ bool first_frame = true;
 void queue_framedata(CameraFrame *frame)
 {
     frame->downloaded_time = timer_current_timestamp(timer);
-    TimerTimestamp *t = &frame->downloaded_time;
 
     pthread_mutex_lock(&reset_mutex);
     bool success = atomicqueue_push(frame_queue, frame);
@@ -61,6 +60,8 @@ void queue_trigger(TimerTimestamp *t)
         pn_log("Failed to push trigger. Discarding.");
         free(t);
     }
+    else if (camera_is_simulated(camera))
+        camera_simulate_frame(camera);
 }
 
 // Called by main thread to remove all queued frames and

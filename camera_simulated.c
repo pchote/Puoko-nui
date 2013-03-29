@@ -21,9 +21,12 @@
 // Holds the state of a camera
 struct internal
 {
-    TimerUnit *timer;
     uint16_t frame_width;
     uint16_t frame_height;
+
+    // Number of queued frames to generate
+    size_t queued_frames;
+    pthread_mutex_t queue_mutex;
 
     // String descriptions to store in frame headers
     char *current_port_desc;
@@ -40,7 +43,8 @@ int camera_simulated_initialize(Camera *camera, ThreadCreationArgs *args, void *
     if (!internal)
         return CAMERA_ALLOCATION_FAILED;
 
-    internal->timer = args->timer;
+    pthread_mutex_init(&internal->queue_mutex, NULL);
+
     *out_internal = internal;
     return CAMERA_OK;
 }
@@ -161,8 +165,10 @@ int camera_simulated_query_ccd_region(Camera *camera, void *internal, uint16_t r
     return CAMERA_OK;
 }
 
-int camera_simulated_uninitialize(Camera *camera, void *internal)
+int camera_simulated_uninitialize(Camera *camera, void *_internal)
 {
+    struct internal *internal = _internal;
+    pthread_mutex_destroy(&internal->queue_mutex);
     free(internal);
     return CAMERA_OK;
 }
@@ -197,7 +203,12 @@ int camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_
 {
     struct internal *internal = _internal;
 
-    if (current_mode == ACQUIRING && timer_mode(internal->timer) == TIMER_READOUT)
+    pthread_mutex_lock(&internal->queue_mutex);
+    size_t queued = internal->queued_frames;
+    internal->queued_frames = 0;
+    pthread_mutex_unlock(&internal->queue_mutex);
+
+    for (size_t i = 0; i < queued; i++)
     {
         // Copy frame data and pass ownership to main thread
         CameraFrame *frame = malloc(sizeof(CameraFrame));
@@ -239,10 +250,6 @@ int camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_
         }
         else
             pn_log("Failed to allocate CameraFrame. Discarding frame.");
-
-        // There is no physical camera for the timer to monitor
-        // so we must toggle this manually
-        timer_set_simulated_camera_downloading(internal->timer, false);
     }
 
     return CAMERA_OK;
@@ -266,4 +273,13 @@ void camera_simulated_normalize_trigger(Camera *camera, void *internal, TimerTim
         trigger->seconds -= exposure;
     
     timestamp_normalize(trigger);
+}
+
+void camera_simulated_trigger_frame(Camera *camera, void *_internal)
+{
+    struct internal *internal = _internal;
+
+    pthread_mutex_lock(&internal->queue_mutex);
+    internal->queued_frames++;
+    pthread_mutex_unlock(&internal->queue_mutex);
 }

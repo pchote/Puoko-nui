@@ -418,3 +418,11 @@ uint8_t camera_port_options(Camera *camera, struct camera_port_option **options)
     *options = camera->port_options;
     return camera->port_count;
 }
+
+void camera_simulate_frame(Camera *camera)
+{
+    if (camera->type != SIMULATED)
+        return;
+
+    camera_simulated_trigger_frame(camera, camera->internal);
+}

@@ -535,11 +535,10 @@ void *simulated_timer_thread(void *_args)
         }
 
         TimerTimestamp cur = system_time();
-
         if (cur.seconds != last.seconds ||
             cur.milliseconds != last.milliseconds)
         {
-            if (timer->exposure_length > 0)
+            if (camera_mode(camera) == ACQUIRING && timer->exposure_length > 0)
             {
                 if (pn_preference_char(TIMER_HIGHRES_TIMING))
                     timer->simulated_progress += (cur.seconds - last.seconds)*1000 + (cur.milliseconds - last.milliseconds);
@@ -662,15 +661,6 @@ TimerGPSStatus timer_gps_status(TimerUnit *timer)
 {
     // gps_status is atomic, so no need for a mutex
     return timer->gps_status;
-}
-
-// Callback to notify that the simulated camera has read out
-// TODO: This is a crappy abstraction
-void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading)
-{
-    pthread_mutex_lock(&timer->read_mutex);
-    timer->mode = downloading ? TIMER_READOUT : TIMER_EXPOSING;
-    pthread_mutex_unlock(&timer->read_mutex);
 }
 
 // Ensure all time components are within their allowed range

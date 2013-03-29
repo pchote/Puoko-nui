@@ -43,8 +43,6 @@ TimerMode timer_mode(TimerUnit *timer);
 TimerTimestamp timer_current_timestamp(TimerUnit *timer);
 TimerGPSStatus timer_gps_status(TimerUnit *timer);
 
-void timer_set_simulated_camera_downloading(TimerUnit *timer, bool downloading);
-
 void timestamp_normalize(TimerTimestamp *ts);
 double timestamp_to_unixtime(TimerTimestamp *ts);
 
