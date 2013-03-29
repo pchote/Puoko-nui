@@ -266,7 +266,7 @@ void FLTKGui::updateCameraGroup()
     {
         snprintf(buf, 11, "%0.02f \u00B0C", cached_camera_temperature);
         m_cameraTemperatureOutput->value(buf);
-        snprintf(buf, 11, "%0.02f sec", cached_camera_readout);
+        snprintf(buf, 11, "%0.03f sec", cached_camera_readout);
         m_cameraReadoutOutput->value(buf);
     }
     else
