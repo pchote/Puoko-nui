@@ -221,7 +221,7 @@ int camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_
             {
                 // Fill frame with random numbers
                 for (size_t i = 0; i < internal->frame_width*internal->frame_height; i++)
-                    frame->data[i] = rand();
+                    frame->data[i] = rand() % 10000;
 
                 // Add orientation squares to top corners of frame
                 for (size_t j = 20; j < 30; j++)
@@ -230,6 +230,9 @@ int camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_
                         frame->data[(internal->frame_height - j)*internal->frame_width + i] = 0;
                         frame->data[(internal->frame_height - j)*internal->frame_width +
                                     internal->frame_width - i] = 65535;
+
+                        frame->data[(internal->frame_height/2 - j + 25)*internal->frame_width +
+                                    internal->frame_width/2 - i + 25] = 20000;
                     }
                 frame->width = internal->frame_width;
                 frame->height = internal->frame_height;
