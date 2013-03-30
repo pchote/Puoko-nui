@@ -18,6 +18,7 @@
 #include "main.h"
 
 #if (defined _WIN32 || defined _WIN64)
+    #include "preferences.h"
     #include <windows.h>
 #endif
 
@@ -174,7 +175,7 @@ char *last_path_component(char *path)
 }
 
 // Run a command synchronously, logging output with a given prefix
-int run_command(const char *cmd, char *log_prefix)
+int run_command(const char *cmd, const char *log_prefix)
 {
 #if (defined _WIN32 || defined _WIN64)
     // Create pipe for stdout/stderr
@@ -294,4 +295,31 @@ int run_command(const char *cmd, char *log_prefix)
     return pclose(process);
 #endif
 }
-	
+
+int run_script(const char *script, const char *log_prefix)
+{
+#if (defined _WIN32)
+    char *msys_bash_path = pn_preference_string(MSYS_BASH_PATH);
+    char *cwd = getcwd(NULL, 0);
+    char *path = canonicalize_path(cwd);
+    free(cwd);
+
+    size_t cmd_len = strlen(msys_bash_path) + strlen(path) + strlen(script) + 26;
+    char *cmd = malloc(cmd_len*sizeof(char));
+    if (!cmd)
+    {
+        pn_log("Failed to allocate command string. Skipping script.");
+        return 1;
+    }
+
+    snprintf(cmd, cmd_len, "%s --login -c \"cd \\\"%s\\\" && %s", msys_bash_path, path, script);
+    free(path);
+    free(msys_bash_path);
+
+    int ret = run_command(cmd, log_prefix);
+    free(cmd);
+    return ret;
+#else
+    return run_command(script, log_prefix);
+#endif
+}

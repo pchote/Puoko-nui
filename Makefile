@@ -10,7 +10,7 @@ CFLAGS   = -g -Wall -Wno-unknown-pragmas -pedantic --std=c99 -D_ISOC99_SOURCE -D
 CXXFLAGS = -g -Wall -Wno-unknown-pragmas -pedantic
 UTIL_LFLAGS = -lcfitsio -lpthread -lm
 LFLAGS   = $(UTIL_LFLAGS)
-OBJS     = main.o frame.o camera.o camera_simulated.o timer.o preferences.o scripting.o platform.o atomicqueue.o version.o serial.o
+OBJS     = main.o frame.o camera.o camera_simulated.o timer.o preferences.o preview_script.o reduction_script.o platform.o atomicqueue.o version.o serial.o
 
 ifeq ($(CAMERA_TYPE),PVCAM)
 	CFLAGS += -DUSE_PVCAM

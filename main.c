@@ -16,7 +16,8 @@
 #include "atomicqueue.h"
 #include "camera.h"
 #include "timer.h"
-#include "scripting.h"
+#include "preview_script.h"
+#include "reduction_script.h"
 #include "preferences.h"
 #include "gui.h"
 #include "platform.h"
@@ -24,7 +25,8 @@
 
 Camera *camera;
 TimerUnit *timer;
-ScriptingInterface *scripting;
+ReductionScript *reduction;
+PreviewScript *preview;
 pthread_mutex_t reset_mutex;
 
 struct atomicqueue *log_queue, *frame_queue, *trigger_queue;
@@ -189,7 +191,7 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
                    last_path_component(filepath), last_path_component(temppath));
         else
         {
-            scripting_notify_frame(scripting, filepath);
+            reduction_push_frame(reduction, filepath);
             pn_log("Saved `%s'.", last_path_component(filepath));
         }
 
@@ -213,7 +215,7 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
         delete_file(temp_preview);
     }
     else
-        scripting_update_preview(scripting);
+        preview_script_run(preview);
 
     free(temp_preview);
 }
@@ -267,9 +269,10 @@ int main(int argc, char *argv[])
     pn_init_preferences("preferences.dat");
     timer = timer_new(simulate_timer);
     camera = camera_new(simulate_camera);
-    scripting = scripting_new();
+    reduction = reduction_script_new();
+    preview = preview_script_new();
 
-    if (!timer || !camera || !scripting)
+    if (!timer || !camera || !reduction || !preview)
     {
         fprintf(stderr, "Failed to allocate thread components\n");
         return 1;
@@ -282,7 +285,8 @@ int main(int argc, char *argv[])
     args.camera = camera;
     args.timer = timer;
 
-    scripting_spawn_threads(scripting, &args);
+    reduction_script_spawn_thread(reduction, &args);
+    preview_script_spawn_thread(preview, &args);
     timer_spawn_thread(timer, &args);
     camera_spawn_thread(camera, &args);
 
@@ -293,12 +297,13 @@ int main(int argc, char *argv[])
     for (;;)
     {
         if (status == NORMAL && (!camera_thread_alive(camera) || !timer_thread_alive(timer) ||
-            !scripting_reduction_thread_alive(scripting) || !scripting_preview_thread_alive(scripting)))
+            !reduction_script_thread_alive(reduction) || !preview_script_thread_alive(preview)))
         {
             pn_ui_show_fatal_error();
             camera_notify_shutdown(camera);
             timer_notify_shutdown(timer);
-            scripting_notify_shutdown(scripting);
+            reduction_script_notify_shutdown(reduction);
+            preview_script_notify_shutdown(preview);
             status = ERROR;
             pn_log("A fatal error has occurred.");
             pn_log("Uninitializing hardware...");
@@ -369,7 +374,8 @@ int main(int argc, char *argv[])
         {
             camera_notify_shutdown(camera);
             timer_notify_shutdown(timer);
-            scripting_notify_shutdown(scripting);
+            reduction_script_notify_shutdown(reduction);
+            preview_script_notify_shutdown(preview);
             status = SHUTDOWN;
         }
 
@@ -378,8 +384,8 @@ int main(int argc, char *argv[])
         {
             bool ca = camera_thread_alive(camera);
             bool ta = timer_thread_alive(timer);
-            bool ra = scripting_reduction_thread_alive(scripting);
-            bool pa = scripting_preview_thread_alive(scripting);
+            bool ra = reduction_script_thread_alive(reduction);
+            bool pa = preview_script_thread_alive(preview);
 
             time_t current = time(NULL);
             // Threads have terminated - continue shutdown
@@ -406,11 +412,13 @@ int main(int argc, char *argv[])
     // Wait for camera and timer threads to terminate
     timer_join_thread(timer);
     camera_join_thread(camera);
-    scripting_join_threads(scripting);
+    reduction_script_join_thread(reduction);
+    preview_script_join_thread(preview);
 
     timer_free(timer);
     camera_free(camera);
-    scripting_free(scripting);
+    reduction_script_free(reduction);
+    preview_script_free(preview);
 
     pn_free_preferences();
     pn_ui_free();

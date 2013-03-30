@@ -24,6 +24,7 @@ bool file_exists(const char *path);
 bool rename_atomically(const char *src, const char *dest, bool overwrite);
 bool delete_file(const char *path);
 char *last_path_component(char *path);
-int run_command(const char *cmd, char *log_prefix);
+int run_command(const char *cmd, const char *log_prefix);
+int run_script(const char *script, const char *log_prefix);
 
 #endif
