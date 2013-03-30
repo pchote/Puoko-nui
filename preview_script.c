@@ -19,9 +19,12 @@
 struct PreviewScript
 {
     pthread_t preview_thread;
+    pthread_cond_t signal_condition;
+    pthread_mutex_t signal_mutex;
+    bool preview_available;
+
     bool thread_alive;
     bool shutdown;
-    bool preview_available;
 };
 
 PreviewScript *preview_script_new()
@@ -30,12 +33,16 @@ PreviewScript *preview_script_new()
     if (!preview)
         return NULL;
 
+    pthread_cond_init(&preview->signal_condition, NULL);
+    pthread_mutex_init(&preview->signal_mutex, NULL);
     return preview;
 }
 
 void preview_script_free(PreviewScript *preview)
 {
-
+    pthread_mutex_destroy(&preview->signal_mutex);
+    pthread_cond_destroy(&preview->signal_condition);
+    free(preview);
 }
 
 void *preview_thread(void *_preview)
@@ -48,19 +55,26 @@ void *preview_thread(void *_preview)
     // Loop until shutdown, parsing incoming data
     while (true)
     {
-        millisleep(100);
+        // Wait for a frame to become available
+        pthread_mutex_lock(&preview->signal_mutex);
+        if (preview->shutdown)
+        {
+            // Avoid potential race if shutdown is issued early
+            pthread_mutex_unlock(&preview->signal_mutex);
+            break;
+        }
+
+        while (!(preview->preview_available || preview->shutdown))
+            pthread_cond_wait(&preview->signal_condition, &preview->signal_mutex);
+
+        preview->preview_available = false;
+        pthread_mutex_unlock(&preview->signal_mutex);
+
         if (preview->shutdown)
             break;
-        
-        // Check for new preview to call
-        bool preview_available = preview->preview_available;
-        preview->preview_available = false;
 
-        if (preview_available)
-        {
-            pn_log("Updating preview.");
-            run_script("./preview.sh 2>&1", "Preview: ");
-        }
+        pn_log("Updating preview.");
+        run_script("./preview.sh 2>&1", "Preview: ");
     }
 
     preview->thread_alive = false;
@@ -86,7 +100,10 @@ void preview_script_join_thread(PreviewScript *preview)
 
 void preview_script_notify_shutdown(PreviewScript *preview)
 {
+    pthread_mutex_lock(&preview->signal_mutex);
     preview->shutdown = true;
+    pthread_cond_signal(&preview->signal_condition);
+    pthread_mutex_unlock(&preview->signal_mutex);
 }
 
 bool preview_script_thread_alive(PreviewScript *preview)
@@ -96,6 +113,8 @@ bool preview_script_thread_alive(PreviewScript *preview)
 
 void preview_script_run(PreviewScript *preview)
 {
-    // TODO: Use signals so the preview thread can sleep
+    pthread_mutex_lock(&preview->signal_mutex);
     preview->preview_available = true;
+    pthread_cond_signal(&preview->signal_condition);
+    pthread_mutex_unlock(&preview->signal_mutex);
 }

@@ -19,6 +19,9 @@
 struct ReductionScript
 {
     pthread_t reduction_thread;
+    pthread_cond_t signal_condition;
+    pthread_mutex_t signal_mutex;
+
     bool thread_alive;
     bool shutdown;
 
@@ -38,12 +41,17 @@ ReductionScript *reduction_script_new()
         return NULL;
     }
 
+    pthread_cond_init(&reduction->signal_condition, NULL);
+    pthread_mutex_init(&reduction->signal_mutex, NULL);
     return reduction;
 }
 
 void reduction_script_free(ReductionScript *reduction)
 {
+    pthread_mutex_destroy(&reduction->signal_mutex);
+    pthread_cond_destroy(&reduction->signal_condition);
     atomicqueue_destroy(reduction->new_frames);
+    free(reduction);
 }
 
 void *reduction_thread(void *_reduction)
@@ -53,67 +61,74 @@ void *reduction_thread(void *_reduction)
     // Loop until shutdown, parsing incoming data
     while (true)
     {
-        millisleep(100);
+    next_loop:
+        // Wait for a frame to become available
+        pthread_mutex_lock(&reduction->signal_mutex);
+        if (reduction->shutdown)
+        {
+            // Avoid potential race if shutdown is issued early
+            pthread_mutex_unlock(&reduction->signal_mutex);
+            break;
+        }
+
+        while (!(atomicqueue_length(reduction->new_frames) > 0 || reduction->shutdown))
+            pthread_cond_wait(&reduction->signal_condition, &reduction->signal_mutex);
+
+        pthread_mutex_unlock(&reduction->signal_mutex);
+
         if (reduction->shutdown)
             break;
 
-        // Check for new frames to reduce
-        if (atomicqueue_length(reduction->new_frames))
+        size_t command_size = 256;
+        char *command = calloc(command_size, sizeof(char));
+        if (!command)
         {
-            size_t command_size = 256;
-            char *command = calloc(command_size, sizeof(char));
-            if (!command)
+            pn_log("Failed to allocate reduction string. Skipping reduction");
+            goto next_loop;
+        }
+
+        char *reduce_string = pn_preference_char(REDUCE_FRAMES) ? "true" : "false";
+        size_t command_len = strncatf(command, command_size, "./reduction.sh %s ", reduce_string);
+
+        char *frame;
+        while ((frame = atomicqueue_pop(reduction->new_frames)) != NULL)
+        {
+            size_t frame_len = strlen(frame);
+
+            if (command_len + frame_len >= command_size)
             {
-                pn_log("Failed to allocate reduction string. Skipping reduction");
-                break;
-            }
-
-            char *reduce_string = pn_preference_char(REDUCE_FRAMES) ? "true" : "false";
-            size_t command_len = strncatf(command, command_size, "./reduction.sh %s ", reduce_string);
-
-            char *frame;
-            while ((frame = atomicqueue_pop(reduction->new_frames)) != NULL)
-            {
-                size_t frame_len = strlen(frame);
-
-                if (command_len + frame_len >= command_size)
+                do
                 {
-                    do
-                    {
-                        command_size += 256;
-                    } while (command_len + frame_len >= command_size);
+                    command_size += 256;
+                } while (command_len + frame_len >= command_size);
 
-                    command = realloc(command, command_size);
-                    if (!command)
-                    {
-                        pn_log("Failed to allocate reduction string. Skipping reduction");
-                        break;
-                    }
-                }
-
-                command_len = strncatf(command, command_size, "\"%s\" ", frame);
-            }
-
-            if (!command)
-                continue;
-
-            if (command_len + 5 >= command_size)
-            {
-                command_size += 5;
                 command = realloc(command, command_size);
                 if (!command)
                 {
                     pn_log("Failed to allocate reduction string. Skipping reduction");
-                    continue;
+                    goto next_loop;
                 }
             }
-            strncatf(command, command_size, "2>&1");
 
-            if (command)
+            command_len = strncatf(command, command_size, "\"%s\" ", frame);
+        }
+
+        if (command_len + 5 >= command_size)
+        {
+            command_size += 5;
+            command = realloc(command, command_size);
+            if (!command)
             {
-                run_script(command, "Reduction: ");
-                free(command);
+                pn_log("Failed to allocate reduction string. Skipping reduction");
+                goto next_loop;
             }
+        }
+        strncatf(command, command_size, "2>&1");
+
+        if (command)
+        {
+            run_script(command, "Reduction: ");
+            free(command);
         }
     }
 
@@ -140,7 +155,10 @@ void reduction_script_join_thread(ReductionScript *reduction)
 
 void reduction_script_notify_shutdown(ReductionScript *reduction)
 {
+    pthread_mutex_lock(&reduction->signal_mutex);
     reduction->shutdown = true;
+    pthread_cond_signal(&reduction->signal_condition);
+    pthread_mutex_unlock(&reduction->signal_mutex);
 }
 
 bool reduction_script_thread_alive(ReductionScript *reduction)
@@ -157,6 +175,13 @@ void reduction_push_frame(ReductionScript *reduction, const char *filepath)
         return;
     }
 
-    if (!atomicqueue_push(reduction->new_frames, copy))
+    if (atomicqueue_push(reduction->new_frames, copy))
+    {
+        // Wake up reduction thread
+        pthread_mutex_lock(&reduction->signal_mutex);
+        pthread_cond_signal(&reduction->signal_condition);
+        pthread_mutex_unlock(&reduction->signal_mutex);
+    }
+    else
         pn_log("Failed to push filepath. Reduction notification has been ignored");
 }
