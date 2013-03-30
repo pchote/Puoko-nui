@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <math.h>
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -534,16 +535,16 @@ void *simulated_timer_thread(void *_args)
             camera_notify_safe_to_stop(camera);
         }
 
+        bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
         TimerTimestamp cur = system_time();
-        if (cur.seconds != last.seconds ||
-            cur.milliseconds != last.milliseconds)
+        if (cur.seconds != last.seconds || (highres && cur.milliseconds != last.milliseconds))
         {
             if (camera_mode(camera) == ACQUIRING && timer->exposure_length > 0)
             {
-                if (pn_preference_char(TIMER_HIGHRES_TIMING))
-                    timer->simulated_progress += (cur.seconds - last.seconds)*1000 + (cur.milliseconds - last.milliseconds);
+                if (highres)
+                    timer->simulated_progress += (uint16_t)round(1000*(timestamp_to_unixtime(&cur) - timestamp_to_unixtime(&last)));
                 else
-                    timer->simulated_progress += cur.seconds - last.seconds;
+                    timer->simulated_progress += (uint16_t)round(timestamp_to_unixtime(&cur) - timestamp_to_unixtime(&last));
             }
 
             if (timer->simulated_progress >= timer->exposure_length && timer->exposure_length > 0)
