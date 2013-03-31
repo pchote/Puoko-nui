@@ -16,6 +16,7 @@ typedef struct
 {
     struct Camera * const camera;
     struct TimerUnit * const timer;
+    struct FrameManager *const frame;
     struct PreviewScript * const preview;
     struct ReductionScript * const reduction;
 } Modules;
