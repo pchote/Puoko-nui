@@ -64,8 +64,8 @@ TimerTimestamp system_time()
     struct tm *st = gmtime(&tv.tv_sec);
     return (TimerTimestamp) {
         .year = st->tm_year + 1900,
-        .month = st->tm_mon,
-        .day = st->tm_wday,
+        .month = st->tm_mon + 1,
+        .day = st->tm_mday,
         .hours = st->tm_hour,
         .minutes = st->tm_min,
         .seconds = st->tm_sec,

@@ -689,6 +689,6 @@ void timestamp_normalize(TimerTimestamp *ts)
 
 double timestamp_to_unixtime(TimerTimestamp *ts)
 {
-    struct tm t = {ts->seconds, ts->minutes, ts->hours, ts->day, ts->month, ts->year - 1900,0,0,0};
+    struct tm t = {ts->seconds, ts->minutes, ts->hours, ts->day, ts->month - 1, ts->year - 1900,0,0,0};
     return struct_tm_to_time_t(&t) + ts->milliseconds / 1000.0;
 }
