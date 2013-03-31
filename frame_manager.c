@@ -443,6 +443,7 @@ void *frame_thread(void *_modules)
     FrameManager *frame = modules->frame;
 
     // Loop until shutdown, parsing incoming data
+    time_t last_update = 0;
     while (true)
     {
         // Wait for a frame to become available
@@ -454,11 +455,22 @@ void *frame_thread(void *_modules)
             break;
         }
 
-        while (!((atomicqueue_length(frame->frame_queue) && atomicqueue_length(frame->trigger_queue)) || frame->shutdown))
+        size_t queued_frames, queued_triggers;
+        // Sleep until frame & trigger available, or shutdown.
+        while (!((queued_frames = atomicqueue_length(frame->frame_queue)) &&
+                 (queued_triggers = atomicqueue_length(frame->trigger_queue))) &&
+               !frame->shutdown)
             pthread_cond_wait(&frame->signal_condition, &frame->signal_mutex);
 
         pthread_mutex_unlock(&frame->signal_mutex);
 
+        // Update status every 5s
+        time_t current = time(NULL);
+        if (current - last_update > 5)
+        {
+            pn_log("%zu frames and %zu triggers left to process.", queued_frames, queued_triggers);
+            last_update = current;
+        }
         if (frame->shutdown)
             break;
 
@@ -610,17 +622,25 @@ void frame_manager_purge_queues(FrameManager *frame, bool reset_first_frame)
     void *item;
     pthread_mutex_lock(&frame->frame_mutex);
 
+    size_t discarded = 0;
     while ((item = atomicqueue_pop(frame->frame_queue)) != NULL)
     {
-        pn_log("Discarding queued frame.");
+        discarded++;
         free(item);
     }
 
+    if (discarded > 0)
+        pn_log("Discarded %zu queued frames.", discarded);
+
+    discarded = 0;
     while ((item = atomicqueue_pop(frame->trigger_queue)) != NULL)
     {
-        pn_log("Discarding queued trigger.");
+        discarded++;
         free(item);
     }
+
+    if (discarded > 0)
+        pn_log("Discarded %zu queued triggers.", discarded);
 
     if (reset_first_frame)
         frame->first_frame = true;
