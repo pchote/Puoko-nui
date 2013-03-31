@@ -37,7 +37,7 @@ struct internal
 static char *speed_names[] = {"Slow", "Fast"};
 static char *gain_names[] = {"S Low", "S Medium", "S High", "F Low", "F Medium", "F High"};
 
-int camera_simulated_initialize(Camera *camera, ThreadCreationArgs *args, void **out_internal)
+int camera_simulated_initialize(Camera *camera, void **out_internal)
 {
     struct internal *internal = calloc(1, sizeof(struct internal));
     if (!internal)

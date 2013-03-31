@@ -32,7 +32,7 @@ typedef struct TimerUnit TimerUnit;
 
 TimerUnit *timer_new(bool simulate_hardware);
 void timer_free(TimerUnit *timer);
-void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args);
+void timer_spawn_thread(TimerUnit *timer, const Modules *modules);
 void timer_join_thread(TimerUnit *timer);
 void timer_notify_shutdown(TimerUnit *timer);
 bool timer_thread_alive(TimerUnit *timer);

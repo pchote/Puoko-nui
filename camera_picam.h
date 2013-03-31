@@ -13,7 +13,7 @@
 #include "main.h"
 #include "camera.h"
 
-int camera_picam_initialize(Camera *camera, ThreadCreationArgs *args, void **internal);
+int camera_picam_initialize(Camera *camera, void **internal);
 int camera_picam_update_camera_settings(Camera *camera, void *internal, double *readout_time);
 int camera_picam_port_table(Camera *camera, void *internal, struct camera_port_option **ports, uint8_t *port_count);
 int camera_picam_uninitialize(Camera *camera, void *internal);

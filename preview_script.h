@@ -14,7 +14,7 @@ typedef struct PreviewScript PreviewScript;
 
 PreviewScript *preview_script_new();
 void preview_script_free(PreviewScript *preview);
-void preview_script_spawn_thread(PreviewScript *preview, ThreadCreationArgs *args);
+void preview_script_spawn_thread(PreviewScript *preview, const Modules *modules);
 void preview_script_join_thread(PreviewScript *preview);
 void preview_script_notify_shutdown(PreviewScript *preview);
 bool preview_script_thread_alive(PreviewScript *preview);

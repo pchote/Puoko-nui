@@ -49,7 +49,7 @@ struct Camera
 
     bool camera_settings_dirty;
 
-    int (*initialize)(Camera *, ThreadCreationArgs *, void **);
+    int (*initialize)(Camera *, void **);
     int (*update_camera_settings)(Camera *, void *, double *);
     int (*port_table)(Camera *, void *, struct camera_port_option **, uint8_t *);
     int (*uninitialize)(Camera *, void *);
@@ -136,14 +136,14 @@ static void set_desired_mode(Camera *camera, PNCameraMode mode)
 }
 
 // Main camera thread loop
-static void *camera_thread(void *_args)
+static void *camera_thread(void *_modules)
 {
-    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
-    Camera *camera = args->camera;
+    const Modules *modules = _modules;
+    Camera *camera = modules->camera;
 
     // Initialize hardware, etc
     set_mode(camera, INITIALISING);
-    int ret = camera->initialize(camera, args, &camera->internal);
+    int ret = camera->initialize(camera, &camera->internal);
     if (ret == CAMERA_INITIALIZATION_ABORTED)
     {
         pn_log("Camera initialization aborted.");
@@ -308,10 +308,10 @@ initialization_failure:
     return NULL;
 }
 
-void camera_spawn_thread(Camera *camera, ThreadCreationArgs *args)
+void camera_spawn_thread(Camera *camera, const Modules *modules)
 {
     camera->thread_alive = true;
-    if (pthread_create(&camera->camera_thread, NULL, camera_thread, (void *)args))
+    if (pthread_create(&camera->camera_thread, NULL, camera_thread, (void *)modules))
     {
         pn_log("Failed to create camera thread");
         camera->thread_alive = false;

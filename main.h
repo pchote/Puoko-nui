@@ -14,9 +14,11 @@
 
 typedef struct
 {
-    struct Camera *camera;
-    struct TimerUnit *timer;
-} ThreadCreationArgs;
+    struct Camera * const camera;
+    struct TimerUnit * const timer;
+    struct PreviewScript * const preview;
+    struct ReductionScript * const reduction;
+} Modules;
 
 // Represents a timestamp from the GPS
 // Signed ints to allow subtracting times without hidden gotchas

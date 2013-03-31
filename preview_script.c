@@ -81,7 +81,7 @@ void *preview_thread(void *_preview)
     return NULL;
 }
 
-void preview_script_spawn_thread(PreviewScript *preview, ThreadCreationArgs *args)
+void preview_script_spawn_thread(PreviewScript *preview, const Modules *modules)
 {
     preview->thread_alive = true;
     if (pthread_create(&preview->preview_thread, NULL, preview_thread, (void *)preview))

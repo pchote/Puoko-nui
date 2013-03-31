@@ -52,7 +52,7 @@ typedef enum
 
 Camera *camera_new(bool simulate_hardware);
 void camera_free(Camera *camera);
-void camera_spawn_thread(Camera *camera, ThreadCreationArgs *args);
+void camera_spawn_thread(Camera *camera, const Modules *modules);
 void camera_notify_shutdown(Camera *camera);
 bool camera_thread_alive(Camera *camera);
 void camera_join_thread(Camera *camera);

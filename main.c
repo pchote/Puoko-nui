@@ -23,10 +23,7 @@
 #include "platform.h"
 #include "frame.h"
 
-Camera *camera;
-TimerUnit *timer;
-ReductionScript *reduction;
-PreviewScript *preview;
+Modules *modules;
 pthread_mutex_t reset_mutex;
 
 struct atomicqueue *log_queue, *frame_queue, *trigger_queue;
@@ -36,7 +33,7 @@ bool first_frame = true;
 // frame to the main thread for processing.
 void queue_framedata(CameraFrame *frame)
 {
-    frame->downloaded_time = timer_current_timestamp(timer);
+    frame->downloaded_time = timer_current_timestamp(modules->timer);
 
     pthread_mutex_lock(&reset_mutex);
     bool success = atomicqueue_push(frame_queue, frame);
@@ -62,8 +59,8 @@ void queue_trigger(TimerTimestamp *t)
         pn_log("Failed to push trigger. Discarding.");
         free(t);
     }
-    else if (camera_is_simulated(camera))
-        camera_simulate_frame(camera);
+    else if (camera_is_simulated(modules->camera))
+        camera_simulate_frame(modules->camera);
 }
 
 // Called by main thread to remove all queued frames and
@@ -191,7 +188,7 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
                    last_path_component(filepath), last_path_component(temppath));
         else
         {
-            reduction_push_frame(reduction, filepath);
+            reduction_push_frame(modules->reduction, filepath);
             pn_log("Saved `%s'.", last_path_component(filepath));
         }
 
@@ -215,7 +212,7 @@ void process_framedata(CameraFrame *frame, TimerTimestamp timestamp)
         delete_file(temp_preview);
     }
     else
-        preview_script_run(preview);
+        preview_script_run(modules->preview);
 
     free(temp_preview);
 }
@@ -267,28 +264,31 @@ int main(int argc, char *argv[])
     }
 
     pn_init_preferences("preferences.dat");
-    timer = timer_new(simulate_timer);
-    camera = camera_new(simulate_camera);
-    reduction = reduction_script_new();
-    preview = preview_script_new();
 
-    if (!timer || !camera || !reduction || !preview)
+    Modules temp = (Modules)
+    {
+        .camera = camera_new(simulate_camera),
+        .timer = timer_new(simulate_timer),
+        .preview = preview_script_new(),
+        .reduction = reduction_script_new()
+    };
+
+    modules = calloc(1, sizeof(Modules));
+    memcpy(modules, &temp, sizeof(Modules));
+
+    if (!modules->timer || !modules->camera || !modules->reduction || !modules->preview)
     {
         fprintf(stderr, "Failed to allocate thread components\n");
         return 1;
     }
 
     // Start ui early so it can catch log events
-    pn_ui_new(camera, timer);
+    pn_ui_new(modules->camera, modules->timer);
 
-    ThreadCreationArgs args;
-    args.camera = camera;
-    args.timer = timer;
-
-    reduction_script_spawn_thread(reduction, &args);
-    preview_script_spawn_thread(preview, &args);
-    timer_spawn_thread(timer, &args);
-    camera_spawn_thread(camera, &args);
+    reduction_script_spawn_thread(modules->reduction, modules);
+    preview_script_spawn_thread(modules->preview, modules);
+    timer_spawn_thread(modules->timer, modules);
+    camera_spawn_thread(modules->camera, modules);
 
     // Main program loop
     enum main_status {NORMAL, ERROR, SHUTDOWN};
@@ -296,14 +296,14 @@ int main(int argc, char *argv[])
     time_t last_shutdown_update = 0;
     for (;;)
     {
-        if (status == NORMAL && (!camera_thread_alive(camera) || !timer_thread_alive(timer) ||
-            !reduction_script_thread_alive(reduction) || !preview_script_thread_alive(preview)))
+        if (status == NORMAL && (!camera_thread_alive(modules->camera) || !timer_thread_alive(modules->timer) ||
+            !reduction_script_thread_alive(modules->reduction) || !preview_script_thread_alive(modules->preview)))
         {
             pn_ui_show_fatal_error();
-            camera_notify_shutdown(camera);
-            timer_notify_shutdown(timer);
-            reduction_script_notify_shutdown(reduction);
-            preview_script_notify_shutdown(preview);
+            camera_notify_shutdown(modules->camera);
+            timer_notify_shutdown(modules->timer);
+            reduction_script_notify_shutdown(modules->reduction);
+            preview_script_notify_shutdown(modules->preview);
             status = ERROR;
             pn_log("A fatal error has occurred.");
             pn_log("Uninitializing hardware...");
@@ -316,14 +316,14 @@ int main(int argc, char *argv[])
             TimerTimestamp *trigger = atomicqueue_pop(trigger_queue);
 
             // Conver trigger to start of the exposure
-            camera_normalize_trigger(camera, trigger);
+            camera_normalize_trigger(modules->camera, trigger);
 
             double exptime = pn_preference_int(EXPOSURE_TIME);
             if (pn_preference_char(TIMER_HIGHRES_TIMING))
                 exptime /= 1000;
 
             // Ensure that the trigger and frame download times are consistent
-            double estimated_start_time = timestamp_to_unixtime(&frame->downloaded_time) - camera_readout_time(camera) - exptime;
+            double estimated_start_time = timestamp_to_unixtime(&frame->downloaded_time) - camera_readout_time(modules->camera) - exptime;
             double mismatch = estimated_start_time - timestamp_to_unixtime(trigger);
             bool process = true;
 
@@ -334,7 +334,7 @@ int main(int argc, char *argv[])
                 if (pn_preference_char(VALIDATE_TIMESTAMPS))
                 {
                     TimerTimestamp estimate_start = frame->downloaded_time;
-                    estimate_start.seconds -= camera_readout_time(camera) + exptime;
+                    estimate_start.seconds -= camera_readout_time(modules->camera) + exptime;
                     timestamp_normalize(&estimate_start);
 
                     pn_log("ERROR: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);
@@ -372,20 +372,20 @@ int main(int argc, char *argv[])
         bool request_shutdown = pn_ui_update();
         if ((status == NORMAL || status == ERROR) && request_shutdown)
         {
-            camera_notify_shutdown(camera);
-            timer_notify_shutdown(timer);
-            reduction_script_notify_shutdown(reduction);
-            preview_script_notify_shutdown(preview);
+            camera_notify_shutdown(modules->camera);
+            timer_notify_shutdown(modules->timer);
+            reduction_script_notify_shutdown(modules->reduction);
+            preview_script_notify_shutdown(modules->preview);
             status = SHUTDOWN;
         }
 
         // Normal shutdown complete
         if (status == SHUTDOWN)
         {
-            bool ca = camera_thread_alive(camera);
-            bool ta = timer_thread_alive(timer);
-            bool ra = reduction_script_thread_alive(reduction);
-            bool pa = preview_script_thread_alive(preview);
+            bool ca = camera_thread_alive(modules->camera);
+            bool ta = timer_thread_alive(modules->timer);
+            bool ra = reduction_script_thread_alive(modules->reduction);
+            bool pa = preview_script_thread_alive(modules->preview);
 
             time_t current = time(NULL);
             // Threads have terminated - continue shutdown
@@ -410,15 +410,15 @@ int main(int argc, char *argv[])
     }
 
     // Wait for camera and timer threads to terminate
-    timer_join_thread(timer);
-    camera_join_thread(camera);
-    reduction_script_join_thread(reduction);
-    preview_script_join_thread(preview);
+    timer_join_thread(modules->timer);
+    camera_join_thread(modules->camera);
+    reduction_script_join_thread(modules->reduction);
+    preview_script_join_thread(modules->preview);
 
-    timer_free(timer);
-    camera_free(camera);
-    reduction_script_free(reduction);
-    preview_script_free(preview);
+    timer_free(modules->timer);
+    camera_free(modules->camera);
+    reduction_script_free(modules->reduction);
+    preview_script_free(modules->preview);
 
     pn_free_preferences();
     pn_ui_free();

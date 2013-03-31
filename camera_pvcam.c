@@ -270,7 +270,7 @@ static void uninitialize_camera(struct internal *internal)
         pn_log("Failed to close camera.");
 }
 
-int camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args, void **out_internal)
+int camera_pvcam_initialize(Camera *camera, void **out_internal)
 {
     struct internal *internal = calloc(1, sizeof(struct internal));
     if (!internal)

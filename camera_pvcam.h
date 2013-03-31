@@ -13,7 +13,7 @@
 #include "main.h"
 #include "camera.h"
 
-int camera_pvcam_initialize(Camera *camera, ThreadCreationArgs *args, void **internal);
+int camera_pvcam_initialize(Camera *camera, void **internal);
 int camera_pvcam_update_camera_settings(Camera *camera, void *internal, double *readout_time);
 int camera_pvcam_port_table(Camera *camera, void *internal, struct camera_port_option **ports, uint8_t *port_count);
 int camera_pvcam_uninitialize(Camera *camera, void *internal);

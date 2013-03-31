@@ -252,7 +252,7 @@ static void connect_camera(Camera *camera, struct internal *internal)
     }
 }
 
-int camera_picam_initialize(Camera *camera, ThreadCreationArgs *args, void **out_internal)
+int camera_picam_initialize(Camera *camera, void **out_internal)
 {
     struct internal *internal = calloc(1, sizeof(struct internal));
     if (!internal)

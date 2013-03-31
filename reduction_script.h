@@ -14,7 +14,7 @@ typedef struct ReductionScript ReductionScript;
 
 ReductionScript *reduction_script_new();
 void reduction_script_free(ReductionScript *reduction);
-void reduction_script_spawn_thread(ReductionScript *reduction, ThreadCreationArgs *args);
+void reduction_script_spawn_thread(ReductionScript *reduction, const Modules *modules);
 void reduction_script_join_thread(ReductionScript *reduction);
 void reduction_script_notify_shutdown(ReductionScript *reduction);
 bool reduction_script_thread_alive(ReductionScript *reduction);

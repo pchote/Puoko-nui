@@ -136,7 +136,7 @@ void *reduction_thread(void *_reduction)
     return NULL;
 }
 
-void reduction_script_spawn_thread(ReductionScript *reduction, ThreadCreationArgs *args)
+void reduction_script_spawn_thread(ReductionScript *reduction, const Modules *modules)
 {
     reduction->thread_alive = true;
     if (pthread_create(&reduction->reduction_thread, NULL, reduction_thread, (void *)reduction))

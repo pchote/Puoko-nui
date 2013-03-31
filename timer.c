@@ -151,12 +151,12 @@ void timer_free(TimerUnit *timer)
     free(timer);
 }
 
-void timer_spawn_thread(TimerUnit *timer, ThreadCreationArgs *args)
+void timer_spawn_thread(TimerUnit *timer, const Modules *modules)
 {
     void *(*start_routine)(void *) = timer->simulated ? simulated_timer_thread : timer_thread;
 
     timer->thread_alive = true;
-    if (pthread_create(&timer->timer_thread, NULL, start_routine, (void *)args))
+    if (pthread_create(&timer->timer_thread, NULL, start_routine, (void *)modules))
     {
         pn_log("Failed to create timer thread");
         timer->thread_alive = false;
@@ -346,10 +346,10 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
 }
 
 // Main timer thread loop
-void *timer_thread(void *_args)
+void *timer_thread(void *_modules)
 {
-    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
-    TimerUnit *timer = args->timer;
+    const Modules *modules = _modules;
+    TimerUnit *timer = modules->timer;
 
     // Opening the serial port triggers a hardware reset
     char *port_path = pn_preference_string(TIMER_SERIAL_PORT);
@@ -473,7 +473,7 @@ void *timer_thread(void *_args)
                     break;
                 case FOOTERB:
                     if (b == '\n')
-                        parse_packet(timer, args->camera, &p);
+                        parse_packet(timer, modules->camera, &p);
                     else
                         pn_log("Timer warning: Invalid packet end byte. Got 0x%02x, expected 0x%02x.", b, '\n');
 
@@ -506,11 +506,10 @@ serial_error:
 }
 
 // Main simulated timer thread loop
-void *simulated_timer_thread(void *_args)
+void *simulated_timer_thread(void *_modules)
 {
-    ThreadCreationArgs *args = (ThreadCreationArgs *)_args;
-    TimerUnit *timer = args->timer;
-    Camera *camera = args->camera;
+    const Modules *modules = _modules;
+    TimerUnit *timer = modules->timer;
 
     // Initialization
     pn_log("Initializing simulated Timer.");
@@ -532,14 +531,14 @@ void *simulated_timer_thread(void *_args)
         {
             timer->exposure_length = 0;
             timer->simulated_progress = 0;
-            camera_notify_safe_to_stop(camera);
+            camera_notify_safe_to_stop(modules->camera);
         }
 
         bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
         TimerTimestamp cur = system_time();
         if (cur.seconds != last.seconds || (highres && cur.milliseconds != last.milliseconds))
         {
-            if (camera_mode(camera) == ACQUIRING && timer->exposure_length > 0)
+            if (camera_mode(modules->camera) == ACQUIRING && timer->exposure_length > 0)
             {
                 if (highres)
                     timer->simulated_progress += (uint16_t)round(1000*(timestamp_to_unixtime(&cur) - timestamp_to_unixtime(&last)));
