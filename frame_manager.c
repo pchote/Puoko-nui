@@ -374,50 +374,49 @@ static char *temporary_filepath(const char *dir)
 }
 
 // Save a matched frame and trigger timestamp to disk.
-static void process_framedata(CameraFrame *frame, TimerTimestamp timestamp, Modules *modules)
+static void save_frame(CameraFrame *frame, TimerTimestamp timestamp, Modules *modules)
 {
-    frame_process_transforms(frame);
-    if (pn_preference_char(SAVE_FRAMES))
+    char *filepath = next_filepath();
+    if (!filepath)
     {
-        char *filepath = next_filepath();
-        if (!filepath)
-        {
-            pn_log("Failed to determine next file path. Discarding frame");
-            return;
-        }
-
-        char *dir = pn_preference_string(OUTPUT_DIR);
-        char *temppath = temporary_filepath(dir);
-        free(dir);
-        if (!filepath)
-        {
-            pn_log("Failed to create unique temporary filename. Discarding frame");
-            return;
-        }
-
-        if (!frame_save(frame, timestamp, temppath))
-        {
-            free(filepath);
-            free(temppath);
-            pn_log("Saving to save temporary file. Discarding frame.");
-            return;
-        }
-
-        // Don't overwrite existing files
-        if (!rename_atomically(temppath, filepath, false))
-            pn_log("Failed to save `%s' (already exists?). Saved instead as `%s' ",
-                   last_path_component(filepath), last_path_component(temppath));
-        else
-        {
-            reduction_push_frame(modules->reduction, filepath);
-            pn_log("Saved `%s'.", last_path_component(filepath));
-        }
-
-        pn_preference_increment_framecount();
-        free(filepath);
-        free(temppath);
+        pn_log("Failed to determine next file path. Discarding frame");
+        return;
     }
 
+    char *dir = pn_preference_string(OUTPUT_DIR);
+    char *temppath = temporary_filepath(dir);
+    free(dir);
+    if (!filepath)
+    {
+        pn_log("Failed to create unique temporary filename. Discarding frame");
+        return;
+    }
+
+    if (!frame_save(frame, timestamp, temppath))
+    {
+        free(filepath);
+        free(temppath);
+        pn_log("Saving to save temporary file. Discarding frame.");
+        return;
+    }
+
+    // Don't overwrite existing files
+    if (!rename_atomically(temppath, filepath, false))
+        pn_log("Failed to save `%s' (already exists?). Saved instead as `%s' ",
+               last_path_component(filepath), last_path_component(temppath));
+    else
+    {
+        reduction_push_frame(modules->reduction, filepath);
+        pn_log("Saved `%s'.", last_path_component(filepath));
+    }
+
+    pn_preference_increment_framecount();
+    free(filepath);
+    free(temppath);
+}
+
+static void preview_frame(CameraFrame *frame, TimerTimestamp timestamp, Modules *modules)
+{
     // Update frame preview atomically
     char *temp_preview = temporary_filepath(".");
     if (!temp_preview)
@@ -502,20 +501,25 @@ void *frame_thread(void *_modules)
                 pn_log("WARNING: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);
         }
 
-
         if (process)
         {
             // The first frame from the MicroMax corresponds to the startup
             // and alignment period, so is meaningless
             // The first frame from the ProEM has incorrect cleaning so the
             // bias is inconsistent with the other frames
-            if (frame->first_frame)
+            if (!frame->first_frame)
+            {
+                frame_process_transforms(f);
+                if (pn_preference_char(SAVE_FRAMES))
+                    save_frame(f, *t, modules);
+
+                preview_frame(f, *t, modules);
+            }
+            else
             {
                 pn_log("Discarding first frame.");
                 frame->first_frame = false;
             }
-            else
-                process_framedata(f, *t, modules);
         }
 
         free(t);
