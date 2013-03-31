@@ -80,6 +80,7 @@ PNPreferenceStore prefs[] =
     {FRAME_FLIP_X,              CHAR, .value.c = 0,     "FrameFlipX: %hhu\n"},
     {FRAME_FLIP_Y,              CHAR, .value.c = 0,     "FrameFlipY: %hhu\n"},
     {FRAME_TRANSPOSE,           CHAR, .value.c = 0,     "FrameTranspose: %hhu\n"},
+    {PREVIEW_RATE_LIMIT,        INT,  .value.i = 500,   "PreviewRateLimit: %d\n"},
 
 #if (defined _WIN32)
     {MSYS_BASH_PATH, STRING, .value.s = "C:/MinGW/MSYS/bin/bash.exe",    "MsysBashPath: %s\n"}

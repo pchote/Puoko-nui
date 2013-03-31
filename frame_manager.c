@@ -444,6 +444,8 @@ void *frame_thread(void *_modules)
 
     // Loop until shutdown, parsing incoming data
     time_t last_update = 0;
+    TimerTimestamp last_preview = system_time();
+    int preview_delta = pn_preference_int(PREVIEW_RATE_LIMIT);
     while (true)
     {
         // Wait for a frame to become available
@@ -525,7 +527,13 @@ void *frame_thread(void *_modules)
                 if (pn_preference_char(SAVE_FRAMES))
                     save_frame(f, *t, modules);
 
-                preview_frame(f, *t, modules);
+                TimerTimestamp cur_preview = system_time();
+                double dt = 1000*(timestamp_to_unixtime(&cur_preview) - timestamp_to_unixtime(&last_preview));
+                if (dt >= preview_delta)
+                {
+                    preview_frame(f, *t, modules);
+                    last_preview = cur_preview;
+                }
             }
             else
             {

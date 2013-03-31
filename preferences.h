@@ -62,6 +62,7 @@ typedef enum
     FRAME_FLIP_X,
     FRAME_FLIP_Y,
     FRAME_TRANSPOSE,
+    PREVIEW_RATE_LIMIT,
 
 #if (defined _WIN32)
     MSYS_BASH_PATH,
