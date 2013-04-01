@@ -82,6 +82,7 @@ private:
     static void buttonMetadataConfirmPressed(Fl_Widget* o, void *v);
     static void buttonErrorConfirmPressed(Fl_Widget* o, void *v);
 
+    static void metadataAcquisitionTypeChangedCallback(Fl_Widget *input, void *v);
     static void metadataFrameTypeChangedCallback(Fl_Widget *input, void *v);
 
     static void closeMainWindowCallback(Fl_Widget *window, void *v);
@@ -108,9 +109,8 @@ private:
     // Acquisition info
     Fl_Group *m_acquisitionGroup;
     Fl_Output *m_acquisitionObserversOutput;
-    Fl_Output *m_acquisitionTypeOutput;
     Fl_Output *m_acquisitionTargetOutput;
-    Fl_Output *m_acquisitionRemainingOutput;
+    Fl_Output *m_acquisitionBurstOutput;
     Fl_Output *m_acquisitionFilenameOutput;
     
     // Log panel
@@ -129,7 +129,8 @@ private:
     PNCameraMode cached_camera_mode;
     double cached_camera_temperature;
     double cached_camera_readout;
-    int cached_calibration_framecount;
+    bool cached_burst_enabled;
+    int cached_burst_countdown;
     int cached_run_number;
     uint16_t cached_exposure_time;
     TimerMode cached_timer_mode;
@@ -161,9 +162,11 @@ private:
     Fl_Input *m_metadataRunPrefix;
     Fl_Int_Input *m_metadataRunNumber;
 
+    Fl_Choice *m_metadataAcquistionInput;
+    Fl_Int_Input *m_metadataBurstInput;
+
     Fl_Choice *m_metadataFrameTypeInput;
     Fl_Input *m_metadataTargetInput;
-    Fl_Int_Input *m_metadataCountdownInput;
     Fl_Input *m_metadataObserversInput;
     Fl_Input *m_metadataObservatoryInput;
     Fl_Input *m_metadataTelecopeInput;

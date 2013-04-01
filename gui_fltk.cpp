@@ -91,13 +91,16 @@ bool FLTKGui::update()
         updateCameraGroup();
     }
 
-    int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
+	bool burst_enabled = pn_preference_char(BURST_ENABLED);
+    int burst_countdown = pn_preference_int(BURST_COUNTDOWN);
     int run_number = pn_preference_int(RUN_NUMBER);
-    if (remaining_frames != cached_calibration_framecount ||
+    if (burst_enabled != cached_burst_enabled ||
+		burst_countdown != cached_burst_countdown ||
         run_number != cached_run_number ||
         exposure_time != cached_exposure_time)
     {
-        cached_calibration_framecount = remaining_frames;
+        cached_burst_countdown = burst_countdown;
+		cached_burst_enabled = burst_enabled;
         cached_run_number = run_number;
         cached_exposure_time = exposure_time;
         updateAcquisitionGroup();
@@ -280,9 +283,8 @@ void FLTKGui::createAcquisitionGroup()
 {
     int y = 220, margin = 20;
     m_acquisitionGroup = createGroupBox(y, 85, "Acquisition"); y += 25;
-    m_acquisitionTypeOutput = createOutputLabel(y, "Type:"); y += margin;
-    m_acquisitionTargetOutput = createOutputLabel(y, "Target:"); m_acquisitionTargetOutput->hide();
-    m_acquisitionRemainingOutput = createOutputLabel(y, "To Save:"); y += margin;
+    m_acquisitionTargetOutput = createOutputLabel(y, "Target:"); y += margin;
+    m_acquisitionBurstOutput = createOutputLabel(y, "Acquisition:"); y += margin;
     m_acquisitionFilenameOutput = createOutputLabel(y, "File:");
     m_acquisitionGroup->end();
 }
@@ -290,40 +292,30 @@ void FLTKGui::createAcquisitionGroup()
 void FLTKGui::updateAcquisitionGroup()
 {
     PNFrameType type = (PNFrameType)pn_preference_char(OBJECT_TYPE);
-    int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
     char *run_prefix = pn_preference_string(RUN_PREFIX);
-    int run_number = pn_preference_int(RUN_NUMBER);
     char *object = pn_preference_string(OBJECT_NAME);
 
     switch (type)
     {
         case OBJECT_DARK:
-            m_acquisitionTypeOutput->value("Dark");
+            m_acquisitionTargetOutput->value("Dark");
             break;
         case OBJECT_FLAT:
-            m_acquisitionTypeOutput->value("Flat");
+            m_acquisitionTargetOutput->value("Flat");
             break;
         case OBJECT_TARGET:
-            m_acquisitionTypeOutput->value("Target");
+			m_acquisitionTargetOutput->value(object);
             break;
     }
 
     char buf[100];
-    if (type == OBJECT_TARGET)
-    {
-        m_acquisitionTargetOutput->show();
-        m_acquisitionTargetOutput->value(object);
-        m_acquisitionRemainingOutput->hide();
-    }
-    else
-    {
-        m_acquisitionTargetOutput->hide();
-        m_acquisitionRemainingOutput->show();
-        snprintf(buf, 100, "%d", remaining_frames);
-        m_acquisitionRemainingOutput->value(buf);
-    }
+	if (cached_burst_enabled)
+   		snprintf(buf, 100, "%d Remaining", cached_burst_countdown);
+	else
+		strcpy(buf, "Continuous");
+    m_acquisitionBurstOutput->value(buf);
 
-    snprintf(buf, 100, "%s-%04d.fits.gz", run_prefix, run_number);
+    snprintf(buf, 100, "%s-%04d.fits.gz", run_prefix, cached_run_number);
     m_acquisitionFilenameOutput->value(buf);
     free(object);
     free(run_prefix);
@@ -633,25 +625,41 @@ void FLTKGui::showCameraWindow()
     m_cameraWindow->show();
 }
 
+void FLTKGui::metadataAcquisitionTypeChangedCallback(Fl_Widget *input, void *userdata)
+{
+	FLTKGui *gui = (FLTKGui *)userdata;
+
+	if (((Fl_Choice *)input)->value())
+	{
+	    populate_int_preference(gui->m_metadataBurstInput, BURST_COUNTDOWN);
+		gui->m_metadataBurstInput->activate();
+	}
+	else
+	{
+		gui->m_metadataBurstInput->value("N/A");
+		gui->m_metadataBurstInput->deactivate();
+	}
+}
+
 void FLTKGui::metadataFrameTypeChangedCallback(Fl_Widget *input, void *userdata)
 {
-    FLTKGui* gui = (FLTKGui *)userdata;
+	FLTKGui *gui = (FLTKGui *)userdata;
 
     if (((Fl_Choice *)input)->value() == 2)
-    {
-        gui->m_metadataTargetInput->show();
-        gui->m_metadataCountdownInput->hide();
-    }
-    else
-    {
-        gui->m_metadataTargetInput->hide();
-        gui->m_metadataCountdownInput->show();
-    }
+	{
+	    populate_string_preference(gui->m_metadataTargetInput, OBJECT_NAME);
+		gui->m_metadataTargetInput->activate();
+	}
+	else
+	{
+		gui->m_metadataTargetInput->value("N/A");
+		gui->m_metadataTargetInput->deactivate();
+	}
 }
 
 void FLTKGui::createMetadataWindow()
 {
-    m_metadataWindow = new Fl_Double_Window(420, 180, "Set Metadata");
+    m_metadataWindow = new Fl_Double_Window(420, 200, "Set Metadata");
     m_metadataWindow->user_data((void*)(this));
 
     // File output
@@ -675,6 +683,12 @@ void FLTKGui::createMetadataWindow()
     y = 75;
     int w = 110;
 
+    m_metadataAcquistionInput = new Fl_Choice(x, y, w, h, "Acquisition:"); y += margin;
+    m_metadataAcquistionInput->add("Continuous");
+    m_metadataAcquistionInput->add("Burst");
+    m_metadataAcquistionInput->callback(metadataAcquisitionTypeChangedCallback);
+    m_metadataAcquistionInput->user_data((void*)(this));
+
     m_metadataFrameTypeInput = new Fl_Choice(x, y, w, h, "Type:"); y += margin;
     m_metadataFrameTypeInput->add("Dark");
     m_metadataFrameTypeInput->add("Flat");
@@ -682,14 +696,13 @@ void FLTKGui::createMetadataWindow()
     m_metadataFrameTypeInput->callback(metadataFrameTypeChangedCallback);
     m_metadataFrameTypeInput->user_data((void*)(this));
 
-    m_metadataTargetInput = new Fl_Input(x, y, w, h, "Target:");
-    m_metadataCountdownInput = new Fl_Int_Input(x, y, w, h, "Total:"); y += margin;
-    m_metadataCountdownInput->hide();
-    m_metadataObserversInput = new Fl_Input(x, y, w, h, "Observers:");
+    m_metadataObservatoryInput = new Fl_Input(x, y, w, h, "Observatory:"); y += margin;
+    m_metadataObserversInput = new Fl_Input(x, y, w, h, "Observers:"); y += margin;
 
     x = 300;
     y = 75;
-    m_metadataObservatoryInput = new Fl_Input(x, y, w, h, "Observatory:"); y += margin;
+    m_metadataBurstInput = new Fl_Int_Input(x, y, w, h, "Burst Count:"); y += margin;
+    m_metadataTargetInput = new Fl_Input(x, y, w, h, "Target:"); y += margin;
     m_metadataTelecopeInput = new Fl_Input(x, y, w, h, "Telescope:"); y += margin;
     m_metadataFilterInput = new Fl_Input(x, y, w, h, "Filter:"); y += margin;
 
@@ -706,25 +719,19 @@ void FLTKGui::showMetadataWindow()
     populate_string_preference(m_metadataRunPrefix, RUN_PREFIX);
     populate_int_preference(m_metadataRunNumber, RUN_NUMBER);
 
-    uint8_t frame_type = pn_preference_char(OBJECT_TYPE);
-    m_metadataFrameTypeInput->value(frame_type);
-    if (frame_type == 2)
-    {
-        m_metadataTargetInput->show();
-        m_metadataCountdownInput->hide();
-    }
-    else
-    {
-        m_metadataTargetInput->hide();
-        m_metadataCountdownInput->show();
-    }
-
-    populate_string_preference(m_metadataTargetInput, OBJECT_NAME);
-    populate_int_preference(m_metadataCountdownInput, CALIBRATION_COUNTDOWN);
     populate_string_preference(m_metadataObserversInput, OBSERVERS);
     populate_string_preference(m_metadataObservatoryInput, OBSERVATORY);
     populate_string_preference(m_metadataTelecopeInput, TELESCOPE);
     populate_string_preference(m_metadataFilterInput, FILTER);
+
+    uint8_t burst = pn_preference_char(BURST_ENABLED);
+	m_metadataAcquistionInput->value(burst);
+	metadataAcquisitionTypeChangedCallback(m_metadataAcquistionInput, this);
+
+    uint8_t object_type = pn_preference_char(OBJECT_TYPE);
+    m_metadataFrameTypeInput->value(object_type);
+	metadataFrameTypeChangedCallback(m_metadataFrameTypeInput, this);
+
     m_metadataWindow->show();
 }
 
@@ -734,16 +741,16 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
 
     // Validate parameters
     int run_number = atoi(gui->m_metadataRunNumber->value());
-    int calibration_countdown = atoi(gui->m_metadataCountdownInput->value());
+    int burst_countdown = atoi(gui->m_metadataBurstInput->value());
     if (run_number < 0)
     {
         pn_log("RUN_NUMBER number must be positive.");
         return;
     }
 
-    if (calibration_countdown < 0)
+    if (burst_countdown < 0)
     {
-        pn_log("CALIBRATION_COUNTDOWN must be positive.");
+        pn_log("BURST_COUNTDOWN must be positive.");
         return;
     }
 
@@ -755,13 +762,20 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
     set_string(RUN_PREFIX, gui->m_metadataRunPrefix->value());
     set_int(RUN_NUMBER, run_number);
 
-    pn_preference_set_char(OBJECT_TYPE, gui->m_metadataFrameTypeInput->value());
-    set_string(OBJECT_NAME, gui->m_metadataTargetInput->value());
+	bool burst_enabled = gui->m_metadataAcquistionInput->value();
+    pn_preference_set_char(BURST_ENABLED, burst_enabled);
+	if (burst_enabled)
+    	set_int(BURST_COUNTDOWN, burst_countdown);
+
+	uint8_t object_type = gui->m_metadataFrameTypeInput->value();
+    pn_preference_set_char(OBJECT_TYPE, object_type);
+	if (object_type == OBJECT_TARGET)
+    	set_string(OBJECT_NAME, gui->m_metadataTargetInput->value());
+
     set_string(OBSERVERS, gui->m_metadataObserversInput->value());
     set_string(OBSERVATORY, gui->m_metadataObservatoryInput->value());
     set_string(TELESCOPE, gui->m_metadataTelecopeInput->value());
     set_string(FILTER, gui->m_metadataFilterInput->value());
-    set_int(CALIBRATION_COUNTDOWN, calibration_countdown);
 
     gui->updateAcquisitionGroup();
     gui->m_metadataWindow->hide();
@@ -924,7 +938,8 @@ FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     // Set initial state
     cached_camera_mode = camera_mode(camera);
     cached_camera_temperature = camera_temperature(camera);
-    cached_calibration_framecount = pn_preference_int(CALIBRATION_COUNTDOWN);
+	cached_burst_enabled = pn_preference_char(BURST_ENABLED);
+    cached_burst_countdown = pn_preference_int(BURST_COUNTDOWN);
     cached_run_number = pn_preference_int(RUN_NUMBER);
     cached_timer_mode = timer_mode(timer);
     cached_camera_readout = camera_readout_time(m_cameraRef);

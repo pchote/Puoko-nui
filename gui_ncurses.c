@@ -187,7 +187,7 @@ static WINDOW *create_acquisition_window()
     mvwaddstr(win, 0, (w-strlen(title))/2, title);
     mvwaddstr(win, 1, 2, " Exposure:");
     mvwaddstr(win, 2, 2, "     Type:");
-    mvwaddstr(win, 3, 2, "Remaining:");
+    mvwaddstr(win, 3, 2, "    Burst:");
     mvwaddstr(win, 4, 2, " Filename:");
     
     return win;
@@ -197,7 +197,7 @@ static void update_acquisition_window()
 {
     PNFrameType type = pn_preference_char(OBJECT_TYPE);
     uint16_t exptime = pn_preference_int(EXPOSURE_TIME);
-    int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
+    int burst_countdown = pn_preference_int(BURST_COUNTDOWN);
     char *run_prefix = pn_preference_string(RUN_PREFIX);
     int run_number = pn_preference_int(RUN_NUMBER);
 
@@ -218,10 +218,10 @@ static void update_acquisition_window()
     mvwprintw(acquisition_window, 1, 13, "%d seconds   ", exptime);
     mvwaddstr(acquisition_window, 2, 13, typename);
 
-    if (type == OBJECT_TARGET)
-        mvwaddstr(acquisition_window, 3, 13, "N/A        ");
+    if (pn_prefererence_char(BURST_ENABLED))
+        mvwprintw(acquisition_window, 3, 13, "%d   ", burst_countdown);
     else
-        mvwprintw(acquisition_window, 3, 13, "%d   ", remaining_frames);
+        mvwaddstr(acquisition_window, 3, 13, "N/A        ");
 
     mvwaddstr(acquisition_window, 4, 13, "                    ");
     mvwprintw(acquisition_window, 4, 13, "%s-%04d.fits.gz", run_prefix, run_number);
@@ -381,16 +381,16 @@ static void update_command_window(PNCameraMode mode)
     if (should_quit)
         return;
 
-    PNFrameType type = pn_preference_char(OBJECT_TYPE);
     unsigned char save = pn_preference_char(SAVE_FRAMES);
-    int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
+    unsigned char burst_enabled = pn_preference_char(BURST_ENABLED);
+    int burst_countdown = pn_preference_int(BURST_COUNTDOWN);
 
     // Acquire toggle
     if (mode == IDLE || mode == ACQUIRING)
         print_command_option(command_window, false, "^A", "Acquire", mode == ACQUIRING ? "Stop " : "");
 
     // Save toggle
-    if (type == OBJECT_TARGET || remaining_frames > 0)
+    if (!burst_enabled || burst_countdown > 0)
         print_command_option(command_window, true, "^S", "%s Saving", save ? "Stop" : "Start");
 
     // Display parameter panel
@@ -744,7 +744,7 @@ bool pn_ui_update()
                     case 0x04: // ^D - Countdown
                         input_type = INPUT_COUNTDOWN_NUMBER;
 
-                        input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", pn_preference_int(CALIBRATION_COUNTDOWN));
+                        input_entry_length = snprintf(input_entry_buf, input_entry_buf_len, "%d", pn_preference_int(BURST_COUNTDOWN));
                         set_input_window_msg("Countdown #: ");
                         is_input = true;
                         break;
@@ -814,7 +814,7 @@ bool pn_ui_update()
                     }
                     else if (input_type == INPUT_COUNTDOWN_NUMBER)
                     {
-                        unsigned char oldcount = pn_preference_int(CALIBRATION_COUNTDOWN);
+                        unsigned char oldcount = pn_preference_int(BURST_COUNTDOWN);
                         if (new < 0)
                         {
                             // Invalid entry
@@ -829,7 +829,7 @@ bool pn_ui_update()
                             if (oldcount != new)
                             {
                                 // Update preferences
-                                pn_preference_set_int(CALIBRATION_COUNTDOWN, new);
+                                pn_preference_set_int(BURST_COUNTDOWN, new);
                                 update_acquisition_window();
                                 update_status_window(mode);
                                 update_command_window(mode);
@@ -967,7 +967,7 @@ bool pn_ui_update()
         last_camera_temperature = temperature;
     }
 
-    int remaining_frames = pn_preference_int(CALIBRATION_COUNTDOWN);
+    int burst_countdown = pn_preference_int(BURST_COUNTDOWN);
     int run_number = pn_preference_int(RUN_NUMBER);
     uint16_t exposure_time = pn_preference_int(EXPOSURE_TIME);
 
@@ -977,7 +977,7 @@ bool pn_ui_update()
     {
         update_acquisition_window();
         update_status_window(mode);
-        last_calibration_framecount = remaining_frames;
+        last_burst_countdown = burst_countdown;
         last_run_number = run_number;
         last_exposure_time = exposure_time;
     }

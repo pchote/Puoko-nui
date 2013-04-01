@@ -52,7 +52,9 @@ PNPreferenceStore prefs[] =
     {REDUCE_FRAMES,             CHAR, .value.c = false, "ReduceFrames: %hhu\n"},
     {OBJECT_TYPE,               CHAR, .value.c = OBJECT_TARGET, "ObjectType: %hhu\n"},
     {RUN_NUMBER,                INT,  .value.i = 0,     "RunNumber: %d\n"},
-    {CALIBRATION_COUNTDOWN,     INT, .value.i = 30,     "CalibrationRemainingFrames: %d\n"},
+
+    {BURST_ENABLED,             CHAR, .value.c = 0,     "BurstMode: %hhu\n"},
+    {BURST_COUNTDOWN,           INT,  .value.i = 30,    "BurstCountdown: %d\n"},
 
     {TIMER_MONITOR_LOGIC_OUT,   CHAR, .value.c = true,  "TimerMonitorLogicOut: %hhu\n"},
     {TIMER_HIGHRES_TIMING,      CHAR, .value.c = 0,     "TimerHighResolutionTiming: %hhu\n"},
@@ -206,13 +208,13 @@ void pn_preference_increment_framecount()
     prefs[RUN_NUMBER].value.i++;
 
     // Decrement the calibration frame count if applicable
-    if (prefs[OBJECT_TYPE].value.c != OBJECT_TARGET &&
-        prefs[CALIBRATION_COUNTDOWN].value.i > 0)
+    if (prefs[BURST_ENABLED].value.c &&
+        prefs[BURST_COUNTDOWN].value.i > 0)
     {
-        prefs[CALIBRATION_COUNTDOWN].value.i--;
+        prefs[BURST_COUNTDOWN].value.i--;
 
         // Disable saving
-        if (prefs[CALIBRATION_COUNTDOWN].value.i == 0)
+        if (prefs[BURST_COUNTDOWN].value.i == 0)
             prefs[SAVE_FRAMES].value.c = false;
     }
     save();
@@ -233,8 +235,8 @@ unsigned char pn_preference_toggle_save()
 unsigned char pn_preference_allow_save()
 {
     pthread_mutex_lock(&access_mutex);
-    unsigned char ret = (prefs[OBJECT_TYPE].value.c == OBJECT_TARGET ||
-                         prefs[CALIBRATION_COUNTDOWN].value.i > 0);
+    unsigned char ret = (!prefs[BURST_ENABLED].value.c ||
+                         prefs[BURST_COUNTDOWN].value.i > 0);
     pthread_mutex_unlock(&access_mutex);
     return ret;
 }
