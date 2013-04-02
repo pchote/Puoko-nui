@@ -54,6 +54,38 @@ void reduction_script_free(ReductionScript *reduction)
     free(reduction);
 }
 
+int append_filename(char **base, size_t *base_size, char *filename)
+{
+    size_t base_len = strlen(*base);
+    size_t new_len = base_len + strlen(filename) + 6;
+    if (new_len >= *base_size)
+    {
+        *base_size *= 2;
+        *base = realloc(*base, *base_size);
+    }
+    if (!*base)
+        return 1;
+
+    strncatf(*base, *base_size, "\"%s\" ", filename);
+    return 0;
+}
+
+int append_terminator(char **base, size_t *base_size, char *str)
+{
+    size_t base_len = strlen(*base);
+    size_t new_len = base_len + strlen(str) + 1;
+    if (new_len >= *base_size)
+    {
+        *base_size *= 2;
+        *base = realloc(*base, *base_size);
+    }
+    if (!*base)
+        return 1;
+
+    strncatf(*base, *base_size, "%s", str);
+    return 0;
+}
+
 void *reduction_thread(void *_reduction)
 {
     ReductionScript *reduction = _reduction;
@@ -88,48 +120,32 @@ void *reduction_thread(void *_reduction)
         }
 
         char *reduce_string = pn_preference_char(REDUCE_FRAMES) ? "true" : "false";
-        size_t command_len = strncatf(command, command_size, "./reduction.sh %s ", reduce_string);
+        sprintf(command, "./reduction.sh %s ", reduce_string);
 
         char *frame;
         while ((frame = atomicqueue_pop(reduction->new_frames)) != NULL)
         {
-            size_t frame_len = strlen(frame);
-
-            if (command_len + frame_len >= command_size)
+            if (append_filename(&command, &command_size, frame))
             {
-                do
-                {
-                    command_size += 256;
-                } while (command_len + frame_len >= command_size);
+                pn_log("Failed to create reduction string. Skipping reduction");
+                if (command)
+                    free(command);
 
-                command = realloc(command, command_size);
-                if (!command)
-                {
-                    pn_log("Failed to allocate reduction string. Skipping reduction");
-                    goto next_loop;
-                }
-            }
-
-            command_len = strncatf(command, command_size, "\"%s\" ", frame);
-        }
-
-        if (command_len + 5 >= command_size)
-        {
-            command_size += 5;
-            command = realloc(command, command_size);
-            if (!command)
-            {
-                pn_log("Failed to allocate reduction string. Skipping reduction");
                 goto next_loop;
             }
         }
-        strncatf(command, command_size, "2>&1");
 
-        if (command)
+        if (append_terminator(&command, &command_size, "2>&1"))
         {
-            run_script(command, "Reduction: ");
-            free(command);
+            pn_log("Failed to create reduction string. Skipping reduction");
+            if (command)
+                free(command);
+
+            goto next_loop;
         }
+
+        run_script(command, "Reduction: ");
+        free(command);
     }
 
     reduction->thread_alive = false;
