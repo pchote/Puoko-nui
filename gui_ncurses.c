@@ -12,7 +12,7 @@
 #include <ctype.h>
 #include <math.h>
 
-#if (defined _WIN32 || defined _WIN64)
+#ifdef _WIN32
     #include <ncurses/ncurses.h>
     #include <ncurses/panel.h>
 #else

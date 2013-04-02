@@ -17,10 +17,21 @@
 #include <sys/stat.h>
 #include "main.h"
 
-#if (defined _WIN32 || defined _WIN64)
+#ifdef _WIN32
+    #include <time.h>
     #include "preferences.h"
     #include <windows.h>
 #endif
+
+#if defined(__MINGW64_VERSION_MAJOR)
+/* XXX why isn't this in sec_api/time_s.h? */
+# if defined(_USE_32BIT_TIME_T)
+#  define gmtime_s _gmtime32_s
+# else
+#  define gmtime_s _gmtime64_s
+# endif
+#endif
+
 
 #include "platform.h"
 
@@ -78,10 +89,10 @@ TimerTimestamp system_time()
 
 time_t struct_tm_to_time_t(struct tm *t)
 {
-#ifdef _WIN32
-    return mktime(t);
-#elif defined _WIN64
+#ifdef _WIN64
     return _mkgmtime(t);
+#elif defined _WIN32
+    return mktime(t);
 #else
     return timegm(t);
 #endif
@@ -90,10 +101,10 @@ time_t struct_tm_to_time_t(struct tm *t)
 void normalize_tm(struct tm *t)
 {
     time_t b = struct_tm_to_time_t(t);
-#ifdef _WIN32
+#ifdef _WIN64
+    gmtime_s(t, &b);
+#elif defined _WIN32
     *t = *localtime(&b);
-#elif defined _WIN64
-    gmtime_s(&b, t);
 #else
     gmtime_r(&b, t);
 #endif
@@ -102,7 +113,7 @@ void normalize_tm(struct tm *t)
 // Sleep for ms milliseconds
 void millisleep(int ms)
 {
-    #if (defined _WIN32 || defined _WIN64)
+    #ifdef _WIN32
         Sleep(ms);
     #else
         nanosleep(&(struct timespec){ms / 1000, (ms % 1000)*1e6}, NULL);
@@ -112,7 +123,7 @@ void millisleep(int ms)
 // Cross platform equivalent of realpath()
 char *canonicalize_path(const char *path)
 {
-#if (defined _WIN32)
+#ifdef _WIN32
     char path_buf[MAX_PATH], *ptr;
     GetFullPathName(path, MAX_PATH, path_buf, &ptr);
 
@@ -177,7 +188,7 @@ char *last_path_component(char *path)
 // Run a command synchronously, logging output with a given prefix
 int run_command(const char *cmd, const char *log_prefix)
 {
-#if (defined _WIN32 || defined _WIN64)
+#ifdef _WIN32
     // Create pipe for stdout/stderr
     SECURITY_ATTRIBUTES saAttr;
     saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
