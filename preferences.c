@@ -85,7 +85,7 @@ PNPreferenceStore prefs[] =
     {PREVIEW_RATE_LIMIT,        INT,  .value.i = 500,   "PreviewRateLimit: %d\n"},
 
 #if (defined _WIN32)
-    {MSYS_BASH_PATH, STRING, .value.s = "C:/MinGW/MSYS/bin/bash.exe",    "MsysBashPath: %s\n"}
+    {MSYS_BASH_PATH, STRING, .value.s = "C:/MinGW/msys/1.0/bin/bash.exe",    "MsysBashPath: %s\n"}
 #endif
 };
 int pref_count = sizeof(prefs) / sizeof(prefs[0]);
