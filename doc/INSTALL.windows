@@ -1,27 +1,15 @@
 ==================== INSTALL TOOLCHAIN ====================
-Download MinGW-w64 binaries from
-http://cdnetworks-us-2.dl.sourceforge.net/project/mingw-w64/Toolchains%20targetting%20Win64/Automated%20Builds/mingw-w64-bin_i686-mingw_20111220.zip
-Extract to c:/MinGW
+Download mingw-get-inst from http://sourceforge.net/projects/mingw/files/Installer/mingw-get-inst/mingw-get-inst-20120426/mingw-get-inst-20120426.exe/download
 
-Download MSYS binaries from
-http://voxel.dl.sourceforge.net/project/mingw-w64/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29/MSYS-20111123.zip
-Extract to c:/MinGW/msys
+Run the installer, select "MSYS Basic System" and "MSYS Developer Toolkit", and deselect all of the MinGW options.
 
-Copy c:/MinGW/bin/x86_64-w64-mingw32-gcc.exe and rename it to gcc.exe
+Download a recent binary build of mingw-w64, e.g. http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/rubenvb/gcc-4.8-release/x86_64-w64-mingw32-gcc-4.8.0-win64_rubenvb.7z/download
 
-Run (double-click) c:/MinGW/msys/postinstall/pi.bat
-Continue with post install (y)
-We do have MinGW installed (y)
-MinGW Installation is at c:/MinGW/
+Extract the mingw64 directory from the archive into the MSYS install directory (e.g. C:\MingGW\mingw64).
+
+Run the mays post-install script at C:\MinGW\msys\1.0\postinstall\pi.bat and follow the prompts.
 
 Create a shortcut to c:/MinGW/msys/msys.bat somewhere convenient. All following commands starting with a '$' are run from this shell
-
-We don't plan on installing 32-bit toolchain, so we will remove the prefix from the 64-bit tools to avoid having to prefix everything later
-Run msys.bat and execute
-$ cd /mingw/bin
-$ for i in `ls x86_64-w64-mingw32-*`; do cp "$i" "${i:19}"; done
-
-TODO: Cover installing pthreads
 
 Download Git/msysGit from http://code.google.com/p/msysgit/downloads/list
 When it asks about adjusting the PATH environment, choose the second option
@@ -59,23 +47,17 @@ $ make
 $ make install
 
 
-Download and compile libfltk 1.3.X (the "stable" 1.3.0 version has problems, so get the development version)
+Download libfltk 1.3.2 (or later) from www.fltk.org
+
+Compile with
 $ ./configure
 $ make
 $ make install
 
-if make fails with an error about libstdc++-6.dll, copy the following files from C:/MinGW/mingw/lib to ~/fltk-1.3.0fluid:
-   libstdc++-6.dll
-   libgcc_s_sjlj-1.dll
+==================== BUILD PUOKO-NUI ====================
 
-Copy c:\mingw\bin\pthreadGC2-w64.dll to puoko-nui dir
-
-==================== BUILD/INSTALL PUOKO-NUI ====================
-
+$ cd ~/puokonui
 Compile with
-$ make CAMERA_TYPE=PICAM GUI_TYPE=FLTK
+$ make CAMERA_TYPE=PICAM
 
-(Optional) Copy binaries to a separate location to run from, <run dir>
-Copy puokonui.exe to <run dir>
-Copy c:\mingw\bin\pthreadGC2-w64.dll to <run dir>
-Create directory <run dir>\logs
+Copy C:\mingw\mingw64\bin\libwinpthread-1.dll to ~/puokonui
