@@ -45,6 +45,9 @@ int camera_simulated_initialize(Camera *camera, void **out_internal)
 
     pthread_mutex_init(&internal->queue_mutex, NULL);
 
+    internal->frame_height = 512;
+    internal->frame_width = 512;
+
     *out_internal = internal;
     return CAMERA_OK;
 }
@@ -80,23 +83,23 @@ int camera_simulated_update_camera_settings(Camera *camera, void *_internal, dou
 
     // Set readout area
     uint16_t ww = pn_preference_int(CAMERA_WINDOW_WIDTH);
-    if (ww < 1 || ww > 512)
+    if (ww < 1 || ww > internal->frame_width)
     {
-        pn_log("Invalid window width: %d. Reset to %d.", ww, 512);
-        ww = 512;
+        pn_log("Invalid window width: %d. Reset to %d.", ww, internal->frame_width);
+        ww = internal->frame_width;
         pn_preference_set_int(CAMERA_WINDOW_WIDTH, ww);
     }
 
     uint16_t wh = pn_preference_int(CAMERA_WINDOW_HEIGHT);
-    if (wh < 1 || wh > 512)
+    if (wh < 1 || wh > internal->frame_height)
     {
-        pn_log("Invalid window height: %d. Reset to %d.", wh, 512);
-        wh = 512;
+        pn_log("Invalid window height: %d. Reset to %d.", wh, internal->frame_height);
+        wh = internal->frame_height;
         pn_preference_set_int(CAMERA_WINDOW_HEIGHT, wh);
     }
 
     uint16_t wx = pn_preference_int(CAMERA_WINDOW_X);
-    if (wx + ww > 512)
+    if (wx + ww > internal->frame_width)
     {
         pn_log("Invalid window x: %d. Reset to %d.", wx, 0);
         wx = 0;
@@ -104,7 +107,7 @@ int camera_simulated_update_camera_settings(Camera *camera, void *_internal, dou
     }
 
     uint16_t wy = pn_preference_int(CAMERA_WINDOW_Y);
-    if (wy + wh > 512)
+    if (wy + wh > internal->frame_height)
     {
         pn_log("Invalid window y: %d. Reset to %d.", wy, 0);
         wy = 0;
@@ -112,7 +115,7 @@ int camera_simulated_update_camera_settings(Camera *camera, void *_internal, dou
     }
 
     uint8_t bin = pn_preference_char(CAMERA_BINNING);
-    if (bin == 0 || bin > ww || bin > wh)
+    if (bin == 0 || bin > internal->frame_width || bin > internal->frame_height)
     {
         pn_log("Invalid binning: %d. Reset to %d.", bin, 1);
         bin = 1;
@@ -175,12 +178,6 @@ int camera_simulated_uninitialize(Camera *camera, void *_internal)
 
 int camera_simulated_start_acquiring(Camera *camera, void *_internal)
 {
-    struct internal *internal = _internal;
-
-    // TODO: Take preferences for binning into account
-    internal->frame_height = 512;
-    internal->frame_width = 512;
-
     // Wait a bit to simulate hardware delays
     millisleep(2000);
     return CAMERA_OK;
