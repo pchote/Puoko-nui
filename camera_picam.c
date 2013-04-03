@@ -164,7 +164,7 @@ PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAv
             if (frame->data)
             {
                 // Calculate camera timestamp
-                uint64_t timestamp = *(uint64_t *)(data->initial_readout + callback_internal_ref->frame_bytes);
+                uint64_t timestamp = *(uint64_t *)((uint8_t *)data->initial_readout + callback_internal_ref->frame_bytes);
 
                 if (callback_internal_ref->first_frame)
                 {
