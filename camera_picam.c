@@ -50,7 +50,7 @@ static void log_picam_error(PicamError error)
     Picam_DestroyString(string);
 }
 
-static void set_integer_param(PicamHandle model_handle, PicamParameter parameter, piint value)
+static PicamError set_integer_param(PicamHandle model_handle, PicamParameter parameter, piint value)
 {
     PicamError error = Picam_SetParameterIntegerValue(model_handle, parameter, value);
     if (error != PicamError_None)
@@ -62,6 +62,22 @@ static void set_integer_param(PicamHandle model_handle, PicamParameter parameter
         Picam_DestroyString(err);
         Picam_DestroyString(name);
     }
+    return error;
+}
+
+static PicamError set_float_param(PicamHandle model_handle, PicamParameter parameter, piflt value)
+{
+    PicamError error = Picam_SetParameterFloatingPointValue(model_handle, parameter, value);
+    if (error != PicamError_None)
+    {
+        const pichar *name, *err;
+        Picam_GetEnumerationString(PicamEnumeratedType_Parameter, parameter, &name);
+        Picam_GetEnumerationString(PicamEnumeratedType_Error, error, &err);
+        pn_log("Failed to set `%s': %s.", name, err);
+        Picam_DestroyString(err);
+        Picam_DestroyString(name);
+    }
+    return error;
 }
 
 static int commit_camera_params(struct internal *internal)
@@ -302,7 +318,7 @@ int camera_picam_initialize(Camera *camera, void **out_internal)
     PicamError error = Picam_GetParameterLargeIntegerValue(internal->model_handle, PicamParameter_TimeStampResolution, &timestamp_resolution);
     if (error != PicamError_None)
     {
-        pn_log("Failed to set PicamParameter_TimeStampResolution.");
+        pn_log("Failed to get PicamParameter_TimeStampResolution.");
         log_picam_error(error);
         return CAMERA_ERROR;
     }
@@ -396,14 +412,10 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
         pn_preference_set_char(CAMERA_READSPEED_MODE, 0);
         speed_id = 0;
     }
-    error = Picam_SetParameterFloatingPointValue(internal->model_handle, PicamParameter_AdcSpeed,
-                                                            speed_constraint->values_array[speed_id]);
+
+    error = set_float_param(internal->model_handle, PicamParameter_AdcSpeed, speed_constraint->values_array[speed_id]);
     if (error != PicamError_None)
-    {
-        pn_log("Failed to set Readout Speed.");
-        log_picam_error(error);
         return CAMERA_ERROR;
-    }
 
     free(internal->current_speed_desc);
     char str[100];
@@ -442,14 +454,9 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
     Picam_DestroyCollectionConstraints(gain_constraint);
 
     // Set temperature
-    error = Picam_SetParameterFloatingPointValue(internal->model_handle, PicamParameter_SensorTemperatureSetPoint,
-                                                            pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
+    error = set_float_param(internal->model_handle, PicamParameter_SensorTemperatureSetPoint, pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
     if (error != PicamError_None)
-    {
-        pn_log("Failed to set `PicamParameter_SensorTemperatureSetPoint'.");
-        log_picam_error(error);
         return CAMERA_ERROR;
-    }
 
     // Get chip dimensions
     const PicamRoisConstraint  *roi_constraint;
@@ -626,14 +633,9 @@ int camera_picam_port_table(Camera *camera, void *_internal, struct camera_port_
             snprintf(str, 100, "%0.1f MHz", speed_constraint->values_array[j]);
             speed->name = strdup(str);
 
-            error = Picam_SetParameterFloatingPointValue(internal->model_handle, PicamParameter_AdcSpeed,
-                                                         speed_constraint->values_array[j]);
+            error = set_float_param(internal->model_handle, PicamParameter_AdcSpeed, speed_constraint->values_array[j]);
             if (error != PicamError_None)
-            {
-                pn_log("Failed to set Readout Speed.");
-                log_picam_error(error);
                 return CAMERA_ERROR;
-            }
 
             const PicamCollectionConstraint *gain_constraint;
             error = Picam_GetParameterCollectionConstraint(internal->model_handle, PicamParameter_AdcAnalogGain,
@@ -734,12 +736,9 @@ int camera_picam_start_acquiring(Camera *camera, void *_internal)
     // the camera to complete the frame transfer and be ready for the next trigger
     exptime -= pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
 
-    error = Picam_SetParameterFloatingPointValue(internal->model_handle, PicamParameter_ExposureTime, exptime);
+    error = set_float_param(internal->model_handle, PicamParameter_ExposureTime, exptime);
     if (error != PicamError_None)
-    {
-        pn_log("PicamParameter_ExposureTime failed.");
-        log_picam_error(error);
-    }
+        return CAMERA_ERROR;
 
     // Keep the shutter open during the sequence
     set_integer_param(internal->model_handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
