@@ -317,6 +317,10 @@ int camera_picam_initialize(Camera *camera, void **out_internal)
     // Tag each frame with start time from the camera
     set_integer_param(internal->model_handle, PicamParameter_TimeStamps, PicamTimeStampsMask_ExposureStarted);
 
+    // Set Electron-Multiplication gain.
+    set_integer_param(internal->model_handle, PicamParameter_AdcEMGain, pn_preference_int(PROEM_EM_GAIN));
+    pn_log("Set EM Gain to %u", pn_preference_int(PROEM_EM_GAIN));
+
     pi64s timestamp_resolution;
     PicamError error = Picam_GetParameterLargeIntegerValue(internal->model_handle, PicamParameter_TimeStampResolution, &timestamp_resolution);
     if (error != PicamError_None)

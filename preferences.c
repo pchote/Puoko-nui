@@ -76,7 +76,8 @@ PNPreferenceStore prefs[] =
     {CAMERA_WINDOW_HEIGHT,      INT,  .value.i = 1024,  "CameraWindowHeight: %d\n"},
     {CAMERA_FRAME_BUFFER_SIZE,  INT,  .value.i = 5,     "CameraFrameBufferSize: %d\n"},
 
-    {PROEM_EXPOSURE_SHORTCUT,   INT,  .value.i = 5,    "ProEMExposureShortcut: %d\n"},
+    {PROEM_EXPOSURE_SHORTCUT,   INT,  .value.i = 5,     "ProEMExposureShortcut: %d\n"},
+    {PROEM_EM_GAIN,             INT,  .value.i = 1,     "ProEMEMGain: %d\n"},
     {VALIDATE_TIMESTAMPS,       CHAR, .value.c = 1,     "ValidateTimestamps: %hhu\n"},
 
     {FRAME_FLIP_X,              CHAR, .value.c = 0,     "FrameFlipX: %hhu\n"},
