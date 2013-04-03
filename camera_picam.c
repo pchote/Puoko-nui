@@ -292,6 +292,9 @@ int camera_picam_initialize(Camera *camera, void **out_internal)
     Picam_DestroyString(string);
     Picam_DestroyCameraIDs(&id);
 
+    // Set initial temperature
+    set_float_param(internal->model_handle, PicamParameter_SensorTemperatureSetPoint, pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
+
     // Enable frame transfer mode
     set_integer_param(internal->model_handle, PicamParameter_ReadoutControlMode, PicamReadoutControlMode_FrameTransfer);
 
