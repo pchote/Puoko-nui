@@ -78,6 +78,7 @@ PNPreferenceStore prefs[] =
 
     {PROEM_EXPOSURE_SHORTCUT,   INT,  .value.i = 5,     "ProEMExposureShortcut: %d\n"},
     {PROEM_EM_GAIN,             INT,  .value.i = 1,     "ProEMEMGain: %d\n"},
+    {PROEM_SHIFT_MODE,          CHAR, .value.c = 1,     "ProEMShiftMode: %hhu\n"},
     {VALIDATE_TIMESTAMPS,       CHAR, .value.c = 1,     "ValidateTimestamps: %hhu\n"},
 
     {FRAME_FLIP_X,              CHAR, .value.c = 0,     "FrameFlipX: %hhu\n"},

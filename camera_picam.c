@@ -321,8 +321,32 @@ int camera_picam_initialize(Camera *camera, void **out_internal)
     set_integer_param(internal->model_handle, PicamParameter_AdcEMGain, pn_preference_int(PROEM_EM_GAIN));
     pn_log("Set EM Gain to %u", pn_preference_int(PROEM_EM_GAIN));
 
+    // Validate and set vertical shift rate
+    const PicamCollectionConstraint *shift_constraint;
+    PicamError error = Picam_GetParameterCollectionConstraint(internal->model_handle, PicamParameter_VerticalShiftRate,
+                                                   PicamConstraintCategory_Required, &shift_constraint);
+    if (error != PicamError_None)
+    {
+        pn_log("Failed to query Vertical Shift Rate Constraints.");
+        log_picam_error(error);
+        return CAMERA_ERROR;
+    }
+
+    uint8_t shift_id = pn_preference_char(PROEM_SHIFT_MODE);
+    if (shift_id >= shift_constraint->values_count)
+    {
+        pn_log("Invalid shift index: %d. Reset to %d.", shift_id, 0);
+        pn_preference_set_char(PROEM_SHIFT_MODE, 0);
+        shift_id = 0;
+    }
+    set_float_param(internal->model_handle, PicamParameter_VerticalShiftRate,
+                    shift_constraint->values_array[shift_id]);
+
+    pn_log("Set vertical shift rate to %gus", shift_constraint->values_array[shift_id]);
+    Picam_DestroyCollectionConstraints(shift_constraint);
+
     pi64s timestamp_resolution;
-    PicamError error = Picam_GetParameterLargeIntegerValue(internal->model_handle, PicamParameter_TimeStampResolution, &timestamp_resolution);
+    error = Picam_GetParameterLargeIntegerValue(internal->model_handle, PicamParameter_TimeStampResolution, &timestamp_resolution);
     if (error != PicamError_None)
     {
         pn_log("Failed to get PicamParameter_TimeStampResolution.");
