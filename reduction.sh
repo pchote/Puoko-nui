@@ -47,7 +47,7 @@ if [ "$?" != '0' ]; then
 fi
 
 if [ "${PREFIX}" == "focus" ]; then
-	tsreduce focus-plot ${FILE} online_focus_temp.gif/png ${REDUCTION_PLOTSIZE}
+	tsreduce focus-plot ${FILE} online_focus_temp.gif/gif ${REDUCTION_PLOTSIZE}
 	if [ "$?" == '0' ]; then
 		mv online_focus_temp.gif online_ts.gif
 		if [ -f "online_dft.gif" ]; then
@@ -57,7 +57,7 @@ if [ "${PREFIX}" == "focus" ]; then
 		echo 'tsreduce focus-plot FAILED.'
 	fi
 else
-	tsreduce plot ${FILE} online_ts_temp.gif/png online_dft_temp.gif/png ${REDUCTION_PLOTSIZE}
+	tsreduce plot ${FILE} online_ts_temp.gif/gif online_dft_temp.gif/gif ${REDUCTION_PLOTSIZE}
 	if [ "$?" == '0' ]; then
 		mv online_ts_temp.gif online_ts.gif
 		mv online_dft_temp.gif online_dft.gif
