@@ -659,11 +659,11 @@ void FLTKGui::metadataFrameTypeChangedCallback(Fl_Widget *input, void *userdata)
 
 void FLTKGui::createMetadataWindow()
 {
-    m_metadataWindow = new Fl_Double_Window(420, 200, "Set Metadata");
+    m_metadataWindow = new Fl_Double_Window(430, 200, "Set Metadata");
     m_metadataWindow->user_data((void*)(this));
 
     // File output
-    Fl_Group *outputGroup = new Fl_Group(10, 10, 400, 55, "Output Filename");
+    Fl_Group *outputGroup = new Fl_Group(10, 10, 410, 55, "Output Filename");
     outputGroup->box(FL_ENGRAVED_BOX);
     outputGroup->align(FL_ALIGN_INSIDE|FL_ALIGN_TOP);
     outputGroup->labelsize(14);
@@ -679,7 +679,7 @@ void FLTKGui::createMetadataWindow()
 
     outputGroup->end();
 
-    x = 90;
+    x = 100;
     y = 75;
     int w = 110;
 
@@ -699,7 +699,7 @@ void FLTKGui::createMetadataWindow()
     m_metadataObservatoryInput = new Fl_Input(x, y, w, h, "Observatory:"); y += margin;
     m_metadataObserversInput = new Fl_Input(x, y, w, h, "Observers:"); y += margin;
 
-    x = 300;
+    x = 310;
     y = 75;
     m_metadataBurstInput = new Fl_Int_Input(x, y, w, h, "Burst Count:"); y += margin;
     m_metadataTargetInput = new Fl_Input(x, y, w, h, "Target:"); y += margin;
