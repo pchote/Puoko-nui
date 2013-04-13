@@ -8,4 +8,7 @@ if [ "$(xpaaccess -n Online_Preview)" = 0 ]; then
 	./startup.sh
 fi
 
-tsreduce preview $(pwd)/preview.fits.gz Online_Preview
+# Move preview to a temporary file to try and avoid file locking problems under windows
+mv preview.fits.gz preview.temp.fits.gz
+tsreduce preview $(pwd)/preview.temp.fits.gz Online_Preview
+rm preview.temp.fits.gz
