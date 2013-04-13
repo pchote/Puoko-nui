@@ -51,8 +51,9 @@ else
 endif
 
 # Statically link libgcc and libstdc++ to avoid needing extra dlls under windows
+# Force ANSI-style printf formatting
 ifeq ($(MSYSTEM),MINGW32)
-    CFLAGS += -DWIN32 -I/usr/local/include
+    CFLAGS += -DWIN32 -I/usr/local/include -D__USE_MINGW_ANSI_STDIO=1
     LFLAGS += -L/usr/local/lib -Lftd2xx/win32 -Lftd2xx/win64 -static-libgcc -static-libstdc++
     UTIL_LFLAGS += -L/usr/local/lib -Lftd2xx/win32 -Lftd2xx/win64 -static-libgcc
 endif
