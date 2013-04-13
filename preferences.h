@@ -16,6 +16,7 @@ typedef enum
 {
     OBJECT_DARK,
     OBJECT_FLAT,
+    OBJECT_FOCUS,
     OBJECT_TARGET
 } PNFrameType;
 

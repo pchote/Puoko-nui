@@ -194,6 +194,10 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
         case OBJECT_FLAT:
             fits_update_key(fptr, TSTRING, "OBJECT", "Flat Field", "Object name", &status);
             break;
+        case OBJECT_FOCUS:
+            fits_update_key(fptr, TSTRING, "OBJECT", "Focus", "Object name", &status);
+            break;
+        case OBJECT_TARGET:
         default:
         {
             char *object_name = pn_preference_string(OBJECT_NAME);

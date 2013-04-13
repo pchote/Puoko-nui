@@ -303,6 +303,9 @@ void FLTKGui::updateAcquisitionGroup()
         case OBJECT_FLAT:
             m_acquisitionTargetOutput->value("Flat");
             break;
+        case OBJECT_FOCUS:
+            m_acquisitionTargetOutput->value("Focus");
+            break;
         case OBJECT_TARGET:
 			m_acquisitionTargetOutput->value(object);
             break;
@@ -645,7 +648,7 @@ void FLTKGui::metadataFrameTypeChangedCallback(Fl_Widget *input, void *userdata)
 {
 	FLTKGui *gui = (FLTKGui *)userdata;
 
-    if (((Fl_Choice *)input)->value() == 2)
+    if (((Fl_Choice *)input)->value() == OBJECT_TARGET)
 	{
 	    populate_string_preference(gui->m_metadataTargetInput, OBJECT_NAME);
 		gui->m_metadataTargetInput->activate();
@@ -692,6 +695,7 @@ void FLTKGui::createMetadataWindow()
     m_metadataFrameTypeInput = new Fl_Choice(x, y, w, h, "Type:"); y += margin;
     m_metadataFrameTypeInput->add("Dark");
     m_metadataFrameTypeInput->add("Flat");
+    m_metadataFrameTypeInput->add("Focus");
     m_metadataFrameTypeInput->add("Target");
     m_metadataFrameTypeInput->callback(metadataFrameTypeChangedCallback);
     m_metadataFrameTypeInput->user_data((void*)(this));

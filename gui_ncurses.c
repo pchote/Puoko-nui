@@ -210,6 +210,9 @@ static void update_acquisition_window()
         case OBJECT_FLAT:
             typename = "Flat  ";
             break;
+        case OBJECT_FOCUS:
+            typename = "Focus ";
+            break;
         case OBJECT_TARGET:
             typename = "Target";
             break;
@@ -453,6 +456,7 @@ static WINDOW *create_frametype_window()
     WINDOW *ret = newwin(1, col, row-1, 0);
     print_command_option(ret, false, " D ", "Dark");
     print_command_option(ret, true, " F ", "Flat");
+    print_command_option(ret, true, " C ", "Focus");
     print_command_option(ret, true, " T ", "Target");
     return ret;
 }
@@ -918,6 +922,10 @@ bool pn_ui_update()
                     case 'f':
                         type = OBJECT_FLAT;
                         type_name = "Flat";
+                    break;
+                    case 'c':
+                        type = OBJECT_FOCUS;
+                        type_name = "Focus";
                     break;
                     case 't':
                         type = OBJECT_TARGET;
