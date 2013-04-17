@@ -90,12 +90,6 @@ static int commit_camera_params(struct internal *internal)
         const PicamParameter *failed_params = NULL;
         piint failed_param_count = 0;
         PicamError error = Picam_CommitParameters(internal->model_handle, &failed_params, &failed_param_count);
-        if (error != PicamError_None)
-        {
-            pn_log("Picam_CommitParameters failed.", error);
-            log_picam_error(error);
-            return CAMERA_ERROR;
-        }
 
         if (failed_param_count > 0)
         {
@@ -112,6 +106,13 @@ static int commit_camera_params(struct internal *internal)
             return CAMERA_ERROR;
         }
         Picam_DestroyParameters(failed_params);
+
+        if (error != PicamError_None)
+        {
+            pn_log("Picam_CommitParameters failed.", error);
+            log_picam_error(error);
+            return CAMERA_ERROR;
+        }
 
         error = PicamAdvanced_CommitParametersToCameraDevice(internal->model_handle);
         if (error != PicamError_None)
