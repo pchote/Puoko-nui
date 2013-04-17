@@ -578,6 +578,9 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
     Picam_DestroyRoisConstraints(roi_constraint);
     Picam_DestroyRois(region);
 
+    // Commit other settings
+    commit_camera_params(internal);
+
     // Query readout time
     piflt readout_time;
     error = Picam_GetParameterFloatingPointValue(internal->model_handle, PicamParameter_ReadoutTimeCalculation, &readout_time);
