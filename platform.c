@@ -164,7 +164,18 @@ bool file_exists(const char *path)
 bool rename_atomically(const char *src, const char *dest, bool overwrite)
 {
 #ifdef _WIN32
-    return MoveFileEx(src, dest, overwrite ? MOVEFILE_REPLACE_EXISTING : 0);
+    // Windows seemingly randomly gives sharing violation errors when moving,
+    // even when nothing should hold a lock on the file.
+    // Instead of moving, we copy and then delete. Failing to delete a temp
+    // file is a better fail case than not moving to the final filename.
+    if (!CopyFile(src, dest, !overwrite))
+        return false;
+
+    // Failing to delete is not a fatal error, so log it and return success
+    if (!DeleteFile(src))
+        pn_log("Failed to remove intermediate file %s", src);
+
+    return true;
 #else
     // File exists
     if (!overwrite && access(dest, F_OK) == 0)
