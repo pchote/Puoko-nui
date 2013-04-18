@@ -127,15 +127,28 @@ char *canonicalize_path(const char *path)
     char path_buf[MAX_PATH], *ptr;
     GetFullPathName(path, MAX_PATH, path_buf, &ptr);
 
-    // Replace all '\' in path cd ../tsreducewith '/'
+    // Replace all '\' in path with '/'
     char *i;
     while ((i = strstr(path_buf, "\\")))
-        i[0] = '/';
+        *i = '/';
 #else
     char path_buf[PATH_MAX];
     realpath(path, path_buf);
 #endif
     return strdup(path_buf);
+}
+
+// Convert a canonicalized path to a native path on windows
+char *platform_path(const char *path)
+{
+    char *ret = strdup(path);
+#ifdef _WIN32
+    // Replace all '/' in path with '\'
+    char *i;
+    while ((i = strstr(ret, "/")))
+        *i = '\\';
+#endif
+    return ret;
 }
 
 bool file_exists(const char *path)

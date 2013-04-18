@@ -20,6 +20,7 @@ time_t struct_tm_to_time_t(struct tm *t);
 void normalize_tm(struct tm *t);
 void millisleep(int ms);
 char *canonicalize_path(const char *path);
+char *platform_path(const char *path);
 bool file_exists(const char *path);
 bool rename_atomically(const char *src, const char *dest, bool overwrite);
 bool delete_file(const char *path);

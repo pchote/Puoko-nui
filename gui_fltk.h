@@ -82,6 +82,7 @@ private:
     static void buttonMetadataConfirmPressed(Fl_Widget* o, void *v);
     static void buttonErrorConfirmPressed(Fl_Widget* o, void *v);
 
+    static void buttonMetadataOutputDirPressed(Fl_Widget *input, void *v);
     static void metadataAcquisitionTypeChangedCallback(Fl_Widget *input, void *v);
     static void metadataFrameTypeChangedCallback(Fl_Widget *input, void *v);
 
@@ -158,7 +159,7 @@ private:
     Fl_Double_Window *m_metadataWindow;
     Fl_Button *m_metadataButtonConfirm;
 
-    Fl_Input *m_metadataOutputDir;
+    Fl_Button *m_metadataOutputDir;
     Fl_Input *m_metadataRunPrefix;
     Fl_Int_Input *m_metadataRunNumber;
 

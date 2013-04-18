@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "gui_fltk.h"
-
+#include <FL/Fl_Native_File_Chooser.H>
 FLTKGui *gui;
 
 #pragma mark C API entrypoints
@@ -628,6 +628,33 @@ void FLTKGui::showCameraWindow()
     m_cameraWindow->show();
 }
 
+
+void FLTKGui::buttonMetadataOutputDirPressed(Fl_Widget *button, void *userdata)
+{
+	FLTKGui *gui = (FLTKGui *)userdata;
+
+	Fl_Native_File_Chooser fc;
+	fc.title("Choose the frame output directory");
+	fc.type(Fl_Native_File_Chooser::BROWSE_DIRECTORY);
+	fc.options(Fl_Native_File_Chooser::NEW_FOLDER);
+
+	char *dir = platform_path(gui->m_metadataOutputDir->label());
+	fc.directory(dir);
+    free(dir);
+
+	switch (fc.show())
+	{
+		case -1:
+			pn_log("Error querying data directory: %s\n", fc.errmsg());
+		break;
+		case 1:
+		break;
+		default:
+	    	gui->m_metadataOutputDir->copy_label(canonicalize_path(fc.filename()));
+		break;
+	}
+}
+
 void FLTKGui::metadataAcquisitionTypeChangedCallback(Fl_Widget *input, void *userdata)
 {
 	FLTKGui *gui = (FLTKGui *)userdata;
@@ -673,7 +700,11 @@ void FLTKGui::createMetadataWindow()
     outputGroup->labelfont(FL_BOLD);
 
     int x = 20, y = 35, h = 20, margin = 25;
-    m_metadataOutputDir = new Fl_Input(x, y, 170, h); x+= 180;
+    m_metadataOutputDir = new Fl_Button(x, y, 170, h); x+= 180;
+	m_metadataOutputDir->align(FL_ALIGN_CLIP | FL_ALIGN_RIGHT | FL_ALIGN_INSIDE);
+    m_metadataOutputDir->user_data((void*)(this));
+    m_metadataOutputDir->callback(buttonMetadataOutputDirPressed);
+
     m_metadataRunPrefix = new Fl_Input(x, y, 100, h, "/"); x+= 110;
     m_metadataRunNumber = new Fl_Int_Input(x, y, 50, h, "-"); x+= 95;
 
@@ -719,7 +750,10 @@ void FLTKGui::createMetadataWindow()
 void FLTKGui::showMetadataWindow()
 {
     // Update windows with preferences
-    populate_string_preference(m_metadataOutputDir, OUTPUT_DIR);
+    char *dir = pn_preference_string(OUTPUT_DIR);
+    m_metadataOutputDir->copy_label(dir);
+    free(dir);
+
     populate_string_preference(m_metadataRunPrefix, RUN_PREFIX);
     populate_int_preference(m_metadataRunNumber, RUN_NUMBER);
 
@@ -759,7 +793,7 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
     }
 
     // Update preferences from fields
-    char *output = canonicalize_path(gui->m_metadataOutputDir->value());
+    char *output = canonicalize_path(gui->m_metadataOutputDir->label());
     set_string(OUTPUT_DIR, output);
     free(output);
 
