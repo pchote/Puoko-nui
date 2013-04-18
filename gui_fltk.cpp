@@ -11,6 +11,7 @@
 #include <string.h>
 #include "gui_fltk.h"
 #include <FL/Fl_Native_File_Chooser.H>
+#include <FL/Fl_File_Icon.H>
 FLTKGui *gui;
 
 #pragma mark C API entrypoints
@@ -957,8 +958,10 @@ void FLTKGui::closeMainWindowCallback(Fl_Widget *window, void *v)
 FLTKGui::FLTKGui(Camera *camera, TimerUnit *timer)
     : m_cameraRef(camera), m_timerRef(timer), shutdown_requested(false)
 {
+	Fl_File_Icon::load_system_icons();
+
 	// Create the main window
-	m_mainWindow = new Fl_Double_Window(710, 355, "Acquisition Control");
+    m_mainWindow = new Fl_Double_Window(710, 355, "Acquisition Control");
     m_mainWindow->user_data((void*)(this));
     m_mainWindow->callback(closeMainWindowCallback);
 

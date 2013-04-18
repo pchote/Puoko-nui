@@ -42,8 +42,8 @@ endif
 
 ifeq ($(GUI_TYPE),FLTK)
     CFLAGS += -DUSE_FLTK_GUI
-    CXXFLAGS += $(shell fltk-config --cxxflags )
-    LFLAGS += $(shell fltk-config --ldflags )
+    CXXFLAGS += $(shell fltk-config --use-images --cxxflags)
+    LFLAGS += $(shell fltk-config --use-images --ldflags)
     OBJS += gui_fltk.o
 else
     LFLAGS += -lpanel -lncurses
