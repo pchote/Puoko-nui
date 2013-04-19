@@ -597,10 +597,15 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
     if (!highres)
         readout_time /= 1000;
 
+    // Make sure that the exposure is longer than the shortcut time
+    double shortcut = pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
+    exposure_time -= shortcut;
+
     if (exposure_time < readout_time)
     {
-        uint16_t new_exposure = (uint16_t)(ceil(readout_time));
+        uint16_t new_exposure = (uint16_t)(ceil(readout_time + shortcut));
         pn_preference_set_int(EXPOSURE_TIME, new_exposure);
+        pn_log("EXPOSURE_TIME - PROEM_EXPOSURE_SHORTCUT > camera readout.");
         pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 
