@@ -347,14 +347,13 @@ static char *next_filepath()
     return filepath;
 }
 
-static char *temporary_filepath(const char *dir)
+static char *temporary_filepath(const char *prefix, size_t length)
 {
-    size_t dirlen = strlen(dir);
-    char *path = malloc((dirlen + 19)*sizeof(char));
+    char *path = malloc((length + 14)*sizeof(char));
 
     if (path)
     {
-        strcpy(path, dir);
+        strcpy(path, prefix);
 
         size_t n = 0;
         do
@@ -369,7 +368,7 @@ static char *temporary_filepath(const char *dir)
             // Windows will only return numbers in the range 0-0x7FFF
             // but this still gives 32k potential files
             uint32_t test = rand() & 0xFFFF;
-            snprintf(path + dirlen, 19, "/temp-%04x.fits.gz", test);
+            snprintf(path + length, 14, ".%04x.fits.gz", test);
         }
         while (file_exists(path));
     }
@@ -387,10 +386,8 @@ static void save_frame(CameraFrame *frame, TimerTimestamp timestamp, Modules *mo
         return;
     }
 
-    char *dir = pn_preference_string(OUTPUT_DIR);
-    char *temppath = temporary_filepath(dir);
-    free(dir);
-    if (!filepath)
+    char *temppath = temporary_filepath(filepath, strlen(filepath) - 8);
+    if (!temppath)
     {
         pn_log("Failed to create unique temporary filename. Discarding frame");
         return;
@@ -422,7 +419,7 @@ static void save_frame(CameraFrame *frame, TimerTimestamp timestamp, Modules *mo
 static void preview_frame(CameraFrame *frame, TimerTimestamp timestamp, Modules *modules)
 {
     // Update frame preview atomically
-    char *temp_preview = temporary_filepath(".");
+    char *temp_preview = temporary_filepath("./preview", 9);
     if (!temp_preview)
     {
         pn_log("Error creating temporary filepath. Skipping preview");
