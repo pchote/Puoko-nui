@@ -24,6 +24,7 @@ struct internal
     PicamHandle device_handle;
     PicamHandle model_handle;
     pibyte *image_buffer;
+    piint readout_stride;
 
     uint16_t frame_width;
     uint16_t frame_height;
@@ -142,6 +143,46 @@ static int read_temperature(PicamHandle model_handle, double *out_temperature)
     return CAMERA_OK;
 }
 
+static void acquired_frame(struct internal *internal, uint8_t *frame_data, uint64_t timestamp)
+{
+    // Copy frame data and pass ownership to main thread
+    CameraFrame *frame = malloc(sizeof(CameraFrame));
+    if (frame)
+    {
+        frame->data = malloc(internal->frame_bytes);
+        if (frame->data)
+        {
+            if (internal->first_frame)
+            {
+                internal->start_timestamp = timestamp;
+                timestamp = 0;
+                internal->first_frame = false;
+            }
+            else
+                timestamp -= internal->start_timestamp;
+
+            memcpy(frame->data, frame_data, internal->frame_bytes);
+            frame->width = internal->frame_width;
+            frame->height = internal->frame_height;
+            read_temperature(internal->model_handle, &frame->temperature);
+
+            frame->has_timestamp = true;
+            frame->timestamp = timestamp*1.0/internal->timestamp_resolution;
+            frame->has_image_region = false;
+            frame->has_bias_region = false;
+
+            frame->port_desc = strdup(internal->current_port_desc);
+            frame->speed_desc = strdup(internal->current_speed_desc);
+            frame->gain_desc = strdup(internal->current_gain_desc);
+            queue_framedata(frame);
+        }
+        else
+            pn_log("Failed to allocate CameraFrame->data. Discarding frame.");
+    }
+    else
+        pn_log("Failed to allocate CameraFrame. Discarding frame.");
+}
+
 // Frame status change callback
 // - called when any of the following occur during acquisition:
 //   - a new readout arrives
@@ -152,61 +193,25 @@ static int read_temperature(PicamHandle model_handle, double *out_temperature)
 // - called on another thread
 // - all update callbacks are serialized
 static struct internal *callback_internal_ref;
-PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAvailableData* data,
-                                                      const PicamAcquisitionStatus* status)
+PicamError PIL_CALL acquisitionUpdatedCallback(PicamHandle handle, const PicamAvailableData *data, const PicamAcquisitionStatus* status)
 {
-    if (data && data->readout_count && status->errors == PicamAcquisitionErrorsMask_None)
-    {
-        // Copy frame data and pass ownership to main thread
-        CameraFrame *frame = malloc(sizeof(CameraFrame));
-        if (frame)
-        {
-            frame->data = malloc(callback_internal_ref->frame_bytes);
-            if (frame->data)
-            {
-                // Calculate camera timestamp
-                uint64_t timestamp = *(uint64_t *)((uint8_t *)data->initial_readout + callback_internal_ref->frame_bytes);
-
-                if (callback_internal_ref->first_frame)
-                {
-                    callback_internal_ref->start_timestamp = timestamp;
-                    timestamp = 0;
-                    callback_internal_ref->first_frame = false;
-                }
-                else
-                    timestamp -= callback_internal_ref->start_timestamp;
-
-                memcpy(frame->data, data->initial_readout, callback_internal_ref->frame_bytes);
-                frame->width = callback_internal_ref->frame_width;
-                frame->height = callback_internal_ref->frame_height;
-                read_temperature(callback_internal_ref->model_handle, &frame->temperature);
-
-                frame->has_timestamp = true;
-                frame->timestamp = timestamp*1.0/callback_internal_ref->timestamp_resolution;
-                frame->has_image_region = false;
-                frame->has_bias_region = false;
-
-                frame->port_desc = strdup(callback_internal_ref->current_port_desc);
-                frame->speed_desc = strdup(callback_internal_ref->current_speed_desc);
-                frame->gain_desc = strdup(callback_internal_ref->current_gain_desc);
-                queue_framedata(frame);
-            }
-            else
-                pn_log("Failed to allocate CameraFrame->data. Discarding frame.");
-        }
-        else
-            pn_log("Failed to allocate CameraFrame. Discarding frame.");
-    }
-
-    // Error
-    else if (status->errors != PicamAcquisitionErrorsMask_None)
+    if (status->errors != PicamAcquisitionErrorsMask_None)
     {
         // Print errors
         if (status->errors & PicamAcquisitionErrorsMask_DataLost)
-            pn_log("Frame data lost. Continuing.");
+            pn_log("Camera error: Frame data lost. Continuing...");
 
         if (status->errors & PicamAcquisitionErrorsMask_ConnectionLost)
-            pn_log("Camera connection lost. Continuing.");
+            pn_log("Camera error: Connection lost. Continuing...");
+    }
+    else if (data)
+    {
+        for (pi64s i = 0; i < data->readout_count; i++)
+        {
+            uint8_t *frame_data = (uint8_t *)data->initial_readout + i*callback_internal_ref->readout_stride;
+            uint64_t timestamp = *(uint64_t *)(frame_data + callback_internal_ref->frame_bytes);
+            acquired_frame(callback_internal_ref, frame_data, timestamp);
+        }
     }
 
     // Check for buffer overrun. Should never happen in practice, but we log this
@@ -731,8 +736,8 @@ int camera_picam_start_acquiring(Camera *camera, void *_internal)
     // Create a buffer large enough for PICAM to hold multiple frames.
     size_t buffer_size = pn_preference_int(CAMERA_FRAME_BUFFER_SIZE);
 
-    piint readout_stride = 0;
-    error = Picam_GetParameterIntegerValue(internal->model_handle, PicamParameter_ReadoutStride, &readout_stride);
+    internal->readout_stride = 0;
+    error = Picam_GetParameterIntegerValue(internal->model_handle, PicamParameter_ReadoutStride, &internal->readout_stride);
     if (error != PicamError_None)
     {
         pn_log("Failed to set PicamParameter_ReadoutStride.");
@@ -740,14 +745,14 @@ int camera_picam_start_acquiring(Camera *camera, void *_internal)
         return CAMERA_ERROR;
     }
 
-    internal->image_buffer = (pibyte *)malloc(buffer_size*readout_stride*sizeof(pibyte));
+    internal->image_buffer = (pibyte *)malloc(buffer_size*internal->readout_stride*sizeof(pibyte));
     if (!internal->image_buffer)
         return CAMERA_ALLOCATION_FAILED;
 
     PicamAcquisitionBuffer buffer =
     {
         .memory = internal->image_buffer,
-        .memory_size = buffer_size*readout_stride
+        .memory_size = buffer_size*internal->readout_stride
     };
 
     error = PicamAdvanced_SetAcquisitionBuffer(internal->device_handle, &buffer);
