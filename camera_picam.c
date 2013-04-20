@@ -606,13 +606,10 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
         readout_time /= 1000;
     }
 
-    // Make sure that the shortened exposure is physically possible
-    exposure_time -= shortcut;
-    if (exposure_time <= readout_time)
+    if (exposure_time < readout_time)
     {
-        uint16_t new_exposure = (uint16_t)(ceil(readout_time + shortcut));
+        uint16_t new_exposure = (uint16_t)(ceil(readout_time));
         pn_preference_set_int(EXPOSURE_TIME, new_exposure);
-        pn_log("EXPOSURE_TIME - PROEM_EXPOSURE_SHORTCUT > camera readout.");
         pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 
@@ -774,16 +771,11 @@ int camera_picam_start_acquiring(Camera *camera, void *_internal, bool shutter_o
     }
     internal->frame_bytes = frame_size;
 
-    // Convert from base exposure units (s or ms) to ms
-    piflt exptime = pn_preference_int(EXPOSURE_TIME);
-    if (pn_preference_char(TIMER_TRIGGER_MODE) == TRIGGER_SECONDS)
-        exptime *= 1000;
+    // Exposure time is zero, but cleaning is disabled so the exposure time
+    // is controlled by the external trigger period, with transfer/readout
+    // happening immediately on trigger.
+    error = set_float_param(internal->model_handle, PicamParameter_ExposureTime, 0);
 
-    // Set exposure period shorter than the trigger period, allowing
-    // the camera to complete the frame transfer and be ready for the next trigger
-    exptime -= pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
-
-    error = set_float_param(internal->model_handle, PicamParameter_ExposureTime, exptime);
     if (error != PicamError_None)
         return CAMERA_ERROR;
 
@@ -899,7 +891,7 @@ int camera_picam_query_ccd_region(Camera *camera, void *_internal, uint16_t regi
 
 bool camera_picam_supports_readout_display(Camera *camera, void *internal)
 {
-    return false;
+    return true;
 }
 
 bool camera_picam_supports_shutter_disabling(Camera *camera, void *internal)
@@ -909,5 +901,15 @@ bool camera_picam_supports_shutter_disabling(Camera *camera, void *internal)
 
 void camera_picam_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger)
 {
-    // Do nothing: ProEM triggers already represent the start of the frame
+    // Convert trigger time from end of exposure to start of exposure
+    uint16_t exposure = pn_preference_int(EXPOSURE_TIME);
+    if (pn_preference_char(TIMER_HIGHRES_TIMING))
+    {
+        trigger->seconds -= exposure / 1000;
+        trigger->milliseconds -= exposure % 1000;
+    }
+    else
+        trigger->seconds -= exposure;
+
+    timestamp_normalize(trigger);
 }
