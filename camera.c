@@ -142,7 +142,7 @@ static void *camera_thread(void *_modules)
     if (ret == CAMERA_INITIALIZATION_ABORTED)
     {
         pn_log("Camera initialization aborted.");
-        return NULL;
+		goto initialization_failure;
     }
     else if (ret != CAMERA_OK)
     {
@@ -387,7 +387,7 @@ PNCameraMode camera_mode(Camera *camera)
 PNCameraMode camera_desired_mode(Camera *camera)
 {
     pthread_mutex_lock(&camera->read_mutex);
-    PNCameraMode mode = camera->mode;
+    PNCameraMode mode = camera->desired_mode;
     pthread_mutex_unlock(&camera->read_mutex);
     return mode;
 }
