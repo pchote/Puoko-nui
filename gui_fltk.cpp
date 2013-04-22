@@ -351,7 +351,7 @@ void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
     if (mode == IDLE)
     {
         clear_queued_data(true);
-        camera_start_exposure(gui->m_cameraRef);
+        camera_start_exposure(gui->m_cameraRef, !pn_preference_char(CAMERA_DISABLE_SHUTTER));
         bool use_monitor = !camera_is_simulated(gui->m_cameraRef) && pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
         timer_start_exposure(gui->m_timerRef, pn_preference_int(EXPOSURE_TIME), use_monitor);
     }

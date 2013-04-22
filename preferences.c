@@ -74,6 +74,7 @@ PNPreferenceStore prefs[] =
     {CAMERA_WINDOW_Y,           INT,  .value.i = 0,     "CameraWindowY: %d\n"},
     {CAMERA_WINDOW_WIDTH,       INT,  .value.i = 1024,  "CameraWindowWidth: %d\n"},
     {CAMERA_WINDOW_HEIGHT,      INT,  .value.i = 1024,  "CameraWindowHeight: %d\n"},
+    {CAMERA_DISABLE_SHUTTER,    CHAR, .value.c = 0,     "CameraDisableShutter: %hhu\n"},
     {CAMERA_FRAME_BUFFER_SIZE,  INT,  .value.i = 5,     "CameraFrameBufferSize: %d\n"},
 
     {PROEM_EXPOSURE_SHORTCUT,   INT,  .value.i = 5,     "ProEMExposureShortcut: %d\n"},

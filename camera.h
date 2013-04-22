@@ -60,7 +60,7 @@ void camera_join_thread(Camera *camera);
 void camera_set_mode(Camera *camera, PNCameraMode mode);
 void camera_notify_safe_to_stop(Camera *camera);
 bool camera_is_simulated(Camera *camera);
-void camera_start_exposure(Camera *camera);
+void camera_start_exposure(Camera *camera, bool shutter_open);
 void camera_stop_exposure(Camera *camera);
 
 double camera_temperature(Camera *camera);

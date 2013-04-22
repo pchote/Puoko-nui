@@ -176,10 +176,11 @@ int camera_simulated_uninitialize(Camera *camera, void *_internal)
     return CAMERA_OK;
 }
 
-int camera_simulated_start_acquiring(Camera *camera, void *_internal)
+int camera_simulated_start_acquiring(Camera *camera, void *_internal, bool shutter_open)
 {
     // Wait a bit to simulate hardware delays
     millisleep(2000);
+    pn_log("%s simulated shutter.", shutter_open ? "Opened" : "Closed");
     return CAMERA_OK;
 }
 
@@ -187,6 +188,7 @@ int camera_simulated_stop_acquiring(Camera *camera, void *_internal)
 {
     // Wait a bit to simulate hardware delays
     millisleep(1000);
+    pn_log("Closed simulated shutter.");
     return CAMERA_OK;
 }
 

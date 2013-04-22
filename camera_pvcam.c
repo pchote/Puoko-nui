@@ -546,7 +546,7 @@ int camera_pvcam_uninitialize(Camera *camera, void *_internal)
     return CAMERA_OK;
 }
 
-int camera_pvcam_start_acquiring(Camera *camera, void *_internal)
+int camera_pvcam_start_acquiring(Camera *camera, void *_internal, bool shutter_open)
 {
     struct internal *internal = _internal;
 

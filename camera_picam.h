@@ -17,7 +17,7 @@ int camera_picam_initialize(Camera *camera, void **internal);
 int camera_picam_update_camera_settings(Camera *camera, void *internal, double *readout_time);
 int camera_picam_port_table(Camera *camera, void *internal, struct camera_port_option **ports, uint8_t *port_count);
 int camera_picam_uninitialize(Camera *camera, void *internal);
-int camera_picam_start_acquiring(Camera *camera, void *internal);
+int camera_picam_start_acquiring(Camera *camera, void *internal, bool shutter_open);
 int camera_picam_stop_acquiring(Camera *camera, void *internal);
 int camera_picam_tick(Camera *camera, void *internal, PNCameraMode current_mode);
 int camera_picam_read_temperature(Camera *camera, void *internal, double *temperature);

@@ -39,6 +39,7 @@ struct Camera
     pthread_mutex_t read_mutex;
     PNCameraMode desired_mode;
     PNCameraMode mode;
+    bool desired_shutter;
     bool safe_to_stop_acquiring;
 
     struct camera_port_option *port_options;
@@ -54,7 +55,7 @@ struct Camera
     int (*port_table)(Camera *, void *, struct camera_port_option **, uint8_t *);
     int (*uninitialize)(Camera *, void *);
     int (*tick)(Camera *, void *, PNCameraMode);
-    int (*start_acquiring)(Camera *, void *);
+    int (*start_acquiring)(Camera *, void *, bool);
     int (*stop_acquiring)(Camera *, void *);
     int (*read_temperature)(Camera *, void *, double *);
     int (*query_ccd_region)(Camera *, void *, uint16_t[4]);
@@ -120,18 +121,10 @@ void camera_free(Camera *camera)
     pthread_mutex_destroy(&camera->read_mutex);
 }
 
-
 static void set_mode(Camera *camera, PNCameraMode mode)
 {
     pthread_mutex_lock(&camera->read_mutex);
     camera->mode = mode;
-    pthread_mutex_unlock(&camera->read_mutex);
-}
-
-static void set_desired_mode(Camera *camera, PNCameraMode mode)
-{
-    pthread_mutex_lock(&camera->read_mutex);
-    camera->desired_mode = mode;
     pthread_mutex_unlock(&camera->read_mutex);
 }
 
@@ -194,6 +187,7 @@ static void *camera_thread(void *_modules)
         current_mode = camera_mode(camera);
         pthread_mutex_lock(&camera->read_mutex);
         bool camera_settings_dirty = camera->camera_settings_dirty;
+        bool desired_shutter = camera->desired_shutter;
         pthread_mutex_unlock(&camera->read_mutex);
 
         if (current_mode == IDLE && camera_settings_dirty)
@@ -217,7 +211,7 @@ static void *camera_thread(void *_modules)
             set_mode(camera, ACQUIRE_START);
             pn_log("Camera is preparing for acquisition.");
 
-            if (camera->start_acquiring(camera, camera->internal) != CAMERA_OK)
+            if (camera->start_acquiring(camera, camera->internal, desired_shutter) != CAMERA_OK)
             {
                 pn_log("Failed to start camera acquisition");
                 goto failure;
@@ -320,7 +314,9 @@ void camera_spawn_thread(Camera *camera, const Modules *modules)
 
 void camera_notify_shutdown(Camera *camera)
 {
-    set_desired_mode(camera, SHUTDOWN);
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = SHUTDOWN;
+    pthread_mutex_unlock(&camera->read_mutex);
 }
 
 void camera_join_thread(Camera *camera)
@@ -347,14 +343,19 @@ bool camera_is_simulated(Camera *camera)
     return (camera->type == SIMULATED);
 }
 
-void camera_start_exposure(Camera *camera)
+void camera_start_exposure(Camera *camera, bool shutter_open)
 {
-    set_desired_mode(camera, ACQUIRING);
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = ACQUIRING;
+    camera->desired_shutter = shutter_open;
+    pthread_mutex_unlock(&camera->read_mutex);
 }
 
 void camera_stop_exposure(Camera *camera)
 {
-    set_desired_mode(camera, IDLE);
+    pthread_mutex_lock(&camera->read_mutex);
+    camera->desired_mode = IDLE;
+    pthread_mutex_unlock(&camera->read_mutex);
 }
 
 double camera_temperature(Camera *camera)

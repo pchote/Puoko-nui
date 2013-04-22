@@ -726,7 +726,7 @@ int camera_picam_uninitialize(Camera *camera, void *_internal)
     return CAMERA_OK;
 }
 
-int camera_picam_start_acquiring(Camera *camera, void *_internal)
+int camera_picam_start_acquiring(Camera *camera, void *_internal, bool shutter_open)
 {
     struct internal *internal = _internal;
     PicamError error;
@@ -785,8 +785,10 @@ int camera_picam_start_acquiring(Camera *camera, void *_internal)
     if (error != PicamError_None)
         return CAMERA_ERROR;
 
-    // Keep the shutter open during the sequence
-    set_integer_param(internal->model_handle, PicamParameter_ShutterTimingMode, PicamShutterTimingMode_AlwaysOpen);
+    // Open shutter if required
+    set_integer_param(internal->model_handle, PicamParameter_ShutterTimingMode,
+        shutter_open ? PicamShutterTimingMode_AlwaysOpen : PicamShutterTimingMode_AlwaysClosed);
+    pn_log("Will acquire with shutter %s.", shutter_open ? "open" : "closed");
 
     int status = commit_camera_params(internal);
     if (status != CAMERA_OK)
