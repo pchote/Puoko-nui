@@ -24,6 +24,7 @@ int camera_simulated_read_temperature(Camera *camera, void *internal, double *te
 int camera_simulated_query_ccd_region(Camera *camera, void *internal, uint16_t region[4]);
 
 bool camera_simulated_supports_readout_display(Camera *camera, void *internal);
+bool camera_simulated_supports_shutter_disabling(Camera *camera, void *internal);
 void camera_simulated_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger);
 
 void camera_simulated_trigger_frame(Camera *camera, void *internal);

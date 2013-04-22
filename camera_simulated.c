@@ -262,6 +262,11 @@ bool camera_simulated_supports_readout_display(Camera *camera, void *internal)
     return false;
 }
 
+bool camera_simulated_supports_shutter_disabling(Camera *camera, void *internal)
+{
+    return true;
+}
+
 void camera_simulated_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger)
 {
     // Convert trigger time from end of exposure to start of exposure

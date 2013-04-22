@@ -69,6 +69,7 @@ PNCameraMode camera_mode(Camera *camera);
 PNCameraMode camera_desired_mode(Camera *camera);
 void camera_update_settings(Camera *camera);
 bool camera_supports_readout_display(Camera *camera);
+bool camera_supports_shutter_disabling(Camera *camera);
 void camera_normalize_trigger(Camera *camera, TimerTimestamp *trigger);
 
 void camera_simulate_frame(Camera *camera);

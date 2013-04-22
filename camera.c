@@ -61,6 +61,7 @@ struct Camera
     int (*query_ccd_region)(Camera *, void *, uint16_t[4]);
 
     bool (*supports_readout_display)(Camera *, void *);
+    bool (*supports_shutter_disabling)(Camera *, void *);
     void (*normalize_trigger)(Camera *, void *, TimerTimestamp *);
 };
 
@@ -77,6 +78,7 @@ struct Camera
     HOOK(type, read_temperature);         \
     HOOK(type, query_ccd_region);         \
     HOOK(type, supports_readout_display); \
+    HOOK(type, supports_shutter_disabling); \
     HOOK(type, normalize_trigger);        \
 }
 
@@ -400,6 +402,11 @@ void camera_update_settings(Camera *camera)
 bool camera_supports_readout_display(Camera *camera)
 {
     return camera->supports_readout_display(camera, camera->internal);
+}
+
+bool camera_supports_shutter_disabling(Camera *camera)
+{
+    return camera->supports_shutter_disabling(camera, camera->internal);
 }
 
 void camera_normalize_trigger(Camera *camera, TimerTimestamp *trigger)

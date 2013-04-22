@@ -477,6 +477,7 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_int(CAMERA_WINDOW_Y, (int)(gui->m_cameraWindowY->value()));
     set_int(CAMERA_WINDOW_WIDTH, (int)(gui->m_cameraWindowWidth->value()));
     set_int(CAMERA_WINDOW_HEIGHT, (int)(gui->m_cameraWindowHeight->value()));
+    set_char(CAMERA_DISABLE_SHUTTER, (uint8_t)(gui->m_cameraDisableShutterCheckbox->value()));
 
     set_char(CAMERA_BINNING, (uint8_t)(gui->m_cameraBinningSpinner->value()));
     set_int(EXPOSURE_TIME, (uint16_t)(gui->m_cameraExposureSpinner->value()));
@@ -571,6 +572,10 @@ void FLTKGui::createCameraWindow()
     m_cameraGainInput->callback(cameraPortSpeedGainChangedCallback);
     m_cameraGainInput->user_data((void*)(this));
 
+    m_cameraDisableShutterCheckbox = new Fl_Check_Button(x - 40, y, w + 50, h, "Keep shutter closed"); y += margin;
+	if (!camera_supports_shutter_disabling(m_cameraRef))
+		m_cameraDisableShutterCheckbox->hide();
+
     x = 295; y = 100; w = 65;
 
     m_cameraTemperatureInput = new Fl_Float_Input(x, y, w, h, "Temp. (\u00B0C):"); y += margin;
@@ -623,6 +628,7 @@ void FLTKGui::showCameraWindow()
     snprintf(buf, 32, "%.2f", pn_preference_int(CAMERA_TEMPERATURE) / 100.0);
     m_cameraTemperatureInput->value(buf);
 
+    m_cameraDisableShutterCheckbox->value(pn_preference_char(CAMERA_DISABLE_SHUTTER));
     m_cameraHighResTimingCheckbox->value(pn_preference_char(TIMER_HIGHRES_TIMING));
     cameraTimingResolutionChangedCallback(m_cameraHighResTimingCheckbox, this);
 
