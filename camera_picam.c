@@ -596,17 +596,19 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
         return CAMERA_ERROR;
     }
     double exposure_time = pn_preference_int(EXPOSURE_TIME);
-
-    // Convert readout time from to the base exposure unit (s or ms) for comparison
     bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
-    if (!highres)
-        readout_time /= 1000;
-
-    // Make sure that the exposure is longer than the shortcut time
     double shortcut = pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
-    exposure_time -= shortcut;
 
-    if (exposure_time < readout_time)
+    // Convert times from to the base exposure unit (s or ms) for comparison
+    if (!highres)
+    {
+        shortcut /= 1000;
+        readout_time /= 1000;
+    }
+
+    // Make sure that the shortened exposure is physically possible
+    exposure_time -= shortcut;
+    if (exposure_time <= readout_time)
     {
         uint16_t new_exposure = (uint16_t)(ceil(readout_time + shortcut));
         pn_preference_set_int(EXPOSURE_TIME, new_exposure);
