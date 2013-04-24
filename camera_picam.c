@@ -392,11 +392,6 @@ int camera_picam_initialize(Camera *camera, void **out_internal)
     return CAMERA_OK;
 }
 
-static inline bool is_power_of_two(int x)
-{
-    return x != 0 && !(x & (x - 1));
-}
-
 int camera_picam_update_camera_settings(Camera *camera, void *_internal, double *out_readout_time)
 {
     struct internal *internal = _internal;
@@ -523,7 +518,7 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
     }
 
     uint8_t bin = pn_preference_char(CAMERA_BINNING);
-    if (bin < 1 || bin > ww || bin > wh || !is_power_of_two(bin))
+    if (bin < 1 || bin > ww || bin > wh)
     {
         pn_log("Invalid binning: %d. Reset to %d.", bin, 1);
         bin = 1;
