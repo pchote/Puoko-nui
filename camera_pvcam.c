@@ -711,7 +711,7 @@ bool camera_pvcam_supports_readout_display(Camera *camera, void *internal)
     return true;
 }
 
-bool camera_simulated_supports_shutter_disabling(Camera *camera, void *internal)
+bool camera_pvcam_supports_shutter_disabling(Camera *camera, void *internal)
 {
     return false;
 }
