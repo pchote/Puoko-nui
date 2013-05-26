@@ -1,0 +1,4 @@
+*.o
+logs
+puokonui.xcworkspace
+doc
