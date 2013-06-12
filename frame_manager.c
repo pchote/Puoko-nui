@@ -397,7 +397,7 @@ static void save_frame(CameraFrame *frame, TimerTimestamp timestamp, Modules *mo
     {
         free(filepath);
         free(temppath);
-        pn_log("Saving to save temporary file. Discarding frame.");
+        pn_log("Failed to save temporary file. Discarding frame.");
         return;
     }
 
