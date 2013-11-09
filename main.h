@@ -63,4 +63,3 @@ void queue_framedata(CameraFrame *frame);
 void queue_trigger(TimerTimestamp *timestamp);
 void clear_queued_data(bool reset_first);
 #endif
-
