@@ -10,5 +10,7 @@ fi
 
 # Move preview to a temporary file to try and avoid file locking problems under windows
 mv preview.fits.gz preview.temp.fits.gz
-tsreduce preview $(pwd)/preview.temp.fits.gz Online_Preview
+
+# Define e.g. GUIDE_OUTPUT="$(pwd)/guide.pos" in config.sh to enable guide output
+tsreduce preview $(pwd)/preview.temp.fits.gz Online_Preview ${GUIDE_OUTPUT}
 rm preview.temp.fits.gz
