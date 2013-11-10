@@ -292,6 +292,9 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     
     if (frame->has_timestamp)
         fits_update_key(fptr, TDOUBLE, "CCD-TIME", &frame->timestamp, "CCD time relative to first exposure in seconds", &status);
+
+    char *trigger_mode = pn_preference_char(TIMER_HIGHRES_TIMING) ? "High Resolution" : "Low Resolution";
+    fits_update_key(fptr, TSTRING, "TRG-MODE", (void *)trigger_mode, "Instrument trigger mode", &status);
     
     char *pscale = pn_preference_string(CAMERA_PLATESCALE);
     fits_update_key(fptr, TDOUBLE, "IM-SCALE",  &(double){pn_preference_char(CAMERA_BINNING)*atof(pscale)},  "Image scale (arcsec/px)", &status);
