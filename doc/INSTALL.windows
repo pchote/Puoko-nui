@@ -1,51 +1,55 @@
 ==================== INSTALL TOOLCHAIN ====================
-Download mingw-get-inst from http://sourceforge.net/projects/mingw/files/Installer/mingw-get-inst/mingw-get-inst-20120426/mingw-get-inst-20120426.exe/download
+Based partially on the instructions from http://ascend4.org/Setting_up_a_MinGW-w64_build_environment
 
-Run the installer, select "MSYS Basic System" and "MSYS Developer Toolkit", and deselect all of the MinGW options.
 
-Download a recent binary build of mingw-w64, e.g. http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/rubenvb/gcc-4.8-release/x86_64-w64-mingw32-gcc-4.8.0-win64_rubenvb.7z/download
+Download the latest version of mingw-get: https://sourceforge.net/projects/mingw/files/latest/download
 
-Extract the mingw64 directory from the archive into the MSYS install directory (e.g. C:\MingGW\mingw64).
+Select to install MinGW to the directory c:\mingw\32
+Deselect the graphical install
+When the install reaches 100% it is finished and you can press the quit button (the continue button remains grey).
 
-Run the mays post-install script at C:\MinGW\msys\1.0\postinstall\pi.bat and follow the prompts.
+Replace the contents of c:\mingw\32\var\lib\mingw-get\data\profile.xml with:
 
-Create a shortcut to c:/MinGW/msys/msys.bat somewhere convenient. All following commands starting with a '$' are run from this shell
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<profile project="MinGW" application="mingw-get">
+  <repository uri="http://prdownloads.sourceforge.net/mingw/%F.xml.lzma?download"/>
+  <system-map id="default">
+    <sysroot subsystem="mingw32" path="%R" />
+    <sysroot subsystem="MSYS" path="%R/../msys" />
+  </system-map>
+</profile>
+
+Open a windows command prompt and run the following:
+c:\mingw\32\bin\mingw-get install msys-core msys-base msys-coreutils
+
+Create a file c:\mingw\msys\etc\fstab containing:
+c:/mingw/64   /mingw
+
+Download a precompiled mingw-w64 toolchain from http://tdm-gcc.tdragon.net/.
+At the time of writing the latest version is http://sourceforge.net/projects/tdm-gcc/files/TDM-GCC%20Installer/tdm64-gcc-4.8.1-3.exe/download
+
+Install the 64 and 32 bit toolchain to c:\mingw\64
+
+Right click on My Computer -> Properties -> Advanced System Settings -> Advanced -> Environment variables. Remove c:\mingw\64\bin from Path.
+
+Create a shortcut to c:/MinGW/msys/msys.bat somewhere convenient. All following commands starting with a '$' are run from this shell.
 
 Download Git/msysGit from http://code.google.com/p/msysgit/downloads/list
 When it asks about adjusting the PATH environment, choose the second option
 (Run Git from the Windows Command Prompt).
 
-To allow git to be used from msys, create a file called .bash_profile in ~ with the following contents:
-export PATH=$PATH:/c/"Program Files (x86)"/Git/bin
+==================== INSTALL DEPENDENCIES ====================
 
-The settings will only be applied to new command windows, so close all open command windows to avoid confusion.
-
-==================== DOWNLOAD PUOKO-NUI CODE ====================
-Open a new msys terminal and in the home directory check out a copy of the code using git
-git clone https://github.com/pchote/Puoko-nui.git puokonui
-
-The home directory should be located in c:/MinGW/msys/home/
-In the following, '~' refers to this directory.
-
-==================== INSTALL USB DRIVER ==================== 
-Run ~/puokonui/ftd2xx/CDM20824_Setup.exe to install the USB drivers for the timer.
-
-==================== BUILD DEPENDENCIES ====================
-
-Download ds9 and XPA binaries from:
-http://hea-www.harvard.edu/saord/download/ds9/windows/SAOImage%20DS9%207.0.2%20Install.exe
-http://hea-www.harvard.edu/saord/download/ds9/windows/XPA%202.1.14%20Install.exe
-
-and install to C:/ds9
+The home directory should be located in c:/mingw/msys/home/
+Create a shortcut to this directory (referred to as ~ below) somewhere convenient.
 
 Download cfitsio from
-ftp://heasarc.gsfc.nasa.gov/software/fitsio/c/cfit3290.zip
+ftp://heasarc.gsfc.nasa.gov/software/fitsio/c/cfit3350.zip
 
 Compile with
 $ ./configure --prefix=/usr/local
 $ make
 $ make install
-
 
 Download libfltk 1.3.2 (or later) from www.fltk.org
 
@@ -54,10 +58,26 @@ $ ./configure
 $ make
 $ make install
 
+Download ds9 and XPA binaries from:
+http://hea-www.harvard.edu/RD/ds9/download/windows/SAOImage%20DS9%207.2%20Install.exe
+http://hea-www.harvard.edu/RD/ds9/download/windows/XPA%202.1.14%20Install.exe
+and install to c:/ds9
+
+To allow git and ds9 to be called from msys, create a file called .bash_profile in ~ with the following contents:
+export PATH=$PATH:/c/"Program Files (x86)"/Git/bin:/c/ds9
+
+The settings will only be applied to new command windows, so close all open command windows to avoid confusion.
+
 ==================== BUILD PUOKO-NUI ====================
 
+Clone a copy of the instrument control source from github and compile:
+
+$ git clone https://github.com/pchote/Puoko-nui.git puokonui
 $ cd ~/puokonui
-Compile with
 $ make CAMERA_TYPE=PICAM
 
-Copy C:\mingw\mingw64\bin\libwinpthread-1.dll to ~/puokonui
+Install the timer USB driver in Run ~/puokonui/ftd2xx/CDM20824_Setup.exe
+Connect timer and use the device manager to find/set the virtual COM port ID.
+Edit ~/puokonui/preference.dat and set:
+TimerSerialPort: COM3 (use the COM port you found above)
+MsysBashPath: C:/mingw/msys/bin/bash.exe
