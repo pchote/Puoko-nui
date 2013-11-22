@@ -28,7 +28,7 @@ c:/mingw/64   /mingw
 Download a precompiled mingw-w64 toolchain from http://tdm-gcc.tdragon.net/.
 At the time of writing the latest version is http://sourceforge.net/projects/tdm-gcc/files/TDM-GCC%20Installer/tdm64-gcc-4.8.1-3.exe/download
 
-Install the 64 and 32 bit toolchain to c:\mingw\64
+Install the 64+32 bit toolchain to c:\mingw\64, and be sure to select fortran (under the gcc tree).
 
 Right click on My Computer -> Properties -> Advanced System Settings -> Advanced -> Environment variables. Remove c:\mingw\64\bin from Path.
 
@@ -63,7 +63,7 @@ http://hea-www.harvard.edu/RD/ds9/download/windows/SAOImage%20DS9%207.2%20Instal
 http://hea-www.harvard.edu/RD/ds9/download/windows/XPA%202.1.14%20Install.exe
 and install to c:/ds9
 
-To allow git and ds9 to be called from msys, create a file called .bash_profile in ~ with the following contents:
+To allow git and ds9 to be called from msys, create a file called .profile in ~ with the following contents:
 export PATH=$PATH:/c/"Program Files (x86)"/Git/bin:/c/ds9
 
 The settings will only be applied to new command windows, so close all open command windows to avoid confusion.
