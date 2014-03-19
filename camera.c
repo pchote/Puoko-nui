@@ -62,6 +62,7 @@ struct Camera
 
     bool (*supports_readout_display)(Camera *, void *);
     bool (*supports_shutter_disabling)(Camera *, void *);
+    bool (*supports_bias_acquisition)(Camera *, void *);
     void (*normalize_trigger)(Camera *, void *, TimerTimestamp *);
 };
 
@@ -79,6 +80,7 @@ struct Camera
     HOOK(type, query_ccd_region);         \
     HOOK(type, supports_readout_display); \
     HOOK(type, supports_shutter_disabling); \
+    HOOK(type, supports_bias_acquisition); \
     HOOK(type, normalize_trigger);        \
 }
 
@@ -407,6 +409,11 @@ bool camera_supports_readout_display(Camera *camera)
 bool camera_supports_shutter_disabling(Camera *camera)
 {
     return camera->supports_shutter_disabling(camera, camera->internal);
+}
+
+bool camera_supports_bias_acquisition(Camera *camera)
+{
+    return camera->supports_bias_acquisition(camera, camera->internal);
 }
 
 void camera_normalize_trigger(Camera *camera, TimerTimestamp *trigger)

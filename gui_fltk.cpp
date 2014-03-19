@@ -177,6 +177,12 @@ void FLTKGui::updateTimerGroup()
         m_timerUTCDateOutput->value("N/A");
     }
 
+    if (cached_trigger_mode == TRIGGER_BIAS)
+    {
+        m_timerExposureOutput->value("N/A");
+        return;
+    }
+
     const char *message = "";
     bool display_progress = false;
     switch (cached_timer_mode)
@@ -298,6 +304,8 @@ void FLTKGui::updateAcquisitionGroup()
 
     switch (type)
     {
+		// bias is handled separately, so treat it as a dark here.
+		case OBJECT_BIAS:
         case OBJECT_DARK:
             m_acquisitionTargetOutput->value("Dark");
             break;
@@ -311,6 +319,9 @@ void FLTKGui::updateAcquisitionGroup()
 			m_acquisitionTargetOutput->value(object);
             break;
     }
+
+	if (cached_trigger_mode == TRIGGER_BIAS)
+        m_acquisitionTargetOutput->value("Bias");
 
     char buf[100];
 	if (cached_burst_enabled)
@@ -352,13 +363,20 @@ void FLTKGui::buttonAcquirePressed(Fl_Widget* o, void *userdata)
     {
         clear_queued_data(true);
         camera_start_exposure(gui->m_cameraRef, !pn_preference_char(CAMERA_DISABLE_SHUTTER));
-        bool use_monitor = !camera_is_simulated(gui->m_cameraRef) && pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
-        timer_start_exposure(gui->m_timerRef, pn_preference_int(EXPOSURE_TIME), use_monitor);
+
+		if (gui->cached_trigger_mode != TRIGGER_BIAS)
+		{
+        	bool use_monitor = !camera_is_simulated(gui->m_cameraRef) && pn_preference_char(TIMER_MONITOR_LOGIC_OUT);
+        	timer_start_exposure(gui->m_timerRef, pn_preference_int(EXPOSURE_TIME), use_monitor);
+		}
     }
     else if (mode == ACQUIRING)
     {
         camera_stop_exposure(gui->m_cameraRef);
-        timer_stop_exposure(gui->m_timerRef);
+        if (gui->cached_trigger_mode != TRIGGER_BIAS)
+            timer_stop_exposure(gui->m_timerRef);
+        else
+            camera_notify_safe_to_stop(gui->m_cameraRef);
     }
 
     gui->updateButtonGroup();
@@ -540,6 +558,17 @@ void FLTKGui::cameraTimingModeChangedCallback(Fl_Widget *input, void *userdata)
     const char *expstring = mode == 0 ? "Exposure (s):" : "Exposure (ms):";
     gui->m_cameraExposureSpinner->label(expstring);
 
+	if (mode == 2)
+	{
+		gui->m_cameraExposureSpinner->deactivate();
+		gui->m_metadataFrameTypeInput->value(OBJECT_BIAS);
+	}
+	else
+	{
+		gui->m_cameraExposureSpinner->activate();
+		gui->m_metadataFrameTypeInput->value(pn_preference_char(OBJECT_TYPE));
+	}
+
 	metadataFrameTypeChangedCallback(gui->m_metadataFrameTypeInput, gui);
 }
 
@@ -595,6 +624,8 @@ void FLTKGui::createCameraWindow()
     m_cameraTimingModeInput->user_data((void*)(this));
     m_cameraTimingModeInput->add("Low");
     m_cameraTimingModeInput->add("High");
+	if (camera_supports_bias_acquisition(m_cameraRef))
+    	m_cameraTimingModeInput->add("Bias");
 
     m_cameraExposureSpinner = new Fl_Spinner(x, y, w, h, ""); y += margin;
     m_cameraExposureSpinner->maximum(65535);
@@ -715,6 +746,11 @@ void FLTKGui::metadataFrameTypeChangedCallback(Fl_Widget *input, void *userdata)
 		gui->m_metadataTargetInput->value("N/A");
 		gui->m_metadataTargetInput->deactivate();
 	}
+
+	if (type == OBJECT_BIAS)
+		gui->m_metadataFrameTypeInput->deactivate();
+	else
+		gui->m_metadataFrameTypeInput->activate();
 }
 
 void FLTKGui::createMetadataWindow()
@@ -758,6 +794,7 @@ void FLTKGui::createMetadataWindow()
     m_metadataFrameTypeInput->add("Flat");
     m_metadataFrameTypeInput->add("Focus");
     m_metadataFrameTypeInput->add("Target");
+	m_metadataFrameTypeInput->add("Bias", 0, 0, 0, FL_MENU_INVISIBLE);
     m_metadataFrameTypeInput->callback(metadataFrameTypeChangedCallback);
     m_metadataFrameTypeInput->user_data((void*)(this));
 
@@ -797,6 +834,9 @@ void FLTKGui::showMetadataWindow()
 	metadataAcquisitionTypeChangedCallback(m_metadataAcquistionInput, this);
 
     uint8_t object_type = pn_preference_char(OBJECT_TYPE);
+	if (cached_trigger_mode == TRIGGER_BIAS)
+		object_type = OBJECT_BIAS;
+
     m_metadataFrameTypeInput->value(object_type);
 	metadataFrameTypeChangedCallback(m_metadataFrameTypeInput, this);
 
@@ -836,9 +876,12 @@ void FLTKGui::buttonMetadataConfirmPressed(Fl_Widget* o, void *userdata)
     	set_int(BURST_COUNTDOWN, burst_countdown);
 
 	uint8_t object_type = gui->m_metadataFrameTypeInput->value();
-    pn_preference_set_char(OBJECT_TYPE, object_type);
-	if (object_type == OBJECT_TARGET)
-    	set_string(OBJECT_NAME, gui->m_metadataTargetInput->value());
+	if (object_type != OBJECT_BIAS)
+	{
+    	pn_preference_set_char(OBJECT_TYPE, object_type);
+		if (object_type == OBJECT_TARGET)
+    		set_string(OBJECT_NAME, gui->m_metadataTargetInput->value());
+	}
 
     set_string(OBSERVERS, gui->m_metadataObserversInput->value());
     set_string(OBSERVATORY, gui->m_metadataObservatoryInput->value());

@@ -721,6 +721,11 @@ bool camera_pvcam_supports_shutter_disabling(Camera *camera, void *internal)
     return false;
 }
 
+bool camera_pvcam_supports_bias_acquisition(Camera *camera, void *internal)
+{
+    return false;
+}
+
 void camera_pvcam_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger)
 {
     // Convert trigger time from end of exposure to start of exposure

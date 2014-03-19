@@ -165,7 +165,7 @@ void frame_process_transforms(CameraFrame *frame)
 
 // Save a frame and trigger to disk
 // Returns true on success or false on failure
-bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
+bool frame_save(CameraFrame *frame, TimerTimestamp *timestamp, char *filepath)
 {
     fitsfile *fptr;
     int status = 0;
@@ -184,39 +184,47 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     // Create the primary array image (16-bit short integer pixels
     long size[2] = { frame->width, frame->height };
     fits_create_img(fptr, USHORT_IMG, 2, size, &status);
-    
+
     // Write header keys
-    switch (pn_preference_char(OBJECT_TYPE))
-    {
-        case OBJECT_DARK:
-            fits_update_key(fptr, TSTRING, "OBJECT", "Dark", "Object name", &status);
-            break;
-        case OBJECT_FLAT:
-            fits_update_key(fptr, TSTRING, "OBJECT", "Flat Field", "Object name", &status);
-            break;
-        case OBJECT_FOCUS:
-            fits_update_key(fptr, TSTRING, "OBJECT", "Focus", "Object name", &status);
-            break;
-        case OBJECT_TARGET:
-        default:
-        {
-            char *object_name = pn_preference_string(OBJECT_NAME);
-            fits_update_key(fptr, TSTRING, "OBJECT", (void *)object_name, "Object name", &status);
-            free(object_name);
-            break;
-        }
-    }
-    
     uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
     long exposure_time = pn_preference_int(EXPOSURE_TIME);
-    if (trigger_mode == TRIGGER_MILLISECONDS)
+
+    if (trigger_mode == TRIGGER_BIAS)
     {
-        double exptime = exposure_time / 1000.0;
-        fits_update_key(fptr, TDOUBLE, "EXPTIME", &exptime, "Actual integration time (sec)", &status);
+        fits_update_key(fptr, TSTRING, "OBJECT", "Bias", "Object name", &status);
     }
     else
-        fits_update_key(fptr, TLONG, "EXPTIME", &exposure_time, "Actual integration time (sec)", &status);
+    {
+        switch (pn_preference_char(OBJECT_TYPE))
+        {
+            case OBJECT_DARK:
+                fits_update_key(fptr, TSTRING, "OBJECT", "Dark", "Object name", &status);
+                break;
+            case OBJECT_FLAT:
+                fits_update_key(fptr, TSTRING, "OBJECT", "Flat Field", "Object name", &status);
+                break;
+            case OBJECT_FOCUS:
+                fits_update_key(fptr, TSTRING, "OBJECT", "Focus", "Object name", &status);
+                break;
+            case OBJECT_TARGET:
+            default:
+            {
+                char *object_name = pn_preference_string(OBJECT_NAME);
+                fits_update_key(fptr, TSTRING, "OBJECT", (void *)object_name, "Object name", &status);
+                free(object_name);
+                break;
+            }
+        }
     
+        if (trigger_mode == TRIGGER_MILLISECONDS)
+        {
+            double exptime = exposure_time / 1000.0;
+            fits_update_key(fptr, TDOUBLE, "EXPTIME", &exptime, "Actual integration time (sec)", &status);
+        }
+        else
+            fits_update_key(fptr, TLONG, "EXPTIME", &exposure_time, "Actual integration time (sec)", &status);
+    }
+
     char *observers = pn_preference_string(OBSERVERS);
     fits_update_key(fptr, TSTRING, "OBSERVER", (void *)observers, "Observers", &status);
     free(observers);
@@ -240,38 +248,41 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "PROG-VER", (void *)program_version() , "Acquisition program version reported by git", &status);
     
     // Trigger timestamp defines the *start* of the frame
-    TimerTimestamp start = timestamp;
-    TimerTimestamp end = start;
-    if (trigger_mode == TRIGGER_MILLISECONDS)
-        end.milliseconds += exposure_time;
-    else
-        end.seconds += exposure_time;
-    timestamp_normalize(&end);
+    if (trigger_mode != TRIGGER_BIAS)
+    {
+        TimerTimestamp start = *timestamp;
+        TimerTimestamp end = start;
+        if (trigger_mode == TRIGGER_MILLISECONDS)
+            end.milliseconds += exposure_time;
+        else
+            end.seconds += exposure_time;
+        timestamp_normalize(&end);
     
-    char datebuf[15], gpstimebuf[15];
-    snprintf(datebuf, 15, "%04d-%02d-%02d", start.year, start.month, start.day);
+        char datebuf[15], gpstimebuf[15];
+        snprintf(datebuf, 15, "%04d-%02d-%02d", start.year, start.month, start.day);
     
-    if (trigger_mode == TRIGGER_MILLISECONDS)
-        snprintf(gpstimebuf, 15, "%02d:%02d:%02d.%03d", start.hours, start.minutes, start.seconds, start.milliseconds);
-    else
-        snprintf(gpstimebuf, 15, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
+        if (trigger_mode == TRIGGER_MILLISECONDS)
+            snprintf(gpstimebuf, 15, "%02d:%02d:%02d.%03d", start.hours, start.minutes, start.seconds, start.milliseconds);
+        else
+            snprintf(gpstimebuf, 15, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
     
-    // Used by ImageJ and other programs
-    fits_update_key(fptr, TSTRING, "UT_DATE", datebuf, "Exposure start date (GPS)", &status);
-    fits_update_key(fptr, TSTRING, "UT_TIME", gpstimebuf, "Exposure start time (GPS)", &status);
+        // Used by ImageJ and other programs
+        fits_update_key(fptr, TSTRING, "UT_DATE", datebuf, "Exposure start date (GPS)", &status);
+        fits_update_key(fptr, TSTRING, "UT_TIME", gpstimebuf, "Exposure start time (GPS)", &status);
     
-    // Used by tsreduce
-    fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
-    fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
+        // Used by tsreduce
+        fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
+        fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
     
-    if (trigger_mode == TRIGGER_MILLISECONDS)
-        snprintf(gpstimebuf, 15, "%02d:%02d:%02d.%03d", end.hours, end.minutes, end.seconds, end.milliseconds);
-    else
-        snprintf(gpstimebuf, 15, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
+        if (trigger_mode == TRIGGER_MILLISECONDS)
+            snprintf(gpstimebuf, 15, "%02d:%02d:%02d.%03d", end.hours, end.minutes, end.seconds, end.milliseconds);
+        else
+            snprintf(gpstimebuf, 15, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
     
-    fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
-    fits_update_key(fptr, TLOGICAL, "UTC-LOCK", &start.locked, "UTC time has GPS lock", &status);
-    
+        fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
+        fits_update_key(fptr, TLOGICAL, "UTC-LOCK", &start.locked, "UTC time has GPS lock", &status);
+    }
+
     time_t pctime = time(NULL);
     
     char timebuf[15];
@@ -294,7 +305,14 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     if (frame->has_timestamp)
         fits_update_key(fptr, TDOUBLE, "CCD-TIME", &frame->timestamp, "CCD time relative to first exposure in seconds", &status);
 
-    char *trigger_mode_str = trigger_mode == TRIGGER_MILLISECONDS ? "High Resolution" : "Low Resolution";
+    char *trigger_mode_str;
+    switch (trigger_mode)
+    {
+        case TRIGGER_MILLISECONDS: trigger_mode_str = "High Resolution"; break;
+        case TRIGGER_SECONDS: trigger_mode_str = "Low Resolution"; break;
+        case TRIGGER_BIAS: trigger_mode_str = "Bias (no triggers)"; break;
+            break;
+    }
     fits_update_key(fptr, TSTRING, "TRG-MODE", (void *)trigger_mode_str, "Instrument trigger mode", &status);
     
     char *pscale = pn_preference_string(CAMERA_PLATESCALE);
@@ -381,7 +399,7 @@ static char *temporary_filepath(const char *prefix, size_t length)
 }
 
 // Save a matched frame and trigger timestamp to disk.
-static void save_frame(CameraFrame *frame, TimerTimestamp timestamp, Modules *modules)
+static void save_frame(CameraFrame *frame, TimerTimestamp *timestamp, Modules *modules)
 {
     char *filepath = next_filepath();
     if (!filepath)
@@ -420,7 +438,7 @@ static void save_frame(CameraFrame *frame, TimerTimestamp timestamp, Modules *mo
     free(temppath);
 }
 
-static void preview_frame(CameraFrame *frame, TimerTimestamp timestamp, Modules *modules)
+static void preview_frame(CameraFrame *frame, TimerTimestamp *timestamp, Modules *modules)
 {
     // Update frame preview atomically
     char *temp_preview = temporary_filepath("./preview", 9);
@@ -440,6 +458,17 @@ static void preview_frame(CameraFrame *frame, TimerTimestamp timestamp, Modules 
         preview_script_run(modules->preview);
 
     free(temp_preview);
+}
+
+bool wait_for_next_signal(FrameManager *frame, size_t *queued_frames, size_t *queued_triggers)
+{
+    *queued_frames = atomicqueue_length(frame->frame_queue);
+    *queued_triggers = atomicqueue_length(frame->trigger_queue);
+
+    if (pn_preference_char(TIMER_TRIGGER_MODE) == TRIGGER_BIAS)
+        return *queued_frames == 0 && !frame->shutdown;
+
+    return (*queued_frames == 0 || *queued_triggers == 0) && !frame->shutdown;
 }
 
 void *frame_thread(void *_modules)
@@ -463,10 +492,9 @@ void *frame_thread(void *_modules)
         }
 
         size_t queued_frames, queued_triggers;
+
         // Sleep until frame & trigger available, or shutdown.
-        while (!((queued_frames = atomicqueue_length(frame->frame_queue)) &&
-                 (queued_triggers = atomicqueue_length(frame->trigger_queue))) &&
-               !frame->shutdown)
+        while (wait_for_next_signal(frame, &queued_frames, &queued_triggers))
             pthread_cond_wait(&frame->signal_condition, &frame->signal_mutex);
 
         pthread_mutex_unlock(&frame->signal_mutex);
@@ -478,46 +506,53 @@ void *frame_thread(void *_modules)
             pn_log("%zu frames and %zu triggers left to process.", queued_frames, queued_triggers);
             last_update = current;
         }
+
         if (frame->shutdown)
             break;
 
         // Match frame with trigger and save to disk
         CameraFrame *f = atomicqueue_pop(frame->frame_queue);
-        TimerTimestamp *t = atomicqueue_pop(frame->trigger_queue);
-
-        // Convert trigger to start of the exposure
-        camera_normalize_trigger(modules->camera, t);
-
-        double exptime = pn_preference_int(EXPOSURE_TIME);
-        if (pn_preference_char(TIMER_TRIGGER_MODE) != TRIGGER_SECONDS)
-            exptime /= 1000;
-
-        // Ensure that the trigger and frame download times are consistent
-        double estimated_start_time = timestamp_to_unixtime(&f->downloaded_time) - camera_readout_time(modules->camera) - exptime;
-        double mismatch = estimated_start_time - timestamp_to_unixtime(t);
+        TimerTimestamp *t = NULL;
         bool process = true;
 
-        // Allow at least 1 second of leeway to account for the
-        // delay in recieving the GPS time and any other factors
-        if (fabs(mismatch) > 1.5)
+        uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
+        if (trigger_mode != TRIGGER_BIAS)
         {
-            if (pn_preference_char(VALIDATE_TIMESTAMPS))
+            t = atomicqueue_pop(frame->trigger_queue);
+
+            // Convert trigger to start of the exposure
+            camera_normalize_trigger(modules->camera, t);
+
+            double exptime = pn_preference_int(EXPOSURE_TIME);
+            if (pn_preference_char(TIMER_TRIGGER_MODE) != TRIGGER_SECONDS)
+                exptime /= 1000;
+
+            // Ensure that the trigger and frame download times are consistent
+            double estimated_start_time = timestamp_to_unixtime(&f->downloaded_time) - f->readout_time - exptime;
+            double mismatch = estimated_start_time - timestamp_to_unixtime(t);
+
+            // Allow at least 1 second of leeway to account for the
+            // delay in recieving the GPS time and any other factors
+            if (fabs(mismatch) > 1.5)
             {
-                TimerTimestamp estimate_start = f->downloaded_time;
-                estimate_start.seconds -= camera_readout_time(modules->camera) + exptime;
-                timestamp_normalize(&estimate_start);
+                if (pn_preference_char(VALIDATE_TIMESTAMPS))
+                {
+                    TimerTimestamp estimate_start = f->downloaded_time;
+                    estimate_start.seconds -= f->readout_time + exptime;
+                    timestamp_normalize(&estimate_start);
 
-                pn_log("ERROR: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);
-                pn_log("Frame recieved: %02d:%02d:%02d", f->downloaded_time.hours, f->downloaded_time.minutes, f->downloaded_time.seconds);
-                pn_log("Estimated frame start: %02d:%02d:%02d", estimate_start.hours, estimate_start.minutes, estimate_start.seconds);
-                pn_log("Trigger start: %02d:%02d:%02d", t->hours, t->minutes, t->seconds);
+                    pn_log("ERROR: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);
+                    pn_log("Frame recieved: %02d:%02d:%02d", f->downloaded_time.hours, f->downloaded_time.minutes, f->downloaded_time.seconds);
+                    pn_log("Estimated frame start: %02d:%02d:%02d", estimate_start.hours, estimate_start.minutes, estimate_start.seconds);
+                    pn_log("Trigger start: %02d:%02d:%02d", t->hours, t->minutes, t->seconds);
 
-                pn_log("Discarding all stored frames and triggers.");
-                clear_queued_data(false);
-                process = false;
+                    pn_log("Discarding all stored frames and triggers.");
+                    clear_queued_data(false);
+                    process = false;
+                }
+                else
+                    pn_log("WARNING: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);
             }
-            else
-                pn_log("WARNING: Estimated frame start doesn't match trigger start. Mismatch: %g", mismatch);
         }
 
         if (process)
@@ -530,13 +565,13 @@ void *frame_thread(void *_modules)
             {
                 frame_process_transforms(f);
                 if (pn_preference_char(SAVE_FRAMES))
-                    save_frame(f, *t, modules);
+                    save_frame(f, t, modules);
 
                 TimerTimestamp cur_preview = system_time();
                 double dt = 1000*(timestamp_to_unixtime(&cur_preview) - timestamp_to_unixtime(&last_preview));
                 if (dt >= preview_delta)
                 {
-                    preview_frame(f, *t, modules);
+                    preview_frame(f, t, modules);
                     last_preview = cur_preview;
                 }
             }

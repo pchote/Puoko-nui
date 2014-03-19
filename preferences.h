@@ -17,13 +17,15 @@ typedef enum
     OBJECT_DARK,
     OBJECT_FLAT,
     OBJECT_FOCUS,
-    OBJECT_TARGET
+    OBJECT_TARGET,
+    OBJECT_BIAS
 } PNFrameType;
 
 typedef enum
 {
     TRIGGER_SECONDS,
-    TRIGGER_MILLISECONDS
+    TRIGGER_MILLISECONDS,
+    TRIGGER_BIAS
 } PNTriggerMode;
 
 typedef enum

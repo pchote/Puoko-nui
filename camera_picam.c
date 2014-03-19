@@ -907,6 +907,11 @@ bool camera_picam_supports_shutter_disabling(Camera *camera, void *internal)
     return true;
 }
 
+bool camera_picam_supports_bias_acquisition(Camera *camera, void *internal)
+{
+    return false;
+}
+
 void camera_picam_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger)
 {
     // Do nothing: ProEM triggers already represent the start of the frame

@@ -144,7 +144,6 @@ private:
     Fl_Choice *m_cameraSpeedInput;
     Fl_Choice *m_cameraGainInput;
     Fl_Choice *m_cameraTimingModeInput;
-
     Fl_Choice *m_cameraShutterInput;
     Fl_Check_Button *m_timerAlignFirstExposureCheckbox;
 
