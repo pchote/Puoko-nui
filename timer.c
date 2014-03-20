@@ -269,7 +269,7 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
             pthread_mutex_unlock(&timer->read_mutex);
 
             // Interpolate intermediate timestamps if necessary
-            bool highspeed = pn_preference_char(TIMER_HIGHRES_TIMING);
+            uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
             for (uint8_t i = timer->exposure_stride - 1; i > 0; i--)
             {
                 TimerTimestamp *interpolated = malloc(sizeof(TimerTimestamp));
@@ -280,10 +280,10 @@ static void parse_packet(TimerUnit *timer, Camera *camera, struct timer_packet *
                 }
 
                 memcpy(interpolated, t, sizeof(TimerTimestamp));
-                if (highspeed)
-                    interpolated->milliseconds -= i*timer->exposure_length;
-                else
+                if (trigger_mode == TRIGGER_SECONDS)
                     interpolated->seconds -= i*timer->exposure_length;
+                else
+                    interpolated->milliseconds -= i*timer->exposure_length;
                 timestamp_normalize(interpolated);
 
                 // Pass ownership to main thread
@@ -534,16 +534,16 @@ void *simulated_timer_thread(void *_modules)
             camera_notify_safe_to_stop(modules->camera);
         }
 
-        bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
+        uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
         TimerTimestamp cur = system_time();
-        if (cur.seconds != last.seconds || (highres && cur.milliseconds != last.milliseconds))
+        if (cur.seconds != last.seconds || (trigger_mode != TRIGGER_SECONDS && cur.milliseconds != last.milliseconds))
         {
             if (camera_mode(modules->camera) == ACQUIRING && timer->exposure_length > 0)
             {
-                if (highres)
-                    timer->simulated_progress += (uint16_t)round(1000*(timestamp_to_unixtime(&cur) - timestamp_to_unixtime(&last)));
-                else
+                if (trigger_mode == TRIGGER_SECONDS)
                     timer->simulated_progress += (uint16_t)round(timestamp_to_unixtime(&cur) - timestamp_to_unixtime(&last));
+                else
+                    timer->simulated_progress += (uint16_t)round(1000*(timestamp_to_unixtime(&cur) - timestamp_to_unixtime(&last)));
             }
 
             if (timer->simulated_progress >= timer->exposure_length && timer->exposure_length > 0)
@@ -592,11 +592,10 @@ void *simulated_timer_thread(void *_modules)
 // Start an exposure sequence with a specified exposure time
 void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
 {
-    bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
+    uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
+    uint8_t stride = (trigger_mode == TRIGGER_MILLISECONDS && exptime <= 500) ? (exptime < 5) ? 250 : 1000 / exptime : 1;
 
-    uint8_t stride = (highres && exptime <= 500) ? (exptime < 5) ? 250 : 1000 / exptime : 1;
-
-    pn_log("Starting %d %s exposures with stride %u.", exptime, highres ? "ms" : "s", stride);
+    pn_log("Starting %d %s exposures with stride %u.", exptime, trigger_mode == TRIGGER_SECONDS ? "s" : "ms", stride);
     pthread_mutex_lock(&timer->read_mutex);
     timer->exposure_length = exptime;
     timer->exposure_stride = stride;
@@ -617,7 +616,7 @@ void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
         struct packet_startexposure data = (struct packet_startexposure)
         {
             .use_monitor = use_monitor,
-            .timing_mode = highres ? TIME_MILLISECONDS : TIME_SECONDS,
+            .timing_mode = trigger_mode == TRIGGER_SECONDS ? TIME_SECONDS : TIME_MILLISECONDS,
             .exposure = exptime,
             .stride = stride
         };

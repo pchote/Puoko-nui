@@ -57,7 +57,7 @@ PNPreferenceStore prefs[] =
     {BURST_COUNTDOWN,           INT,  .value.i = 30,    "BurstCountdown: %d\n"},
 
     {TIMER_MONITOR_LOGIC_OUT,   CHAR, .value.c = true,  "TimerMonitorLogicOut: %hhu\n"},
-    {TIMER_HIGHRES_TIMING,      CHAR, .value.c = 0,     "TimerHighResolutionTiming: %hhu\n"},
+    {TIMER_TRIGGER_MODE,        CHAR, .value.c = 0,     "TimerTriggerMode: %hhu\n"},
     {TIMER_SERIAL_PORT,       STRING, .value.s = "/dev/ttyUSB0", "TimerSerialPort: %s\n"},
     {TIMER_BAUD_RATE,           INT,  .value.i = 9600,  "TimerBaudRate: %d\n"},
 

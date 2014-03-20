@@ -272,7 +272,7 @@ void camera_simulated_normalize_trigger(Camera *camera, void *internal, TimerTim
 {
     // Convert trigger time from end of exposure to start of exposure
     uint16_t exposure = pn_preference_int(EXPOSURE_TIME);
-    if (pn_preference_char(TIMER_HIGHRES_TIMING))
+    if (pn_preference_char(TIMER_TRIGGER_MODE) != TRIGGER_SECONDS)
     {
         trigger->seconds -= exposure / 1000;
         trigger->milliseconds -= exposure % 1000;

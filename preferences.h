@@ -22,6 +22,12 @@ typedef enum
 
 typedef enum
 {
+    TRIGGER_SECONDS,
+    TRIGGER_MILLISECONDS
+} PNTriggerMode;
+
+typedef enum
+{
     OUTPUT_DIR,
     RUN_PREFIX,
     OBJECT_NAME,
@@ -40,7 +46,7 @@ typedef enum
     BURST_COUNTDOWN,
 
     TIMER_MONITOR_LOGIC_OUT,
-    TIMER_HIGHRES_TIMING,
+    TIMER_TRIGGER_MODE,
     TIMER_SERIAL_PORT,
     TIMER_BAUD_RATE,
 

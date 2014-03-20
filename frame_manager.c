@@ -207,9 +207,9 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
         }
     }
     
-    bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
+    uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
     long exposure_time = pn_preference_int(EXPOSURE_TIME);
-    if (highres)
+    if (trigger_mode == TRIGGER_MILLISECONDS)
     {
         double exptime = exposure_time / 1000.0;
         fits_update_key(fptr, TDOUBLE, "EXPTIME", &exptime, "Actual integration time (sec)", &status);
@@ -242,7 +242,7 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     // Trigger timestamp defines the *start* of the frame
     TimerTimestamp start = timestamp;
     TimerTimestamp end = start;
-    if (highres)
+    if (trigger_mode == TRIGGER_MILLISECONDS)
         end.milliseconds += exposure_time;
     else
         end.seconds += exposure_time;
@@ -251,7 +251,7 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     char datebuf[15], gpstimebuf[15];
     snprintf(datebuf, 15, "%04d-%02d-%02d", start.year, start.month, start.day);
     
-    if (highres)
+    if (trigger_mode == TRIGGER_MILLISECONDS)
         snprintf(gpstimebuf, 15, "%02d:%02d:%02d.%03d", start.hours, start.minutes, start.seconds, start.milliseconds);
     else
         snprintf(gpstimebuf, 15, "%02d:%02d:%02d", start.hours, start.minutes, start.seconds);
@@ -264,7 +264,7 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "UTC-DATE", datebuf, "Exposure start date (GPS)", &status);
     fits_update_key(fptr, TSTRING, "UTC-BEG", gpstimebuf, "Exposure start time (GPS)", &status);
     
-    if (highres)
+    if (trigger_mode == TRIGGER_MILLISECONDS)
         snprintf(gpstimebuf, 15, "%02d:%02d:%02d.%03d", end.hours, end.minutes, end.seconds, end.milliseconds);
     else
         snprintf(gpstimebuf, 15, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
@@ -294,8 +294,8 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     if (frame->has_timestamp)
         fits_update_key(fptr, TDOUBLE, "CCD-TIME", &frame->timestamp, "CCD time relative to first exposure in seconds", &status);
 
-    char *trigger_mode = pn_preference_char(TIMER_HIGHRES_TIMING) ? "High Resolution" : "Low Resolution";
-    fits_update_key(fptr, TSTRING, "TRG-MODE", (void *)trigger_mode, "Instrument trigger mode", &status);
+    char *trigger_mode_str = trigger_mode == TRIGGER_MILLISECONDS ? "High Resolution" : "Low Resolution";
+    fits_update_key(fptr, TSTRING, "TRG-MODE", (void *)trigger_mode_str, "Instrument trigger mode", &status);
     
     char *pscale = pn_preference_string(CAMERA_PLATESCALE);
     fits_update_key(fptr, TDOUBLE, "IM-SCALE",  &(double){pn_preference_char(CAMERA_BINNING)*atof(pscale)},  "Image scale (arcsec/px)", &status);
@@ -489,7 +489,7 @@ void *frame_thread(void *_modules)
         camera_normalize_trigger(modules->camera, t);
 
         double exptime = pn_preference_int(EXPOSURE_TIME);
-        if (pn_preference_char(TIMER_HIGHRES_TIMING))
+        if (pn_preference_char(TIMER_TRIGGER_MODE) != TRIGGER_SECONDS)
             exptime /= 1000;
 
         // Ensure that the trigger and frame download times are consistent

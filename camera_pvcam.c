@@ -457,8 +457,8 @@ int camera_pvcam_update_camera_settings(Camera *camera, void *_internal, double 
     double exposure_time = pn_preference_int(EXPOSURE_TIME);
 
     // Convert readout time from to the base exposure unit (s or ms) for comparison
-    bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
-    if (!highres)
+    uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
+    if (trigger_mode == TRIGGER_SECONDS)
         readout_time /= 1000;
 
     if (exposure_time < readout_time)
@@ -725,7 +725,7 @@ void camera_pvcam_normalize_trigger(Camera *camera, void *internal, TimerTimesta
 {
     // Convert trigger time from end of exposure to start of exposure
     uint16_t exposure = pn_preference_int(EXPOSURE_TIME);
-    if (pn_preference_char(TIMER_HIGHRES_TIMING))
+    if (pn_preference_char(TIMER_TRIGGER_MODE) != TRIGGER_SECONDS)
     {
         trigger->seconds -= exposure / 1000;
         trigger->milliseconds -= exposure % 1000;

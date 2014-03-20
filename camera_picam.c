@@ -596,11 +596,11 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
 
     internal->readout_time = readout_time / 1000;
     double exposure_time = pn_preference_int(EXPOSURE_TIME);
-    bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
+    uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
     double shortcut = pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
 
     // Convert times from to the base exposure unit (s or ms) for comparison
-    if (!highres)
+    if (trigger_mode == TRIGGER_SECONDS)
     {
         shortcut /= 1000;
         readout_time /= 1000;
@@ -776,7 +776,7 @@ int camera_picam_start_acquiring(Camera *camera, void *_internal, bool shutter_o
 
     // Convert from base exposure units (s or ms) to ms
     piflt exptime = pn_preference_int(EXPOSURE_TIME);
-    if (!pn_preference_char(TIMER_HIGHRES_TIMING))
+    if (pn_preference_char(TIMER_TRIGGER_MODE) == TRIGGER_SECONDS)
         exptime *= 1000;
 
     // Set exposure period shorter than the trigger period, allowing
