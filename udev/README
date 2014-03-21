@@ -1,1 +1,0 @@
-Place these files in /etc/udev/rules.d/ to allow users in the plugdev group to talk to the camera and gps without running the aquisition program as root.

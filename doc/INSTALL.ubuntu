@@ -1,24 +1,17 @@
+$ sudo add-apt-repository ppa:olebole/astro-precise
+$ sudo apt-get update
+
 Install packaged prerequisites:
-$ sudo apt-get install git libftdi-dev libraw1394-dev libcfitsio3-dev libfltk1.3-dev libxss1 libxt-dev g++
-
-Download the latest ds9 from http://hea-www.harvard.edu/RD/ds9/site/Download.html and install. e.g:
-$ tar xvf ds9.linux.7.1.tar.gz
-$ sudo cp ds9 /usr/local/bin/
-
-Download latest xpa source from http://hea-www.harvard.edu/RD/ds9/site/XPA.html and install. e.g:
-$ tar xvf xpa-2.1.14
-$ cd xpa-2.1.14/
-$ ./configure
-$ make
-$ sudo make install
+$ sudo apt-get install git libftdi-dev libraw1394-dev libcfitsio3-dev libfltk1.3-dev libxss1 libxt-dev g++ saods9 xpa-tools
 
 Clone acquisition source code:
 $ cd ~
 $ git clone https://github.com/pchote/Puoko-nui.git puokonui
 $ cd puokonui
 
-Install udev rules:
-$ sudo cp udev/*.rules /lib/udev/rules.d/
+Add permissions overrides so puokonui can run without root:
+$ sudo cp ubuntu/99-libpvcam.rules /lib/udev/rules.d/
+$ sudo adduser <your username> dialout
 
 Install PVCAM:
 $ cd pvcam
@@ -35,3 +28,10 @@ $ sudo modprobe rspiusb
 Build acquisition code:
 $ cd ../../
 $ make CAMERA_TYPE=PVCAM
+
+Install hud shortcuts:
+$ mkdir ~/.local/share/applications ~/.icons
+$ cp ubuntu/*.desktop ~/.local/share/applications/
+$ cp ubuntu/*.png ~/.icons/
+
+Restart the machine so the changes are loaded.
