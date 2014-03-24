@@ -38,6 +38,8 @@ struct internal
     char *current_port_desc;
     char *current_speed_desc;
     char *current_gain_desc;
+
+    double readout_time;
 };
 
 static void log_picam_error(PicamError error)
@@ -170,6 +172,7 @@ static void acquired_frame(struct internal *internal, uint8_t *frame_data, uint6
             frame->timestamp = timestamp*1.0/internal->timestamp_resolution;
             frame->has_image_region = false;
             frame->has_bias_region = false;
+            frame->readout_time = internal->readout_time;
 
             frame->port_desc = strdup(internal->current_port_desc);
             frame->speed_desc = strdup(internal->current_speed_desc);
@@ -590,6 +593,8 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
         log_picam_error(error);
         return CAMERA_ERROR;
     }
+
+    internal->readout_time = readout_time / 1000;
     double exposure_time = pn_preference_int(EXPOSURE_TIME);
     bool highres = pn_preference_char(TIMER_HIGHRES_TIMING);
     double shortcut = pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
@@ -611,7 +616,7 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
         pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 
-    *out_readout_time = highres ? readout_time / 1000 : readout_time;
+    *out_readout_time = internal->readout_time;
     return CAMERA_OK;
 }
 

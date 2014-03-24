@@ -289,6 +289,7 @@ bool frame_save(CameraFrame *frame, TimerTimestamp timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "CCD-RATE", (void *)frame->speed_desc, "CCD readout rate description", &status);
     fits_update_key(fptr, TSTRING, "CCD-GAIN", (void *)frame->gain_desc, "CCD readout gain description", &status);
     fits_update_key(fptr, TLONG,   "CCD-BIN",  &(long){pn_preference_char(CAMERA_BINNING)},  "CCD pixel binning", &status);
+    fits_update_key(fptr, TDOUBLE,   "CCD-ROUT",  &frame->readout_time,  "CCD readout time (s)", &status);
     
     if (frame->has_timestamp)
         fits_update_key(fptr, TDOUBLE, "CCD-TIME", &frame->timestamp, "CCD time relative to first exposure in seconds", &status);

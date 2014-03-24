@@ -55,6 +55,8 @@ struct internal
     char *current_port_desc;
     char *current_speed_desc;
     char *current_gain_desc;
+
+    double readout_time;
 };
 
 static char *gain_names[] = {"Low", "Medium", "High"};
@@ -450,6 +452,8 @@ int camera_pvcam_update_camera_settings(Camera *camera, void *_internal, double 
     // Query readout time
     flt64 readout_time;
     get_param(error, internal->handle, PARAM_READOUT_TIME, ATTR_CURRENT, &readout_time);
+    internal->readout_time = readout_time / 1000;
+
     double exposure_time = pn_preference_int(EXPOSURE_TIME);
 
     // Convert readout time from to the base exposure unit (s or ms) for comparison
@@ -464,7 +468,7 @@ int camera_pvcam_update_camera_settings(Camera *camera, void *_internal, double 
         pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
     }
 
-    *out_readout_time = highres ? readout_time / 1000 : readout_time;
+    *out_readout_time = internal->readout_time;
 
     return CAMERA_OK;
 error:
@@ -672,6 +676,7 @@ int camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode
                 if (frame->has_bias_region)
                     memcpy(frame->bias_region, internal->bias_region, 4*sizeof(uint16_t));
 
+                frame->readout_time = internal->readout_time;
                 frame->port_desc = strdup(internal->current_port_desc);
                 frame->speed_desc = strdup(internal->current_speed_desc);
                 frame->gain_desc = strdup(internal->current_gain_desc);

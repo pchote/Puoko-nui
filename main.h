@@ -47,6 +47,7 @@ typedef struct
 
     bool has_timestamp;
     double timestamp;
+    double readout_time;
 
     bool has_image_region;
     bool has_bias_region;
