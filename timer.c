@@ -64,6 +64,7 @@ struct PACKED_STRUCT packet_startexposure
     enum packet_timingmode timing_mode;
     uint16_t exposure;
     uint8_t stride;
+    uint8_t align_first;
 };
 
 struct PACKED_STRUCT packet_status
@@ -594,6 +595,7 @@ void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
 {
     uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
     uint8_t stride = (trigger_mode == TRIGGER_MILLISECONDS && exptime <= 500) ? (exptime < 5) ? 250 : 1000 / exptime : 1;
+    bool align_first_exposure = pn_preference_char(TIMER_ALIGN_FIRST_EXPOSURE);
 
     pn_log("Starting %d %s exposures with stride %u.", exptime, trigger_mode == TRIGGER_SECONDS ? "s" : "ms", stride);
     pthread_mutex_lock(&timer->read_mutex);
@@ -618,7 +620,8 @@ void timer_start_exposure(TimerUnit *timer, uint16_t exptime, bool use_monitor)
             .use_monitor = use_monitor,
             .timing_mode = trigger_mode == TRIGGER_SECONDS ? TIME_SECONDS : TIME_MILLISECONDS,
             .exposure = exptime,
-            .stride = stride
+            .stride = stride,
+            .align_first = align_first_exposure ? 1 : 0
         };
 
         queue_data(timer, START_EXPOSURE, &data, sizeof(struct packet_startexposure));

@@ -487,6 +487,8 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_char(TIMER_TRIGGER_MODE, (uint8_t)(gui->m_cameraTimingModeInput->value()));
     gui->cached_trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
 
+	set_char(TIMER_ALIGN_FIRST_EXPOSURE, (uint8_t)(gui->m_timerAlignFirstExposureCheckbox->value()));
+
     camera_update_settings(gui->m_cameraRef);
     gui->updateAcquisitionGroup();
     gui->m_cameraWindow->hide();
@@ -543,7 +545,7 @@ void FLTKGui::cameraTimingModeChangedCallback(Fl_Widget *input, void *userdata)
 
 void FLTKGui::createCameraWindow()
 {
-    m_cameraWindow = new Fl_Double_Window(370, 205, "Set Camera Parameters");
+    m_cameraWindow = new Fl_Double_Window(370, 230, "Set Camera Parameters");
     m_cameraWindow->user_data((void*)(this));
 
     Fl_Group *readoutGroup = new Fl_Group(10, 10, 350, 80, "Readout Geometry");
@@ -598,6 +600,8 @@ void FLTKGui::createCameraWindow()
     m_cameraExposureSpinner->maximum(65535);
     m_cameraExposureSpinner->minimum(1);
 
+	m_timerAlignFirstExposureCheckbox = new Fl_Check_Button(x - 100, y, w + 100, h, "Align first exposure"); y += margin;
+
     x = 240; w = 120;
     m_cameraButtonConfirm = new Fl_Button(x, y, w, h, "Save");
     m_cameraButtonConfirm->user_data((void*)(this));
@@ -647,6 +651,8 @@ void FLTKGui::showCameraWindow()
 		m_cameraShutterInput->deactivate();
 		m_cameraShutterInput->value(2);
 	}
+
+    m_timerAlignFirstExposureCheckbox->value(pn_preference_char(TIMER_ALIGN_FIRST_EXPOSURE));
 
     m_cameraWindow->show();
 }
