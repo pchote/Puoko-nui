@@ -477,7 +477,9 @@ void FLTKGui::buttonCameraConfirmPressed(Fl_Widget* o, void *userdata)
     set_int(CAMERA_WINDOW_Y, (int)(gui->m_cameraWindowY->value()));
     set_int(CAMERA_WINDOW_WIDTH, (int)(gui->m_cameraWindowWidth->value()));
     set_int(CAMERA_WINDOW_HEIGHT, (int)(gui->m_cameraWindowHeight->value()));
-    set_char(CAMERA_DISABLE_SHUTTER, (uint8_t)(gui->m_cameraDisableShutterCheckbox->value()));
+
+	if (camera_supports_shutter_disabling(gui->m_cameraRef))
+    	set_char(CAMERA_DISABLE_SHUTTER, (uint8_t)(gui->m_cameraShutterInput->value()));
 
     set_char(CAMERA_BINNING, (uint8_t)(gui->m_cameraBinningSpinner->value()));
     set_int(EXPOSURE_TIME, (uint16_t)(gui->m_cameraExposureSpinner->value()));
@@ -576,9 +578,11 @@ void FLTKGui::createCameraWindow()
     m_cameraGainInput->callback(cameraPortSpeedGainChangedCallback);
     m_cameraGainInput->user_data((void*)(this));
 
-    m_cameraDisableShutterCheckbox = new Fl_Check_Button(x - 40, y, w + 50, h, "Keep shutter closed"); y += margin;
-	if (!camera_supports_shutter_disabling(m_cameraRef))
-		m_cameraDisableShutterCheckbox->hide();
+	m_cameraShutterInput = new Fl_Choice(x, y, w, h, "Shutter:"); y += margin;
+    m_cameraShutterInput->user_data((void*)(this));
+    m_cameraShutterInput->add("Open");
+    m_cameraShutterInput->add("Closed");
+	m_cameraShutterInput->add("N\\/A", 0, 0, 0, FL_MENU_INVISIBLE);
 
     x = 295; y = 100; w = 65;
 
@@ -637,7 +641,12 @@ void FLTKGui::showCameraWindow()
     m_cameraTimingModeInput->value(pn_preference_char(TIMER_TRIGGER_MODE));
     cameraTimingModeChangedCallback(m_cameraTimingModeInput, this);
 
-    m_cameraDisableShutterCheckbox->value(pn_preference_char(CAMERA_DISABLE_SHUTTER));
+    m_cameraShutterInput->value(pn_preference_char(CAMERA_DISABLE_SHUTTER));
+	if (!camera_supports_shutter_disabling(m_cameraRef))
+	{
+		m_cameraShutterInput->deactivate();
+		m_cameraShutterInput->value(2);
+	}
 
     m_cameraWindow->show();
 }
