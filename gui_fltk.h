@@ -70,6 +70,7 @@ private:
     void createErrorPanel();
 
     static void cameraPortSpeedGainChangedCallback(Fl_Widget *input, void *userdata);
+    static uint16_t findDesiredExposure(FLTKGui *gui, uint8_t mode);
     static void cameraTimingModeChangedCallback(Fl_Widget *input, void *userdata);
     static void buttonMetadataPressed(Fl_Widget* o, void *v);
     static void buttonCameraPressed(Fl_Widget* o, void *v);
@@ -146,6 +147,9 @@ private:
     Fl_Choice *m_cameraTimingModeInput;
     Fl_Choice *m_cameraShutterInput;
     Fl_Check_Button *m_timerAlignFirstExposureCheckbox;
+    uint16_t m_cameraCachedPreBiasExposure;
+    uint8_t m_cameraCachedPreBiasType;
+    uint8_t m_cameraCachedTimingMode;
 
     Fl_Spinner *m_cameraExposureSpinner;
     Fl_Float_Input *m_cameraTemperatureInput;
