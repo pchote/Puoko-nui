@@ -224,7 +224,6 @@ static int initialize_camera(struct internal *internal)
     set_param(error, internal->handle, PARAM_SHTR_CLOSE_DELAY, &(uns16){0});
     set_param(error, internal->handle, PARAM_LOGIC_OUTPUT, &(int){OUTPUT_NOT_SCAN});
     set_param(error, internal->handle, PARAM_EDGE_TRIGGER, &(int){EDGE_TRIG_NEG});
-    set_param(error, internal->handle, PARAM_FORCE_READOUT_MODE, &(int){MAKE_FRAME_TRANSFER});
     get_param(error, internal->handle, PARAM_SER_SIZE, ATTR_DEFAULT, &internal->ccd_width);
     get_param(error, internal->handle, PARAM_PAR_SIZE, ATTR_DEFAULT, &internal->ccd_height);
 
@@ -442,7 +441,14 @@ int camera_pvcam_update_camera_settings(Camera *camera, void *_internal, double 
     }
 
     // Set exposure mode: expose entire chip, expose on sync pulses (exposure time unused), overwrite buffer
-    if (!pl_exp_setup_cont(internal->handle, 1, &region, STROBED_MODE, 0, &internal->frame_size, CIRC_NO_OVERWRITE))
+    // If bias mode is requested then ignore triggers and acquire as fast as possible
+
+    uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
+    if (trigger_mode != TRIGGER_BIAS)
+        set_param(error, internal->handle, PARAM_FORCE_READOUT_MODE, &(int){MAKE_FRAME_TRANSFER});
+
+    int16 pv_trigger_mode = trigger_mode == TRIGGER_BIAS ? TIMED_MODE : STROBED_MODE;
+    if (!pl_exp_setup_cont(internal->handle, 1, &region, pv_trigger_mode, 0, &internal->frame_size, CIRC_NO_OVERWRITE))
     {
         pn_log("Failed to setup exposure sequence.");
         log_pvcam_error();
@@ -457,7 +463,6 @@ int camera_pvcam_update_camera_settings(Camera *camera, void *_internal, double 
     double exposure_time = pn_preference_int(EXPOSURE_TIME);
 
     // Convert readout time from to the base exposure unit (s or ms) for comparison
-    uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
     if (trigger_mode == TRIGGER_SECONDS)
         readout_time /= 1000;
 
@@ -723,7 +728,7 @@ bool camera_pvcam_supports_shutter_disabling(Camera *camera, void *internal)
 
 bool camera_pvcam_supports_bias_acquisition(Camera *camera, void *internal)
 {
-    return false;
+    return true;
 }
 
 void camera_pvcam_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger)
