@@ -20,7 +20,7 @@ Replace the contents of c:\mingw\32\var\lib\mingw-get\data\profile.xml with:
 </profile>
 
 Open a windows command prompt and run the following:
-c:\mingw\32\bin\mingw-get install msys-core msys-base msys-coreutils
+c:\mingw\32\bin\mingw-get install msys-core msys-base msys-coreutils msys-openssh
 
 Duplicate C:\MinGW\msys\etc\fstab.sample and save the copy as C:\MinGW\msys\etc\fstab
 Edit C:\MinGW\msys\etc\fstab so that it reads:
