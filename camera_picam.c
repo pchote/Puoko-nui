@@ -304,12 +304,6 @@ int camera_picam_initialize(Camera *camera, void **out_internal)
     // Set initial temperature
     set_float_param(internal->model_handle, PicamParameter_SensorTemperatureSetPoint, pn_preference_int(CAMERA_TEMPERATURE)/100.0f);
 
-    // Enable frame transfer mode
-    set_integer_param(internal->model_handle, PicamParameter_ReadoutControlMode, PicamReadoutControlMode_FrameTransfer);
-
-    // Enable external trigger
-    set_integer_param(internal->model_handle, PicamParameter_TriggerResponse, PicamTriggerResponse_ReadoutPerTrigger);
-
     // Set falling edge trigger (actually low level trigger)
     set_integer_param(internal->model_handle, PicamParameter_TriggerDetermination, PicamTriggerDetermination_FallingEdge);
 
@@ -399,6 +393,23 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
 {
     struct internal *internal = _internal;
     PicamError error;
+
+    // Enable frame transfer mode
+    PicamReadoutControlMode readout_type = PicamReadoutControlMode_FrameTransfer;
+
+    // Enable external trigger
+    PicamTriggerResponse trigger_type = PicamTriggerResponse_ReadoutPerTrigger;
+
+    // If bias mode is enabled, then we want a fullframe readout with internal triggering
+    uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
+    if (trigger_mode == TRIGGER_BIAS)
+    {
+        readout_type = PicamReadoutControlMode_FullFrame;
+        trigger_type = PicamTriggerResponse_NoResponse;
+    }
+
+    set_integer_param(internal->model_handle, PicamParameter_ReadoutControlMode, readout_type);
+    set_integer_param(internal->model_handle, PicamParameter_TriggerResponse, trigger_type);
 
     // Validate and set readout port
     const PicamCollectionConstraint *port_constraint;
@@ -596,7 +607,6 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
 
     internal->readout_time = readout_time / 1000;
     double exposure_time = pn_preference_int(EXPOSURE_TIME);
-    uint8_t trigger_mode = pn_preference_char(TIMER_TRIGGER_MODE);
     double shortcut = pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
 
     // Convert times from to the base exposure unit (s or ms) for comparison
@@ -607,13 +617,16 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
     }
 
     // Make sure that the shortened exposure is physically possible
-    exposure_time -= shortcut;
-    if (exposure_time <= readout_time)
+    if (trigger_mode != TRIGGER_BIAS)
     {
-        uint16_t new_exposure = (uint16_t)(ceil(readout_time + shortcut));
-        pn_preference_set_int(EXPOSURE_TIME, new_exposure);
-        pn_log("EXPOSURE_TIME - PROEM_EXPOSURE_SHORTCUT > camera readout.");
-        pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
+        exposure_time -= shortcut;
+        if (exposure_time <= readout_time)
+        {
+            uint16_t new_exposure = (uint16_t)(ceil(readout_time + shortcut));
+            pn_preference_set_int(EXPOSURE_TIME, new_exposure);
+            pn_log("EXPOSURE_TIME - PROEM_EXPOSURE_SHORTCUT > camera readout.");
+            pn_log("Increasing EXPOSURE_TIME to %d.", new_exposure);
+        }
     }
 
     *out_readout_time = internal->readout_time;
@@ -774,14 +787,19 @@ int camera_picam_start_acquiring(Camera *camera, void *_internal, bool shutter_o
     }
     internal->frame_bytes = frame_size;
 
-    // Convert from base exposure units (s or ms) to ms
-    piflt exptime = pn_preference_int(EXPOSURE_TIME);
-    if (pn_preference_char(TIMER_TRIGGER_MODE) == TRIGGER_SECONDS)
-        exptime *= 1000;
+    // Exposure time is zero for bias frames
+    piflt exptime = 0;
+    if (pn_preference_char(TIMER_TRIGGER_MODE) != TRIGGER_BIAS)
+    {
+        // Convert from base exposure units (s or ms) to ms
+        exptime = pn_preference_int(EXPOSURE_TIME);
+        if (pn_preference_char(TIMER_TRIGGER_MODE) == TRIGGER_SECONDS)
+            exptime *= 1000;
 
-    // Set exposure period shorter than the trigger period, allowing
-    // the camera to complete the frame transfer and be ready for the next trigger
-    exptime -= pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
+        // Set exposure period shorter than the trigger period, allowing
+        // the camera to complete the frame transfer and be ready for the next trigger
+        exptime -= pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
+    }
 
     error = set_float_param(internal->model_handle, PicamParameter_ExposureTime, exptime);
     if (error != PicamError_None)
@@ -909,7 +927,7 @@ bool camera_picam_supports_shutter_disabling(Camera *camera, void *internal)
 
 bool camera_picam_supports_bias_acquisition(Camera *camera, void *internal)
 {
-    return false;
+    return true;
 }
 
 void camera_picam_normalize_trigger(Camera *camera, void *internal, TimerTimestamp *trigger)
