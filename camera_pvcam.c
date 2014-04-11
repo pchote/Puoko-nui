@@ -685,6 +685,7 @@ int camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode
                 frame->port_desc = strdup(internal->current_port_desc);
                 frame->speed_desc = strdup(internal->current_speed_desc);
                 frame->gain_desc = strdup(internal->current_gain_desc);
+                frame->has_em_gain = false;
 
                 queue_framedata(frame);
             }

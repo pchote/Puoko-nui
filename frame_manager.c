@@ -301,7 +301,10 @@ bool frame_save(CameraFrame *frame, TimerTimestamp *timestamp, char *filepath)
     fits_update_key(fptr, TSTRING, "CCD-GAIN", (void *)frame->gain_desc, "CCD readout gain description", &status);
     fits_update_key(fptr, TLONG,   "CCD-BIN",  &(long){pn_preference_char(CAMERA_BINNING)},  "CCD pixel binning", &status);
     fits_update_key(fptr, TDOUBLE,   "CCD-ROUT",  &frame->readout_time,  "CCD readout time (s)", &status);
-    
+
+    if (frame->has_em_gain)
+        fits_update_key(fptr, TDOUBLE,   "CCD-EMGN",  &frame->em_gain,  "CCD electron multiplication gain", &status);
+
     if (frame->has_timestamp)
         fits_update_key(fptr, TDOUBLE, "CCD-TIME", &frame->timestamp, "CCD time relative to first exposure in seconds", &status);
 

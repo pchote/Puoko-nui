@@ -57,6 +57,9 @@ typedef struct
     char *port_desc;
     char *speed_desc;
     char *gain_desc;
+
+    bool has_em_gain;
+    double em_gain;
 } CameraFrame;
 
 void pn_log(const char * format, ...);

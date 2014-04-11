@@ -39,6 +39,9 @@ struct internal
     char *current_speed_desc;
     char *current_gain_desc;
 
+    bool current_port_is_em;
+    double current_em_gain;
+
     double readout_time;
 };
 
@@ -177,6 +180,10 @@ static void acquired_frame(struct internal *internal, uint8_t *frame_data, uint6
             frame->port_desc = strdup(internal->current_port_desc);
             frame->speed_desc = strdup(internal->current_speed_desc);
             frame->gain_desc = strdup(internal->current_gain_desc);
+
+            frame->has_em_gain = internal->current_port_is_em;
+            frame->em_gain = internal->current_em_gain;
+
             queue_framedata(frame);
         }
         else
@@ -321,7 +328,8 @@ int camera_picam_initialize(Camera *camera, void **out_internal)
     set_integer_param(internal->model_handle, PicamParameter_TimeStamps, PicamTimeStampsMask_ExposureStarted);
 
     // Set Electron-Multiplication gain.
-    set_integer_param(internal->model_handle, PicamParameter_AdcEMGain, pn_preference_int(PROEM_EM_GAIN));
+    internal->current_em_gain = pn_preference_int(PROEM_EM_GAIN);
+    set_integer_param(internal->model_handle, PicamParameter_AdcEMGain, internal->current_em_gain);
     pn_log("Set EM Gain to %u", pn_preference_int(PROEM_EM_GAIN));
 
     // Validate and set vertical shift rate
@@ -436,6 +444,7 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
     free(internal->current_port_desc);
     Picam_GetEnumerationString(PicamEnumeratedType_AdcQuality, port_constraint->values_array[port_id], &value);
     internal->current_port_desc = strdup(value);
+    internal->current_port_is_em = port_constraint->values_array[port_id] == PicamAdcQuality_ElectronMultiplied;
     Picam_DestroyString(value);
 
     Picam_DestroyCollectionConstraints(port_constraint);
