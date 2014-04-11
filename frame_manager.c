@@ -291,6 +291,9 @@ bool frame_save(CameraFrame *frame, TimerTimestamp *timestamp, char *filepath)
     
     strftime(timebuf, 15, "%H:%M:%S", gmtime(&pctime));
     fits_update_key(fptr, TSTRING, "PC-TIME", (void *)timebuf, "PC Time when frame was saved to disk", &status);
+
+    if (frame->has_timestamp)
+        fits_update_key(fptr, TDOUBLE, "CCD-TIME", &frame->timestamp, "CCD time relative to first exposure in seconds", &status);
     
     // Camera temperature
     char tempbuf[10];
@@ -305,9 +308,6 @@ bool frame_save(CameraFrame *frame, TimerTimestamp *timestamp, char *filepath)
 
     if (frame->has_em_gain)
         fits_update_key(fptr, TDOUBLE,   "CCD-EMGN",  &frame->em_gain,  "CCD electron multiplication gain", &status);
-
-    if (frame->has_timestamp)
-        fits_update_key(fptr, TDOUBLE, "CCD-TIME", &frame->timestamp, "CCD time relative to first exposure in seconds", &status);
 
     if (frame->has_exposure_shortcut)
         fits_update_key(fptr, TUSHORT, "CCD-SCUT", &frame->exposure_shortcut_ms, "ProEM exposure shortcut (ms)", &status);
