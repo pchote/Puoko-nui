@@ -322,6 +322,9 @@ bool frame_save(CameraFrame *frame, TimerTimestamp *timestamp, char *filepath)
     }
     fits_update_key(fptr, TSTRING, "TRG-MODE", (void *)trigger_mode_str, "Instrument trigger mode", &status);
 
+    if (trigger_mode != TRIGGER_BIAS)
+        fits_update_key(fptr, TLOGICAL, "TRG-ALGN", &(int){pn_preference_char(TIMER_ALIGN_FIRST_EXPOSURE)}, "Initial trigger aligned to a full minute", &status);
+
     char *pscale = pn_preference_string(CAMERA_PLATESCALE);
     fits_update_key(fptr, TDOUBLE, "IM-SCALE",  &(double){pn_preference_char(CAMERA_BINNING)*atof(pscale)},  "Image scale (arcsec/px)", &status);
     free(pscale);
