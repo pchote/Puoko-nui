@@ -42,6 +42,8 @@ struct internal
     bool current_port_is_em;
     double current_em_gain;
 
+    uint16_t exposure_shortcut_ms;
+
     double readout_time;
 };
 
@@ -183,6 +185,9 @@ static void acquired_frame(struct internal *internal, uint8_t *frame_data, uint6
 
             frame->has_em_gain = internal->current_port_is_em;
             frame->em_gain = internal->current_em_gain;
+
+            frame->has_exposure_shortcut = true;
+            frame->exposure_shortcut_ms = internal->exposure_shortcut_ms;
 
             queue_framedata(frame);
         }
@@ -617,6 +622,7 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
     internal->readout_time = readout_time / 1000;
     double exposure_time = pn_preference_int(EXPOSURE_TIME);
     double shortcut = pn_preference_int(PROEM_EXPOSURE_SHORTCUT);
+    internal->exposure_shortcut_ms = shortcut;
 
     // Convert times from to the base exposure unit (s or ms) for comparison
     if (trigger_mode == TRIGGER_SECONDS)

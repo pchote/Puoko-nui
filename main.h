@@ -60,6 +60,9 @@ typedef struct
 
     bool has_em_gain;
     double em_gain;
+
+    bool has_exposure_shortcut;
+    uint16_t exposure_shortcut_ms;
 } CameraFrame;
 
 void pn_log(const char * format, ...);

@@ -266,6 +266,7 @@ int camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_
                 frame->speed_desc = strdup(internal->current_speed_desc);
                 frame->gain_desc = strdup(internal->current_gain_desc);
                 frame->has_em_gain = false;
+                frame->has_exposure_shortcut = false;
 
                 queue_framedata(frame);
             }

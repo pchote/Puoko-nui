@@ -308,6 +308,9 @@ bool frame_save(CameraFrame *frame, TimerTimestamp *timestamp, char *filepath)
     if (frame->has_timestamp)
         fits_update_key(fptr, TDOUBLE, "CCD-TIME", &frame->timestamp, "CCD time relative to first exposure in seconds", &status);
 
+    if (frame->has_exposure_shortcut)
+        fits_update_key(fptr, TUSHORT, "CCD-SCUT", &frame->exposure_shortcut_ms, "ProEM exposure shortcut (ms)", &status);
+
     char *trigger_mode_str;
     switch (trigger_mode)
     {
@@ -317,7 +320,7 @@ bool frame_save(CameraFrame *frame, TimerTimestamp *timestamp, char *filepath)
             break;
     }
     fits_update_key(fptr, TSTRING, "TRG-MODE", (void *)trigger_mode_str, "Instrument trigger mode", &status);
-    
+
     char *pscale = pn_preference_string(CAMERA_PLATESCALE);
     fits_update_key(fptr, TDOUBLE, "IM-SCALE",  &(double){pn_preference_char(CAMERA_BINNING)*atof(pscale)},  "Image scale (arcsec/px)", &status);
     free(pscale);
