@@ -280,7 +280,7 @@ bool frame_save(CameraFrame *frame, TimerTimestamp *timestamp, char *filepath)
             snprintf(gpstimebuf, 15, "%02d:%02d:%02d", end.hours, end.minutes, end.seconds);
     
         fits_update_key(fptr, TSTRING, "UTC-END", gpstimebuf, "Exposure end time (GPS)", &status);
-        fits_update_key(fptr, TLOGICAL, "UTC-LOCK", &start.locked, "UTC time has GPS lock", &status);
+        fits_update_key(fptr, TLOGICAL, "UTC-LOCK", &(int){start.locked}, "UTC time has GPS lock", &status);
     }
 
     time_t pctime = time(NULL);
