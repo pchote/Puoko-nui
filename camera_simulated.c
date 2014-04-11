@@ -258,6 +258,8 @@ int camera_simulated_tick(Camera *camera, void *_internal, PNCameraMode current_
                 camera_simulated_read_temperature(camera, internal, &frame->temperature);
 
                 frame->readout_time = 0;
+                frame->vertical_shift_us = 0;
+
                 frame->has_timestamp = false;
                 frame->has_image_region = false;
                 frame->has_bias_region = false;

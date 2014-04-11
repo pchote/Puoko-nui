@@ -43,6 +43,7 @@ struct internal
     double current_em_gain;
 
     uint16_t exposure_shortcut_ms;
+    double vertical_shift_us;
 
     double readout_time;
 };
@@ -178,6 +179,7 @@ static void acquired_frame(struct internal *internal, uint8_t *frame_data, uint6
             frame->has_image_region = false;
             frame->has_bias_region = false;
             frame->readout_time = internal->readout_time;
+            frame->vertical_shift_us = internal->vertical_shift_us;
 
             frame->port_desc = strdup(internal->current_port_desc);
             frame->speed_desc = strdup(internal->current_speed_desc);
@@ -359,6 +361,7 @@ int camera_picam_initialize(Camera *camera, void **out_internal)
                     shift_constraint->values_array[shift_id]);
 
     pn_log("Set vertical shift rate to %gus", shift_constraint->values_array[shift_id]);
+    internal->vertical_shift_us = shift_constraint->values_array[shift_id];
     Picam_DestroyCollectionConstraints(shift_constraint);
 
     pi64s timestamp_resolution;

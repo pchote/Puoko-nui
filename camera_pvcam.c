@@ -57,6 +57,7 @@ struct internal
     char *current_gain_desc;
 
     double readout_time;
+    double vertical_shift_us;
 };
 
 static char *gain_names[] = {"Low", "Medium", "High"};
@@ -298,8 +299,16 @@ int camera_pvcam_initialize(Camera *camera, void **out_internal)
     if (ret != CAMERA_OK)
         return ret;
 
+    // Query vertical shift rate
+    int16 vertical_shift_ns;
+    get_param(error, internal->handle, PARAM_PAR_SHIFT_TIME, ATTR_CURRENT, &vertical_shift_ns);
+    internal->vertical_shift_us = vertical_shift_ns / 1000.0f;
+
     *out_internal = internal;
     return CAMERA_OK;
+
+error:
+    return CAMERA_ERROR;
 }
 
 int camera_pvcam_update_camera_settings(Camera *camera, void *_internal, double *out_readout_time)
@@ -682,6 +691,8 @@ int camera_pvcam_tick(Camera *camera, void *_internal, PNCameraMode current_mode
                     memcpy(frame->bias_region, internal->bias_region, 4*sizeof(uint16_t));
 
                 frame->readout_time = internal->readout_time;
+                frame->vertical_shift_us = internal->vertical_shift_us;
+
                 frame->port_desc = strdup(internal->current_port_desc);
                 frame->speed_desc = strdup(internal->current_speed_desc);
                 frame->gain_desc = strdup(internal->current_gain_desc);
