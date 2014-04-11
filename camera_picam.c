@@ -493,7 +493,7 @@ int camera_picam_update_camera_settings(Camera *camera, void *_internal, double 
                       (piint)(gain_constraint->values_array[gain_id]));
 
     free(internal->current_gain_desc);
-    Picam_GetEnumerationString(PicamParameter_AdcAnalogGain, gain_constraint->values_array[gain_id], &value);
+    Picam_GetEnumerationString(PicamEnumeratedType_AdcAnalogGain, gain_constraint->values_array[gain_id], &value);
     internal->current_gain_desc = strdup(value);
     Picam_DestroyString(value);
 
